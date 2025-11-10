@@ -173,7 +173,6 @@ export const getCalculationsSumDao = async (filters) => {
       users,
       company_id,
     } = filters;
-
     const startDate = start
       ? dayjs(start).tz(IST).startOf('day').toISOString()
       : dayjs().tz(IST).startOf('day').toISOString();
@@ -192,7 +191,6 @@ export const getCalculationsSumDao = async (filters) => {
       userCodes = users.split(/\s*,\s*/).filter((id) => id.trim());
       logger.info('Processed user codes:', userCodes);
     }
-
     let effectiveUserId = user_id;
 
     if (
@@ -279,20 +277,19 @@ export const getCalculationsSumDao = async (filters) => {
             });
             const allowedSubmerchants =
               userHierarchys?.[0]?.config?.siblings?.sub_merchants || [];
-            const allowedSubvendors =
-              userHierarchys?.[0]?.config?.siblings?.sub_vendors || [];
+            // const allowedSubvendors =
+            //   userHierarchys?.[0]?.config?.siblings?.sub_vendors || [];
             // Add current userCode and its submerchants to merchant userIds array
             userIds.push(userCode); // Add the main userCode
             userIds.push(...allowedSubmerchants); // Add all submerchants
             // Add current userCode and its subvendors to vendor userIds array
             vendorUserIds.push(userCode); // Add the main userCode
-            vendorUserIds.push(...allowedSubvendors); // Add all subvendors
+            // vendorUserIds.push(...allowedSubvendors); // Add all subvendors
           }
         }
         // Remove any duplicates
         userIds = [...new Set(userIds)];
         vendorUserIds = [...new Set(vendorUserIds)];
-
         const userCodeParams = userIds.map((code) => `'${code}'`).join(',');
         const vendorCodeParams = vendorUserIds
           .map((code) => `'${code}'`)
@@ -349,24 +346,24 @@ export const getCalculationsSumDao = async (filters) => {
         user_id: effectiveUserId,
       });
       let userIds = [effectiveUserId]; // Always include vendor's own ID
-
       // Include sub-vendors when available
       const subVendors =
         userHierarchys?.[0]?.config?.siblings?.sub_vendors || [];
       if (subVendors.length > 0) {
         userIds = [...new Set([...userIds, ...subVendors])];
       }
-
       // Handle userCodes for vendor totals
       if (userCodes?.length > 0) {
         // Get allowed sub-vendor IDs from hierarchy
-        const allowedSubVendors =
-          userHierarchys?.[0]?.config?.siblings?.sub_vendors || [];
-        // Only include valid sub-vendor IDs
-        const validUserIds = userCodes.filter((id) =>
-          allowedSubVendors.includes(id),
-        );
-        userIds = [...new Set([...userCodes, ...validUserIds])]; // Remove duplicates
+        // const allowedSubVendors =
+        //   userHierarchys?.[0]?.config?.siblings?.sub_vendors || [];
+        // // Only include valid sub-vendor IDs
+        // const validUserIds = userCodes.filter((id) =>
+        //   allowedSubVendors.includes(id),
+        // );
+        userIds = [...new Set([...userCodes
+          // ,...validUserIds
+        ])]; // Remove duplicates
       }
 
       // Create parameterized query for all user IDs
@@ -390,13 +387,13 @@ export const getCalculationsSumDao = async (filters) => {
             });
             const allowedSubMerchants =
               userHierarchies?.[0]?.config?.siblings?.sub_merchants || [];
-            const allowedSubVendors =
-              userHierarchies?.[0]?.config?.siblings?.sub_vendors || [];
+            // const allowedSubVendors =
+            //   userHierarchies?.[0]?.config?.siblings?.sub_vendors || [];
             userIds = [
               ...new Set([
                 ...userCodes,
                 ...allowedSubMerchants,
-                ...allowedSubVendors,
+                // ...allowedSubVendors,
               ]),
             ]; // Remove duplicates
           }
@@ -464,26 +461,29 @@ export const getCalculationsSumDao = async (filters) => {
         if (subMerchants.length > 0) {
           userIds = [...new Set([...userIds, ...subMerchants])];
         }
-      } else if (role === Role.VENDOR) {
-        const subVendors =
-          userHierarchys?.[0]?.config?.siblings?.sub_vendors || [];
-        if (subVendors.length > 0) {
-          userIds = [...new Set([...userIds, ...subVendors])];
-        }
       }
+      // else if (role === Role.VENDOR) {
+      //   const subVendors =
+      //     userHierarchys?.[0]?.config?.siblings?.sub_vendors || [];
+      //   if (subVendors.length > 0) {
+      //     userIds = [...new Set([...userIds, ...subVendors])];
+      //   }
+      // }
 
       // Handle userCodes for totals
       if (userCodes?.length > 0) {
         // Get allowed submerchant/sub-vendor IDs from hierarchy based on role
         const allowedSubmerchants =
           userHierarchys?.[0]?.config?.siblings?.sub_merchants || [];
-        const allowedSubVendors =
-          userHierarchys?.[0]?.config?.siblings?.sub_vendors || [];
+        // const allowedSubVendors =
+        //   userHierarchys?.[0]?.config?.siblings?.sub_vendors || [];
 
         // Only include valid IDs based on role
         const validUserIds = userCodes.filter(
           (id) =>
-            allowedSubmerchants.includes(id) || allowedSubVendors.includes(id),
+            allowedSubmerchants.includes(id)
+            // || allowedSubVendors.includes(id)
+          ,
         );
         userIds = [...new Set([...userCodes, ...validUserIds])]; // Remove duplicates
       }
@@ -656,20 +656,21 @@ export const getCalculationsSumDao = async (filters) => {
       vendorTotalQuery = null; // Merchant shouldn't see vendor totals
     } else if (role === Role.VENDOR) {
       // Get user hierarchy to validate sub-vendor access
-      const userHierarchys = await getUserHierarchysDao({
-        user_id: effectiveUserId,
-      });
+      // const userHierarchys = await getUserHierarchysDao({
+      //   user_id: effectiveUserId,
+      // });
       let userIds = [effectiveUserId]; // Always include vendor's own ID
 
       // Get allowed subVendor IDs from hierarchy
-      const allowedSubVendors =
-        userHierarchys?.[0]?.config?.siblings?.sub_vendors || [];
+      // const allowedSubVendors =
+      //   userHierarchys?.[0]?.config?.siblings?.sub_vendors || [];
       // Only include valid subVendor IDs
-      const validUserIds = userCodes.filter((id) =>
-        allowedSubVendors.includes(id),
-      );
-      userIds = [...new Set([...userCodes, ...validUserIds])]; // Remove duplicates
-
+      // const validUserIds = userCodes.filter((id) =>
+      //   allowedSubVendors.includes(id),
+      // );
+      userIds = [...new Set([...userCodes,
+        // ...validUserIds
+      ])]; // Remove duplicates
       // Add filter to vendor total query
       vendorTotalQuery += ` AND c.user_id = ANY(ARRAY['${userIds.join("','")}']) `;
       vendorTotalQuery += ` AND c.company_id = '${company_id}'`;
@@ -707,13 +708,13 @@ export const getCalculationsSumDao = async (filters) => {
           const vendorUserIds = [];
           for (const userCode of userCodes) {
             if (userCode) {
-              const userHierarchys = await getUserHierarchysDao({
-                user_id: userCode,
-              });
-              const allowedSubvendors =
-                userHierarchys?.[0]?.config?.siblings?.sub_vendors || [];
+              // const userHierarchys = await getUserHierarchysDao({
+              //   user_id: userCode,
+              // });
+              // const allowedSubvendors =
+              //   userHierarchys?.[0]?.config?.siblings?.sub_vendors || [];
               vendorUserIds.push(userCode); // Add the main userCode
-              vendorUserIds.push(...allowedSubvendors); // Add all sub-vendors
+              // vendorUserIds.push(...allowedSubvendors); // Add all sub-vendors
             }
           }
           const uniqueVendorUserIds = [...new Set(vendorUserIds)];
