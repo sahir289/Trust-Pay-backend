@@ -3238,11 +3238,11 @@ export const verifyPayinsService = async (
 /**
  * Validate VPA (simple RFC-like), allow common characters and domain part alphabetic
  */
-function validateVpa(vpa) {
-  if (typeof vpa !== 'string') return false;
-  const vpaRegex = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/;
-  return vpaRegex.test(vpa.trim());
-}
+// function validateVpa(vpa) {
+//   if (typeof vpa !== 'string') return false;
+//   const vpaRegex = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/;
+//   return vpaRegex.test(vpa.trim());
+// }
 
 /**
  * Safe formatter for amount: returns string with 2 decimals
@@ -3313,7 +3313,8 @@ export const generateUpiUrlService = async (payload = {}) => {
     if (!amountStr) throw new BadRequestError('Invalid amount');
 
     const pa = (payload.payeeVPA || '').trim();
-    if (!validateVpa(pa)) throw new BadRequestError('Invalid VPA format');
+    console.log(pa, 'pa ++++++++');
+    // if (!validateVpa(pa)) throw new BadRequestError('Invalid VPA format');
 
     const transactionId = generateUUID();
 
