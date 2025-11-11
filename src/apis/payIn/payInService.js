@@ -112,7 +112,8 @@ import { stringifyJSON } from '../../utils/index.js';
 import { createHash } from '../../utils/hashUtils.js';
 import { logger } from '../../utils/logger.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
-import { generateUUID } from '../../utils/generateUUID.js';
+// import { generateUUID } from '../../utils/generateUUID.js';
+import { randomUUID } from 'crypto';
 import { usedTokens } from '../../app.js';
 import {
   getCashfreeAllowByCompanyIdDao,
@@ -3229,10 +3230,10 @@ export const verifyPayinsService = async (
   }
 };
 
-// function generateTransactionId() {
-//   const uuid = (typeof randomUUID === 'function') ? randomUUID() : (Date.now().toString(36) + Math.random().toString(36).slice(2));
-//   return `IND${uuid.replace(/-/g, '').slice(0, 29)}`; // make sure total fits 32 chars with IND prefix
-// }
+function generateTransactionId() {
+  const uuid = (typeof randomUUID === 'function') ? randomUUID() : (Date.now().toString(16) + Math.random().toString(16).slice(2));
+  return `IND${uuid.replace(/-/g, '').slice(0, 13)}`; // make sure total fits 32 chars with IND prefix
+}
 
 
 /**
@@ -3322,7 +3323,7 @@ export const generateUpiUrlService = async (payload = {}) => {
     console.log(pa, 'pa ++++++++');
     // if (!validateVpa(pa)) throw new BadRequestError('Invalid VPA format');
 
-    const transactionId = generateUUID();
+    const transactionId = generateTransactionId();
 
     // Build canonical params used by all UPI schemes
     const canonicalParams = {
