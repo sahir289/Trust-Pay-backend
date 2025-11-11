@@ -89,8 +89,10 @@ export const payAssistTransactionStatusCallback = async (req, res) => {
           status: Status.PENDING,
         });
       } else {
-        updatePayload.config.rejected_reason = responseData.Response.message ||
-          payAssistErrorCodeMap[responseData.ErrorCode] || 'Server Unreachable';
+        updatePayload.config.rejected_reason =
+          responseData.Response.message ||
+          payAssistErrorCodeMap[responseData.Response.statusCode] ||
+          'Server Unreachable';
         updatePayload.rejected_at = new Date().toISOString();
       }
 
@@ -109,27 +111,11 @@ export const payAssistTransactionStatusCallback = async (req, res) => {
     // let statusResponse = null;
 
     if (errorCode) {
-
       if (errorCode === '0') {
-        if (
-          payload.Response.message ===
-            'Reason-Transaction Failed' ||
-          payload.Response.message === 'Transaction Failed' ||
-          payload.Response.message === 'Transaction Failed - ' ||
-          payload.Response.statuscode === 'TXF' ||
-          payload.Response.statuscode === 'ERR'
-        ) {
-          errorCode = '14';
-          await handlePayoutUpdate(payload, false);
-        } else {
-          await handlePayoutUpdate(payload, true);
-        }
+        await handlePayoutUpdate(payload, true);
       } else if (errorCode === 'TUP') {
         await handlePayoutUpdate(payload, false, true);
-      } else if (
-        errorCode !== 'TUP' &&
-        errorCode !== '4'
-      ) {
+      } else if (errorCode !== 'TUP' && errorCode !== '0') {
         await handlePayoutUpdate(payload, false);
       } else {
         return res.status(400).send(payload.ErrorMessage);

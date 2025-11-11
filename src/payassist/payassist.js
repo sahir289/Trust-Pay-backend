@@ -6,21 +6,9 @@ import { getPayoutBankDetailsDao } from '../apis/payOut/payOutDao.js';
 import { updatePayoutService } from '../apis/payOut/payOutService.js';
 import { getBankByIdDao } from '../apis/bankAccounts/bankaccountDao.js';
 import { getVendorsDao } from '../apis/vendors/vendorDao.js';
-import { Status } from '../constants/index.js';
+import { payAssistErrorCodeMap, Status } from '../constants/index.js';
 import { BadRequestError, NotFoundError } from '../utils/appErrors.js';
 import { retryAxiosRequest } from '../utils/axios.js';
-
-/**
- * PayAssist error code mapping for better error messages
- */
-const payAssistErrorCodeMap = {
-  0: 'Success',
-  1: 'Transaction Failed',
-  2: 'Insufficient Balance',
-  3: 'Invalid Account Details',
-  TUP: 'Transaction Under Process',
-  default: 'Server Unreachable',
-};
 
 /**
  * Initiate a single PayAssist payout request (simplified like Clickrr)
@@ -169,7 +157,7 @@ export const processPayAssistPayouts = async (conn, payload, updatedBy) => {
           } else {
             updatePayload.config.rejected_reason =
               response.Response?.message ||
-              payAssistErrorCodeMap[errorCode] ||
+              payAssistErrorCodeMap[response.Response.statusCode] ||
               'Server Unreachable';
             updatePayload.rejected_at = new Date().toISOString();
           }
