@@ -3259,13 +3259,18 @@ function formatAmount(amount) {
  * Uses encodeURIComponent for values so we can include spaces, etc.
  */
 function buildQuery(paramsObj) {
-  const p = new URLSearchParams();
+  const p = [];
   Object.entries(paramsObj).forEach(([k, v]) => {
-    // skip undefined; but include empty string or null as empty
     if (v === undefined) return;
-    p.append(k, v === null ? '' : String(v));
+    // do not encode `pa` field
+    const val = v === null ? '' : String(v);
+    if (k === 'pa') {
+      p.push(`${k}=${val}`);
+    } else {
+      p.push(`${k}=${encodeURIComponent(val)}`);
+    }
   });
-  return p.toString();
+  return p.join('&');
 }
 
 /**
@@ -3308,6 +3313,7 @@ export function setDeeplinkParam(deeplink, key, value) {
  */
 export const generateUpiUrlService = async (payload = {}) => {
   try {
+    console.log(payload, 'payload ++++++++');
     // Basic validation
     const amountStr = formatAmount(payload.amount);
     if (!amountStr) throw new BadRequestError('Invalid amount');
