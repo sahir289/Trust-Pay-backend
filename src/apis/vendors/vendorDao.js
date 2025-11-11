@@ -280,7 +280,7 @@ export const getVendorsDao = async (
       `"Vendor".config`,
       `user_main.first_name || ' ' || user_main.last_name AS full_name`,
       `d.designation AS designation_name`,
-      `(SELECT net_balance FROM "Calculation" WHERE "Calculation".user_id = "Vendor".user_id ORDER BY "Calculation".updated_at DESC LIMIT 1) AS balance`,
+      `(SELECT net_balance FROM "Calculation" WHERE "Calculation".user_id = "Vendor".user_id ORDER BY "Calculation".created_at DESC LIMIT 1) AS balance`,
     ];
 
     // Add extra columns for admin
@@ -419,7 +419,7 @@ export const getAllVendorsDao = async (
       `"Vendor".updated_at`,
       `user_main.first_name || ' ' || user_main.last_name AS full_name`,
       `d.designation AS designation_name`,
-      `(SELECT net_balance FROM "Calculation" WHERE "Calculation".user_id = "Vendor".user_id ORDER BY "Calculation".updated_at DESC LIMIT 1) AS balance`,
+      `(SELECT net_balance FROM "Calculation" WHERE "Calculation".user_id = "Vendor".user_id ORDER BY "Calculation".created_at DESC LIMIT 1) AS balance`,
     ];
 
     // Add extra columns for admin
@@ -725,7 +725,7 @@ export const getVendorsDaoArray = async (company_id, code) => {
           SELECT net_balance 
           FROM "Calculation" 
           WHERE "Calculation".user_id = "Vendor".user_id 
-          ORDER BY "Calculation".updated_at DESC 
+          ORDER BY "Calculation".created_at DESC 
           LIMIT 1
         ) AS balance
            FROM "Vendor" 
