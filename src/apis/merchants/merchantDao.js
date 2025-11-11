@@ -333,7 +333,7 @@ export const getMerchantsDao = async (
           SELECT net_balance 
           FROM "Calculation" 
           WHERE "Calculation".user_id = "Merchant".user_id 
-          ORDER BY "Calculation".updated_at DESC 
+          ORDER BY "Calculation".created_at DESC 
           LIMIT 1
         ) AS balance
       FROM "Merchant" 
@@ -414,7 +414,14 @@ export const getMerchantsByCodeDao = async (code) => {
       "Merchant".updated_at, 
       "User".designation_id, 
       "User".first_name || ' ' || "User".last_name AS full_name, 
-      "Designation".designation AS designation_name
+      "Designation".designation AS designation_name,
+       (
+          SELECT net_balance 
+          FROM "Calculation" 
+          WHERE "Calculation".user_id = "Merchant".user_id 
+          ORDER BY "Calculation".created_at DESC 
+          LIMIT 1
+        ) AS balance
     FROM "Merchant" 
     JOIN "User" ON "Merchant".user_id = "User".id 
     LEFT JOIN "Designation" ON "User".designation_id = "Designation".id
@@ -520,7 +527,7 @@ export const getAllMerchantsDao = async (
           SELECT net_balance 
           FROM "Calculation" 
           WHERE "Calculation".user_id = "Merchant".user_id 
-          ORDER BY "Calculation".updated_at DESC 
+          ORDER BY "Calculation".created_at DESC 
           LIMIT 1
         ) AS balance
       FROM "Merchant" 
@@ -703,7 +710,7 @@ export const getMerchantsBySearchDao = async (
           SELECT net_balance::text 
           FROM "Calculation" 
           WHERE "Calculation".user_id = "Merchant".user_id 
-          ORDER BY "Calculation".updated_at DESC 
+          ORDER BY "Calculation".created_at DESC 
           LIMIT 1
         ) LIKE $${paramIndex}
     `;
