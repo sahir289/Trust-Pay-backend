@@ -187,13 +187,13 @@ const getSubVendorParentInfo = async (vendor) => {
     // );
 
     // Check if vendor designation is SUB_VENDOR (handle both designation and designation_name properties)
-    const vendorDesignation = vendor?.designation_name;
-    if (vendorDesignation !== Role.SUB_VENDOR) {
-      logger.info(
-        `Vendor is not SUB_VENDOR, designation: ${vendorDesignation}`,
-      );
-      return null;
-    }
+    // const vendorDesignation = vendor?.designation_name;
+    // if (vendorDesignation !== Role.SUB_VENDOR) {
+    //   logger.info(
+    //     `Vendor is not SUB_VENDOR, designation: ${vendorDesignation}`,
+    //   );
+    //   return null;
+    // }
 
     // Check is_owned config
     const isOwned = vendor.config?.is_owned;
@@ -1384,7 +1384,11 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     // let brokerageCommission = 0;
     // let parentCommission = 0;
     // let payoutConfig = {};
-    const subVendorParentInfo = await getSubVendorParentInfo(vendor);
+    let subVendorParentInfo = null;
+    if (vendor?.designation_name === Role.SUB_VENDOR) {
+      subVendorParentInfo = await getSubVendorParentInfo(vendor);
+    }
+
     // logger.info(
     //   `Sub-vendor detection result: ${subVendorParentInfo ? 'Found parent info' : 'No parent info'}`,
     // );

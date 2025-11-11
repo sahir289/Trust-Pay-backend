@@ -370,11 +370,11 @@ export const getVendorByIdDao = async (user_id, company_id) => {
         d.designation AS designation_name
     FROM "${tableName.VENDOR}" v
     JOIN "User" u ON v.user_id = u.id
-    LEFT JOIN "Designation" d 
-        ON u.designation_id = d.id
-        AND v.company_id = $2
-        AND v.is_obsolete = false
-    WHERE v.user_id = $1;
+    LEFT JOIN "Designation" d ON u.designation_id = d.id
+    WHERE v.user_id = $1
+    AND v.company_id = $2
+    AND v.is_obsolete = false
+    ;
   `;
     const params = [user_id, company_id];
     const result = await executeQuery(sql, params);
