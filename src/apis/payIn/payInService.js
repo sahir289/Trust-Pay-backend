@@ -2,7 +2,7 @@
 import dayjs from 'dayjs';
 import { nanoid } from 'nanoid';
 import { v4 as uuidv4 } from 'uuid';
-import querystring from 'querystring';
+// import querystring from 'querystring';
 import config from '../../config/config.js';
 // import { razorpay } from '../webhooks/razorPay.js';
 import { getPayoutsDao } from '../payOut/payOutDao.js';
@@ -112,7 +112,8 @@ import { stringifyJSON } from '../../utils/index.js';
 import { createHash } from '../../utils/hashUtils.js';
 import { logger } from '../../utils/logger.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
-import { generateUUID } from '../../utils/generateUUID.js';
+// import { generateUUID } from '../../utils/generateUUID.js';
+import { randomUUID } from 'crypto';
 import { usedTokens } from '../../app.js';
 import {
   getCashfreeAllowByCompanyIdDao,
@@ -3229,85 +3230,142 @@ export const verifyPayinsService = async (
   }
 };
 
-export const generateUpiUrlService = async (payload) => {
+function generateTransactionId() {
+  const uuid = (typeof randomUUID === 'function') ? randomUUID() : (Date.now().toString(16) + Math.random().toString(16).slice(2));
+  return `IND${uuid.replace(/-/g, '').slice(0, 13)}`; // make sure total fits 32 chars with IND prefix
+}
+
+
+/**
+ * Validate VPA (simple RFC-like), allow common characters and domain part alphabetic
+ */
+// function validateVpa(vpa) {
+//   if (typeof vpa !== 'string') return false;
+//   const vpaRegex = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/;
+//   return vpaRegex.test(vpa.trim());
+// }
+
+/**
+ * Safe formatter for amount: returns string with 2 decimals
+ */
+function formatAmount(amount) {
+  const num = typeof amount === 'string' ? parseFloat(amount) : Number(amount);
+  if (Number.isNaN(num) || !isFinite(num) || num <= 0) return null;
+  // toFixed returns string; ensure rounding to two decimals
+  return num.toFixed(2);
+}
+
+/**
+ * Convert params object to URL-encoded query (keeps null/empty as empty string)
+ * Uses encodeURIComponent for values so we can include spaces, etc.
+ */
+function buildQuery(paramsObj) {
+  const p = [];
+  Object.entries(paramsObj).forEach(([k, v]) => {
+    if (v === undefined) return;
+    // do not encode `pa` field
+    const val = v === null ? '' : String(v);
+    if (k === 'pa') {
+      p.push(`${k}=${val}`);
+    } else {
+      p.push(`${k}=${encodeURIComponent(val)}`);
+    }
+  });
+  return p.join('&');
+}
+
+/**
+ * parse a deeplink like "pa=...&pn=...&am=...&..."
+ * returns object of key -> value
+ */
+export function parseDeeplink(deeplink) {
+  if (!deeplink || typeof deeplink !== 'string') return {};
+  return deeplink.split('&').reduce((acc, pair) => {
+    const [rawKey, ...rest] = pair.split('=');
+    if (!rawKey) return acc;
+    const key = rawKey.trim();
+    const value = rest.length ? rest.join('=').trim() : '';
+    acc[key] = decodeURIComponent(value);
+    return acc;
+  }, {});
+}
+
+/**
+ * Set or replace a param in a deeplink string. Returns new deeplink string.
+ * If key exists, it will be replaced; otherwise appended.
+ */
+export function setDeeplinkParam(deeplink, key, value) {
+  const params = parseDeeplink(deeplink);
+  params[key] = value == null ? '' : String(value);
+  // rebuild preserving order by simple object iteration
+  return Object.entries(params).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
+}
+
+/**
+ * Main service: returns urls + transactionId
+ * payload expected fields:
+ *  - amount (number|string)
+ *  - payeeVPA (string) -> pa
+ *  - payeeName (string) -> pn (optional)
+ *  - transactionNote (string) -> tn optional
+ *  - merchantCode -> mc optional
+ *  - businessName -> bn optional (not used by all apps)
+ *  - mode, purpose (optional)
+ */
+export const generateUpiUrlService = async (payload = {}) => {
   try {
-    if (isNaN(payload.amount) || payload.amount <= 0) {
-      return new BadRequestError('Invalid amount');
-    }
+    console.log(payload, 'payload ++++++++');
+    // Basic validation
+    const amountStr = formatAmount(payload.amount);
+    if (!amountStr) throw new BadRequestError('Invalid amount');
 
-    const vpaRegex = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/;
-    if (!vpaRegex.test(payload.payeeVPA)) {
-      return new BadRequestError('Invalid VPA format');
-    }
+    const pa = (payload.payeeVPA || '').trim();
+    console.log(pa, 'pa ++++++++');
+    // if (!validateVpa(pa)) throw new BadRequestError('Invalid VPA format');
 
-    const uuid = generateUUID();
-    const transactionId = `IND${uuid.replace(/-/g, '')}`.slice(0, 32);
+    const transactionId = generateTransactionId();
 
-    const params = {
-      tr: transactionId,
-      am: parseFloat(payload.amount).toFixed(2),
-      pa: 'ali.jomirul@freecharge' ,
-      pn: null ,
-      tn: payload.transactionNote?.trim() || '',
-      cu: 'INR',
+    // Build canonical params used by all UPI schemes
+    const canonicalParams = {
+      pa,                                // payee VPA
+      pn: payload.payeeName ? payload.payeeName.trim() : '', // payee name (pn)
+      am: amountStr,                     // amount
+      cu: 'INR',                         // currency
+      tr: transactionId,                 // transaction reference
+      tn: (payload.transactionNote || '').trim() || transactionId, // txn note (fallback to txid)
+      tid: transactionId,                // terminal id / txn id
       featuretype: 'money_transfer',
     };
 
-    // Optional fields
-    if (payload.merchantCode) params.mc = payload.merchantCode;
-    // if (payload.businessName) params.bn = payload.businessName.trim();
-    if (payload.mode) params.mode = payload.mode;
-    if (payload.purpose) params.purpose = payload.purpose;
-    // params.appid = 'inb_admin'; // Optional, Paytm-specific
+    // optional additions
+    if (payload.merchantCode) canonicalParams.mc = payload.merchantCode;
+    if (payload.businessName) canonicalParams.bn = payload.businessName.trim();
+    if (payload.mode) canonicalParams.mode = payload.mode;
+    if (payload.purpose) canonicalParams.purpose = payload.purpose;
 
-    const encodedParams = querystring.stringify(params);
+    const encoded = buildQuery(canonicalParams);
 
-    // Intent UPI links
-    const paytmUrl = `paytmmp://cash_wallet?pa=ali.jomirul@freecharge&pn=null&cu=INR&tr=&tn=&am=299.34&featuretype=money_transfer`;
-    const gpayUrl = `upi://pay?${encodedParams}&ap=com.google.android.apps.nbu.paisa.user`;
-    const phonepeUrl = `upi://pay?${encodedParams}&ap=com.phonepe.app`;
-    const genericUpiUrl = `upi://pay?${encodedParams}`;
+    // Compose platform-specific deep links (ap param is app package where applicable)
+    const gpayUrl = `upi://pay?${encoded}&ap=com.google.android.apps.nbu.paisa.user`;
+    const phonepeUrl = `upi://pay?${encoded}&ap=com.phonepe.app`;
+    // Paytm often uses a different schema; keep tid and other params
+    const paytmIntent = `paytmmp://cash_wallet?${encoded}`;
+    const genericUpiUrl = `upi://pay?${encoded}`;
 
     return {
-      phonepeUrl,
-      // phonepeQr,
       gpayUrl,
-      // gpayQr,
-      paytmUrl,
-      // paytmQr,
+      phonepeUrl,
+      paytmUrl: paytmIntent,
       genericUpiUrl,
-      // genericUpiQr,
       transactionId,
+      rawParams: canonicalParams, // useful for logging / debugging
     };
-    // return data;
-
-    // const params = {
-    //   pa: payload.payeeVPA,
-    //   pn: payload.payeeName?.trim() || 'Payee',
-    //   tr: transactionId,
-    //   am: parseFloat(payload.amount).toFixed(2),
-    //   tn: payload.transactionNote?.trim() || 'Payment',
-    //   cu: 'INR',
-    // };
-
-    // const upiParams = Object.entries(params)
-    //   .map(([key, val]) => `${key}=${encodeURIComponent(val)}`)
-    //   .join('&');
-    // const upiUrl = `upi://pay?${upiParams}`;
-
-    // const upiUrl = `upi://pay?${querystring.stringify(params)}`;
-
-    // const upiQr = await QRCode.toDataURL(upiUrl);
-    // return {
-    //   upiUrl,
-    //   upiQr,
-    //   transactionId,
-    // };
   } catch (error) {
     logger.error('Error in generateUpiUrlService:', error);
     throw error;
   }
 };
+
 
 const checkIsPayInExpired = (payIn) => {
   if (
