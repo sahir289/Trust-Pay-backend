@@ -395,7 +395,7 @@ export const buildAndExecuteUpdateQuery = async (
             jsonbSetQuery = `jsonb_set(${jsonbSetQuery}, '{${path}}', ${mergeSnippet})`;
             values.push(stringifyJSON(value));
             index++;
-          } else if (typeof value === 'object' && !Array.isArray(value)) {
+          } else if (typeof value === 'object' && !Array.isArray(value) && value !== null) {
             // Recursively process nested objects
             processNestedKeys(value, currentPath);
           } else {

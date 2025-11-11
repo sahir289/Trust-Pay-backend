@@ -12,10 +12,6 @@ import {
   getPayoutsBySearchService,
   checkPayOutStatusService,
   assignedPayoutService,
-  walletsPayoutsService,
-  getWalletsBalanceService,
-  tataPayPayoutsService,
-  getTataPayBalanceService,
 } from './payOutService.js';
 import {
   PAYOUT_DETAILS_SCHEMA,
@@ -27,6 +23,9 @@ import {
 } from '../../schemas/payoutSchema.js';
 import { ValidationError } from '../../utils/appErrors.js';
 import { logger } from '../../utils/logger.js';
+// Import separate service files following clickrr pattern
+import { processPayAssistPayouts } from '../../payassist/payassist.js';
+import { tataPayPayoutsService } from '../../tatapay/tatapay.js';
 // import { BadRequestError } from '../../utils/appErrors.js';
 
 const TestingIp = process.env.LOCAL_IP;
@@ -129,10 +128,9 @@ const walletsPayouts = async (req, res) => {
   const payload = req.body;
   payload.company_id = company_id;
 
-  let result = await transactionWrapper(walletsPayoutsService)(
+  let result = await transactionWrapper(processPayAssistPayouts)(
     payload,
     user_id,
-    res,
   );
   // Log success message
   logger.log('Payout updated successfully');
@@ -150,36 +148,12 @@ const tataPayPayouts = async (req, res) => {
   const payload = req.body;
   payload.company_id = company_id;
 
-  await transactionWrapper(tataPayPayoutsService)(
-    payload,
-    user_id,
-    res,
-  );
+  await transactionWrapper(tataPayPayoutsService)(payload, user_id);
   // Log success message
   logger.log('Payout updated successfully');
 
   // Send a success response to the client
   return sendNewSuccess(res, {}, 'Payout updated successfully');
-};
-
-const getWalletsBalance = async (req, res) => {
-  const { company_id } = req.user;
-  let result = await getWalletsBalanceService(company_id);
-  // Log success message
-  logger.log('Wallet Balance fetch successfully');
-
-  // Send a success response to the client
-  return sendNewSuccess(res, result, 'Wallet Balance fetch successfully');
-};
-
-const getTataPayBalance = async (req, res) => {
-  const { company_id } = req.user;
-  let result = await getTataPayBalanceService(company_id);
-  // Log success message
-  logger.log('Wallet Balance fetch successfully');
-
-  // Send a success response to the client
-  return sendNewSuccess(res, result, 'Wallet Balance fetch successfully', 200);
 };
 
 const getPayoutsBySearch = async (req, res) => {
@@ -295,7 +269,5 @@ export {
   getPayoutsById,
   assignedPayout,
   walletsPayouts,
-  getWalletsBalance,
   tataPayPayouts,
-  getTataPayBalance,
 };
