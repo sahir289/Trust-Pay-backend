@@ -168,7 +168,9 @@ export const processPayAssistPayouts = async (conn, payload, updatedBy) => {
             });
           } else {
             updatePayload.config.rejected_reason =
-              payAssistErrorCodeMap[errorCode] || 'Server Unreachable';
+              response.Response?.message ||
+              payAssistErrorCodeMap[errorCode] ||
+              'Server Unreachable';
             updatePayload.rejected_at = new Date().toISOString();
           }
 
