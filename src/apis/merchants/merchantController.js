@@ -153,6 +153,11 @@ const updateMerchant = async (req, res) => {
   if (bodyError) {
     throw new ValidationError(bodyError);
   }
+  if (payload.config.clickrr_auto_approval_limit <= 500) {
+    throw new BadRequestError(
+      'clickrr_auto_approval_limit cannot be less than or equal to 500',
+    );  
+  }
   const { id } = req.params;
   const { company_id, user_id, role, user_name } = req.user;
   payload.updated_by = user_id;
