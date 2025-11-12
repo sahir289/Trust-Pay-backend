@@ -8,9 +8,7 @@ import {
   getPayoutsById,
   getPayoutsBySearch,
   checkPayOutStatus,
-  walletsPayouts,
   assignedPayout,
-  tataPayPayouts,
 } from './payOutController.js';
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
@@ -250,22 +248,10 @@ router.delete(
   tryCatchHandler(deletePayout),
 );
 
-router.post(
-  '/wallets',
-  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
-  tryCatchHandler(walletsPayouts),
-);
-
 router.get(
   '/payassist/wallets-balance',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(getPayAssistWalletBalance),
-);
-
-router.post(
-  '/tatapay-payouts',
-  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
-  tryCatchHandler(tataPayPayouts),
 );
 
 router.get(

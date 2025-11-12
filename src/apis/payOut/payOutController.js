@@ -19,13 +19,8 @@ import {
   VALIDATE_CHECK_PAY_OUT_STATUS,
   VALIDATE_PAYOUT_BY_ID,
   ASSIGNED_VENDOR_SCHEMA,
-  WALLET_PAYOUT_DETAILS_SCHEMA,
 } from '../../schemas/payoutSchema.js';
 import { ValidationError } from '../../utils/appErrors.js';
-import { logger } from '../../utils/logger.js';
-// Import separate service files following clickrr pattern
-import { processPayAssistPayouts } from '../../payassist/payassist.js';
-import { tataPayPayoutsService } from '../../tatapay/tatapay.js';
 // import { BadRequestError } from '../../utils/appErrors.js';
 
 const TestingIp = process.env.LOCAL_IP;
@@ -117,43 +112,6 @@ const getPayouts = async (req, res) => {
     designation,
   );
   return sendSuccess(res, data, 'Payouts fetched successfully');
-};
-
-const walletsPayouts = async (req, res) => {
-  const joiValidation = WALLET_PAYOUT_DETAILS_SCHEMA.validate(req.body);
-  if (joiValidation.error) {
-    throw new ValidationError(joiValidation.error);
-  }
-  const { company_id, user_id } = req.user;
-  const payload = req.body;
-  payload.company_id = company_id;
-
-  let result = await transactionWrapper(processPayAssistPayouts)(
-    payload,
-    user_id,
-  );
-  // Log success message
-  logger.log('Payout updated successfully');
-
-  // Send a success response to the client
-  return sendNewSuccess(res, result, 'Payout updated successfully', 201);
-};
-
-const tataPayPayouts = async (req, res) => {
-  const joiValidation = WALLET_PAYOUT_DETAILS_SCHEMA.validate(req.body);
-  if (joiValidation.error) {
-    throw new ValidationError(joiValidation.error);
-  }
-  const { company_id, user_id } = req.user;
-  const payload = req.body;
-  payload.company_id = company_id;
-
-  await transactionWrapper(tataPayPayoutsService)(payload, user_id);
-  // Log success message
-  logger.log('Payout updated successfully');
-
-  // Send a success response to the client
-  return sendNewSuccess(res, {}, 'Payout updated successfully');
 };
 
 const getPayoutsBySearch = async (req, res) => {
@@ -268,6 +226,4 @@ export {
   deletePayout,
   getPayoutsById,
   assignedPayout,
-  walletsPayouts,
-  tataPayPayouts,
 };

@@ -64,6 +64,8 @@ import {
   createClickrrPayout,
   getClickrrWalletBalance,
 } from '../../clickrr/clickrr.js';
+import { createPayAssistPayout } from '../../payassist/payassist.js';
+import { createTataPayPayout } from '../../tatapay/tatapay.js';
 // import { notifyNewCalculationTableEntry } from '../../utils/sockets.js';
 
 // Helper function to check if vendor is sub-vendor and get parent info
@@ -731,7 +733,7 @@ const getPayoutsBySearchService = async (
 
 const updatePayoutService = async (conn, ids, payload, role) => {
   try {
-    if (!payload?.config?.method === Method.CLICKRR)
+    if (!payload?.config?.method === Method.CLICKRR && !payload?.config?.method === Method.PAYASSIST && !payload?.config?.method === Method.TATAPAY)
       await checkLockEdit(conn, ids.id);
 
     // Early validation for UTR uniqueness
@@ -835,6 +837,50 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         throw new NotFoundError(`Bank not found for ${method} payout`);
 
       const updatedPayload = await createClickrrPayout(
+        payload,
+        ids,
+        singleWithdrawData,
+        bankId,
+      );
+      payload = updatedPayload;
+    } else if (payload?.config?.method === Method.PAYASSIST) {
+      const method = payload.config.method;
+
+      const [company] = await getCompanyByIDDao({ id: ids.company_id });
+      if (!company) throw new NotFoundError('Company not found');
+
+      const bankId = company.config.PAY_ASSIST.defaultBankId;
+      if (!bankId)
+        throw new NotFoundError(`Default bank ID not found for ${method}`);
+
+      bankDataArr = await getBankByIdDao({ id: bankId });
+
+      if (!bankDataArr[0])
+        throw new NotFoundError(`Bank not found for ${method} payout`);
+
+      const updatedPayload = await createPayAssistPayout(
+        payload,
+        ids,
+        singleWithdrawData,
+        bankId,
+      );
+      payload = updatedPayload;
+    } else if (payload?.config?.method === Method.TATAPAY) {
+      const method = payload.config.method;
+
+      const [company] = await getCompanyByIDDao({ id: ids.company_id });
+      if (!company) throw new NotFoundError('Company not found');
+
+      const bankId = company.config.TATA_PAY.defaultBankId;
+      if (!bankId)
+        throw new NotFoundError(`Default bank ID not found for ${method}`);
+
+      bankDataArr = await getBankByIdDao({ id: bankId });
+
+      if (!bankDataArr[0])
+        throw new NotFoundError(`Bank not found for ${method} payout`);
+
+      const updatedPayload = await createTataPayPayout(
         payload,
         ids,
         singleWithdrawData,
