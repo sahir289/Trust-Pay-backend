@@ -8,18 +8,20 @@ import {
   getPayoutsById,
   getPayoutsBySearch,
   checkPayOutStatus,
-  walletsPayouts,
   assignedPayout,
-  getWalletsBalance,
-  tataPayPayouts,
-  getTataPayBalance
 } from './payOutController.js';
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
 import { payAssistTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/payAsistWebHook.js';
 import { tataPayTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/tataPayWebHook.js';
-import { getClickrrWalletBalance, initiateClickrrPayout } from '../../clickrr/clickrr.js';
-const router = express.Router(); 
+import {
+  getClickrrWalletBalance,
+  initiateClickrrPayout,
+} from '../../clickrr/clickrr.js';
+// Import balance functions from separate files
+import { getPayAssistWalletBalance } from '../../payassist/payassist.js';
+import { getTataPayWalletBalance } from '../../tatapay/tatapay.js';
+const router = express.Router();
 
 /**
  * @swagger
@@ -99,16 +101,6 @@ router.get(
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(getPayouts),
 );
-router.get(
-  '/wallets-balance',
-  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
-  tryCatchHandler(getWalletsBalance),
-); 
-router.get(
-  '/tatapay-balance',
-  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
-  tryCatchHandler(getTataPayBalance),
-); 
 router.get(
   '/:id',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
@@ -256,17 +248,17 @@ router.delete(
   tryCatchHandler(deletePayout),
 );
 
-router.post(
-  '/wallets',
+router.get(
+  '/payassist/wallets-balance',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
-  tryCatchHandler(walletsPayouts),
-); 
+  tryCatchHandler(getPayAssistWalletBalance),
+);
 
-router.post(
-  '/tatapay-payouts',
+router.get(
+  '/tatapay/tatapay-balance',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
-  tryCatchHandler(tataPayPayouts),
-);  
+  tryCatchHandler(getTataPayWalletBalance),
+);
 
 router.post(
   '/clickrr',
@@ -283,12 +275,12 @@ router.get(
 router.post(
   '/payassist-callback',
   tryCatchHandler(payAssistTransactionStatusCallback),
-); 
- 
+);
+
 router.post(
   '/tatapay-callback',
   tryCatchHandler(tataPayTransactionStatusCallback),
-); 
+);
 
 // router.post(
 //   '/payouts',
