@@ -135,13 +135,7 @@ export const tataPayTransactionStatusCallback = async (req, res) => {
     //   statusResponse.data,
     // );
 
-    // Check if payouts array exists and has at least one element
-    if (!payload || !payload.payouts || !Array.isArray(payload.payouts) || payload.payouts.length === 0) {
-      logger.error('Invalid response from TataPay: payouts array is missing or empty', payload);
-      return res.status(400).send('Invalid response from payment provider');
-    }
-
-    const payoutData = payload.payouts[0];
+    const payoutData = payload;
     
     if (
       payoutData.status === 'processing' ||
