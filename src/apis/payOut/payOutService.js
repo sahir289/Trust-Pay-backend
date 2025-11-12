@@ -174,57 +174,56 @@ import { createTataPayPayout } from '../../tatapay/tatapay.js';
 // Helper function to check if vendor is sub-vendor and get parent info
 const getSubVendorParentInfo = async (vendor) => {
   try {
-    logger.info(
-      `Checking sub-vendor status for vendor: userId=${vendor.user_id}, designation=${vendor.designation}, designation_name=${vendor.designation_name}, config=${JSON.stringify(vendor.config)}`,
-    );
+    // logger.info(
+    //   `Checking sub-vendor status for vendor: userId=${vendor.user_id}, designation=${vendor.designation}, designation_name=${vendor.designation_name}, config=${JSON.stringify(vendor.config)}`,
+    // );
 
     // Check if vendor designation is SUB_VENDOR (handle both designation and designation_name properties)
-    const vendorDesignation = vendor.designation || vendor.designation_name;
-    if (vendorDesignation !== Role.SUB_VENDOR) {
-      logger.info(
-        `Vendor is not SUB_VENDOR, designation: ${vendorDesignation}`,
-      );
-      return null;
-    }
+    // const vendorDesignation = vendor?.designation_name;
+    // if (vendorDesignation !== Role.SUB_VENDOR) {
+    //   logger.info(
+    //     `Vendor is not SUB_VENDOR, designation: ${vendorDesignation}`,
+    //   );
+    //   return null;
+    // }
 
     // Check is_owned config
     const isOwned = vendor.config?.is_owned;
     if (isOwned === true || isOwned === 'true') {
-      logger.info(
-        `Vendor is owned (is_owned=${isOwned}), skipping parent calculation`,
-      );
+      // logger.info(
+      //   `Vendor is owned (is_owned=${isOwned}), skipping parent calculation`,
+      // );
       return null;
     }
 
-    logger.info(
-      `Sub-vendor detected with is_owned=${isOwned}, fetching user hierarchy`,
-    );
+    // logger.info(
+    //   `Sub-vendor detected with is_owned=${isOwned}, fetching user hierarchy`,
+    // );
 
     // Get user hierarchy to find parent
     const userHierarchys = await getUserHierarchysDao({
       user_id: vendor.user_id,
     });
 
-    logger.info(`User hierarchy result: ${JSON.stringify(userHierarchys)}`);
+    // logger.info(`User hierarchy result: ${JSON.stringify(userHierarchys)}`);
 
     const userHierarchy = userHierarchys?.[0];
     const parentId = userHierarchy?.config?.parent;
 
     if (!parentId) {
-      logger.warn(`Sub-vendor ${vendor.user_id} has no parent in hierarchy`);
+      // logger.warn(`Sub-vendor ${vendor.user_id} has no parent in hierarchy`);
       return null;
     }
 
-    logger.info(`Found parent ID: ${parentId}, fetching parent vendor details`);
+    // logger.info(`Found parent ID: ${parentId}, fetching parent vendor details`);
 
     // Get parent vendor details
     const parentVendors = await getVendorsDao({ user_id: parentId });
     if (!parentVendors || !parentVendors[0]) {
-      logger.warn(`Parent vendor not found for user_id: ${parentId}`);
+      // logger.warn(`Parent vendor not found for user_id: ${parentId}`);
       return null;
     }
-
-    logger.info(`Parent vendor found: ${JSON.stringify(parentVendors[0])}`);
+    // logger.info(`Parent vendor found: ${JSON.stringify(parentVendors[0])}`);
 
     return {
       parentVendor: parentVendors[0],
@@ -245,13 +244,12 @@ const updateParentVendorCalculation = async (
   conn,
 ) => {
   try {
-    logger.info(
-      `updateParentVendorCalculation called with: parentUserId=${parentUserId}, amount=${amount}, rate=${vendorCommissionRate}, isApproved=${isApproved}`,
-    );
-
+    // logger.info(
+    //   `updateParentVendorCalculation called with: parentUserId=${parentUserId}, amount=${amount}, rate=${vendorCommissionRate}, isApproved=${isApproved}`,
+    // );
     const parentCommission = calculateCommission(amount, vendorCommissionRate);
 
-    logger.info(`Calculated parent commission: ${parentCommission}`);
+    // logger.info(`Calculated parent commission: ${parentCommission}`);
 
     await updateCalculationTable(
       parentUserId,
@@ -263,9 +261,9 @@ const updateParentVendorCalculation = async (
       conn,
     );
 
-    logger.info(
-      `Parent vendor calculation table updated successfully for userId: ${parentUserId}`,
-    );
+    // logger.info(
+    //   `Parent vendor calculation table updated successfully for userId: ${parentUserId}`,
+    // );
 
     return parentCommission;
   } catch (error) {
@@ -952,48 +950,51 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     }
 
     // Handle sub-vendor and parent commission logic
-    let totalVendorCommission = vendorCommission;
-    let brokerageCommission = 0;
-    let parentCommission = 0;
-    let payoutConfig = {};
-
-    const subVendorParentInfo = await getSubVendorParentInfo(vendor);
-    logger.info(
-      `Sub-vendor detection result: ${subVendorParentInfo ? 'Found parent info' : 'No parent info'}`,
-    );
-    if (subVendorParentInfo) {
-      logger.info(
-        `Parent vendor details: userId=${subVendorParentInfo.parentUserId}, commission_rate=${subVendorParentInfo.parentVendor.payout_commission}`,
-      );
-      // Calculate parent commission for payout
-      parentCommission = calculateCommission(
-        data.amount,
-        Number(subVendorParentInfo.parentVendor.payout_commission),
-      );
-
-      totalVendorCommission = vendorCommission + parentCommission;
-      brokerageCommission = parentCommission;
-
-      // Preserve existing config and only update commission keys
-      payoutConfig = {
-        ...(payoutExists?.config || {}), // Preserve existing config
-        actual_vendor_commission: vendorCommission,
-        brokerage_commission: brokerageCommission,
-      };
-
-      logger.info(
-        `Payout sub-vendor commission calculated: sub=${vendorCommission}, parent=${parentCommission}, total=${totalVendorCommission}`,
-      );
-    } else {
-      logger.info(
-        `No sub-vendor detected, vendor designation: ${vendor.designation || vendor.designation_name}, is_owned: ${vendor.config?.is_owned}`,
-      );
-      // Preserve existing config and only update commission keys
-      payoutConfig = {
-        ...(payoutExists?.config || {}), // Preserve existing config
-        actual_vendor_commission: vendorCommission,
-      };
+    // let totalVendorCommission = vendorCommission;
+    // let brokerageCommission = 0;
+    // let parentCommission = 0;
+    // let payoutConfig = {};
+    let subVendorParentInfo = null;
+    if (vendor?.designation_name === Role.SUB_VENDOR) {
+      subVendorParentInfo = await getSubVendorParentInfo(vendor);
     }
+
+    // logger.info(
+    //   `Sub-vendor detection result: ${subVendorParentInfo ? 'Found parent info' : 'No parent info'}`,
+    // );
+    // if (subVendorParentInfo) {
+      // logger.info(
+      //   `Parent vendor details: userId=${subVendorParentInfo.parentUserId}, commission_rate=${subVendorParentInfo.parentVendor.payout_commission}`,
+      // );
+      // Calculate parent commission for payout
+      // parentCommission = calculateCommission(
+      //   data.amount,
+      //   Number(subVendorParentInfo.parentVendor.payout_commission),
+      // );
+      // totalVendorCommission = vendorCommission + parentCommission;
+      // brokerageCommission = parentCommission;
+
+      // Preserve existing config and only update commission keys
+      // payoutConfig = {
+      //   ...(payoutExists?.config || {}), // Preserve existing config
+      //   actual_vendor_commission: vendorCommission,
+      //   brokerage_commission: brokerageCommission,
+      // };
+
+      // logger.info(
+      //   `Payout sub-vendor commission calculated: sub=${vendorCommission}, parent=${parentCommission}, total=${totalVendorCommission}`,
+      // );
+    // }
+    // else {
+    //   logger.info(
+    //     `No sub-vendor detected, vendor designation: ${vendor.designation || vendor.designation_name}, is_owned: ${vendor.config?.is_owned}`,
+    //   );
+    //   // Preserve existing config and only update commission keys
+    //   payoutConfig = {
+    //     ...(payoutExists?.config || {}), // Preserve existing config
+    //     actual_vendor_commission: vendorCommission,
+    //   };
+    // }
 
     // Handle status-specific updates
     if (data.status === Status.APPROVED) {
@@ -1048,7 +1049,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
             payout_merchant_commission: merchantCommission,
             payout_vendor_commission: vendorCommission,
             vendor_id: vendor.id,
-            config: payoutConfig,
+            // config: payoutConfig,
           },
           conn,
         ),
@@ -1128,9 +1129,9 @@ const updateCalculationTable = async (user_id, data, isApproved, conn) => {
     return;
   }
 
-  logger.info(
-    `updateCalculationTable called with: user_id=${user_id}, data=${JSON.stringify(data)}, isApproved=${isApproved}`,
-  );
+  // logger.info(
+  //   `updateCalculationTable called with: user_id=${user_id}, data=${JSON.stringify(data)}, isApproved=${isApproved}`,
+  // );
 
   if (
     typeof data.amount === 'undefined' ||
@@ -1149,9 +1150,9 @@ const updateCalculationTable = async (user_id, data, isApproved, conn) => {
     throw new NotFoundError('Calculation not found!');
   }
 
-  logger.info(
-    `Found calculation data for user_id ${user_id}: calculationId=${calculationData[0].id}`,
-  );
+  // logger.info(
+  //   `Found calculation data for user_id ${user_id}: calculationId=${calculationData[0].id}`,
+  // );
 
   const calculationId = calculationData[0].id;
   const totalAmountData = Number(data.amount + data.payoutCommission);
@@ -1173,9 +1174,9 @@ const updateCalculationTable = async (user_id, data, isApproved, conn) => {
         net_balance: totalAmountData,
       };
 
-  logger.info(
-    `Updating calculation table with payload: ${JSON.stringify(payload)}`,
-  );
+  // logger.info(
+  //   `Updating calculation table with payload: ${JSON.stringify(payload)}`,
+  // );
 
   const response = await updateCalculationBalanceDao(
     { id: calculationId },
@@ -1183,7 +1184,7 @@ const updateCalculationTable = async (user_id, data, isApproved, conn) => {
     conn,
   );
 
-  logger.info(`Calculation table updated successfully for user_id: ${user_id}`);
+  // logger.info(`Calculation table updated successfully for user_id: ${user_id}`);
 
   await trackVendorsNetBalance(calculationData[0].user_id, conn, response);
   return response;
