@@ -280,7 +280,7 @@ export const getVendorsDao = async (
       `"Vendor".config`,
       `user_main.first_name || ' ' || user_main.last_name AS full_name`,
       `d.designation AS designation_name`,
-      `(SELECT net_balance FROM "Calculation" WHERE "Calculation".user_id = "Vendor".user_id ORDER BY "Calculation".updated_at DESC LIMIT 1) AS balance`,
+      `(SELECT net_balance FROM "Calculation" WHERE "Calculation".user_id = "Vendor".user_id ORDER BY "Calculation".created_at DESC LIMIT 1) AS balance`,
     ];
 
     // Add extra columns for admin
@@ -362,10 +362,20 @@ export const getVendorsDao = async (
 
 export const getVendorByIdDao = async (user_id, company_id) => {
   try {
-    const sql = `SELECT id, user_id, payout_commission
-      FROM "${tableName.VENDOR}" WHERE user_id = $1 
-      AND company_id = $2 
-      AND is_obsolete = false`;
+    const sql = `
+    SELECT 
+        v.id, 
+        v.user_id, 
+        v.payout_commission, 
+        d.designation AS designation_name
+    FROM "${tableName.VENDOR}" v
+    JOIN "User" u ON v.user_id = u.id
+    LEFT JOIN "Designation" d ON u.designation_id = d.id
+    WHERE v.user_id = $1
+    AND v.company_id = $2
+    AND v.is_obsolete = false
+    ;
+  `;
     const params = [user_id, company_id];
     const result = await executeQuery(sql, params);
     return result.rows || null;
@@ -419,7 +429,7 @@ export const getAllVendorsDao = async (
       `"Vendor".updated_at`,
       `user_main.first_name || ' ' || user_main.last_name AS full_name`,
       `d.designation AS designation_name`,
-      `(SELECT net_balance FROM "Calculation" WHERE "Calculation".user_id = "Vendor".user_id ORDER BY "Calculation".updated_at DESC LIMIT 1) AS balance`,
+      `(SELECT net_balance FROM "Calculation" WHERE "Calculation".user_id = "Vendor".user_id ORDER BY "Calculation".created_at DESC LIMIT 1) AS balance`,
     ];
 
     // Add extra columns for admin
@@ -725,7 +735,7 @@ export const getVendorsDaoArray = async (company_id, code) => {
           SELECT net_balance 
           FROM "Calculation" 
           WHERE "Calculation".user_id = "Vendor".user_id 
-          ORDER BY "Calculation".updated_at DESC 
+          ORDER BY "Calculation".created_at DESC 
           LIMIT 1
         ) AS balance
            FROM "Vendor" 
