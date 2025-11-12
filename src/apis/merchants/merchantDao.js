@@ -281,7 +281,7 @@ export const getMerchantsBankResponseDao = async (filters = {}) => {
 export const getMerchantByIdDao = async (id, company_id) => {
   try {
     const sql = `
-        SELECT id, user_id, payout_commission, config->'urls'->>'payout_notify' AS payout_notify 
+        SELECT id, user_id, code, payout_commission, config->'urls'->>'payout_notify' AS payout_notify 
           FROM "${tableName.MERCHANT}" WHERE id = $1 
           AND company_id = $2 
           AND is_obsolete = false`;
