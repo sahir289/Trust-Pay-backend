@@ -43,7 +43,7 @@ const baseUrl = config.clickrr.baseUrl;
 const initiatePayoutUrl = config.clickrr.initiatePayout;
 const walletBalanceUrl = config.clickrr.walletBalance;
 
-export async function initiateClickrrPayout(payload, company_id) {
+export const initiateClickrrPayout = async (payload, company_id) => {
   const newPayload = {
     amount: Number(payload.amount),
     mobileNumber: 9898989898,
@@ -82,15 +82,13 @@ export async function initiateClickrrPayout(payload, company_id) {
 
     const url = `${baseUrl}${initiatePayoutUrl}`;
     const response = await axios.post(url, newPayload, { headers });
+
     logger.log('Clickrr payout initiated successfully:', {
       merchant_order_id: payload?.merchant_order_id,
       data: response.data,
     });
-    logger.log('Clickrr payout initiated successfully:', {
-      merchant_order_id: payload?.merchant_order_id,
-      data: response.data,
-    });
-    return response.data.data;
+
+    return response.data;
   } catch (error) {
     logger.error(
       'Payout initiation failed:',

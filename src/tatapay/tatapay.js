@@ -46,6 +46,7 @@ export const initiateTataPayPayout = async (payload, company_id) => {
         headers: apiConfig.headers,
       },
     );
+
     logger.info('TataPay payout initiated successfully:', {
       merchant_order_id: payload?.merchant_order_id,
       data: response.data,
