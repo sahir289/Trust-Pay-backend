@@ -403,18 +403,23 @@ const getUserByIdDao = async (conn, ids) => {
   }
 };
 const getUserDao = async (conn, id) => {
-  const sql = `
+  try {
+    const sql = `
     SELECT r.role
     FROM public."User" u
     LEFT JOIN public."Role" r ON u.role_id = r.id
     WHERE u.is_obsolete = false AND u.id = $1
   `;
-  const result = await conn.query(sql, [id.id]);
-  if (result.rowCount === 0) {
-    logger.error('No user found with the provided id and filters');
-    return [];
+    const result = await conn.query(sql, [id.id]);
+    if (result.rowCount === 0) {
+      logger.error('No user found with the provided id and filters');
+      return [];
+    }
+    return result.rows;
+  } catch (error) {
+    logger.error(`Error fetching user`, error.message);
+    throw error;
   }
-  return result.rows; 
 };
 const getUsersByUserNameDao = async (ids, username) => {
   try {

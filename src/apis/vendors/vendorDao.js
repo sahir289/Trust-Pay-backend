@@ -254,15 +254,20 @@ export const getVendorsCodeDao = async (
   }
 };
 export const getVendorsPayinsDao = async (filters) => {
-  let query = `
+  try {
+    let query = `
     SELECT code
     FROM public."Vendor"
     WHERE user_id = $1
     And is_obsolete = false
   `;
-  const params = [filters.user_id];
-  const result = await executeQuery(query, params);
-  return result.rows;
+    const params = [filters.user_id];
+    const result = await executeQuery(query, params);
+    return result.rows;
+  } catch (error) {
+    logger.error('Error executing vendor Payins query:', error.message);
+    throw error;
+  }
 };
 
 export const getVendorsDao = async (

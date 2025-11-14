@@ -10,15 +10,20 @@ import {
 
 import { logger } from '../../utils/logger.js';
 export const getBankaccountPayinDao = async (filters) => {
-  let query = `
+  try {
+    let query = `
     SELECT id, nick_name, user_id
     FROM public."BankAccount"
     WHERE id = $1 
     AND is_obsolete = false
 
   `;
-  const result = await executeQuery(query, [filters.id]);
-  return result.rows;
+    const result = await executeQuery(query, [filters.id]);
+    return result.rows;
+  } catch (error) {
+    logger.error('Error in get BankAccountPayin Dao:', error.message);
+    throw error;
+  }
 };
 const getBankaccountDao = async (filters, page, limit, role, designation) => {
   try {
@@ -640,7 +645,8 @@ const getMerchantBankDao = async (filters) => {
   }
 };
 export const getMerchantLinkBankDao = async (filters) => {
-  let query = `
+  try {
+    let query = `
     SELECT 
       bank_used_for, 
       is_enabled, 
@@ -650,9 +656,13 @@ export const getMerchantLinkBankDao = async (filters) => {
     FROM "${tableName.BANK_ACCOUNT}"
     WHERE is_obsolete = false
   `;
-  const [sql, parameters] = buildSelectQuery(query, filters);
-  const result = await executeQuery(sql, parameters);
-  return result.rows;
+    const [sql, parameters] = buildSelectQuery(query, filters);
+    const result = await executeQuery(sql, parameters);
+    return result.rows;
+  } catch (error) {
+    logger.error('Error getting bank account payin:', error.message);
+    throw error;
+  }
 };
 const getBankByIdDao = async (filters) => {
   try {
