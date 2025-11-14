@@ -764,7 +764,17 @@ export const getMerchantsBySearchDao = async (
     throw error;
   }
 };
-
+export const getMerchantsForValidatePayinDao = async (filters) => {
+  let query = `
+    SELECT id, code, min_payin, max_payin, config
+    FROM public."Merchant"
+    WHERE is_obsolete = false
+    and id = $1
+  `;
+  const params = [filters.id];
+  const result = await executeQuery(query, params);
+  return result.rows;
+};
 
 export const updateMerchantDao = async (ids, data, conn) => {
   return await buildAndExecuteUpdateQuery(

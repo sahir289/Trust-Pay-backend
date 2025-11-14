@@ -253,6 +253,17 @@ export const getVendorsCodeDao = async (
     throw error;
   }
 };
+export const getVendorsPayinsDao = async (filters) => {
+  let query = `
+    SELECT code
+    FROM public."Vendor"
+    WHERE user_id = $1
+    And is_obsolete = false
+  `;
+  const params = [filters.user_id];
+  const result = await executeQuery(query, params);
+  return result.rows;
+};
 
 export const getVendorsDao = async (
   filters,
@@ -882,7 +893,6 @@ const getVendorCode = async (userId) => {
   try {
     const sql = `SELECT code FROM "${tableName.VENDOR}" WHERE user_id = $1 LIMIT 1;`;
     const { rows } = await executeQuery(sql, [userId]);
-    console.log(rows[0]?.code, 'ddcdf');
     return rows[0]?.code;
   } catch (error) {
     logger.error('Error in getVendorCode:', error);
