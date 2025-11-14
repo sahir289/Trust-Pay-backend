@@ -50,9 +50,11 @@ import {
   NotFoundError,
 } from '../../utils/appErrors.js';
 import {
+  getMerchantLinkBankDao,
   getBankaccountDao,
   getMerchantBankDao,
   updateBankaccountDao,
+  getBankaccountPayinDao,
   // updateBanktBalanceDao,
 } from '../bankAccounts/bankaccountDao.js';
 import {
@@ -67,6 +69,7 @@ import {
 import {
   getMerchantsByCodeDao,
   getMerchantsDao,
+  getMerchantsForValidatePayinDao,
   getMerchantByUserIdDao,
   updateMerchantBalanceDao,
 } from '../merchants/merchantDao.js';
@@ -78,6 +81,7 @@ import {
 import {
   getVendorsDao,
   updateVendorDao,
+  getVendorsPayinsDao,
   // updateVendorBalanceDao
 } from '../vendors/vendorDao.js';
 import {
@@ -120,7 +124,7 @@ import {
   getCompanyByIDDao,
   // getCompanyDetailsByIdDao,
 } from '../company/companyDao.js';
-import { getAllUsersDao, getUserByIdDao } from '../users/userDao.js';
+import { getAllUsersDao, getUserDao } from '../users/userDao.js';
 import { trackVendorsNetBalance } from '../../utils/trackVendorsNetBalance.js';
 import { createCashfreeOrder } from '../../cashfree/cashfree.js';
 // import { createZenTechIndTransaction } from '../../zentechind/zentechInd.js';
@@ -3085,7 +3089,7 @@ export const verifyPayinsService = async (
     }
     let role = null;
     if (payIn?.created_by) {
-      const [userData] = await getUserByIdDao(conn, { id: payIn.created_by });
+      const [userData] = await getUserDao({ id: payIn.created_by });
       role = userData?.role;
     }
 
@@ -3110,25 +3114,19 @@ export const verifyPayinsService = async (
         redirect_url: payIn.config?.urls?.return,
       };
 
-      const merchantArr = await getMerchantsDao({ id: payIn.merchant_id });
+      const merchantArr = await getMerchantsForValidatePayinDao({
+        id: payIn.merchant_id,
+      });
       const merchant = merchantArr[0] || {};
 
       let bankAccountDetails = [];
       let vendorData = [];
       if (payIn.bank_acc_id) {
-        bankAccountDetails = await getBankaccountDao(
-          { id: payIn.bank_acc_id },
-          null,
-          null,
-          role,
-        );
+        bankAccountDetails = await getBankaccountPayinDao(
+          { id: payIn.bank_acc_id }        );
 
-        vendorData = await getVendorsDao(
+        vendorData = await getVendorsPayinsDao(
           { user_id: bankAccountDetails[0].user_id },
-          null,
-          null,
-          null,
-          null,
         );
       }
 
@@ -3162,7 +3160,9 @@ export const verifyPayinsService = async (
       ...payIn.config,
       user: user_location,
     });
-    const merchant = await getMerchantsDao({ id: payIn.merchant_id });
+    const merchant = await getMerchantsForValidatePayinDao({
+      id: payIn.merchant_id,
+    });
     const updateResult = await updatePayInUrlDao(payIn.id, {
       config: updatedConfig,
       one_time_used: oneTimeUsed || false,
@@ -3179,7 +3179,7 @@ export const verifyPayinsService = async (
       return { error: `This payin url is already used`, result };
     }
 
-    const banks = await getMerchantBankDao({
+    const banks = await getMerchantLinkBankDao({
       config_merchants_contains: merchant[0].id,
     });
     let bankIntent;
@@ -3314,13 +3314,11 @@ export function setDeeplinkParam(deeplink, key, value) {
  */
 export const generateUpiUrlService = async (payload = {}) => {
   try {
-    console.log(payload, 'payload ++++++++');
     // Basic validation
     const amountStr = formatAmount(payload.amount);
     if (!amountStr) throw new BadRequestError('Invalid amount');
 
     const pa = (payload.payeeVPA || '').trim();
-    console.log(pa, 'pa ++++++++');
     // if (!validateVpa(pa)) throw new BadRequestError('Invalid VPA format');
 
     const transactionId = generateTransactionId();
