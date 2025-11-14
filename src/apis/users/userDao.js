@@ -402,7 +402,7 @@ const getUserByIdDao = async (conn, ids) => {
     throw error;
   }
 };
-const getUserDao = async (conn, id) => {
+const getUserDao = async (id) => {
   try {
     const sql = `
     SELECT r.role
@@ -410,7 +410,7 @@ const getUserDao = async (conn, id) => {
     LEFT JOIN public."Role" r ON u.role_id = r.id
     WHERE u.is_obsolete = false AND u.id = $1
   `;
-    const result = await conn.query(sql, [id.id]);
+    const result = await executeQuery(sql, [id.id]);
     if (result.rowCount === 0) {
       logger.error('No user found with the provided id and filters');
       return [];

@@ -3089,7 +3089,7 @@ export const verifyPayinsService = async (
     }
     let role = null;
     if (payIn?.created_by) {
-      const [userData] = await getUserDao(conn, { id: payIn.created_by });
+      const [userData] = await getUserDao({ id: payIn.created_by });
       role = userData?.role;
     }
 
