@@ -36,7 +36,7 @@ export const createPaymentTransaction = async (
     let body;
     let tickMerchant = false;
 
-    if (deposit?.merchant_code === providerConfig?.nmplPaySpecialMerchant) {
+    if ([providerConfig?.nmplPaySpecialMerchant, providerConfig?.nmplPaySpecialMerchant2].includes(deposit?.merchant_code)) {
       tickMerchant = true;
       body = {
         collection_id: providerConfig.tickCollectionId,
