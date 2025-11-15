@@ -92,6 +92,28 @@ export const getPayInwithMerchantDao = async (merchantorderid) => {
   }
 };
 
+export const getPayInWithMerchantOrderIdDao = async (merchantOrderid) => {
+  try {
+    const sql = `
+    SELECT 
+      p.id,
+      p.merchant_order_id,
+      p.user_submitted_utr,
+      p.merchant_id
+    FROM "Payin" p
+    WHERE p.merchant_order_id = $1`;
+    const params = [merchantOrderid];
+    const result = await executeQuery(sql, params);
+    return result.rows[0];
+  } catch (error) {
+    logger.error(
+      'Error getting PayIn URL with merchant order id:',
+      error,
+    );
+    throw error;
+  }
+}
+
 //new daos for payin, bankresponse , checkutr, resethistory
 export const getPayInsBankResDao = async (filters = {}) => {
   try {
@@ -1957,6 +1979,7 @@ export const getPayInForCheckDao = async (filters = {}) => {
     throw error;
   }
 };
+
 export const getPayInForDuplicate = async (filters = {}) => {
   try {
     const [sql, params] = buildSelectQuery(

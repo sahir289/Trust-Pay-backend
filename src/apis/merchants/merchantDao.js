@@ -391,7 +391,7 @@ export const getMerchantsForDashboardReportDao = async (
 };
 
 
-export const getMerchantsByCodeDao = async (code) => {
+export const getMerchantsByCodeDao = async (code, api_key) => {
   try {
     let baseQuery = `
     SELECT 
@@ -435,10 +435,60 @@ export const getMerchantsByCodeDao = async (code) => {
       baseQuery += ` AND "Merchant".code = $1`;
       queryParams = [code.trim()];
     }
+    if (api_key) {
+      queryParams.push(api_key);
+      baseQuery += ` AND ("Merchant".config->'keys'->>'public' = $${queryParams.length} OR "Merchant".config->'keys'->>'private' = $${queryParams.length})`;
+    }
+
     const result = await executeQuery(baseQuery, queryParams);
     return result.rows;
   } catch (error) {
     logger.error('Error in getMerchants By Code Dao:', error);
+    throw error;
+  }
+};
+
+export const getMerchantsByCodeAndApiKeyDao = async (code, api_key) => {
+  try {
+    if (!code || !api_key) return [];
+    const cleanCode = code.trim();
+    const cleanApiKey = api_key.trim();
+
+    const query = `
+      SELECT 
+        m.id,
+        m.user_id,
+        m.code,
+        m.min_payin,
+        m.max_payin,
+
+        jsonb_build_object(
+          'keys', m.config->'keys',
+          'urls', m.config->'urls',
+          'is_h2h', (m.config->>'is_h2h')::boolean,
+          'allow_intent', (m.config->>'allow_intent')::boolean
+        ) AS config,
+        m.company_id,
+        (u.first_name || ' ' || u.last_name) AS full_name
+      FROM "Merchant" m
+      INNER JOIN "User" u ON m.user_id = u.id
+      WHERE 
+        m.is_enabled = TRUE
+        AND m.is_obsolete = FALSE
+        AND m.code = $1
+        AND (
+          m.config->'keys'->>'public' = $2 OR 
+          m.config->'keys'->>'private' = $2
+        )
+      LIMIT 1;
+    `;
+
+    const params = [cleanCode, cleanApiKey];
+
+    const result = await executeQuery(query, params);
+    return result?.rows ?? [];
+  } catch (error) {
+    logger.error('Error in getMerchantsByCodeAndApiKeyDao:', error);
     throw error;
   }
 };
