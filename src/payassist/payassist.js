@@ -50,7 +50,7 @@ export const initiatePayAssistPayout = async (payload, company_id) => {
 
     newPayload.agent_id = apiConfig.agentCode;
 
-    const response = axios.post(`${apiConfig.baseUrl}/payout`, newPayload, {
+    const response = await axios.post(`${apiConfig.baseUrl}/payout`, newPayload, {
       headers: apiConfig.headers,
     });
 
