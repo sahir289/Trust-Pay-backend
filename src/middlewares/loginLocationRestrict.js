@@ -32,6 +32,7 @@ const loginMiddleware = async (req, res, next) => {
     if (
       country.toLowerCase() === 'india' &&
       region.toLowerCase() === 'gujarat' &&
+      region.toLowerCase() === 'goa' &&
       role.role == 'VENDOR'
     ) {
         logger.warn('Access denied for users from India.', {
