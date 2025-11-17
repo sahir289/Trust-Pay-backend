@@ -88,7 +88,7 @@ export const initiateClickrrPayout = async (payload, company_id) => {
       data: response.data,
     });
 
-    return response.data;
+    return response.data.data;
   } catch (error) {
     logger.error(
       'Payout initiation failed:',
