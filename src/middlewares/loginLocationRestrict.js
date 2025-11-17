@@ -13,7 +13,7 @@ const loginMiddleware = async (req, res, next) => {
     if (userIp === '::1') {
       userIp = TestingIp;
     }
-    let user_location = req.body.user_location;
+    // let user_location = req.body.user_location;
     const role = await getRoleByUserNameDao(req.body.username);
     // Fetch geolocation data from proxycheck.io
     const url = PROXY_CHECK_URL.replace('$%7BuserIp%7D', userIp);
