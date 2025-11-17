@@ -12,7 +12,7 @@ import {
   getUserRoleController,
 } from './authController.js';
 import { isAuthenticated } from '../../middlewares/auth.js';
-import  {loginMiddleware, requireUserLocation}  from '../../middlewares/loginLocationRestrict.js';
+import  {loginMiddleware,}  from '../../middlewares/loginLocationRestrict.js';
 const router = express.Router();
 
 /**
@@ -35,7 +35,7 @@ const router = express.Router();
  *                   type: string
  *                   example: "login successfully!"
  */
-router.post('/login', requireUserLocation, loginMiddleware, tryCatchHandler(loginController)); // login route
+router.post('/login', loginMiddleware, tryCatchHandler(loginController)); // login route
 
 router.post('/refresh-token', tryCatchHandler(refreshTokenController));
 
