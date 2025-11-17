@@ -100,7 +100,6 @@ export const getUserHierarchyVendor = async (userId) => {
   try {
     const sql = `SELECT config FROM "${tableName.USER_HIERARCHY}" WHERE user_id = $1 LIMIT 1;`;
     const { rows } = await executeQuery(sql, [userId]);
-    console.log(rows[0]?.config, "hey there hiersarchy config");
     return rows[0]?.config || {};
   } catch (error) {
     logger.error('Error in deleteUserHierarchyDao:', error);
@@ -115,7 +114,6 @@ export const updateUserHierarchyVendor = async (userId, newConfig, updatedBy) =>
                WHERE user_id = $3
                RETURNING *;`;
     const { rows } = await executeQuery(sql, [newConfig, updatedBy, userId]);
-    console.log('Updated user hierarchy config for userId:', userId, rows[0]);
     return rows[0];
   } catch (error) {
     logger.error('Error in deleteUserHierarchyDao:', error);
