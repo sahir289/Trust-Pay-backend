@@ -13,18 +13,19 @@ const loginMiddleware = async (req, res, next) => {
     if (userIp === '::1') {
       userIp = TestingIp;
     }
+    // let user_location = req.body.user_location;
     const role = await getRoleByUserNameDao(req.body.username);
     // Fetch geolocation data from proxycheck.io
     const url = PROXY_CHECK_URL.replace('$%7BuserIp%7D', userIp);
     const response = await axios.get(url);
-      const userData = response.data[userIp];
+    const userData = response.data[userIp];
     if (!userData) {
       logger.error('Error fetching location data for IP:', userIp);
       return res.status(500).json({ message: 'Error fetching location data' });
     }
     const { vpn, region, country } = userData;
     if (vpn === 'yes' && role.role == 'VENDOR') {
-      userData.user =  req.body.username
+      userData.user = req.body.username;
       logger.warn('VPN detected. Access denied.', userData);
       throw new BadRequestError('VPN usage is not allowed');
     }
@@ -32,11 +33,13 @@ const loginMiddleware = async (req, res, next) => {
     // Check if the user is from India
     if (
       country.toLowerCase() === 'india' &&
-      restrictRegion.map(r => r.toLowerCase()).includes(region.toLowerCase()) &&
+      restrictRegion
+        .map((r) => r.toLowerCase())
+        .includes(region.toLowerCase()) &&
       role.role == 'VENDOR'
     ) {
-        logger.warn('Access denied for users from India.', {
-        user :req.body.username,
+      logger.warn('Access denied for users from India.', {
+        user: req.body.username,
         userIp,
         region,
         country,
@@ -61,4 +64,40 @@ const loginMiddleware = async (req, res, next) => {
   }
 };
 
-export default loginMiddleware;
+const requireUserLocation = (req, res, next) => {
+  // try {
+    if (!req.body?.user_location) {
+      logger.warn('User location not provided in request body.');
+      throw new BadRequestError(
+        'Precise location required. Enable GPS to login.',
+      );
+    }
+
+    const { latitude, longitude, accuracy } = req.body.user_location;
+
+    if (!latitude || !longitude) {
+      logger.warn('Latitude or Longitude missing in user location.');
+      throw new BadRequestError(
+        'Unable to verify location. Please enable GPS.',
+      );
+    }
+
+    if (accuracy > 100) {
+      logger.warn('User location accuracy too low:', accuracy);
+      throw new BadRequestError(
+        'Location too inaccurate. Move outdoors and enable GPS.',
+      );
+    }
+
+    req.user_location = req.body.user_location;
+    console.log(req.user_location, "req.user_location");
+    next();
+  // } catch (error) {
+  //   logger.error('Error in User location middleware:', error);
+  //   return res
+  //     .status(500)
+  //     .json({ message: 'Access denied from your location' });
+  // }
+};
+
+export { loginMiddleware, requireUserLocation };
