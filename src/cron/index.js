@@ -7,7 +7,6 @@ import formattedSuccessRatiosByMerchant from './successRatioCron.js';
 import gatherAllDataForAllCompanies from './gatherAllData.js';
 import gatherAllNetbalanceForAllCompanies from './gatherAllNetBalance.js';
 import collectPayoutData from './pendingPayout.js';
-import runDailyCalculation from './checkNetbalance.js';
 // import  checkPendingStatus  from './pendingPayinCron.js';
 const router = express.Router();
 
@@ -71,17 +70,6 @@ router.get(
     res.json({ message: 'Cron job is running for calculation' });
   },
   collectCalculationData,
-);
-router.get(
-  '/calculation-netbalance-Cron',
-  (req, res) => {
-    runDailyCalculation();
-    logger.info(
-      'Calling runDailyCalculation CRONJOB with timezone: Asia/Kolkata',
-    );
-    res.json({ message: 'Cron job is running for calculation' });
-  },
-  runDailyCalculation,
 );
 // router.get(
 //   '/checkPendingStatus',
