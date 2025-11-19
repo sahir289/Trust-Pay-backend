@@ -369,11 +369,11 @@ const updateVendorService = async (ids, payload) => {
          data.user_id,
       );
       if (
-        (userHierarchys.designation === Role.VENDOR_ADMIN)&& (payload.payin_commission > 2 ||
-        payload.payout_commission > 2)
+        (userHierarchys.designation === Role.VENDOR_ADMIN)&& (payload.payin_commission > 5 ||
+        payload.payout_commission > 5)
       ) {
         throw new BadRequestError(
-          'Vendor commission must be less than or equal to 2%.',
+          'Vendor commission must be less than or equal to 5%.',
         );
       }
     }
@@ -549,11 +549,11 @@ const linkVendorService = async (vendorUserId, subVendorUserId, user_id) => {
       );
     }
     if (
-      parent.payin_commission > 2 &&
-      parent.payout_commission > 2
+      parent.payin_commission > 5 &&
+      parent.payout_commission > 5
     ) {
       throw new BadRequestError(
-        'Parent Vendor commission must be less than or equal to 2%.',
+        'Parent Vendor commission must be less than or equal to 5%.',
       );
     }
     const result = await linkVendorDao(vendorUserId, subVendorUserId, user_id);
@@ -658,11 +658,11 @@ const transferVendorService = async (
       );
     }
     if (
-      parent.payin_commission > 2 &&
-      parent.payout_commission > 2
+      parent.payin_commission > 5 &&
+      parent.payout_commission > 5
     ) {
       throw new BadRequestError(
-        'Parent Vendor commission must be less than or equal to 2%.',
+        'Parent Vendor commission must be less than or equal to 5%.',
       );
     }
     const result = await transferVendorDao(
