@@ -150,8 +150,8 @@ export const createPayAssistPayout = async (
     }
 
     if (payload.txnStatus) {
+      checkPayAssist = {...payload};
       delete payload.txnStatus;
-      checkPayAssist = payload;
     } else {
       checkPayAssist = await initiatePayAssistPayout(
         singleWithdrawData,
