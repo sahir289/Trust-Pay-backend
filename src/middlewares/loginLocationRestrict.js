@@ -60,7 +60,7 @@ const createGeoGuard = (options = {}) => {
   return async (req, res, next) => {
     try {
       const clientIp = getClientIp(req);
-      const location = req.body?.user_locatio;
+      const location = req.body?.user_location;
 
       if (!location || typeof location !== 'object') {
         return next(new BadRequestError(
@@ -77,6 +77,7 @@ const createGeoGuard = (options = {}) => {
       }
 
       if (accuracy > maxAccuracy) {
+        console.log(accuracy, "accuracy", maxAccuracy, "max accuracy ++++");
         return next( new BadRequestError(
           `Location accuracy too low (${accuracy}m). Maximum allowed: ${maxAccuracy}m.`,
         ));
