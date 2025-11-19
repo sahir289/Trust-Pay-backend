@@ -156,8 +156,8 @@ export async function createClickrrPayout(
     }
 
     if (payload.txnStatus) {
+      checkClickrr = {...payload};
       delete payload.txnStatus;
-      checkClickrr = payload;
     } else {
       checkClickrr = await initiateClickrrPayout(
         singleWithdrawData,

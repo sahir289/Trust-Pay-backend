@@ -137,8 +137,8 @@ export const createTataPayPayout = async (
     }
 
     if (payload.txnStatus) {
+      checkTataPay = { ...payload }; // Create a copy to avoid reference issues
       delete payload.txnStatus;
-      checkTataPay = payload;
     } else {
       checkTataPay = await initiateTataPayPayout(
         singleWithdrawData,
