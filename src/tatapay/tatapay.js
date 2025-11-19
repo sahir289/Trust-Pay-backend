@@ -137,8 +137,8 @@ export const createTataPayPayout = async (
     }
 
     if (payload.txnStatus) {
+      checkTataPay = {...payload};
       delete payload.txnStatus;
-      checkTataPay = payload;
     } else {
       checkTataPay = await initiateTataPayPayout(
         singleWithdrawData,
@@ -209,6 +209,18 @@ export const createTataPayBulkPayout = async (
     if (!company?.config?.TATA_PAY) {
       throw new BadRequestError('TataPay configuration not found for company');
     }
+
+    // Validate bank configuration
+    const defaultBankId = company.config.TATA_PAY.defaultBankId;
+    if (!defaultBankId || defaultBankId.trim() === '') {
+      throw new BadRequestError('TataPay default bank ID not configured for company');
+    }
+
+    logger.info('Using TataPay bank configuration:', {
+      company_id,
+      defaultBankId,
+      hasTataPayConfig: !!company.config.TATA_PAY,
+    });
 
     // Get payout data - either from entries directly or fetch by IDs
     let payoutData = payoutEntries;
@@ -345,7 +357,9 @@ export const createTataPayBulkPayout = async (
 
       // Process each result in the response
       if (bulkResponse.results && Array.isArray(bulkResponse.results)) {
-        bulkResponse.results.forEach((result) => {
+        logger.info(`Processing ${bulkResponse.results.length} TataPay bulk response results`);
+        
+        bulkResponse.results.forEach((result, index) => {
           // Map based on the id field in the response to our payout entry id
           const matchedEntry = bulkPayoutData.find(
             (entry) => entry.id === result.id,
@@ -353,13 +367,14 @@ export const createTataPayBulkPayout = async (
 
           if (!matchedEntry) {
             logger.warn(
-              'No matching payout entry found for response id:',
-              result.id,
+              `No matching payout entry found for response id: ${result.id} at index ${index}`,
+              { result, availableIds: bulkPayoutData.map(e => e.id).slice(0, 5) }
             );
             return;
           }
 
           const payoutId = matchedEntry.id;
+          logger.info(`Mapped response result.id ${result.id} to payout entry.id ${payoutId}`);
 
           if (result.success) {
             successfulPayouts.push({
@@ -386,22 +401,21 @@ export const createTataPayBulkPayout = async (
         const successBulkUpdateData = {
           payoutIds: successfulPayouts.map((p) => p.payoutId),
           status: Status.PENDING, // Initially pending, callback will update to final status
-          bank_acc_id: company.config.TATA_PAY.defaultBankId,
+          bank_acc_id: defaultBankId,
           config: {
             method: Method.TATAPAY,
-            txnid: successfulPayouts.map((p) => p.txnid),
-
           },
           // Map individual transaction data
           individualUpdates: successfulPayouts.map((payout) => ({
             payoutId: payout.payoutId,
-            bank_acc_id: payout.bank_acc_id,
+            bank_acc_id: defaultBankId,
             config: {
               method: Method.TATAPAY,
               txnid: payout.txnid,
             },
-            utr_id: payout.utr_id,
+            utr_id: payout.txnid, // Use txnid as UTR ID
             status: Status.PENDING,
+            approved_at: new Date().toISOString(),
           })),
         };
 
@@ -418,12 +432,20 @@ export const createTataPayBulkPayout = async (
           
           // Also immediately update database as there's no active consumer
           if (updatePayoutStatus) {
-            await updatePayoutStatus(
-              successBulkUpdateData.payoutIds,
-              Status.PENDING,
-              successBulkUpdateData.config,
-            );
-            logger.info('Successful payouts also updated directly in database');
+            // Update each payout individually to ensure proper field mapping
+            for (const update of successBulkUpdateData.individualUpdates) {
+              await updatePayoutStatus(
+                [update.payoutId],
+                update.status,
+                update.config,
+                {
+                  bank_acc_id: update.bank_acc_id,
+                  utr_id: update.utr_id,
+                  approved_at: update.approved_at,
+                }
+              );
+            }
+            logger.info('Successful payouts updated directly in database');
           }
         } catch (mqError) {
           logger.error(
@@ -432,11 +454,19 @@ export const createTataPayBulkPayout = async (
           );
           // Fallback to direct database update
           if (updatePayoutStatus) {
-            await updatePayoutStatus(
-              successBulkUpdateData.payoutIds,
-              Status.PENDING,
-              successBulkUpdateData.config,
-            );
+            // Update each payout individually to ensure proper field mapping
+            for (const update of successBulkUpdateData.individualUpdates) {
+              await updatePayoutStatus(
+                [update.payoutId],
+                update.status,
+                update.config,
+                {
+                  bank_acc_id: update.bank_acc_id,
+                  utr_id: update.utr_id,
+                  approved_at: update.approved_at,
+                }
+              );
+            }
           }
         }
       }
@@ -446,20 +476,20 @@ export const createTataPayBulkPayout = async (
         const failedBulkUpdateData = {
           payoutIds: failedPayouts.map((p) => p.payoutId),
           status: Status.REJECTED,
-          bank_acc_id: company.config.TATA_PAY.defaultBankId,
+          bank_acc_id: defaultBankId,
           config: {
             method: Method.TATAPAY,
-            txnid: failedPayouts.map((p) => p.txnid),
           },
           // Map individual transaction data
           individualUpdates: failedPayouts.map((payout) => ({
             payoutId: payout.payoutId,
             status: Status.REJECTED,
-            bank_acc_id: payout.bank_acc_id,
+            bank_acc_id: defaultBankId,
             rejected_reason: payout.rejected_reason,
             rejected_at: new Date().toISOString(),
             config: {
               method: Method.TATAPAY,
+              txnid: null, // No transaction ID for failed payouts
             },
           })),
         };
@@ -474,12 +504,20 @@ export const createTataPayBulkPayout = async (
           
           // Also immediately update database as there's no active consumer
           if (updatePayoutStatus) {
-            await updatePayoutStatus(
-              failedBulkUpdateData.payoutIds,
-              Status.REJECTED,
-              failedBulkUpdateData.config,
-            );
-            logger.info('Failed payouts also updated directly in database');
+            // Update each payout individually to ensure proper field mapping
+            for (const update of failedBulkUpdateData.individualUpdates) {
+              await updatePayoutStatus(
+                [update.payoutId],
+                update.status,
+                update.config,
+                {
+                  bank_acc_id: update.bank_acc_id,
+                  rejected_reason: update.rejected_reason,
+                  rejected_at: update.rejected_at,
+                }
+              );
+            }
+            logger.info('Failed payouts updated directly in database');
           }
         } catch (mqError) {
           logger.error(
@@ -488,11 +526,19 @@ export const createTataPayBulkPayout = async (
           );
           // Fallback to direct database update
           if (updatePayoutStatus) {
-            await updatePayoutStatus(
-              failedBulkUpdateData.payoutIds,
-              Status.REJECTED,
-              failedBulkUpdateData.config,
-            );
+            // Update each payout individually to ensure proper field mapping
+            for (const update of failedBulkUpdateData.individualUpdates) {
+              await updatePayoutStatus(
+                [update.payoutId],
+                update.status,
+                update.config,
+                {
+                  bank_acc_id: update.bank_acc_id,
+                  rejected_reason: update.rejected_reason,
+                  rejected_at: update.rejected_at,
+                }
+              );
+            }
           }
         }
       }
