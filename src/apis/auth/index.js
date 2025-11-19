@@ -192,35 +192,201 @@ router.post('/refresh-token', tryCatchHandler(refreshTokenController));
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.get('/get-user-role', tryCatchHandler(getUserRoleController));
+router.get('/get-user-role', isAuthenticated, tryCatchHandler(getUserRoleController));
 
 /**
  * @swagger
- * /logout:
- *   get:
- *     summary: logout user
- *     description: Returns a status message to verify the user is authorized or not.
- *     tags:
- *       - logout user
+ * /auth/logout:
+ *   post:
+ *     summary: 🔒 Logout user
+ *     description: Logout authenticated user and invalidate session
+ *     tags: [Authentication]
+ *     security:
+ *       - xAuthToken: []
  *     responses:
  *       200:
- *         description: logout successfully.
+ *         description: Logout successful
  *         content:
  *           application/json:
  *             schema:
  *               type: object
  *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
  *                 message:
  *                   type: string
  *                   example: "logout successfully!"
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 router.post('/logout', isAuthenticated, tryCatchHandler(logoutController));
 
-router.post('/otp_verification',loginMiddleware, tryCatchHandler(verfyOtpController));
+/**
+ * @swagger
+ * /auth/otp_verification:
+ *   post:
+ *     summary: Verify OTP for authentication
+ *     description: Verify one-time password sent during authentication process
+ *     tags: [Authentication]
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - otp
+ *               - userId
+ *             properties:
+ *               otp:
+ *                 type: string
+ *                 description: 6-digit OTP received via SMS/Email
+ *                 example: "123456"
+ *               userId:
+ *                 type: string
+ *                 description: User identifier
+ *                 example: "user123"
+ *     responses:
+ *       200:
+ *         description: OTP verified successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Success'
+ *       400:
+ *         description: Invalid or expired OTP
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post('/otp_verification',geoLocationGuard, tryCatchHandler(verfyOtpController));
 
-router.post('/reset_password',loginMiddleware, tryCatchHandler(forgetPasswordController));
+/**
+ * @swagger
+ * /auth/reset_password:
+ *   post:
+ *     summary: Reset user password
+ *     description: Reset password using OTP verification
+ *     tags: [Authentication]
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - username
+ *               - newPassword
+ *               - otp
+ *             properties:
+ *               username:
+ *                 type: string
+ *                 description: Username or email
+ *                 example: "john_doe"
+ *               newPassword:
+ *                 type: string
+ *                 description: New password to set
+ *                 example: "newPassword123"
+ *                 format: password
+ *               otp:
+ *                 type: string
+ *                 description: OTP received for password reset
+ *                 example: "123456"
+ *     responses:
+ *       200:
+ *         description: Password reset successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Success'
+ *       400:
+ *         description: Invalid request data or expired OTP
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       404:
+ *         description: User not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post('/reset_password',geoLocationGuard, tryCatchHandler(forgetPasswordController));
 
-router.post('/user_verification',loginMiddleware, tryCatchHandler(verfyUserController));
+/**
+ * @swagger
+ * /auth/user_verification:
+ *   post:
+ *     summary: Verify user account for password reset
+ *     description: Verify user account existence and initiate password reset process
+ *     tags: [Authentication]
+ *     security: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - username
+ *             properties:
+ *               username:
+ *                 type: string
+ *                 description: Username or email to verify
+ *                 example: "john_doe"
+ *               email:
+ *                 type: string
+ *                 description: Email address for verification
+ *                 example: "john@example.com"
+ *                 format: email
+ *     responses:
+ *       200:
+ *         description: User verified successfully, OTP sent
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Success'
+ *       404:
+ *         description: User not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post('/user_verification',geoLocationGuard, tryCatchHandler(verfyUserController));
 
 /**
  * @swagger
