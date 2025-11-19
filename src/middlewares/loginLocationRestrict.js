@@ -76,12 +76,12 @@ const createGeoGuard = (options = {}) => {
         ));
       }
 
-      if (accuracy > maxAccuracy) {
-        console.log(accuracy, "accuracy", maxAccuracy, "max accuracy ++++");
-        return next( new BadRequestError(
-          `Location accuracy too low (${accuracy}m). Maximum allowed: ${maxAccuracy}m.`,
-        ));
-      }
+      // if (accuracy > maxAccuracy) {
+      //   console.log(accuracy, "accuracy", maxAccuracy, "max accuracy ++++");
+      //   return next( new BadRequestError(
+      //     `Location accuracy too low (${accuracy}m). Maximum allowed: ${maxAccuracy}m.`,
+      //   ));
+      // }
 
       const [proxyInfo, address] = await Promise.allSettled([
         withTimeout(checkProxyAndVpn(clientIp), 3000, 'Proxy/VPN check'),
