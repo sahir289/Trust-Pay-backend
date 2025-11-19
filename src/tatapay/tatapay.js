@@ -137,8 +137,8 @@ export const createTataPayPayout = async (
     }
 
     if (payload.txnStatus) {
+      checkTataPay = {...payload};
       delete payload.txnStatus;
-      checkTataPay = payload;
     } else {
       checkTataPay = await initiateTataPayPayout(
         singleWithdrawData,
@@ -232,7 +232,7 @@ export const createTataPayBulkPayout = async (
       try {
         // Create TataPay format for each entry (matching validation rules)
         const tataPayFormat = {
-          id: entry.id, // Unique ID for each payout row
+          id: entry.merchant_order_id, // Unique ID for each payout row
           beneficiaryCode: entry.user_bank_details.account_holder_name,
           beneficiaryName: entry.user_bank_details.account_holder_name,
           beneficiaryAddress: '123 Main St, Anytown',
@@ -256,7 +256,7 @@ export const createTataPayBulkPayout = async (
         }
 
         bulkPayoutData.push(tataPayFormat);
-        payoutIds.push(entry.id);
+        payoutIds.push(entry.merchant_order_id);
       } catch (entryError) {
         logger.error('Error processing entry:', entryError.message, entry);
         invalidEntries.push(entry);
@@ -348,7 +348,7 @@ export const createTataPayBulkPayout = async (
         bulkResponse.results.forEach((result) => {
           // Map based on the id field in the response to our payout entry id
           const matchedEntry = bulkPayoutData.find(
-            (entry) => entry.id === result.id,
+            (entry) => entry.merchant_order_id === result.id,
           );
 
           if (!matchedEntry) {
@@ -359,7 +359,7 @@ export const createTataPayBulkPayout = async (
             return;
           }
 
-          const payoutId = matchedEntry.id;
+          const payoutId = matchedEntry.merchant_order_id;
 
           if (result.success) {
             successfulPayouts.push({
