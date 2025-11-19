@@ -3,8 +3,57 @@ import { getRabbitChannel } from '../utils/rabbitmq.js';
 import config from '../config/config.js';
 import { createBankResponseService } from './bankResponse/bankResponseServices.js';
 
-
 const router = express.Router();
+
+/**
+ * @swagger
+ * tags:
+ *   name: Bank Response
+ *   description: Bank response processing endpoints
+ */
+
+/**
+ * @swagger
+ * /consume-bank-response/consume-bank-response:
+ *   post:
+ *     summary: Process bank responses from queue
+ *     description: Consumes and processes bank response messages from RabbitMQ queue.
+ *     tags: [Bank Response]
+ *     security:
+ *       - xAuthToken: []
+ *     responses:
+ *       200:
+ *         description: Bank responses processed successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Bank responses processed successfully"
+ *                 processedCount:
+ *                   type: number
+ *                   example: 5
+ *                 results:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       success:
+ *                         type: boolean
+ *                       result:
+ *                         type: object
+ *       500:
+ *         description: Error processing bank responses.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 
 router.post('/consume-bank-response', async (req, res) => {
   try {

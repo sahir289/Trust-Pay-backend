@@ -16,38 +16,69 @@ const router = express.Router();
  * @swagger
  * tags:
  *   name: Settlements
- *   description: API endpoints for managing settlements
+ *   description: API endpoints for managing financial settlements and transaction reconciliation
  */
 
 /**
  * @swagger
  * /settlement:
  *   get:
- *     summary: Get all settlements
- *     description: Returns a status message to verify if the settlement is authorized or not.
+ *     summary: Search settlements
+ *     description: Retrieves settlements based on search criteria with pagination and filtering
  *     tags: [Settlements]
+ *     security:
+ *       - xAuthToken: []
+ *     parameters:
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Search term for filtering settlements
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of items per page
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [pending, processing, completed, failed]
+ *         description: Filter by settlement status
+ *       - in: query
+ *         name: start_date
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Start date for filtering
+ *       - in: query
+ *         name: end_date
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: End date for filtering
  *     responses:
  *       200:
- *         description: Successfully retrieved settlements.
+ *         description: Settlements retrieved successfully
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "Get settlements successfully"
- *                 data:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       id:
- *                         type: integer
- *                         example: 1
- *                       settlementName:
- *                         type: string
- *                         example: "john_doe"
+ *               $ref: '#/components/schemas/Success'
+ *       401:
+ *         description: Unauthorized access
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Internal server error
  */
 router.get(
   '/',
@@ -55,11 +86,79 @@ router.get(
   tryCatchHandler(getSettlementsBySearch),
 );
 
+/**
+ * @swagger
+ * /settlement/settlementReports:
+ *   get:
+ *     summary: Get settlement reports
+ *     description: Retrieves comprehensive settlement reports and analytics
+ *     tags: [Settlements]
+ *     security:
+ *       - xAuthToken: []
+ *     parameters:
+ *       - in: query
+ *         name: report_type
+ *         schema:
+ *           type: string
+ *           enum: [daily, weekly, monthly, yearly]
+ *         description: Type of report to generate
+ *       - in: query
+ *         name: merchant_id
+ *         schema:
+ *           type: string
+ *         description: Filter by specific merchant
+ *     responses:
+ *       200:
+ *         description: Settlement reports retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Success'
+ *       401:
+ *         description: Unauthorized access
+ *       500:
+ *         description: Internal server error
+ */
 router.get(
   '/settlementReports',
   [isAuthenticated, authorized(AccessRoles.SETTLEMENT)],
   tryCatchHandler(getSettlementController),
 );
+
+/**
+ * @swagger
+ * /settlement/{id}:
+ *   get:
+ *     summary: Get settlement by ID
+ *     description: Retrieves detailed information about a specific settlement
+ *     tags: [Settlements]
+ *     security:
+ *       - xAuthToken: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the settlement to retrieve
+ *     responses:
+ *       200:
+ *         description: Settlement details retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Success'
+ *       401:
+ *         description: Unauthorized access
+ *       404:
+ *         description: Settlement not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Internal server error
+ */
 router.get(
   '/:id',
   [isAuthenticated, authorized(AccessRoles.SETTLEMENT)],
@@ -70,35 +169,67 @@ router.get(
  * /settlement/create-settlement:
  *   post:
  *     summary: Create a new settlement
- *     description: Creates a new settlement in the system.
+ *     description: Initiates a new settlement transaction for processing payments
  *     tags: [Settlements]
- *     parameters:
- *       - in: query
- *         name: Settlementname
- *         schema:
- *           type: string
- *         required: true
- *         description: The name of the settlement to create.
+ *     security:
+ *       - xAuthToken: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - merchant_id
+ *               - settlement_amount
+ *               - settlement_type
+ *             properties:
+ *               merchant_id:
+ *                 type: string
+ *                 description: ID of the merchant for settlement
+ *                 example: "merchant_123"
+ *               settlement_amount:
+ *                 type: number
+ *                 description: Amount to be settled
+ *                 example: 5000.50
+ *               settlement_type:
+ *                 type: string
+ *                 enum: [instant, scheduled, bulk]
+ *                 description: Type of settlement
+ *                 example: "scheduled"
+ *               settlement_date:
+ *                 type: string
+ *                 format: date
+ *                 description: Date for settlement processing
+ *               bank_details:
+ *                 type: object
+ *                 properties:
+ *                   account_number:
+ *                     type: string
+ *                   ifsc_code:
+ *                     type: string
+ *                   bank_name:
+ *                     type: string
+ *               notes:
+ *                 type: string
+ *                 description: Additional notes for the settlement
  *     responses:
- *       200:
- *         description: Settlement created successfully.
+ *       201:
+ *         description: Settlement created successfully
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "Settlement created successfully"
- *                 data:
- *                   type: object
- *                   properties:
- *                     id:
- *                       type: integer
- *                       example: 1
- *                     settlementName:
- *                       type: string
- *                       example: "john_doe"
+ *               $ref: '#/components/schemas/Success'
+ *       400:
+ *         description: Invalid request data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Unauthorized access
+ *       500:
+ *         description: Internal server error
  */
 router.post(
   '/create-settlement',
@@ -110,42 +241,70 @@ router.post(
  * @swagger
  * /settlement/update-settlement/{id}:
  *   put:
- *     summary: Update an existing settlement
- *     description: Updates an existing settlement by its ID.
+ *     summary: Update settlement details
+ *     description: Updates an existing settlement record with new information
  *     tags: [Settlements]
+ *     security:
+ *       - xAuthToken: []
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
- *         description: The ID of the settlement to update.
- *         schema:
- *           type: integer
- *       - in: query
- *         name: Settlementname
+ *         description: The ID of the settlement to update
  *         schema:
  *           type: string
- *         required: true
- *         description: The updated settlement name.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               settlement_amount:
+ *                 type: number
+ *                 description: Updated settlement amount
+ *               settlement_status:
+ *                 type: string
+ *                 enum: [pending, processing, completed, failed, cancelled]
+ *                 description: Updated settlement status
+ *               settlement_date:
+ *                 type: string
+ *                 format: date
+ *                 description: Updated settlement date
+ *               bank_details:
+ *                 type: object
+ *                 properties:
+ *                   account_number:
+ *                     type: string
+ *                   ifsc_code:
+ *                     type: string
+ *                   bank_name:
+ *                     type: string
+ *               notes:
+ *                 type: string
+ *                 description: Updated notes
+ *               failure_reason:
+ *                 type: string
+ *                 description: Reason for failure (if applicable)
  *     responses:
  *       200:
- *         description: Settlement updated successfully.
+ *         description: Settlement updated successfully
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "Settlement updated successfully"
- *                 data:
- *                   type: object
- *                   properties:
- *                     id:
- *                       type: integer
- *                       example: 1
- *                     settlementName:
- *                       type: string
- *                       example: "john_doe"
+ *               $ref: '#/components/schemas/Success'
+ *       400:
+ *         description: Invalid request data
+ *       401:
+ *         description: Unauthorized access
+ *       404:
+ *         description: Settlement not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Internal server error
  */
 router.put(
   '/update-settlement/:id',
@@ -157,36 +316,35 @@ router.put(
  * @swagger
  * /settlement/delete-settlement/{id}:
  *   delete:
- *     summary: Delete a settlement
- *     description: Deletes an existing settlement by ID.
+ *     summary: Delete settlement
+ *     description: Soft deletes a settlement record (marks as deleted while preserving audit trail)
  *     tags: [Settlements]
+ *     security:
+ *       - xAuthToken: []
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
- *         description: The ID of the settlement to delete.
+ *         description: The ID of the settlement to delete
  *         schema:
- *           type: integer
+ *           type: string
  *     responses:
  *       200:
- *         description: Settlement deleted successfully.
+ *         description: Settlement deleted successfully
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "Settlement deleted successfully"
- *                 data:
- *                   type: object
- *                   properties:
- *                     id:
- *                       type: integer
- *                       example: 1
- *                     settlementName:
- *                       type: string
- *                       example: "john_doe"
+ *               $ref: '#/components/schemas/Success'
+ *       401:
+ *         description: Unauthorized access
+ *       404:
+ *         description: Settlement not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Internal server error
  */
 router.delete(
   '/delete-settlement/:id',

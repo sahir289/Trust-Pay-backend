@@ -1,7 +1,7 @@
 // import { transactionWrapper } from '../../utils/db.js';
 import { Method } from '../../constants/index.js';
 import { NotFoundError } from '../../utils/appErrors.js';
-import { beginTransaction, getConnection, rollback } from '../../utils/db.js';
+import { beginTransaction, commit, getConnection, rollback } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import { getCompanyIdByMerchantOrderIdDao } from '../payOut/payOutDao.js';
@@ -34,7 +34,9 @@ export const clickrrWebhook = async (req, res) => {
 
     logger.info('Payout updated from Clickrr webhook:', payload);
     const clickrrResponse = await updatePayoutService(conn, ids, newPayload);
+    console.log(clickrrResponse, "++++++++++++")
     logger.info('Payout processed:', clickrrResponse);
+    await commit(conn);
   } catch (error) {
     logger.error('Clickrr webhook error:', error);
     // may be we don't need to add rollback here as transactionWrapper will handle it

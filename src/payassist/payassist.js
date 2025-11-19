@@ -150,8 +150,8 @@ export const createPayAssistPayout = async (
     }
 
     if (payload.txnStatus) {
+      checkPayAssist = { ...payload }; // Create a copy to avoid reference issues
       delete payload.txnStatus;
-      checkPayAssist = payload;
     } else {
       checkPayAssist = await initiatePayAssistPayout(
         singleWithdrawData,

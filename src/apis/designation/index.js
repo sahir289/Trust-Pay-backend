@@ -23,32 +23,42 @@ const router = express.Router();
  * /designation:
  *   get:
  *     summary: Get all designations
- *     description: Retrieves the list of all designations.
+ *     description: Retrieve a list of all designations with pagination support.
  *     tags: [Designation]
+ *     security:
+ *       - xAuthToken: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           example: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           example: 10
+ *         description: Number of designations per page
  *     responses:
  *       200:
- *         description: Successfully retrieved list of designations.
+ *         description: Designations retrieved successfully.
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "Designations retrieved successfully"
- *                 data:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       id:
- *                         type: string
- *                         example: "1"
- *                       name:
- *                         type: string
- *                         example: "Manager"
+ *               $ref: '#/components/schemas/Success'
+ *       401:
+ *         description: Unauthorized access.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  *       500:
  *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 router.get(
   '/',

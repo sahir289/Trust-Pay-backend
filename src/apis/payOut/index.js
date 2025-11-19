@@ -26,6 +26,13 @@ const router = express.Router();
 
 /**
  * @swagger
+ * tags:
+ *   name: Payout
+ *   description: API endpoints for managing payout transactions and wallet operations
+ */
+
+/**
+ * @swagger
  * /payout:
  *   get:
  *     summary: Retrieve all payouts
@@ -60,12 +67,87 @@ const router = express.Router();
 
 /**
  * @swagger
+ * /payout:
+ *   get:
+ *     summary: Search payouts
+ *     description: Retrieve payouts based on search criteria with pagination
+ *     tags:
+ *       - Payout
+ *     security:
+ *       - xAuthToken: []
+ *     parameters:
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Search term for filtering payouts
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of items per page
+ *     responses:
+ *       200:
+ *         description: Payouts retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Success'
+ *       401:
+ *         description: Unauthorized access
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.get(
+  '/',
+  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  tryCatchHandler(getPayoutsBySearch),
+);
+
+/**
+ * @swagger
+ * /payout/reports:
+ *   get:
+ *     summary: Get payout reports
+ *     description: Retrieves comprehensive payout reports and analytics
+ *     tags:
+ *       - Payout
+ *     security:
+ *       - xAuthToken: []
+ *     responses:
+ *       200:
+ *         description: Payout reports retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Success'
+ *       401:
+ *         description: Unauthorized access
+ */
+router.get(
+  '/reports',
+  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  tryCatchHandler(getPayouts),
+);
+/**
+ * @swagger
  * /payout/{id}:
  *   get:
  *     summary: Retrieve a specific payout by ID
  *     description: Retrieves the details of a specific payout by its ID.
  *     tags:
  *       - Payout
+ *     security:
+ *       - xAuthToken: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -79,29 +161,16 @@ const router = express.Router();
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 id:
- *                   type: string
- *                 name:
- *                   type: string
- *                 status:
- *                   type: string
+ *               $ref: '#/components/schemas/Success'
  *       404:
  *         description: Payout not found.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  *       401:
  *         description: Unauthorized access
  */
-router.get(
-  '/',
-  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
-  tryCatchHandler(getPayoutsBySearch),
-);
-router.get(
-  '/reports',
-  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
-  tryCatchHandler(getPayouts),
-);
 router.get(
   '/:id',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
@@ -113,7 +182,7 @@ router.get(
  * /payout/create-payout:
  *   post:
  *     summary: Create a new payout
- *     description: Adds a new payout to the system.
+ *     description: Adds a new payout to the system (public endpoint)
  *     tags:
  *       - Payout
  *     requestBody:
@@ -123,19 +192,34 @@ router.get(
  *           schema:
  *             type: object
  *             properties:
- *               name:
+ *               account_holder_name:
  *                 type: string
- *                 example: "Payout A"
- *               status:
+ *                 example: "John Doe"
+ *               account_number:
  *                 type: string
- *                 example: "active"
+ *                 example: "1234567890"
+ *               ifsc_code:
+ *                 type: string
+ *                 example: "HDFC0001234"
+ *               amount:
+ *                 type: number
+ *                 example: 1000
+ *               purpose:
+ *                 type: string
+ *                 example: "Payment for services"
  *     responses:
  *       201:
  *         description: Payout created successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Success'
  *       400:
  *         description: Invalid request data.
- *       401:
- *         description: Unauthorized access
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 router.post(
   '/create-payout',
@@ -143,6 +227,41 @@ router.post(
   tryCatchHandler(createPayout),
 );
 
+/**
+ * @swagger
+ * /payout/generate-payout:
+ *   post:
+ *     summary: Generate authenticated payout
+ *     description: Creates a new payout with authentication and authorization
+ *     tags:
+ *       - Payout
+ *     security:
+ *       - xAuthToken: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               account_holder_name:
+ *                 type: string
+ *               account_number:
+ *                 type: string
+ *               ifsc_code:
+ *                 type: string
+ *               amount:
+ *                 type: number
+ *               purpose:
+ *                 type: string
+ *     responses:
+ *       201:
+ *         description: Payout generated successfully
+ *       400:
+ *         description: Invalid request data
+ *       401:
+ *         description: Unauthorized access
+ */
 router.post(
   '/generate-payout',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
@@ -215,11 +334,50 @@ router.put(
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(updatePayout),
 );
+/**
+ * @swagger
+ * /payout/assign-vendor-payout/{id}:
+ *   put:
+ *     summary: Assign vendor to payout
+ *     description: Assigns a specific vendor to handle the payout transaction
+ *     tags:
+ *       - Payout
+ *     security:
+ *       - xAuthToken: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The ID of the payout to assign vendor to
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               vendor_id:
+ *                 type: string
+ *                 description: ID of the vendor to assign
+ *               priority:
+ *                 type: integer
+ *                 description: Priority level for the assignment
+ *     responses:
+ *       200:
+ *         description: Vendor assigned to payout successfully
+ *       401:
+ *         description: Unauthorized access
+ *       404:
+ *         description: Payout not found
+ */
 router.put(
   '/assign-vendor-payout/:id',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(assignedPayout),
 );
+
 /**
  * @swagger
  * /payout/delete-payout/{id}:
@@ -228,6 +386,8 @@ router.put(
  *     description: Soft deletes a payout by changing its status to inactive.
  *     tags:
  *       - Payout
+ *     security:
+ *       - xAuthToken: []
  *     parameters:
  *       - in: path
  *         name: id
@@ -238,8 +398,16 @@ router.put(
  *     responses:
  *       200:
  *         description: Payout deleted successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Success'
  *       404:
  *         description: Payout not found.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  *       401:
  *         description: Unauthorized access
  */
@@ -249,35 +417,196 @@ router.delete(
   tryCatchHandler(deletePayout),
 );
 
+/**
+ * @swagger
+ * /payout/payassist/wallets-balance:
+ *   get:
+ *     summary: Get PayAssist wallet balance
+ *     description: Retrieves the current balance of PayAssist wallets
+ *     tags:
+ *       - Payout
+ *     security:
+ *       - xAuthToken: []
+ *     responses:
+ *       200:
+ *         description: Wallet balance retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Success'
+ *       401:
+ *         description: Unauthorized access
+ *       500:
+ *         description: Service unavailable
+ */
 router.get(
   '/payassist/wallets-balance',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(getPayAssistWalletBalance),
 );
 
+/**
+ * @swagger
+ * /payout/tatapay/tatapay-balance:
+ *   get:
+ *     summary: Get TataPay wallet balance
+ *     description: Retrieves the current balance of TataPay wallets
+ *     tags:
+ *       - Payout
+ *     security:
+ *       - xAuthToken: []
+ *     responses:
+ *       200:
+ *         description: TataPay balance retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Success'
+ *       401:
+ *         description: Unauthorized access
+ *       500:
+ *         description: Service unavailable
+ */
 router.get(
   '/tatapay/tatapay-balance',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(getTataPayWalletBalance),
 );
 
+/**
+ * @swagger
+ * /payout/clickrr:
+ *   post:
+ *     summary: Initiate Clickrr payout
+ *     description: Initiates a payout transaction through the Clickrr payment gateway
+ *     tags:
+ *       - Payout
+ *     security:
+ *       - xAuthToken: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               account_number:
+ *                 type: string
+ *                 description: Beneficiary account number
+ *               ifsc_code:
+ *                 type: string
+ *                 description: Bank IFSC code
+ *               amount:
+ *                 type: number
+ *                 description: Payout amount
+ *               beneficiary_name:
+ *                 type: string
+ *                 description: Name of the beneficiary
+ *     responses:
+ *       200:
+ *         description: Clickrr payout initiated successfully
+ *       400:
+ *         description: Invalid request data
+ *       401:
+ *         description: Unauthorized access
+ */
 router.post(
   '/clickrr',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(initiateClickrrPayout),
 );
 
+/**
+ * @swagger
+ * /payout/clickrr/wallet-balance:
+ *   get:
+ *     summary: Get Clickrr wallet balance
+ *     description: Retrieves the current balance of Clickrr wallets
+ *     tags:
+ *       - Payout
+ *     security:
+ *       - xAuthToken: []
+ *     responses:
+ *       200:
+ *         description: Clickrr wallet balance retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Success'
+ *       401:
+ *         description: Unauthorized access
+ *       500:
+ *         description: Service unavailable
+ */
 router.get(
   '/clickrr/wallet-balance',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(getClickrrWalletBalance),
 );
 
+/**
+ * @swagger
+ * /payout/payassist-callback:
+ *   post:
+ *     summary: PayAssist transaction callback
+ *     description: Webhook endpoint for receiving PayAssist transaction status updates
+ *     tags:
+ *       - Payout
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               transaction_id:
+ *                 type: string
+ *               status:
+ *                 type: string
+ *               amount:
+ *                 type: number
+ *               reference_id:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Callback processed successfully
+ *       400:
+ *         description: Invalid callback data
+ */
 router.post(
   '/payassist-callback',
   tryCatchHandler(payAssistTransactionStatusCallback),
 );
 
+/**
+ * @swagger
+ * /payout/tatapay-callback:
+ *   post:
+ *     summary: TataPay transaction callback
+ *     description: Webhook endpoint for receiving TataPay transaction status updates
+ *     tags:
+ *       - Payout
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               transaction_id:
+ *                 type: string
+ *               status:
+ *                 type: string
+ *               amount:
+ *                 type: number
+ *               reference_id:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Callback processed successfully
+ *       400:
+ *         description: Invalid callback data
+ */
 router.post(
   '/tatapay-callback',
   tryCatchHandler(tataPayTransactionStatusCallback),

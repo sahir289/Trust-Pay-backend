@@ -33,8 +33,40 @@ import getUserLocationMiddleware from '../../middlewares/locationRestrict.js';
 
 const router = express.Router();
 
+/**
+ * @swagger
+ * tags:
+ *   name: PayIn
+ *   description: API endpoints for managing pay-in transactions and payment processing
+ */
+
 // Public API's
 
+/**
+ * @swagger
+ * /payin/generate-hash:
+ *   get:
+ *     summary: Generate hash for Pay-In
+ *     description: Generates a secure hash for pay-in transaction authentication
+ *     tags: [PayIn]
+ *     security:
+ *       - xAuthToken: []
+ *     responses:
+ *       200:
+ *         description: Hash generated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Success'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Internal server error
+ */
 router.get(
   '/generate-hash',
   isAuthenticated,
@@ -257,6 +289,35 @@ router.post(
 );
 
 // Telegram API's
+
+/**
+ * @swagger
+ * /payin/telegram-ocr:
+ *   post:
+ *     summary: Process OCR via Telegram
+ *     description: Processes optical character recognition for payment documents via Telegram
+ *     tags: [PayIn]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               image_data:
+ *                 type: string
+ *                 description: Base64 encoded image data
+ *               document_type:
+ *                 type: string
+ *                 description: Type of document to process
+ *     responses:
+ *       200:
+ *         description: OCR processing completed successfully
+ *       400:
+ *         description: Invalid image data or format
+ *       500:
+ *         description: Internal server error
+ */
 router.post('/telegram-ocr', tryCatchHandler(telegramOCR));
 
 /**
@@ -279,6 +340,42 @@ router.post('/telegram-ocr', tryCatchHandler(telegramOCR));
 // router.use(isAuthenticated);
 // router.use(authorized(AccessRoles.PAYIN));
 
+/**
+ * @swagger
+ * /payin/telegram-check-utr:
+ *   post:
+ *     summary: Check UTR via Telegram
+ *     description: Validates Unique Transaction Reference (UTR) numbers via Telegram integration
+ *     tags: [PayIn]
+ *     security:
+ *       - xAuthToken: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               utr_number:
+ *                 type: string
+ *                 description: UTR number to validate
+ *               transaction_amount:
+ *                 type: number
+ *                 description: Expected transaction amount
+ *     responses:
+ *       200:
+ *         description: UTR validation completed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Success'
+ *       400:
+ *         description: Invalid UTR format
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: UTR not found
+ */
 router.post(
   '/telegram-check-utr',
   isAuthenticated,
@@ -383,6 +480,30 @@ router.put(
   tryCatchHandler(disputeDuplicateTransaction),
 );
 
+/**
+ * @swagger
+ * /payin/processIMGUTR/{merchantOrderId}:
+ *   post:
+ *     summary: Process payment using image UTR
+ *     description: Processes payment by analyzing UTR from uploaded image
+ *     tags: [PayIn]
+ *     security:
+ *       - xAuthToken: []
+ *     parameters:
+ *       - in: path
+ *         name: merchantOrderId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Merchant order ID for the transaction
+ *     responses:
+ *       200:
+ *         description: Image UTR processed successfully
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Order not found
+ */
 router.post(
   '/processIMGUTR/:merchantOrderId',
   isAuthenticated,
@@ -390,6 +511,40 @@ router.post(
   tryCatchHandler(processPayInIMGUTR),
 );
 
+/**
+ * @swagger
+ * /payin/updateFailedPayinUtr/{id}:
+ *   put:
+ *     summary: Update failed pay-in UTR
+ *     description: Updates UTR for failed pay-in transactions
+ *     tags: [PayIn]
+ *     security:
+ *       - xAuthToken: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Pay-in transaction ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               utr_number:
+ *                 type: string
+ *                 description: Correct UTR number
+ *     responses:
+ *       200:
+ *         description: UTR updated successfully
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Transaction not found
+ */
 router.put(
   '/updateFailedPayinUtr/:id',
   isAuthenticated,
@@ -397,6 +552,25 @@ router.put(
   tryCatchHandler(updateUtrPayins),
 );
 
+/**
+ * @swagger
+ * /payin/checkPendingPayinStatus:
+ *   get:
+ *     summary: Check pending pay-in status
+ *     description: Retrieves status of all pending pay-in transactions
+ *     tags: [PayIn]
+ *     security:
+ *       - xAuthToken: []
+ *     responses:
+ *       200:
+ *         description: Pending pay-in statuses retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Success'
+ *       401:
+ *         description: Unauthorized
+ */
 router.get(
   '/checkPendingPayinStatus',
   isAuthenticated,
@@ -404,12 +578,65 @@ router.get(
   tryCatchHandler(checkPendingPayinStatus),
 );
 
+/**
+ * @swagger
+ * /payin:
+ *   get:
+ *     summary: Search pay-ins
+ *     description: Retrieves pay-in transactions based on search criteria
+ *     tags: [PayIn]
+ *     security:
+ *       - xAuthToken: []
+ *     parameters:
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Search term
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Items per page
+ *     responses:
+ *       200:
+ *         description: Pay-ins retrieved successfully
+ *       401:
+ *         description: Unauthorized
+ */
 router.get(
   '/',
   isAuthenticated,
   authorized(AccessRoles.PAYIN),
   tryCatchHandler(getPayinsBySearch),
 );
+
+/**
+ * @swagger
+ * /payin/getPayinSummary:
+ *   get:
+ *     summary: Get pay-in summary
+ *     description: Retrieves summary statistics for pay-in transactions
+ *     tags: [PayIn]
+ *     security:
+ *       - xAuthToken: []
+ *     responses:
+ *       200:
+ *         description: Pay-in summary retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Success'
+ *       401:
+ *         description: Unauthorized
+ */
 router.get(
   '/getPayinSummary',
   isAuthenticated,
@@ -417,6 +644,43 @@ router.get(
   tryCatchHandler(getPayinsSummary),
 );
 
+/**
+ * @swagger
+ * /payin/updatePayin/{merchant_order_id}:
+ *   put:
+ *     summary: Update pay-in transaction
+ *     description: Updates an existing pay-in transaction
+ *     tags: [PayIn]
+ *     security:
+ *       - xAuthToken: []
+ *     parameters:
+ *       - in: path
+ *         name: merchant_order_id
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Merchant order ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 description: Updated transaction status
+ *               amount:
+ *                 type: number
+ *                 description: Updated amount
+ *     responses:
+ *       200:
+ *         description: Pay-in updated successfully
+ *       401:
+ *         description: Unauthorized
+ *       404:
+ *         description: Transaction not found
+ */
 router.put(
   '/updatePayin/:merchant_order_id',
   isAuthenticated,

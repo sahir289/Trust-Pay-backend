@@ -13,6 +13,44 @@ import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
 const router = express.Router();
 
+/**
+ * @swagger
+ * /calculation/success_ratio:
+ *   post:
+ *     summary: Calculate success ratios
+ *     description: Calculate and update success ratios for merchants and vendors.
+ *     tags: [Calculations]
+ *     security:
+ *       - xAuthToken: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               dateFrom:
+ *                 type: string
+ *                 format: date
+ *                 example: "2023-01-01"
+ *               dateTo:
+ *                 type: string
+ *                 format: date
+ *                 example: "2023-12-31"
+ *     responses:
+ *       200:
+ *         description: Success ratios calculated successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Success'
+ *       400:
+ *         description: Invalid request data.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 router.post('/success_ratio', tryCatchHandler(calculateSuccessRatios));
 
 /**

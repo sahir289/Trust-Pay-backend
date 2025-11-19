@@ -284,6 +284,47 @@ router.delete(
   tryCatchHandler(deleteBankaccount),
 );
 
+/**
+ * @swagger
+ * /bankDetails/active-inactive-bankAccount:
+ *   patch:
+ *     summary: Toggle bank account active/inactive status
+ *     description: Activate or deactivate a bank account.
+ *     tags: [Bank Accounts]
+ *     security:
+ *       - xAuthToken: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - id
+ *               - is_active
+ *             properties:
+ *               id:
+ *                 type: integer
+ *                 example: 1
+ *                 description: The ID of the bank account
+ *               is_active:
+ *                 type: boolean
+ *                 example: true
+ *                 description: Active status for the bank account
+ *     responses:
+ *       200:
+ *         description: Bank account status updated successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Success'
+ *       404:
+ *         description: Bank account not found.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 router.patch(
   '/active-inactive-bankAccount',
   tryCatchHandler(activeInactiveBankAccount),

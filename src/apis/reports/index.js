@@ -11,39 +11,59 @@ import {
  * @swagger
  * tags:
  *   name: Reports
- *   description: API endpoints related to payout and vendor reports
+ *   description: API endpoints for generating comprehensive transaction and account reports
  */
 
 const router = express.Router();
 
 /**
  * @swagger
- * /reports/get-all-payouts:
+ * /reports/get-payouts-report:
  *   get:
- *     summary: Get all payout transactions
- *     description: Fetches all payout data from the system.
+ *     summary: Get payout transactions report
+ *     description: Fetches comprehensive payout transaction reports with filtering and analytics
  *     tags: [Reports]
+ *     security:
+ *       - xAuthToken: []
+ *     parameters:
+ *       - in: query
+ *         name: start_date
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Start date for report filtering
+ *       - in: query
+ *         name: end_date
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: End date for report filtering
+ *       - in: query
+ *         name: vendor_id
+ *         schema:
+ *           type: string
+ *         description: Filter by specific vendor
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [pending, completed, failed]
+ *         description: Filter by transaction status
  *     responses:
  *       200:
- *         description: List of all payouts.
+ *         description: Payout report generated successfully
  *         content:
  *           application/json:
  *             schema:
- *               type: array
- *               items:
- *                 type: object
- *                 properties:
- *                   id:
- *                     type: integer
- *                     example: 123
- *                   vendorCode:
- *                     type: string
- *                     example: "ABC123"
- *                   amount:
- *                     type: number
- *                     example: 5000.50
+ *               $ref: '#/components/schemas/Success'
+ *       401:
+ *         description: Unauthorized access
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  *       500:
- *         description: Server error
+ *         description: Internal server error
  */
 router.get(
   '/get-payouts-report',
@@ -53,29 +73,48 @@ router.get(
 
 /**
  * @swagger
- * /reports/get-all-payins:
+ * /reports/get-payins-reports:
  *   get:
- *     summary: Get all pay-in transactions
- *     description: Fetches all pay-in data from the system.
+ *     summary: Get pay-in transactions report
+ *     description: Fetches comprehensive pay-in transaction reports with analytics and filtering
  *     tags: [Reports]
+ *     security:
+ *       - xAuthToken: []
+ *     parameters:
+ *       - in: query
+ *         name: start_date
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Start date for report filtering
+ *       - in: query
+ *         name: end_date
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: End date for report filtering
+ *       - in: query
+ *         name: merchant_id
+ *         schema:
+ *           type: string
+ *         description: Filter by specific merchant
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [pending, completed, failed]
+ *         description: Filter by transaction status
  *     responses:
  *       200:
- *         description: List of all pay-ins.
+ *         description: Pay-in report generated successfully
  *         content:
  *           application/json:
  *             schema:
- *               type: array
- *               items:
- *                 type: object
- *                 properties:
- *                   id:
- *                     type: integer
- *                     example: 456
- *                   amount:
- *                     type: number
- *                     example: 1000.00
+ *               $ref: '#/components/schemas/Success'
+ *       401:
+ *         description: Unauthorized access
  *       500:
- *         description: Server error
+ *         description: Internal server error
  */
 router.get(
   '/get-payins-reports',
@@ -85,29 +124,42 @@ router.get(
 
 /**
  * @swagger
- * /reports/get-all-merchants:
+ * /reports/get-accounts-reports:
  *   get:
- *     summary: Get all merchants
- *     description: Fetches a list of all merchants.
+ *     summary: Get client account reports
+ *     description: Fetches comprehensive account reports for all clients with balance and transaction summaries
  *     tags: [Reports]
+ *     security:
+ *       - xAuthToken: []
+ *     parameters:
+ *       - in: query
+ *         name: account_type
+ *         schema:
+ *           type: string
+ *           enum: [merchant, vendor, admin]
+ *         description: Filter by account type
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [active, inactive, suspended]
+ *         description: Filter by account status
+ *       - in: query
+ *         name: date_range
+ *         schema:
+ *           type: string
+ *         description: Date range for account activity
  *     responses:
  *       200:
- *         description: List of all merchants.
+ *         description: Account reports generated successfully
  *         content:
  *           application/json:
  *             schema:
- *               type: array
- *               items:
- *                 type: object
- *                 properties:
- *                   id:
- *                     type: integer
- *                     example: 789
- *                   name:
- *                     type: string
- *                     example: "Merchant A"
+ *               $ref: '#/components/schemas/Success'
+ *       401:
+ *         description: Unauthorized access
  *       500:
- *         description: Server error
+ *         description: Internal server error
  */
 router.get(
   '/get-accounts-reports',

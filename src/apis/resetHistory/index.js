@@ -14,38 +14,67 @@ const router = express.Router();
 
 /**
  * @swagger
- * /ResetHistory:
+ * tags:
+ *   name: Reset History
+ *   description: API endpoints for managing system reset history and data recovery operations
+ */
+
+/**
+ * @swagger
+ * /resetHistory:
  *   get:
- *     summary: Get ResetHistory by ID
- *     description: Retrieves details of a specific ResetHistory by its ID.
+ *     summary: Search reset history records
+ *     description: Retrieves reset history records based on search criteria with pagination
  *     tags:
- *       - ResetHistory
+ *       - Reset History
+ *     security:
+ *       - xAuthToken: []
  *     parameters:
- *       - in: path
- *         name: id
- *         required: true
+ *       - in: query
+ *         name: search
  *         schema:
  *           type: string
- *         description: The ID of the ResetHistory to retrieve.
+ *         description: Search term for filtering records
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of items per page
+ *       - in: query
+ *         name: start_date
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: Start date for filtering
+ *       - in: query
+ *         name: end_date
+ *         schema:
+ *           type: string
+ *           format: date
+ *         description: End date for filtering
  *     responses:
  *       200:
- *         description: ResetHistory details retrieved successfully.
+ *         description: Reset history records retrieved successfully
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "ResetHistory retrieved successfully"
- *                 data:
- *                   type: object
+ *               $ref: '#/components/schemas/Success'
+ *       401:
+ *         description: Unauthorized access
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Internal server error
  */
-// router.get(
-//   '/',
-//   [isAuthenticated, authorized(AccessRoles.RESET_DATA_HISTORY)],
-//   tryCatchHandler(getResetHistory),
-// );
 router.get(
   '/',
   [isAuthenticated, authorized(AccessRoles.RESET_DATA_HISTORY)],
@@ -53,57 +82,82 @@ router.get(
 );
 /**
  * @swagger
- * /ResetHistory/create-ResetHistory:
+ * /resetHistory/create-reset-history:
  *   post:
- *     summary: Create a new ResetHistory
- *     description: Creates a new ResetHistory with the provided details.
+ *     summary: Create a new reset history record
+ *     description: Creates a new reset history record for tracking system reset operations
  *     tags:
- *       - ResetHistory
+ *       - Reset History
+ *     security:
+ *       - xAuthToken: []
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
+ *             required:
+ *               - operation_type
+ *               - description
  *             properties:
- *               ResetHistoryName:
+ *               operation_type:
  *                 type: string
- *                 example: "Tech Solutions Ltd."
+ *                 enum: [data_reset, system_reset, partial_reset, full_reset]
+ *                 description: Type of reset operation
+ *                 example: "data_reset"
+ *               description:
+ *                 type: string
+ *                 description: Detailed description of the reset operation
+ *                 example: "Reset user transaction data for maintenance"
+ *               affected_module:
+ *                 type: string
+ *                 description: Module or system component affected by the reset
+ *                 example: "user_transactions"
+ *               reason:
+ *                 type: string
+ *                 description: Reason for performing the reset
+ *                 example: "Data corruption detected"
  *     responses:
  *       201:
- *         description: ResetHistory created successfully.
+ *         description: Reset history record created successfully
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "ResetHistory created successfully"
- *                 data:
- *                   type: object
+ *               $ref: '#/components/schemas/Success'
+ *       400:
+ *         description: Invalid request data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Unauthorized access
+ *       500:
+ *         description: Internal server error
  */
 router.post(
-  '/create-ResetHistory',
+  '/create-reset-history',
   [isAuthenticated, authorized(AccessRoles.RESET_DATA_HISTORY)],
   tryCatchHandler(createResetHistory),
 );
 
 /**
  * @swagger
- * /ResetHistory/update-ResetHistory/{id}:
- *   put:
- *     summary: Update an existing ResetHistory
- *     description: Updates the details of a specific ResetHistory by ID.
+ * /resetHistory/update-reset-history/{id}:
+ *   post:
+ *     summary: Update reset history record
+ *     description: Updates an existing reset history record with new information
  *     tags:
- *       - ResetHistory
+ *       - Reset History
+ *     security:
+ *       - xAuthToken: []
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
  *         schema:
  *           type: string
- *         description: The ID of the ResetHistory to update.
+ *         description: The ID of the reset history record to update
  *     requestBody:
  *       required: true
  *       content:
@@ -111,40 +165,75 @@ router.post(
  *           schema:
  *             type: object
  *             properties:
- *               ResetHistoryName:
+ *               operation_type:
  *                 type: string
- *                 example: "Updated ResetHistory Name"
+ *                 enum: [data_reset, system_reset, partial_reset, full_reset]
+ *                 description: Updated operation type
+ *               description:
+ *                 type: string
+ *                 description: Updated description
+ *               status:
+ *                 type: string
+ *                 enum: [pending, in_progress, completed, failed]
+ *                 description: Current status of the reset operation
+ *               completion_notes:
+ *                 type: string
+ *                 description: Notes about the completion or failure
  *     responses:
  *       200:
- *         description: ResetHistory updated successfully.
+ *         description: Reset history record updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Success'
+ *       400:
+ *         description: Invalid request data
+ *       401:
+ *         description: Unauthorized access
+ *       404:
+ *         description: Reset history record not found
+ *       500:
+ *         description: Internal server error
  */
 router.post(
-  '/update-ResetHistory/:id',
+  '/update-reset-history/:id',
   [isAuthenticated, authorized(AccessRoles.RESET_DATA_HISTORY)],
   tryCatchHandler(updateResetHistory),
 );
 
 /**
  * @swagger
- * /ResetHistory/delete-ResetHistory/{id}:
+ * /resetHistory/delete-reset-history/{id}:
  *   delete:
- *     summary: Delete a ResetHistory
- *     description: Deletes a ResetHistory by ID.
+ *     summary: Delete reset history record
+ *     description: Deletes a reset history record by ID (soft delete to maintain audit trail)
  *     tags:
- *       - ResetHistory
+ *       - Reset History
+ *     security:
+ *       - xAuthToken: []
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
  *         schema:
  *           type: string
- *         description: The ID of the ResetHistory to delete.
+ *         description: The ID of the reset history record to delete
  *     responses:
  *       200:
- *         description: ResetHistory deleted successfully.
+ *         description: Reset history record deleted successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Success'
+ *       401:
+ *         description: Unauthorized access
+ *       404:
+ *         description: Reset history record not found
+ *       500:
+ *         description: Internal server error
  */
 router.delete(
-  '/delete-ResetHistory/:id',
+  '/delete-reset-history/:id',
   [isAuthenticated, authorized(AccessRoles.RESET_DATA_HISTORY)],
   tryCatchHandler(deleteResetHistory),
 );

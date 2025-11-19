@@ -16,33 +16,51 @@ const router = express.Router();
  * @swagger
  * tags:
  *   name: User Hierarchy
- *   description: API endpoints for managing user hierarchies
+ *   description: API endpoints for managing user hierarchies and organizational structures
  */
 
 /**
  * @swagger
  * /userHierarchy:
  *   get:
- *     summary: Retrieve all userHierarchys
- *     description: Returns a list of all userHierarchys.
+ *     summary: Retrieve all user hierarchies
+ *     description: Returns a list of all user hierarchy configurations in the system
  *     tags: [User Hierarchy]
+ *     security:
+ *       - xAuthToken: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of items per page
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Search term for filtering hierarchies
  *     responses:
  *       200:
- *         description: A list of userHierarchys.
+ *         description: User hierarchies retrieved successfully
  *         content:
  *           application/json:
  *             schema:
- *               type: array
- *               items:
- *                 type: object
- *                 properties:
- *                   id:
- *                     type: string
- *                   name:
- *                     type: string
- *                   status:
- *                     type: string
- *                     example: "active"
+ *               $ref: '#/components/schemas/Success'
+ *       401:
+ *         description: Unauthorized access
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Internal server error
  */
 router.get(
   '/',
@@ -54,33 +72,35 @@ router.get(
  * @swagger
  * /userHierarchy/{id}:
  *   get:
- *     summary: Retrieve a specific userHierarchy by ID
- *     description: Returns the details of a userHierarchy based on the provided ID.
+ *     summary: Retrieve a specific user hierarchy by ID
+ *     description: Returns the details of a user hierarchy configuration based on the provided ID
  *     tags: [User Hierarchy]
+ *     security:
+ *       - xAuthToken: []
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
- *         description: The ID of the user hierarchy to retrieve.
+ *         description: The ID of the user hierarchy to retrieve
  *         schema:
  *           type: string
  *     responses:
  *       200:
- *         description: A userHierarchy object.
+ *         description: User hierarchy details retrieved successfully
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 id:
- *                   type: string
- *                 name:
- *                   type: string
- *                 status:
- *                   type: string
- *                   example: "active"
+ *               $ref: '#/components/schemas/Success'
+ *       401:
+ *         description: Unauthorized access
  *       404:
- *         description: UserHierarchy not found.
+ *         description: User hierarchy not found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Internal server error
  */
 router.get(
   '/:id',
@@ -92,27 +112,58 @@ router.get(
  * @swagger
  * /userHierarchy/create-userHierarchy:
  *   post:
- *     summary: Create a new userHierarchy
- *     description: Adds a new userHierarchy to the system.
+ *     summary: Create a new user hierarchy
+ *     description: Creates a new user hierarchy configuration in the system
  *     tags: [User Hierarchy]
+ *     security:
+ *       - xAuthToken: []
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
+ *             required:
+ *               - hierarchy_name
+ *               - parent_id
  *             properties:
- *               name:
+ *               hierarchy_name:
  *                 type: string
- *                 example: "UserHierarchy A"
- *               status:
+ *                 description: Name of the hierarchy level
+ *                 example: "Regional Manager"
+ *               parent_id:
  *                 type: string
- *                 example: "active"
+ *                 description: ID of the parent hierarchy level (null for root level)
+ *                 example: "parent_hierarchy_123"
+ *               level:
+ *                 type: integer
+ *                 description: Hierarchy level number
+ *                 example: 2
+ *               permissions:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 description: List of permissions for this hierarchy level
+ *               config:
+ *                 type: object
+ *                 description: Additional configuration settings
  *     responses:
  *       201:
- *         description: UserHierarchy created successfully.
+ *         description: User hierarchy created successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Success'
  *       400:
- *         description: Invalid request data.
+ *         description: Invalid request data
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Unauthorized access
+ *       500:
+ *         description: Internal server error
  */
 router.post(
   '/create-userHierarchy',

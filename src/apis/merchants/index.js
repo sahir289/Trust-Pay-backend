@@ -53,6 +53,66 @@ router.get(
   tryCatchHandler(getMerchantsBySearch),
 );
 
+/**
+ * @swagger
+ * /merchants/get-merchant-by-code:
+ *   get:
+ *     summary: Get merchant by code
+ *     description: Retrieve a merchant by their unique merchant code.
+ *     tags: [Merchants]
+ *     security:
+ *       - xAuthToken: []
+ *     parameters:
+ *       - in: query
+ *         name: code
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The unique merchant code
+ *     responses:
+ *       200:
+ *         description: Merchant retrieved successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Success'
+ *       404:
+ *         description: Merchant not found.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+/**
+ * @swagger
+ * /merchants/get-merchant-by-code:
+ *   get:
+ *     summary: Get merchant by code
+ *     description: Retrieve a merchant by their unique merchant code.
+ *     tags: [Merchants]
+ *     security:
+ *       - xAuthToken: []
+ *     parameters:
+ *       - in: query
+ *         name: code
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: The unique merchant code
+ *     responses:
+ *       200:
+ *         description: Merchant retrieved successfully.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Success'
+ *       404:
+ *         description: Merchant not found.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
 router.get(
   '/get-merchant-by-code',
   [isAuthenticated, authorized(AccessRoles.MERCHANT)],

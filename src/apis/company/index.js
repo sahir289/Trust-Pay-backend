@@ -24,32 +24,42 @@ const router = express.Router();
  * /company:
  *   get:
  *     summary: Get all companies
- *     description: Retrieves the list of all companies.
+ *     description: Retrieve a list of all companies with pagination support.
  *     tags: [Company]
+ *     security:
+ *       - xAuthToken: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           example: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           example: 10
+ *         description: Number of companies per page
  *     responses:
  *       200:
- *         description: List of companies retrieved successfully.
+ *         description: Companies retrieved successfully.
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "Companies retrieved successfully"
- *                 data:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       id:
- *                         type: integer
- *                         example: 1
- *                       companyName:
- *                         type: string
- *                         example: "Tech Solutions Ltd."
+ *               $ref: '#/components/schemas/Success'
+ *       401:
+ *         description: Unauthorized access.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  *       500:
  *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 router.get(
   '/',
@@ -109,40 +119,68 @@ router.get(
  *     summary: Create a new company
  *     description: Creates a new company with the provided details.
  *     tags: [Company]
+ *     security:
+ *       - xAuthToken: []
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
+ *             required:
+ *               - companyName
  *             properties:
  *               companyName:
  *                 type: string
+ *                 description: Name of the company
  *                 example: "Tech Solutions Ltd."
+ *               email:
+ *                 type: string
+ *                 format: email
+ *                 description: Company contact email
+ *                 example: "contact@techsolutions.com"
+ *               phone:
+ *                 type: string
+ *                 description: Company phone number
+ *                 example: "+91-9876543210"
+ *               address:
+ *                 type: string
+ *                 description: Company address
+ *                 example: "123 Business Park, Mumbai, Maharashtra, India"
+ *               website:
+ *                 type: string
+ *                 format: uri
+ *                 description: Company website URL
+ *                 example: "https://techsolutions.com"
+ *               business_type:
+ *                 type: string
+ *                 description: Type of business
+ *                 example: "Technology Services"
  *     responses:
  *       201:
  *         description: Company created successfully.
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: "Company created successfully"
- *                 data:
- *                   type: object
- *                   properties:
- *                     id:
- *                       type: integer
- *                       example: 1
- *                     companyName:
- *                       type: string
- *                       example: "Tech Solutions Ltd."
+ *               $ref: '#/components/schemas/Success'
  *       400:
  *         description: Bad request (validation error)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       401:
+ *         description: Unauthorized access
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  *       500:
  *         description: Internal server error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
  */
 router.post('/create-company', tryCatchHandler(createCompany));
 

@@ -22,9 +22,34 @@ const router = express.Router();
  * @swagger
  * tags:
  *   name: BankResponse
- *   description: Api endpoints for managing bankResponse
+ *   description: API endpoints for managing bank response messages and bot communications
  */
 
+/**
+ * @swagger
+ * /bankResponse/claim:
+ *   get:
+ *     summary: Get claim response
+ *     description: Retrieves claim response data for bank transactions
+ *     tags: [BankResponse]
+ *     security:
+ *       - xAuthToken: []
+ *     responses:
+ *       200:
+ *         description: Claim response retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Success'
+ *       401:
+ *         description: Unauthorized
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ *       500:
+ *         description: Internal server error
+ */
 router.get(
   '/claim',
   [isAuthenticated, authorized(AccessRoles.BANK_RESPONSE)],
@@ -33,51 +58,99 @@ router.get(
 
 /**
  * @swagger
- * /bankResponse:
- *   get:
- *     summary: Get all bankResponse
+ * /bankResponse/create-bot-message:
+ *   post:
+ *     summary: Create bot message
+ *     description: Creates a new bot message for bank response processing
  *     tags: [BankResponse]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               message:
+ *                 type: string
+ *                 description: Bot message content
+ *               reference_id:
+ *                 type: string
+ *                 description: Reference ID for the message
  *     responses:
- *       200:
- *         description: A list of bankResponse
- *       500:
- *         description: Internal server error
+ *       201:
+ *         description: Bot message created successfully
+ *       400:
+ *         description: Invalid request data
+ *       429:
+ *         description: Rate limit exceeded
  */
 router.post('/create-bot-message', rateLimitMiddlewareBot, tryCatchHandler(createBankBotResponse));
 
-
 /**
  * @swagger
- * /bankResponse:
- *   get:
- *     summary: Get all bankResponse
+ * /bankResponse/create-bot-message-bulk:
+ *   post:
+ *     summary: Create bulk bot messages
+ *     description: Creates multiple bot messages in a single request
  *     tags: [BankResponse]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               messages:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     message:
+ *                       type: string
+ *                     reference_id:
+ *                       type: string
  *     responses:
- *       200:
- *         description: A list of bankResponse
- *       500:
- *         description: Internal server error
+ *       201:
+ *         description: Bulk bot messages created successfully
+ *       400:
+ *         description: Invalid request data
  */
 router.post('/create-bot-message-bulk', tryCatchHandler(createBankBotResponseBulk));
 
 /**
  * @swagger
- * tags:
- *   name: BankResponse
- *   description: Api endpoints for managing bankResponse
- */
-
-/**
- * @swagger
- * /bankResponse:
- *   get:
- *     summary: Get all bankResponse
+ * /bankResponse/create-message:
+ *   post:
+ *     summary: Create bank response message
+ *     description: Creates a new bank response message with authentication and rate limiting
  *     tags: [BankResponse]
+ *     security:
+ *       - xAuthToken: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               message:
+ *                 type: string
+ *                 description: Bank response message content
+ *               transaction_id:
+ *                 type: string
+ *                 description: Associated transaction ID
+ *               bank_reference:
+ *                 type: string
+ *                 description: Bank reference number
  *     responses:
- *       200:
- *         description: A list of bankResponse
- *       500:
- *         description: Internal server error
+ *       201:
+ *         description: Bank response message created successfully
+ *       400:
+ *         description: Invalid request data
+ *       401:
+ *         description: Unauthorized
+ *       429:
+ *         description: Rate limit exceeded
  */
 router.post(
   '/create-message',
@@ -87,28 +160,42 @@ router.post(
 
 /**
  * @swagger
- * /bankResponse/create-complaint:
- *   post:
- *     summary: Create a new complaint
+ * /bankResponse:
+ *   get:
+ *     summary: Search bank responses
+ *     description: Retrieves bank responses based on search criteria
  *     tags: [BankResponse]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               complaint_type:
- *                 type: string
- *               description:
- *                 type: string
- *               user_id:
- *                 type: integer
+ *     security:
+ *       - xAuthToken: []
+ *     parameters:
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Search term for filtering responses
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *         description: Page number for pagination
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 10
+ *         description: Number of items per page
  *     responses:
- *       201:
- *         description: Complaint created successfully
- *       400:
- *         description: Bad request
+ *       200:
+ *         description: Bank responses retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Success'
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Internal server error
  */
 router.get(
   '/',
@@ -116,42 +203,60 @@ router.get(
   tryCatchHandler(getBankResponseBySearch),
 );
 
+/**
+ * @swagger
+ * /bankResponse/BankResponseReports:
+ *   get:
+ *     summary: Get bank response reports
+ *     description: Retrieves comprehensive bank response reports
+ *     tags: [BankResponse]
+ *     security:
+ *       - xAuthToken: []
+ *     responses:
+ *       200:
+ *         description: Bank response reports retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Success'
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Internal server error
+ */
 router.get(
   '/BankResponseReports',
   [isAuthenticated, authorized(AccessRoles.BANK_RESPONSE)],
   tryCatchHandler(getBankResponse),
 );
+
 /**
  * @swagger
- * /bankResponse/update-complaint/{id}:
- *   put:
- *     summary: Update a complaint
+ * /bankResponse/get-bank-message:
+ *   get:
+ *     summary: Get bank messages
+ *     description: Retrieves bank messages from the system
  *     tags: [BankResponse]
+ *     security:
+ *       - xAuthToken: []
  *     parameters:
- *       - in: path
- *         name: id
- *         required: true
+ *       - in: query
+ *         name: message_id
  *         schema:
- *           type: integer
- *         description: The ID of the complaint to update
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               complaint_type:
- *                 type: string
- *               description:
- *                 type: string
+ *           type: string
+ *         description: Specific message ID to retrieve
  *     responses:
  *       200:
- *         description: Complaint updated successfully
- *       404:
- *         description: Complaint not found
+ *         description: Bank messages retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Success'
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Internal server error
  */
-
 router.get(
   '/get-bank-message',
   [isAuthenticated, authorized(AccessRoles.BANK_RESPONSE)],
@@ -162,15 +267,18 @@ router.get(
  * @swagger
  * /bankResponse/update-message/{id}:
  *   put:
- *     summary: update a BankResponse
+ *     summary: Update a bank response message
+ *     description: Updates an existing bank response message by ID
  *     tags: [BankResponse]
+ *     security:
+ *       - xAuthToken: []
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
  *         schema:
- *           type: integer
- *         description: The ID of the BankResponse to update
+ *           type: string
+ *         description: The ID of the bank response to update
  *     requestBody:
  *       required: true
  *       content:
@@ -178,17 +286,29 @@ router.get(
  *           schema:
  *             type: object
  *             properties:
- *               complaint_type:
+ *               message:
  *                 type: string
- *               description:
+ *                 description: Updated message content
+ *               status:
  *                 type: string
+ *                 description: Updated status
+ *               notes:
+ *                 type: string
+ *                 description: Additional notes
  *     responses:
  *       200:
- *         description: BankResponse updated successfully
+ *         description: Bank response updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Success'
+ *       400:
+ *         description: Invalid request data
+ *       401:
+ *         description: Unauthorized
  *       404:
- *         description: BankResponse not found
+ *         description: Bank response not found
  */
-
 router.put(
   '/update-message/:id',
   [isAuthenticated, authorized(AccessRoles.BANK_RESPONSE)],
@@ -197,30 +317,72 @@ router.put(
 
 /**
  * @swagger
- * /bankResponse/delete-complaint/{id}:
- *   delete:
- *     summary: Soft delete a complaint
+ * /bankResponse/reset-message/{id}:
+ *   put:
+ *     summary: Reset bank response message
+ *     description: Resets a bank response message to its initial state
  *     tags: [BankResponse]
+ *     security:
+ *       - xAuthToken: []
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
  *         schema:
- *           type: integer
- *         description: The ID of the complaint to delete
+ *           type: string
+ *         description: The ID of the bank response to reset
  *     responses:
  *       200:
- *         description: Complaint deleted successfully
+ *         description: Bank response reset successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Success'
+ *       401:
+ *         description: Unauthorized
  *       404:
- *         description: Complaint not found
+ *         description: Bank response not found
  */
-
 router.put(
   '/reset-message/:id',
   [isAuthenticated, authorized(AccessRoles.BANK_RESPONSE)],
   tryCatchHandler(resetBankResponseController),
 );
 
+/**
+ * @swagger
+ * /bankResponse/import-bank-response:
+ *   post:
+ *     summary: Import bank response data
+ *     description: Imports bank response data from a file upload
+ *     tags: [BankResponse]
+ *     security:
+ *       - xAuthToken: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               file:
+ *                 type: string
+ *                 format: binary
+ *                 description: File containing bank response data (CSV, Excel)
+ *     responses:
+ *       200:
+ *         description: Bank response data imported successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Success'
+ *       400:
+ *         description: Invalid file format or data
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Internal server error
+ */
 router.post(
   '/import-bank-response',
   multerUpload.single('file'),

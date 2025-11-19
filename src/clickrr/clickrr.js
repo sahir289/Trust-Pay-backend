@@ -156,8 +156,8 @@ export async function createClickrrPayout(
     }
 
     if (payload.txnStatus) {
+      checkClickrr = { ...payload }; // Create a copy to avoid reference issues
       delete payload.txnStatus;
-      checkClickrr = payload;
     } else {
       checkClickrr = await initiateClickrrPayout(
         singleWithdrawData,
@@ -199,7 +199,7 @@ export async function createClickrrPayout(
       payload.status = Status.PENDING;
     } else if (status === 'Success' || status === 'success') {
       (payload.bank_acc_id = bankId), (payload.status = Status.APPROVED);
-      payload.utr_id = checkClickrr?.utr || '';
+      payload.utr_id = checkClickrr?.utr || checkClickrr?.utr_id || '';
       payload.approved_at = new Date().toISOString();
     } else if (status === 'Failed' || status === 'failed') {
       payload.status = Status.REJECTED;
