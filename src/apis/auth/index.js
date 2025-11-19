@@ -192,7 +192,7 @@ router.post('/refresh-token', tryCatchHandler(refreshTokenController));
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.get('/get-user-role', isAuthenticated, tryCatchHandler(getUserRoleController));
+router.get('/get-user-role', tryCatchHandler(getUserRoleController));
 
 /**
  * @swagger
