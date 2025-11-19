@@ -77,7 +77,7 @@ const createGeoGuard = (options = {}) => {
       }
 
       // if (accuracy > maxAccuracy) {
-      //   console.log(accuracy, "accuracy", maxAccuracy, "max accuracy ++++");
+        console.log(accuracy, "accuracy", maxAccuracy, "max accuracy ++++");
       //   return next( new BadRequestError(
       //     `Location accuracy too low (${accuracy}m). Maximum allowed: ${maxAccuracy}m.`,
       //   ));
