@@ -12,7 +12,7 @@ import {
   getUserRoleController,
 } from './authController.js';
 import { isAuthenticated } from '../../middlewares/auth.js';
-import  {loginMiddleware, requireUserLocation}  from '../../middlewares/loginLocationRestrict.js';
+import  {geoLocationGuard}  from '../../middlewares/loginLocationRestrict.js';
 const router = express.Router();
 
 /**
@@ -130,7 +130,7 @@ const router = express.Router();
  *             schema:
  *               $ref: '#/components/schemas/Error'
  */
-router.post('/login', requireUserLocation, loginMiddleware, tryCatchHandler(loginController)); // login route
+router.post('/login', geoLocationGuard, tryCatchHandler(loginController)); // login route
 
 /**
  * @swagger
@@ -216,126 +216,10 @@ router.get('/get-user-role', tryCatchHandler(getUserRoleController));
  */
 router.post('/logout', isAuthenticated, tryCatchHandler(logoutController));
 
-/**
- * @swagger
- * /auth/otp_verification:
- *   post:
- *     summary: Verify OTP
- *     description: Verify one-time password for authentication.
- *     tags:
- *       - Authentication
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - otp
- *               - userId
- *             properties:
- *               otp:
- *                 type: string
- *                 example: "123456"
- *               userId:
- *                 type: string
- *                 example: "user123"
- *     responses:
- *       200:
- *         description: OTP verified successfully.
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Success'
- *       400:
- *         description: Invalid OTP.
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- */
 router.post('/otp_verification',loginMiddleware, tryCatchHandler(verfyOtpController));
 
-/**
- * @swagger
- * /auth/reset_password:
- *   post:
- *     summary: Reset user password
- *     description: Reset password for a user account.
- *     tags:
- *       - Authentication
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - username
- *               - newPassword
- *             properties:
- *               username:
- *                 type: string
- *                 example: "john_doe"
- *               newPassword:
- *                 type: string
- *                 example: "newPassword123"
- *               otp:
- *                 type: string
- *                 example: "123456"
- *     responses:
- *       200:
- *         description: Password reset successfully.
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Success'
- *       400:
- *         description: Invalid request data.
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- */
 router.post('/reset_password',loginMiddleware, tryCatchHandler(forgetPasswordController));
 
-/**
- * @swagger
- * /auth/user_verification:
- *   post:
- *     summary: Verify user account
- *     description: Verify user account for password reset or other operations.
- *     tags:
- *       - Authentication
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - username
- *             properties:
- *               username:
- *                 type: string
- *                 example: "john_doe"
- *               email:
- *                 type: string
- *                 example: "john@example.com"
- *     responses:
- *       200:
- *         description: User verified successfully.
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Success'
- *       404:
- *         description: User not found.
- *         content:
- *           application/json:
- *             schema:
- *               $ref: '#/components/schemas/Error'
- */
 router.post('/user_verification',loginMiddleware, tryCatchHandler(verfyUserController));
 
 /**

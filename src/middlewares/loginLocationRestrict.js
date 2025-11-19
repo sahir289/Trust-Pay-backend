@@ -1,104 +1,169 @@
-import axios from 'axios';
+import { BadRequestError, InternalServerError } from '../utils/appErrors.js';
 import { logger } from '../utils/logger.js';
+import config from '../config/config.js';
 import { getRoleByUserNameDao } from '../apis/auth/authDao.js';
-import { BadRequestError } from '../utils/appErrors.js';
-const PROXY_CHECK_URL = process.env.PROXY_CHECK_URL;
-const TestingIp = process.env.LOCAL_IP;
+import { setTimeout as delay } from 'node:timers/promises';
+import { checkProxyAndVpn } from '../utils/proxyCheckService.js';
+import { reverseGeocode } from '../utils/reverseGeoCodeService.js';
 
-const loginMiddleware = async (req, res, next) => {
+// Helper - Promise with hard timeout (cancels after X ms)
+const withTimeout = async (promise, ms, name = 'operation') => {
+  let timer;
+  const timeout = delay(ms).then(() => {
+    throw new Error(`${name} timed out after ${ms}ms`);
+  });
+
   try {
-    // Get user's IP address
-    let userIp =
-      req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.ip;
-    if (userIp === '::1') {
-      userIp = TestingIp;
-    }
-    let user_location = req.body.user_location;
-    const role = await getRoleByUserNameDao(req.body.username);
-    // Fetch geolocation data from proxycheck.io
-    const url = PROXY_CHECK_URL.replace('$%7BuserIp%7D', userIp);
-    const response = await axios.get(url);
-    const userData = response.data[userIp];
-    if (!userData) {
-      logger.error('Error fetching location data for IP:', userIp);
-      return res.status(500).json({ message: 'Error fetching location data' });
-    }
-    const { vpn, region, country } = userData;
-    if (vpn === 'yes' && role.role == 'VENDOR') {
-      userData.user = req.body.username;
-      logger.warn('VPN detected. Access denied.', userData);
-      throw new BadRequestError('VPN usage is not allowed');
-    }
-    const restrictRegion = ['Gujarat', 'Goa'];
-    // Check if the user is from India
-    if (
-      country.toLowerCase() === 'india' &&
-      restrictRegion
-        .map((r) => r.toLowerCase())
-        .includes(region.toLowerCase()) &&
-      role.role == 'VENDOR'
-    ) {
-      logger.warn('Access denied for users from India.', {
-        user: req.body.username,
-        userIp,
-        region,
-        country,
-      });
-      throw new BadRequestError('Access denied from your location');
-    }
-    // Store user location data in request object
-    req.user_location = {
-      user_ip: userIp,
-      country: userData.country,
-      region: userData.region,
-      city: userData.city,
-      latitude: user_location.latitude,
-      longitude: user_location.longitude,
-      accuracy: user_location.accuracy,
-    };
-    next();
+    return await Promise.race([promise, timeout]);
   } catch (error) {
-    logger.error('Error in login middleware:', error);
-    return res
-      .status(500)
-      .json({ message: 'Access denied from your location' });
+    // If timed out, log and return null (fail-soft)
+    if (error.message.includes('timed out')) {
+      logger.warn(`${name} timed out`, { timeout: ms });
+      return null;
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
   }
 };
 
-const requireUserLocation = (req, res, next) => {
-  // try {
-    if (!req.body?.user_location) {
-      logger.warn('User location not provided in request body.');
-      throw new BadRequestError(
-        'Precise location required. Enable GPS to login.',
-      );
-    }
+export const getClientIp = (req) => {
+  const ip = (
+    req.headers['x-forwarded-for']?.split(',')[0] ||
+    req.headers['x-real-ip'] ||
+    req.headers['cf-connecting-ip'] ||
+    req.connection?.remoteAddress ||
+    req.socket?.remoteAddress ||
+    req.ip
+  )?.trim();
 
-    const { latitude, longitude, accuracy } = req.body.user_location;
-
-    if (!latitude || !longitude) {
-      logger.warn('Latitude or Longitude missing in user location.');
-      throw new BadRequestError(
-        'Unable to verify location. Please enable GPS.',
-      );
-    }
-
-    if (accuracy > 100) {
-      logger.warn('User location accuracy too low:', accuracy);
-      throw new BadRequestError(
-        'Location too inaccurate. Move outdoors and enable GPS.',
-      );
-    }
-
-    req.user_location = req.body.user_location;
-    console.log(req.user_location, "req.user_location");
-    next();
-  // } catch (error) {
-  //   logger.error('Error in User location middleware:', error);
-  //   return res
-  //     .status(500)
-  //     .json({ message: 'Access denied from your location' });
-  // }
+  return ip === '::1' || ip === '127.0.0.1'
+    ? config.app.testingIp || '1.1.1.1'
+    : ip;
 };
 
-export { loginMiddleware, requireUserLocation };
+const createGeoGuard = (options = {}) => {
+  const {
+    maxAccuracy = 100,
+    restrictVpnForRoles = ['VENDOR'],
+    blockedCountries = [],
+    roleRegionRules = {
+      VENDOR: { country: 'India', blockedRegions: ['Gujarat', 'Goa'] },
+    },
+  } = { ...config.geoGuard, ...options };
+
+  const vpnRolesSet = new Set(restrictVpnForRoles.map((r) => r.toUpperCase()));
+  const blockedCountrySet = new Set(
+    blockedCountries.map((c) => c.toLowerCase()),
+  );
+
+  return async (req, res, next) => {
+    try {
+      const clientIp = getClientIp(req);
+      const location = req.body?.user_location;
+
+      if (!location || typeof location !== 'object') {
+        return next(new BadRequestError(
+          'Precise location is required. Please enable GPS.',
+        ));
+      }
+
+      const { latitude, longitude, accuracy } = location;
+
+      if (!latitude || !longitude || accuracy == null) {
+        return next( new BadRequestError(
+          'Invalid location data. Latitude, longitude, and accuracy are required.',
+        ));
+      }
+
+      if (accuracy > maxAccuracy) {
+        console.log(accuracy, "accuracy", maxAccuracy, "max accuracy ++++");
+        return next( new BadRequestError(
+          `Location accuracy too low (${accuracy}m). Maximum allowed: ${maxAccuracy}m.`,
+        ));
+      }
+
+      const [proxyInfo, address] = await Promise.allSettled([
+        withTimeout(checkProxyAndVpn(clientIp), 3000, 'Proxy/VPN check'),
+        withTimeout(
+          reverseGeocode(latitude, longitude),
+          3000,
+          'Reverse geocoding',
+        ),
+      ]).then((results) =>
+        results.map((r) => (r.status === 'fulfilled' ? r.value : null)),
+      );
+
+      let userRole;
+      if (req.body?.username) {
+        try {
+          const roleDoc = await getRoleByUserNameDao(req.body.username);
+          userRole = roleDoc?.role?.toUpperCase() || userRole;
+        } catch (err) {
+          logger.warn('Failed to fetch user role during geo check', {
+            error: err.code || err.message,
+            username: req.body.username,
+          });
+        }
+      }
+
+      if (proxyInfo) {
+        const { isVpn, country, region } = proxyInfo;
+
+        if (isVpn && vpnRolesSet.has(userRole)) {
+          logger.warn('VPN/Proxy blocked', {
+            ip: clientIp,
+            username: req.body.username,
+            role: userRole,
+          });
+          return next( new BadRequestError(
+            'VPN or proxy usage is not allowed for your account type.',
+          ));
+        }
+
+        if (country && blockedCountrySet.has(country.toLowerCase())) {
+          return next( new BadRequestError('Access from your country is restricted.'));
+        }
+
+        const rule = roleRegionRules[userRole];
+        if (rule && country?.toLowerCase() === rule.country.toLowerCase()) {
+          const blocked = rule.blockedRegions.map((r) => r.toLowerCase());
+          if (region && blocked.includes(region.toLowerCase())) {
+            logger.warn('Region blocked', {
+              region,
+              country,
+              role: userRole,
+              username: req.body.username,
+            });
+            return next(new BadRequestError(
+              'Access denied from your current state/region.',
+            ));
+          }
+        }
+      }
+
+      req.geo = {
+        ip: clientIp,
+        latitude,
+        longitude,
+        accuracy,
+        address: address || null,
+        proxy: proxyInfo || null,
+        role: userRole,
+      };
+
+      req.user_location = req.geo;
+
+      next();
+    } catch (error) {
+      logger.error('Unexpected error in geoLocationGuard', {
+        error: error.stack,
+        ip: req.ip,
+        bodyKeys: Object.keys(req.body || {}),
+      });
+      return next(new InternalServerError('Service temporarily unavailable', 502));
+    }
+  };
+};
+
+export const geoLocationGuard = createGeoGuard();
