@@ -1,10 +1,6 @@
 /* eslint-disable no-unused-vars */
 import { v4 as uuidv4 } from 'uuid';
-import {
-  BadRequestError,
-  InternalServerError,
-  NotFoundError,
-} from '../../utils/appErrors.js';
+import { BadRequestError, NotFoundError } from '../../utils/appErrors.js';
 import { Buffer } from 'buffer';
 import {
   beginTransaction,
@@ -20,7 +16,6 @@ import {
   getPayoutsBySearchDao,
   updatePayoutDao,
   getAllPayoutsDao,
-  getPayoutBankDetailsDao,
   getPayoutByMerchantOrderIdDao,
   getPayoutByUtrIdDao,
   getPayoutByIdDao,
@@ -31,25 +26,24 @@ import {
   getMerchantsByCodeDao,
   getMerchantByIdDao,
 } from '../merchants/merchantDao.js';
-import { getVendorByIdDao, getVendorsDao, getVendorIdsByUserIds } from '../vendors/vendorDao.js';
+import {
+  getVendorByIdDao,
+  getVendorsDao,
+  getVendorIdsByUserIds,
+} from '../vendors/vendorDao.js';
 import {
   getCalculationDao,
   getCalculationforCronDao,
 } from '../calculation/calculationDao.js';
 import {
   updateBankaccountDao,
-  // getBankaccountDao,
   getBankByIdDao,
 } from '../bankAccounts/bankaccountDao.js';
 import config from '../../config/config.js';
 import { merchantPayoutCallback } from '../../callBacksAndWebHook/merchantCallBacks.js';
-import {
-  Status,
-  Method,
-  tableName,
-  payAssistErrorCodeMap,
-} from '../../constants/index.js';
+import { Status, Method, tableName } from '../../constants/index.js';
 import { calculateCommission } from '../../helpers/index.js';
+import { createTataPayBulkPayout } from '../../tatapay/tatapay.js';
 import {
   columns,
   merchantColumns,
@@ -60,20 +54,21 @@ import { filterResponse } from '../../helpers/index.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import { updateCalculationBalanceDao } from '../calculation/calculationDao.js';
 import { logger } from '../../utils/logger.js';
+// Import RabbitMQ for bulk status updates
+import { publishToDirectQueue, getRabbitChannel, connectRabbitMQ } from '../../utils/rabbitmq.js';
 // import { updatePayout } from '../../utils/sockets.js';
 import { newTableEntry } from '../../utils/sockets.js';
 import { checkLockEdit } from '../../utils/advisoryLock.js';
 import { stringifyJSON } from '../../utils/index.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
-import axios from 'axios';
 import { getCompanyByIDDao } from '../company/companyDao.js';
 import { trackVendorsNetBalance } from '../../utils/trackVendorsNetBalance.js';
 import {
   createClickrrPayout,
   getClickrrWalletBalance,
-  initiateClickrrPayout,
 } from '../../clickrr/clickrr.js';
-import { retryAxiosRequest } from '../../utils/axios.js';
+import { createPayAssistPayout } from '../../payassist/payassist.js';
+import { createTataPayPayout } from '../../tatapay/tatapay.js';
 // import { notifyNewCalculationTableEntry } from '../../utils/sockets.js';
 
 // Helper function to check if vendor is sub-vendor and get parent info
@@ -276,464 +271,6 @@ const updateParentVendorCalculation = async (
     return parentCommission;
   } catch (error) {
     logger.error('Error in updateParentVendorCalculation:', error);
-    throw error;
-  }
-};
-
-const walletsPayoutsService = async (conn, payload, updatedBy, res) => {
-  try {
-    const { mode, payOutids } = payload;
-
-    if (!mode) {
-      return {
-        status: 400,
-        message: 'Amount and TransactionType are required',
-      };
-    }
-
-    const PayOuts = await getPayoutBankDetailsDao(
-      { payOutids: payOutids },
-      payload.company_id,
-    );
-
-    if (!PayOuts[0]) {
-      return {
-        status: 404,
-        message: 'Payout not found',
-      };
-    }
-
-    const [company] = await getCompanyByIDDao({
-      id: payload.company_id,
-    });
-
-    // Cache API configuration to avoid repeated property access
-    const apiConfig = {
-      headers: {
-        APIAGENT: company.config.PAY_ASSIST.walletsPayoutsAgent,
-        APIKEY: company.config.PAY_ASSIST.walletsPayoutsApiKey,
-      },
-      baseUrl: company.config.PAY_ASSIST.walletsPayoutsUrl,
-      agentCode: company.config.PAY_ASSIST.walletsPayoutsAgentCode,
-    };
-
-    // Use Promise.all to send all payout requests in parallel for better performance
-    const payOuts = await Promise.all(
-      PayOuts.map(async (info) => {
-        try {
-          const apiPayload = {
-            agent_id: apiConfig.agentCode,
-            mode: mode,
-            name: info.user_bank_details.account_holder_name,
-            account: info.user_bank_details.account_no,
-            bank: info.user_bank_details.bank_name,
-            ifsc: info.user_bank_details.ifsc_code,
-            mobile: '7428730894',
-            amount: info.amount,
-            latitude: '19.0760',
-            longitude: '72.8527',
-            apitxnid: info.id,
-          };
-
-          logger.info(`Processing payout for ID ${info.id}:`, apiPayload);
-
-          const response = await retryAxiosRequest(
-            async () => {
-              return await axios.post(
-                `${apiConfig.baseUrl}/payout`,
-                apiPayload,
-                {
-                  headers: apiConfig.headers,
-                  timeout: 30000, // 30 second timeout
-                  maxRedirects: 5,
-                  validateStatus: function (status) {
-                    return status < 500;
-                  },
-                },
-              );
-            },
-            3,
-            1000,
-          );
-
-          logger.info(`Payout response for ID ${info.id}:`, response.data);
-          let apiResponse = null;
-
-          // Helper function to handle payout updates
-          const handlePayoutUpdate = async (
-            responseData,
-            isApproved = false,
-            isTransactionUnderProcess = false,
-          ) => {
-            const bankId = company.config.PAY_ASSIST.defaultBankId;
-            const [bankVendor] = await getBankByIdDao({ id: bankId });
-            const [vendor] = await getVendorsDao({
-              user_id: bankVendor.user_id,
-            });
-            const updatePayload = {
-              updated_by: updatedBy,
-              bank_acc_id: bankId,
-              vendor_id: vendor.id,
-              config: {
-                method: 'PayAssist',
-              },
-            };
-
-            if (responseData.Response?.txnid) {
-              updatePayload.config.txnid = responseData.Response.txnid;
-            }
-
-            if (isApproved) {
-              Object.assign(updatePayload, {
-                status: Status.APPROVED,
-                utr_id: isTransactionUnderProcess
-                  ? responseData.Response.txnid
-                  : responseData.Response.refno || responseData.Response?.utr,
-                approved_at: new Date().toISOString(),
-              });
-            } else if (!isApproved && isTransactionUnderProcess) {
-              Object.assign(updatePayload, {
-                status: Status.PENDING,
-              });
-            } else {
-              updatePayload.config.rejected_reason =
-                payAssistErrorCodeMap[responseData.ErrorCode] ||
-                'Server Unreachable';
-              updatePayload.rejected_at = new Date().toISOString();
-            }
-
-            apiResponse = await updatePayoutService(
-              conn,
-              { id: info.id, company_id: payload.company_id },
-              updatePayload,
-            );
-          };
-
-          // Handle response based on ErrorCode
-          const errorCode = response.data.ErrorCode;
-          let statusResponse = null;
-
-          if (errorCode) {
-            // Transaction Under Process - check status
-            try {
-              statusResponse = await retryAxiosRequest(
-                async () => {
-                  return await axios.post(
-                    `${apiConfig.baseUrl}/payoutStatus`,
-                    { apitxnid: info.id },
-                    {
-                      headers: apiConfig.headers,
-                      timeout: 15000,
-                      maxRedirects: 3,
-                      validateStatus: (status) => status < 500,
-                    },
-                  );
-                },
-                2, // maxRetries
-                500, // baseDelay
-              );
-
-              logger.info(
-                `PayAssist payoutStatus response for apitxnid ${info.id}:`,
-                statusResponse.data,
-              );
-            } catch (error) {
-              logger.error(
-                `Error checking payout status for apitxnid ${info.id}:`,
-                {
-                  message: error.message,
-                  code: error.code,
-                  isAxiosError: error.isAxiosError,
-                  url: error.config?.url,
-                  data: error.config?.data,
-                  status: error.response?.status,
-                },
-              );
-
-              // Optionally handle gracefully instead of crashing
-              statusResponse = {
-                data: {
-                  status: 'ERROR',
-                  message: 'External API timeout or failure',
-                },
-              };
-            }
-
-            if (statusResponse.data.ErrorCode === '0') {
-              if (
-                statusResponse.data.Response.message ===
-                  'Reason-Transaction Failed' ||
-                statusResponse.data.Response.message === 'Transaction Failed' ||
-                statusResponse.data.Response.message ===
-                  'Transaction Failed - ' ||
-                statusResponse.data.Response.statuscode === 'TXF' ||
-                statusResponse.data.Response.statuscode === 'ERR'
-              ) {
-                statusResponse.data.ErrorCode = '14';
-                await handlePayoutUpdate(statusResponse.data, false);
-              } else {
-                await handlePayoutUpdate(statusResponse.data, true);
-              }
-            } else if (statusResponse.data.ErrorCode === 'TUP') {
-              await handlePayoutUpdate(statusResponse.data, false, true);
-            } else if (
-              statusResponse.data.ErrorCode !== 'TUP' &&
-              statusResponse.data.ErrorCode !== '4'
-            ) {
-              await handlePayoutUpdate(statusResponse.data, false);
-            } else {
-              return {
-                status: 404,
-                message: statusResponse.data.ErrorMessage,
-              };
-            }
-          }
-
-          // Return formatted response
-          // const finalErrorCode =
-          //   errorCode === 'TUP'
-          //     ? statusResponse?.data?.ErrorCode || 'TUP'
-          //     : errorCode;
-
-          // return {
-          //   id: info.id,
-          //   status: finalErrorCode === '0' ? Status.APPROVED : Status.REJECTED,
-          //   utr_id:
-          //     finalErrorCode === '0'
-          //       ? statusResponse?.data?.Response?.refno ||
-          //         response.data.Response?.refno
-          //       : null,
-          //   rejected_reason:
-          //     finalErrorCode !== '0'
-          //       ? payAssistErrorCodeMap[finalErrorCode] || 'Server Unreachable'
-          //       : null,
-          // };
-          return apiResponse;
-        } catch (error) {
-          logger.error(`Error processing payout ${info.id}:`, error);
-          // Return error response for this specific payout instead of failing entire batch
-          return {
-            id: info.id,
-            status: Status.REJECTED,
-            utr_id: null,
-            rejected_reason: 'API Request Failed',
-          };
-        }
-      }),
-    );
-
-    return payOuts;
-  } catch (error) {
-    logger.error('Error in walletsPayoutsService:', error);
-    throw error;
-  }
-};
-
-const tataPayPayoutsService = async (conn, payload, updatedBy, res) => {
-  try {
-    const { mode, payOutids } = payload;
-
-    if (!mode) {
-      return {
-        status: 400,
-        message: 'Amount and TransactionType are required',
-      };
-    }
-
-    const PayOuts = await getPayoutBankDetailsDao(
-      { payOutids: payOutids },
-      payload.company_id,
-    );
-
-    if (!PayOuts[0]) {
-      return {
-        status: 404,
-        message: 'Payout not found',
-      };
-    }
-
-    const [company] = await getCompanyByIDDao({
-      id: payload.company_id,
-    });
-
-    // Cache API configuration to avoid repeated property access
-    const apiConfig = {
-      headers: {
-        'x-api-key': company.config.TATA_PAY.walletsPayoutsApiKey,
-      },
-      baseUrl: company.config.TATA_PAY.walletsPayoutsUrl,
-    };
-
-    // Use Promise.all to send all payout requests in parallel for better performance
-    const payOuts = await Promise.all(
-      PayOuts.map(async (info) => {
-        try {
-          const apiPayload = {
-            beneficiaryCode: info.user_bank_details.account_holder_name,
-            beneficiaryName: info.user_bank_details.account_holder_name,
-            beneficiaryAddress: '123 Main St, Anytown',
-            beneficiaryaccountNumber: info.user_bank_details.account_no,
-            ifsc: info.user_bank_details.ifsc_code,
-            bankName: info.user_bank_details.bank_name,
-            paymentMethod: mode,
-            Amount: info.amount,
-            remark: 'Payment for services rendered',
-          };
-
-          logger.info(`Processing payout for ID ${info.id}:`, apiPayload);
-
-          const response = await retryAxiosRequest(
-            async () => {
-              const aaa = await axios.post(
-                `${apiConfig.baseUrl}/Create_payout_app`,
-                apiPayload,
-                {
-                  headers: apiConfig.headers,
-                  timeout: 30000, // 30 second timeout
-                  maxRedirects: 5,
-                  validateStatus: function (status) {
-                    return status < 500; // Resolve only if the status code is less than 500
-                  },
-                },
-              );
-
-              return aaa;
-            },
-            3,
-            1000,
-          ); // 3 retries with 1 second base delay
-
-          logger.info(`Payout response for ID ${info.id}:`, response.data);
-          let apiResponse = null;
-
-          let statusResponse = null;
-
-          // Transaction Under Process - check status
-          const queryParams = {
-            searchKey: response.data.payoutId,
-            page: 1,
-            limit: 10,
-          }; // Include transaction ID in payload
-          statusResponse = await retryAxiosRequest(
-            async () => {
-              const ddd = await axios.get(
-                `${apiConfig.baseUrl}/Search_payout`,
-                {
-                  headers: apiConfig.headers,
-                  params: queryParams,
-                  timeout: 15000, // 15 second timeout for status check
-                  maxRedirects: 3,
-                  validateStatus: function (status) {
-                    return status < 500;
-                  },
-                },
-              );
-              return ddd;
-            },
-            2,
-            500,
-          ); // 2 retries with 500ms base delay for status checks
-          logger.info(
-            `TataPay payoutStatus response for apitxnid ${info.id}:`,
-            statusResponse.data,
-          );
-
-          // Helper function to handle payout updates
-          const handlePayoutUpdate = async (
-            responseData,
-            isApproved = false,
-            isTransactionUnderProcess = false,
-          ) => {
-            const bankId = company.config.TATA_PAY.defaultBankId;
-            const [bankVendor] = await getBankByIdDao({ id: bankId });
-            const [vendor] = await getVendorsDao({
-              user_id: bankVendor.user_id,
-            });
-            const updatePayload = {
-              updated_by: updatedBy,
-              bank_acc_id: bankId,
-              vendor_id: vendor.id,
-              config: {
-                method: 'TataPay',
-              },
-            };
-
-            if (responseData._id) {
-              updatePayload.config.txnid = responseData._id;
-            }
-
-            if (isApproved) {
-              Object.assign(updatePayload, {
-                status: Status.APPROVED,
-                utr_id: isTransactionUnderProcess
-                  ? responseData._id
-                  : responseData.Bank_Utr,
-                approved_at: new Date().toISOString(),
-              });
-            } else if (!isApproved && isTransactionUnderProcess) {
-              Object.assign(updatePayload, {
-                status: Status.PENDING,
-              });
-            } else {
-              updatePayload.config.rejected_reason =
-                responseData.remark || 'Server Unreachable';
-              updatePayload.rejected_at = new Date().toISOString();
-            }
-
-            apiResponse = await updatePayoutService(
-              conn,
-              { id: info.id, company_id: payload.company_id },
-              updatePayload,
-            );
-          };
-
-          if (
-            statusResponse.data.payouts[0].status === 'processing' ||
-            statusResponse.data.payouts[0].status === Status.PENDING
-          ) {
-            await handlePayoutUpdate(
-              statusResponse.data.payouts[0],
-              false,
-              true,
-            );
-          }
-
-          // Return formatted response
-          // const finalErrorCode =
-          //   errorCode === 'TUP'
-          //     ? statusResponse?.data?.ErrorCode || 'TUP'
-          //     : errorCode;
-
-          // return {
-          //   id: info.id,
-          //   status: finalErrorCode === '0' ? Status.APPROVED : Status.REJECTED,
-          //   utr_id:
-          //     finalErrorCode === '0'
-          //       ? statusResponse?.data?.Response?.refno ||
-          //         response.data.Response?.refno
-          //       : null,
-          //   rejected_reason:
-          //     finalErrorCode !== '0'
-          //       ? payAssistErrorCodeMap[finalErrorCode] || 'Server Unreachable'
-          //       : null,
-          // };
-          return apiResponse;
-        } catch (error) {
-          logger.error(`Error processing payout ${info.id}:`, error);
-          // Return error response for this specific payout instead of failing entire batch
-          return {
-            id: info.id,
-            status: Status.REJECTED,
-            utr_id: null,
-            rejected_reason: 'API Request Failed',
-          };
-        }
-      }),
-    );
-
-    return payOuts;
-  } catch (error) {
-    logger.error('Error in walletsPayoutsService:', error);
     throw error;
   }
 };
@@ -1077,7 +614,7 @@ const getPayoutsBySearchService = async (
     };
 
     const fetchVendorIds = async (user_ids) => {
-      const vendors = await getVendorIdsByUserIds( user_ids)
+      const vendors = await getVendorIdsByUserIds(user_ids);
       return vendors;
     };
 
@@ -1153,8 +690,11 @@ const getPayoutsBySearchService = async (
       const parentHierarchys = await getUserHierarchysDao({
         user_id: vendorDetails[0].user_id,
       });
-      const subVendors = parentHierarchys[0]?.config?.siblings?.sub_vendors ?? [];
-      const userIdFilter = [...new Set([vendorDetails[0].user_id, ...subVendors])];
+      const subVendors =
+        parentHierarchys[0]?.config?.siblings?.sub_vendors ?? [];
+      const userIdFilter = [
+        ...new Set([vendorDetails[0].user_id, ...subVendors]),
+      ];
       filters.vendor_id = await fetchVendorIds(userIdFilter);
       delete filters.vendor_code;
     }
@@ -1194,7 +734,7 @@ const getPayoutsBySearchService = async (
 
 const updatePayoutService = async (conn, ids, payload, role) => {
   try {
-    if (!payload?.config?.method === Method.CLICKRR)
+    if (!payload?.config?.method === Method.CLICKRR && !payload?.config?.method === Method.PAYASSIST && !payload?.config?.method === Method.TATAPAY)
       await checkLockEdit(conn, ids.id);
 
     // Early validation for UTR uniqueness
@@ -1304,17 +844,51 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         bankId,
       );
       payload = updatedPayload;
+    } else if (payload?.config?.method === Method.PAYASSIST) {
+      const method = payload.config.method;
+
+      const [company] = await getCompanyByIDDao({ id: ids.company_id });
+      if (!company) throw new NotFoundError('Company not found');
+
+      const bankId = company.config.PAY_ASSIST.defaultBankId;
+      if (!bankId)
+        throw new NotFoundError(`Default bank ID not found for ${method}`);
+
+      bankDataArr = await getBankByIdDao({ id: bankId });
+
+      if (!bankDataArr[0])
+        throw new NotFoundError(`Bank not found for ${method} payout`);
+
+      const updatedPayload = await createPayAssistPayout(
+        payload,
+        ids,
+        singleWithdrawData,
+        bankId,
+      );
+      payload = updatedPayload;
+    } else if (payload?.config?.method === Method.TATAPAY) {
+      const method = payload.config.method;
+
+      const [company] = await getCompanyByIDDao({ id: ids.company_id });
+      if (!company) throw new NotFoundError('Company not found');
+
+      const bankId = company.config.TATA_PAY.defaultBankId;
+      if (!bankId)
+        throw new NotFoundError(`Default bank ID not found for ${method}`);
+
+      bankDataArr = await getBankByIdDao({ id: bankId });
+
+      if (!bankDataArr[0])
+        throw new NotFoundError(`Bank not found for ${method} payout`);
+
+      const updatedPayload = await createTataPayPayout(
+        payload,
+        ids,
+        singleWithdrawData,
+        bankId,
+      );
+      payload = updatedPayload;
     }
-    // else if (payload?.config?.method === Method.TATAPAY) {
-    //   const payload = {
-    //     mode: 'IMPS',
-    //     payOutids: [ids.id],
-    //   }
-    //   await tataPayPayoutsService(conn, payload, payload.updated_by);
-    // } else if (payload?.config?.method === Method.PAYASSIST) {
-    //   // await payAssistPayoutsService(conn, payload, payload.updated_by);
-    //   return {};
-    // }
 
     const data = await updatePayoutDao(ids, payload, conn);
 
@@ -1331,13 +905,12 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       return data;
     }
 
-    const notifyUrl =
-      data.config?.urls?.notify || merchant?.payout_notify;
+    const notifyUrl = data.config?.urls?.notify || merchant?.payout_notify;
 
     // Early return if not approved
     if (!data.approved_at && data.status !== Status.PENDING) {
       merchantPayoutCallback(notifyUrl, {
-        code: data.code,
+        code: merchant.code,
         merchantOrderId: data.merchant_order_id,
         payoutId: data.id,
         amount: data.amount,
@@ -1535,7 +1108,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     if (data.status !== Status.PENDING) {
       // This is async function but it's just the callback sending function there fore we are not using await
       merchantPayoutCallback(notifyUrl, {
-        code: data.code,
+        code: merchant.code,
         merchantOrderId: data.merchant_order_id,
         payoutId: data.id,
         amount: data.amount,
@@ -1977,65 +1550,174 @@ const checkPayOutStatusService = async (
   }
 };
 
-const getWalletsBalanceService = async (company_id) => {
-  try {
-    const [company] = await getCompanyByIDDao({
-      id: company_id,
-    });
-    const response = await retryAxiosRequest(
-      async () => {
-        return await axios.get(
-          `${company.config.PAY_ASSIST.walletsPayoutsUrl}/checkBalance`,
-          {
-            headers: {
-              APIAGENT: company.config.PAY_ASSIST.walletsPayoutsAgent,
-              APIKEY: company.config.PAY_ASSIST.walletsPayoutsApiKey,
-            },
-            timeout: 15000, // 15 second timeout
-            maxRedirects: 3,
-            validateStatus: function (status) {
-              return status < 500;
-            },
-          },
-        );
-      },
-      2,
-      500,
-    );
-    return { balance: response.data.Response.Balance };
-  } catch (error) {
-    logger.error(error.message);
-    throw error;
+/**
+ * Create TataPay bulk payout service
+ * @param {Object} params - Service parameters
+ * @param {Array} params.payoutEntries - Array of payout entry objects
+ * @param {Array} params.payoutIds - Array of payout IDs to fetch
+ * @param {string} params.company_id - Company ID
+ * @param {string} params.user_id - User ID
+ * @returns {Promise<Object>} - Service response
+ */
+const createTataPayBulkPayoutService = async (
+  conn,
+  {
+    payoutEntries,
+    payoutIds,
+    company_id,
+    user_id,
   }
-};
-
-const getTataPayBalanceService = async (company_id) => {
+) => {
   try {
-    const [company] = await getCompanyByIDDao({
-      id: company_id,
-    });
-    const response = await retryAxiosRequest(
-      async () => {
-        return await axios.get(
-          `${company.config.TATA_PAY.walletsPayoutsUrl}/me`,
-          {
-            headers: {
-              'x-api-key': company.config.TATA_PAY.walletsPayoutsApiKey,
+    // Function to fetch payout data by IDs if needed
+    const getPayoutData = async (ids, companyId) => {
+      const payouts = await getPayoutsDao(
+        {
+          id: ids,
+          company_id: companyId,
+          status: [Status.INITIATED], // Only fetch processable payouts
+        },
+        companyId,
+        null,
+        null,
+        'DESC',
+        null,
+        conn
+      );
+      
+      if (!payouts || payouts.length === 0) {
+        throw new BadRequestError('No valid payout records found for the provided IDs');
+      }
+      
+      return payouts;
+    };
+    
+    // Function to update payout status in bulk
+    const updatePayoutStatusBulk = async (payoutIds, status, config) => {
+      try {
+        // Update payout records in database
+        for (const payoutId of payoutIds) {
+          await updatePayoutDao(
+            { id: payoutId }, // ids parameter
+            { // payload parameter
+              status,
+              config,
+              updated_at: new Date().toISOString(),
             },
-            timeout: 15000, // 15 second timeout
-            maxRedirects: 3,
-            validateStatus: function (status) {
-              return status < 500;
-            },
-          },
-        );
+            conn // use the transaction connection
+          );
+        }
+        
+        logger.info('Bulk payout status updated successfully:', {
+          payoutIds,
+          status,
+          count: payoutIds.length,
+        });
+      } catch (error) {
+        logger.error('Error updating bulk payout status:', error);
+        throw error;
+      }
+    };
+    
+    // RabbitMQ instance with fallback to direct database updates
+    const rabbitMQ = {
+      sendMessage: async (queueName, data) => {
+        try {
+          // Attempt to get RabbitMQ channel
+          let channel = await getRabbitChannel();
+          
+          if (!channel || channel.connection.closed) {
+            logger.warn('RabbitMQ channel not available, attempting to reconnect...');
+            await connectRabbitMQ();
+            channel = await getRabbitChannel();
+          }
+          
+          if (channel) {
+            // Publish to RabbitMQ queue
+            const published = await publishToDirectQueue(queueName, data);
+            
+            if (published) {
+              logger.info(`RabbitMQ message sent to ${queueName}:`, {
+                totalUpdates: data.individualUpdates?.length || 0,
+                queueName,
+              });
+              return;
+            }
+          }
+          
+          // Fallback to direct database update if RabbitMQ fails
+          logger.warn('RabbitMQ publish failed, falling back to direct database update');
+          throw new Error('RabbitMQ publish failed');
+          
+        } catch (error) {
+          logger.error('RabbitMQ error, performing direct database update:', error.message);
+          
+          // Fallback: directly update the database
+          if (data.individualUpdates) {
+            for (const update of data.individualUpdates) {
+              try {
+                // Create proper payload structure for updatePayoutDao
+                const updatePayload = {
+                  status: update.status,
+                  config: update.config,
+                  utr_id: update.utr_id,
+                  approved_at: update.approved_at,
+                  rejected_reason: update.rejected_reason,
+                  rejected_at: update.rejected_at,
+                  updated_at: new Date().toISOString(),
+                };
+                
+                // Remove undefined fields to avoid database issues
+                Object.keys(updatePayload).forEach(key => {
+                  if (updatePayload[key] === undefined) {
+                    delete updatePayload[key];
+                  }
+                });
+                
+                await updatePayoutDao(
+                  { id: update.payoutId }, // ids parameter
+                  updatePayload, // payload parameter
+                  conn // use the transaction connection
+                );
+                
+                logger.info(`Direct database update completed for payout ID: ${update.payoutId}`);
+              } catch (updateError) {
+                logger.error(`Failed to update payout ID ${update.payoutId}:`, updateError.message);
+              }
+            }
+            logger.info('Direct database update completed for all bulk payout status updates');
+          }
+        }
       },
-      2,
-      500,
+    };
+    
+    // Call TataPay bulk payout function
+    const result = await createTataPayBulkPayout(
+      payoutEntries || payoutIds,
+      company_id,
+      payoutIds ? getPayoutData : null, // Pass getPayoutData function if using IDs
+      updatePayoutStatusBulk,
+      rabbitMQ,
     );
-    return { balance: response.data.user.credit };
+    
+    logger.info('TataPay bulk payout service completed:', {
+      company_id,
+      user_id,
+      totalRecords: result.data.totalRecords,
+      successpayout: result.data.successpayout,
+      skippayout: result.data.skippayout,
+    });
+    
+    return result;
+    
   } catch (error) {
-    logger.error(error);
+    logger.error('TataPay bulk payout service error:', {
+      error: error.message,
+      company_id,
+      user_id,
+      payoutEntries: payoutEntries?.length || 0,
+      payoutIds: payoutIds?.length || 0,
+    });
     throw error;
   }
 };
@@ -2048,8 +1730,5 @@ export {
   updatePayoutService,
   deletePayoutService,
   assignedPayoutService,
-  walletsPayoutsService,
-  getWalletsBalanceService,
-  tataPayPayoutsService,
-  getTataPayBalanceService,
+  createTataPayBulkPayoutService,
 };

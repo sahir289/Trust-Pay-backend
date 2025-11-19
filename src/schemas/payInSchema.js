@@ -13,6 +13,7 @@ export const ASSIGN_PAYIN_SCHEMA = Joi.object({
   returnUrl: Joi.string().label('returnUrl').optional(),
   notifyUrl: Joi.string().label('notifyUrl').optional(),
   roleToken: Joi.string().label('roleToken').optional(),
+  fromUi: Joi.boolean().label('fromUi').optional(),
 });
 
 export const VALIDATE_PAYIN_SCHEMA = Joi.object({

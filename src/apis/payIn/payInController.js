@@ -10,7 +10,6 @@ import {
   PROCESS_PAYIN_IMAGE,
   VALIDATE_ASSIGNED_BANT_TO_PAY,
   VALIDATE_CHECK_PAY_IN_STATUS,
-  // VALIDATE_CHECK_PAY_IN_STATUS,
   VALIDATE_CHECK_UTR,
   VALIDATE_DISPUTE_DUPLICATE_TRANSACTION,
   VALIDATE_EXPIRE_PAY_IN_URL,
@@ -29,7 +28,6 @@ import {
   expirePayInUrlService,
   generatePayInUrlByHashService,
   generatePayInUrlService,
-  // getPayinsService,
   payInIntentGenerateOrderService,
   processPayInByImageService,
   processPayInService,
@@ -48,18 +46,10 @@ import {
 } from './payInService.js';
 import { transactionWrapper } from '../../utils/db.js';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
-import { decodeAuthToken, streamToBase64 } from '../../helpers/index.js';
+import { streamToBase64 } from '../../helpers/index.js';
 import { s3 } from '../../helpers/Aws.js';
-import { AUTH_HEADER_KEY } from '../../utils/constants.js';
-import {
-  getMerchantByCodeAndApiKey,
-  getMerchantsDao,
-} from '../merchants/merchantDao.js';
-import { createHash, compareHash } from '../../utils/hashUtils.js';
+import { createHash } from '../../utils/hashUtils.js';
 import { logger } from '../../utils/logger.js';
-import { getMerchantBankDao } from '../bankAccounts/bankaccountDao.js';
-import { sendBankNotAssignedAlertTelegram } from '../../utils/sendTelegramMessages.js';
-import {  getCompanyByIDDao } from '../company/companyDao.js';
 import { getRolesById } from '../roles/rolesDao.js';
 import { Role } from '../../constants/index.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
@@ -81,220 +71,95 @@ export const generateHashForPayIn = async (req, res) => {
 
 export const generatePayInUrl = async (req, res) => {
   const payload = req.query;
+  const x_api_key = req.headers['x-api-key'];
   let userIp =
+<<<<<<< HEAD
   req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.ip;
   if (userIp == '::1') {
     userIp = TestingIp;
   }
   const fromUI = payload.fromUi || false;
   delete payload.fromUi; // remove from payload to avoid validation issues
+=======
+    req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.ip;
+
+  // Handle localhost IP for testing
+  userIp = userIp === '::1' ? TestingIp : userIp;
+  const { code, key, roleToken = null } = payload;
+  let message;
+
+>>>>>>> 91bf8e9640b076d4154615c2b49e6596ff8a7373
   const joiValidation = ASSIGN_PAYIN_SCHEMA.validate(payload);
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
-  const x_api_key = req.headers['x-api-key'];
-  const { code, key, hash_code, roleToken = null } = payload;
-
   const apiKey = key ? key : x_api_key;
   if (!apiKey) {
-    // throw new BadRequestError('Enter valid Api key');
-    // return res.status(400).json({
-    //   error: {
-    //     status: 404,
-    //     message: 'Enter valid Api key',
-    //     additionalInfo: {},
-    //     level: 'info',
-    //     timestamp: new Date().toISOString(),
-    //   },
-    // });
     return sendError(res, 'Enter valid Api key', 404);
   }
 
-  // Fetch the merchant using the code and API public key
-  const merchant = await getMerchantByCodeAndApiKey(code, apiKey);
-  if (!merchant) {
-    return sendError(res, 'Invalid merchant code or API key', 400);
-  }
-  const [company] = await getCompanyByIDDao({
-    id: merchant.company_id,
-  });
-
-  // bank is not enabled or no method is enabled for payment - no payment link generates
-  const merchantArr = await getMerchantsDao({ code });
-  const bankAssigned = await getMerchantBankDao({
-    config_merchants_contains: merchantArr[0].id,
-  });
-  if (bankAssigned.length <= 0) {
-    await sendBankNotAssignedAlertTelegram(
-      company.config?.telegramBankAlertChatId,
-      code,
-      company.config?.telegramBotToken,
-    );
-    // await notifyAdminsAndUsers({
-    //   conn,
-    //   company_id: merchantArr[0].company_id,
-    //   message: `Bank Account has not been linked with Merchant: ${code}`,
-    //   payloadUserId: merchantArr[0].user_id,
-    //   actorUserId: merchantArr[0].user_id,
-    //   category: 'Transaction',
-    //   subCategory: 'PayIn',
-    // });
-    // return res.status(400).json({
-    //   error: {
-    //     status: 404,
-    //     message: 'Bank Account has not been linked with Merchant',
-    //     additionalInfo: {},
-    //     level: 'info',
-    //     timestamp: new Date().toISOString(),
-    //   },
-    // });
-    return sendError(
-      res,
-      'Bank Account has not been linked with Merchant',
-      404,
-    );
-  }
-  //loop over each and cehck
-
-  const allBanksDisabled = bankAssigned.every(
-    (bank) => bank.is_enabled === false,
-  );
-  if (allBanksDisabled) {
-    // throw new InternalServerError(
-    //   'Bank assigned to this merchant is not enabled!',
-    // );
-    // error handling
-    // return res.status(400).json({
-    //   error: {
-    //     status: 404,
-    //     message: 'No Payment Methods Enabled!',
-    //     additionalInfo: {},
-    //     level: 'info',
-    //     timestamp: new Date().toISOString(),
-    //   },
-    // });
-    return sendError(res, 'No Payment Methods Enabled!', 404);
-  }
-  const allPaymentOptionsDisabled = bankAssigned.every((bank) => {
-    if (!bank.is_enabled) return true;
-    const config = bank.config || {};
-    const isPhonepay = config.is_phonepay || false;
-    const isIntent = config.is_intent || false;
-    return (
-      isPhonepay === false && bank.is_qr === false && bank.is_bank === false && isIntent === false
-    );
-  });
-
-  if (allPaymentOptionsDisabled) {
-    await sendBankNotAssignedAlertTelegram(
-      company.config?.telegramBankAlertChatId,
-      code,
-      company.config?.telegramBotToken,
-    );
-    // await notifyAdminsAndUsers({
-    //   conn,
-    //   company_id: merchantArr[0].company_id,
-    //   message: `Bank Account has not been linked with Merchant: ${code}`,
-    //   payloadUserId: merchantArr[0].user_id,
-    //   actorUserId: merchantArr[0].user_id,
-    //   category: 'Transaction',
-    //   subCategory: 'PayIn',
-    // });
-    // return res.status(400).json({
-    //   error: {
-    //     status: 404,
-    //     message: 'Bank Account has not been linked with Merchant',
-    //     additionalInfo: {},
-    //     level: 'info',
-    //     timestamp: new Date().toISOString(),
-    //   },
-    // });
-    return sendError(res, 'No Payment Methods Enabled!', 404);
-  }
-  // Create a deterministic hash
   const generatedHash = createHash(`${code}`);
-  // Decode the provided hash before comparison
-  const decodedHashCode = hash_code ? decodeURIComponent(hash_code) : null;
+  // // Decode the provided hash before comparison
+  // const decodedHashCode = hash_code ? decodeURIComponent(hash_code) : null;
 
-  // Compare the provided hash with the generated hash
-  if (
-    decodedHashCode &&
-    !compareHash(`${code}:${merchant.config.keys.public}`, decodedHashCode)
-  ) {
-    // throw new BadRequestError('Hash code does not match');
-    // return res.status(400).json({
-    //   error: {
-    //     status: 400,
-    //     message: 'Hash code does not match',
-    //     additionalInfo: {},
-    //     level: 'info',
-    //     timestamp: new Date().toISOString(),
-    //   },
-    // });
-    return sendError(res, 'Hash code does not match', 400);
-  }
+  // // Compare the provided hash with the generated hash
+  // if (
+  //   decodedHashCode &&
+  //   !compareHash(`${code}:${merchant.config.keys.public}`, decodedHashCode)
+  // ) {
+  //   // throw new BadRequestError('Hash code does not match');
+  //   // return res.status(400).json({
+  //   //   error: {
+  //   //     status: 400,
+  //   //     message: 'Hash code does not match',
+  //   //     additionalInfo: {},
+  //   //     level: 'info',
+  //   //     timestamp: new Date().toISOString(),
+  //   //   },
+  //   // });
+  //   return sendError(res, 'Hash code does not match', 400);
+  // }
 
   let role = null;
-  const token = req.headers[AUTH_HEADER_KEY];
-  const tokenData = decodeAuthToken(token);
-
-  if (tokenData.role) {
-    role = tokenData.role;
-  }
   if (roleToken && roleToken !== null) {
     const roleData = await getRolesById(roleToken);
     role = roleData.role;
   }
-  function determineType(bankAssigned) {
-    const allObjects = bankAssigned.flat();
-    const hasQr = allObjects.some((obj) => obj.is_qr === true);
-    if (hasQr) {
-      return 'upi';
-    }
-    const hasBank = allObjects.some((obj) => obj.is_bank === true);
-    if (hasBank) {
-      return 'bank_transfer';
-    }
-    return 'upi';
-  }
-  const type = determineType(bankAssigned);
-  const result = await transactionWrapper(generatePayInUrlService)(
+
+  const result = await generatePayInUrlService(
     {
       ...payload,
       api_key: apiKey,
     },
-    tokenData.user_id,
     role,
     userIp,
-    fromUI,
-    type,
   );
 
-  // create some kind of hash to secure the next public API flow
-  const queryStr =
-    payload.isTest && (payload.isTest === 'true' || payload.isTest === true)
-      ? `?t=true&order=${result?.merchant_order_id}`
-      : `?order=${result?.merchant_order_id}`;
+  // Build query string for the URL
+  const queryStr = `?order=${result?.merchant_order_id}`;
+
+  const baseRes = {
+    payinId: result?.id,
+    merchantOrderId: result?.merchant_order_id,
+    status: result?.status,
+  };
+
   let updateRes;
-  let message;
-  if (merchantArr[0].config.is_h2h) {
+
+  if (result.merchant?.is_h2h) {
     updateRes = {
-      payinId: result?.id,
-      merchantOrderId: result?.merchant_order_id,
-      status: result?.status,
+      ...baseRes,
       bank: result?.bank,
-      type: result?.type, 
-      amount : result?.amount
+      type: result?.type,
+      amount: result?.amount,
     };
     message = 'PayIn is generated successfully';
   } else {
     updateRes = {
+      ...baseRes,
       expirationDate: result?.expiration_date,
-      payInUrl: `${config.reactPaymentOrigin}/transaction/${generatedHash}${queryStr}`, // Use env
-      payinId: result?.id,
-      merchantOrderId: result?.merchant_order_id,
-      status: result?.status,
-      isAdmin: role === Role.ADMIN ? true : false,
+      payInUrl: `${config.reactPaymentOrigin}/transaction/${generatedHash}${queryStr}`,
+      isAdmin: role === Role.ADMIN,
     };
     message = 'PayIn is generated & url is sent successfully';
   }
@@ -326,7 +191,6 @@ export const validatePayInUrl = async (req, res) => {
   result.merchant_order_id = merchantOrderId;
   return sendSuccess(res, result, 'Payment Url is correct');
 };
-
 
 export const generateUpiUrl = async (req, res) => {
   const payload = req.body;
@@ -564,7 +428,7 @@ export const processPayInH2H = async (req, res) => {
     true,
     true,
     null,
-    true
+    true,
   );
   sendNewSuccess(res, data, 'PayIn processed successfully');
   // sendSuccess(res, data, 'PayIn processed successfully');

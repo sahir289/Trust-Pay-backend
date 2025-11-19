@@ -42,7 +42,7 @@ const createCompanyService = async (conn, payload) => {
     }
 
     const unique_id = generateFormatted8DigitCode();
-    
+
     payload.config = {
       ...payload.config,
       unique_admin_id: unique_id,
@@ -66,12 +66,17 @@ const createCompanyService = async (conn, payload) => {
         walletsPayoutsApiKey: '',
         defaultBankId: '',
       },
-      CLICKRR: {
-        api_key: "",
-        api_secret: "",
-        defaultBankId: ""
+      TATA_PAY: {
+        defaultBankId: '',
+        walletsPayoutsUrl: 'http://13.234.69.235:5000/api/auth',
+        walletsBulkPayoutsUrl: 'http://13.234.69.235:5000/api/auth/Bulk_Create_Payout',
+        walletsPayoutsApiKey: '',
       },
-      
+      CLICKRR: {
+        api_key: '',
+        api_secret: '',
+        defaultBankId: '',
+      },
     };
 
     const company = await createCompanyDao(conn, {

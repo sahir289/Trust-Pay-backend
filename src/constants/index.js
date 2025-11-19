@@ -854,6 +854,8 @@ export const payAssistErrorCodeMap = {
   13: 'Insufficient Funds',
   14: 'Invalid Account Details',
   15: 'Invalid Account Details',
+  TXF: 'Transaction Failed',
+  ERR: 'Server Unreachable',
 };
 
 export const unblocked_countries = [

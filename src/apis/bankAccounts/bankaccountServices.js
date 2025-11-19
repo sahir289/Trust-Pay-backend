@@ -41,7 +41,7 @@ const getBankaccountService = async (
     if (role == Role.VENDOR) {
       const userHierarchys = await getUserHierarchysDao({ user_id });
       const userHierarchy = userHierarchys?.[0];
-      
+
       const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
       if (Array.isArray(subVendors) && subVendors.length > 0) {
         const vendorUserIds = [user_id, ...subVendors];
@@ -52,13 +52,13 @@ const getBankaccountService = async (
     } else if (role == Role.SUB_VENDOR) {
       filters.user_id = [user_id];
     }
-    
+
     const userHierarchys = await getUserHierarchysDao({ user_id });
     if (designation == Role.VENDOR_OPERATIONS) {
       const userHierarchy = userHierarchys?.[0];
       const parentID = userHierarchy?.config?.parent;
       const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
-      
+
       if (parentID) {
         if (Array.isArray(subVendors) && subVendors.length > 0) {
           const vendorUserIds = [parentID, ...subVendors];
@@ -92,13 +92,13 @@ const getBankAccountBySearchService = async (
   limit,
   user_id,
   designation,
-  search
+  search,
 ) => {
   try {
     if (role == Role.VENDOR) {
       const userHierarchys = await getUserHierarchysDao({ user_id });
       const userHierarchy = userHierarchys?.[0];
-      
+
       const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
       if (Array.isArray(subVendors) && subVendors.length > 0) {
         const vendorUserIds = [user_id, ...subVendors];
@@ -109,13 +109,13 @@ const getBankAccountBySearchService = async (
     } else if (role == Role.SUB_VENDOR) {
       filters.user_id = [user_id];
     }
-    
+
     const userHierarchys = await getUserHierarchysDao({ user_id });
     if (designation == Role.VENDOR_OPERATIONS) {
       const userHierarchy = userHierarchys?.[0];
       const parentID = userHierarchy?.config?.parent;
       const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
-      
+
       if (parentID) {
         if (Array.isArray(subVendors) && subVendors.length > 0) {
           const vendorUserIds = [parentID, ...subVendors];
@@ -168,7 +168,7 @@ const getBankaccountServiceNickName = async (
     if (role == Role.VENDOR) {
       const userHierarchys = await getUserHierarchysDao({ user_id });
       const userHierarchy = userHierarchys?.[0];
-      
+
       const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
       if (Array.isArray(subVendors) && subVendors.length > 0) {
         const vendorUserIds = [user_id, ...subVendors];
@@ -190,7 +190,7 @@ const getBankaccountServiceNickName = async (
       const userHierarchy = userHierarchys?.[0];
       const parentID = userHierarchy?.config?.parent;
       const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
-      
+
       if (parentID) {
         if (Array.isArray(subVendors) && subVendors.length > 0) {
           const vendorUserIds = [parentID, ...subVendors];
@@ -291,25 +291,29 @@ const updateBankaccountService = async (
     }
 
     // Check net_balance limit when trying to enable a bank
-    if (payload?.is_enabled === true && bank[0]?.user_id && bank[0]?.bank_used_for === 'PayIn') {
+    if (
+      payload?.is_enabled === true &&
+      bank[0]?.user_id &&
+      bank[0]?.bank_used_for === 'PayIn'
+    ) {
       const userId = bank[0].user_id;
-      
+
       // Get vendor by userId
       const vendors = await getVendorsDao({ user_id: userId });
       if (vendors && vendors.length > 0) {
         const vendor = vendors[0];
         const netBalanceLimit = vendor?.config?.net_balance;
-        
+
         if (netBalanceLimit && netBalanceLimit > 0) {
           // Get calculation entry by userId
           const calculations = await getCalculationforCronDao(userId);
           if (calculations && calculations.length > 0) {
             const currentNetBalance = calculations[0].net_balance;
-            
+
             // Check if current net_balance exceeds the limit
             if (currentNetBalance > netBalanceLimit) {
               throw new BadRequestError(
-                `Cannot enable bank account. Current net balance (${currentNetBalance}) exceeds the allowed limit (${netBalanceLimit}).`
+                `Cannot enable bank account. Current net balance (${currentNetBalance}) exceeds the allowed limit (${netBalanceLimit}).`,
               );
             }
           }
@@ -327,7 +331,8 @@ const updateBankaccountService = async (
       Object.keys(payload).length === 1 &&
       payload.latest_balance &&
       bank[0].is_enabled &&
-      (bank[0].config?.max_limit && bank[0].config?.max_limit !== 0)
+      bank[0].config?.max_limit &&
+      bank[0].config?.max_limit !== 0
     ) {
       if (payload.latest_balance >= bank[0].config?.max_limit) {
         payload.is_enabled = false;
@@ -391,8 +396,8 @@ const updateBankaccountService = async (
         conn,
       );
     }
-   if (payloadData?.config?.is_freeze === true) {
-      const bankResponse = await   getBankResponsesforFreeze({
+    if (payloadData?.config?.is_freeze === true) {
+      const bankResponse = await getBankResponsesforFreeze({
         bank_id: ids.id,
         is_used: false,
         status: '/success',
@@ -400,9 +405,13 @@ const updateBankaccountService = async (
       if (bankResponse.length > 0) {
         for (let i = 0; i < bankResponse.length; i++) {
           for (let i = 0; i < bankResponse.length; i++) {
-            await updateBotResponseDao(bankResponse[i].id, {
-              status: '/freezed',
-            },conn);
+            await updateBotResponseDao(
+              bankResponse[i].id,
+              {
+                status: '/freezed',
+              },
+              conn,
+            );
           }
         }
       }
@@ -465,6 +474,20 @@ const deleteBankaccountService = async (conn, ids, user_id) => {
   }
 };
 
+const activeInactiveBankAccountService = async (conn, ids, payload) => {
+  try {
+    const result = await updateBankaccountDao(
+      { id: ids.id, company_id: ids.company_id },
+      payload,
+      conn,
+    );
+    return result;
+  } catch (error) {
+    logger.error('error getting while updating banks', error);
+    throw error;
+  }
+};
+
 export {
   getBankaccountService,
   getBankAccountBySearchService,
@@ -472,4 +495,5 @@ export {
   updateBankaccountService,
   deleteBankaccountService,
   getBankaccountServiceNickName,
+  activeInactiveBankAccountService,
 };

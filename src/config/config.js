@@ -1,12 +1,14 @@
 import dotenv from 'dotenv';
 dotenv.config({ path: '.env' });
 
-
 // Env file configuration
 function config(Env) {
   return {
     env: Env?.NODE_ENV,
     port: Env?.PORT,
+    app: {
+      testingIp: Env?.LOCAL_IP,
+    },
     aws: {
       region: Env?.AWS_REGION || 'us-east-1',
       accessKeyId: Env?.ACCESS_KEY,
@@ -70,6 +72,7 @@ function config(Env) {
       tickSalt: Env?.NMPL_PAY_TICK_SALT,
       tickCollectionId: Env?.NMPL_PAY_TICK_COLLECTION_ID,
       nmplPaySpecialMerchant: Env?.SPECIAL_NMPL_PAY_MERCHANT,
+      nmplPaySpecialMerchant2: Env?.SPECIAL_NMPL_PAY_MERCHANT2,
     },
     clickrr : {
       baseUrl: Env?.CLICKRR_BASE_API_URL,
@@ -77,6 +80,13 @@ function config(Env) {
       walletBalance: Env?.CLICKRR_WALLET_BALANCE_API_URL,
       apiKey: Env?.CLICKRR_API_KEY,
       apiSecret: Env?.CLICKRR_API_SECRET,
+    },
+    openStreetApi:{
+      openStreetMapUrl: Env?.OPEN_STREET_MAP_URL,
+      openStreetMapExtraParams :Env?.OPEN_STREET_MAP_EXTRA_PARAMS
+    },
+    proxyCheck: {
+      proxyCheckUrl: Env?.PROXY_CHECK_URL,
     },
     // reactAppBaseUrl: Env?.REACT_APP_BASE_URL,
     databaseUrl: Env?.DATABASE_URL,

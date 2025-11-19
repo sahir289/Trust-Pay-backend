@@ -7,6 +7,7 @@ import {
 import {
   BANK_ACCOUNT_SCHEMA,
   UPDATE_BANK_ACCOUNT_SCHEMA,
+  VALIDATE_ACTIVE_INACTIVE_BANK_ACCOUNT_SCHEMA,
   VALIDATE_BANK_RESPONSE_BY_ID,
 } from '../../schemas/bankAccoountSchema.js';
 import { ValidationError } from '../../utils/appErrors.js';
@@ -20,6 +21,7 @@ import {
   deleteBankaccountService,
   getBankaccountServiceNickName,
   getBankAccountBySearchService,
+  activeInactiveBankAccountService,
 } from './bankaccountServices.js';
 
 const getBankaccount = async (req, res) => {
@@ -126,7 +128,7 @@ const createBankaccount = async (req, res) => {
     role,
   );
   if (unique.length > 0) {
-    return sendError(res, 'Nick Name Must Be Unique', 400)
+    return sendError(res, 'Nick Name Must Be Unique', 400);
   }
   // const data =
   const bankDetail = await transactionWrapper(createBankaccountService)(
@@ -213,6 +215,29 @@ const deleteBankaccount = async (req, res) => {
     'Deleted Banks Successfully',
   );
 };
+
+const activeInactiveBankAccount = async (req, res) => {
+  const { bank_account_id, is_active } = req.body;
+  const company_id = req.headers['x-auth-token'];
+  const joiValidation = VALIDATE_ACTIVE_INACTIVE_BANK_ACCOUNT_SCHEMA.validate(req.body);
+  if (joiValidation.error) {
+    throw new ValidationError(joiValidation.error);
+  }
+  const ids = { id: bank_account_id, company_id: company_id };
+  const payload = {
+    is_enabled: is_active,
+  };
+  const updateBank = await transactionWrapper(activeInactiveBankAccountService)(
+    ids,
+    payload,
+  );
+  return sendSuccess(
+    res,
+    { id: updateBank.id },
+    `Bank account ${is_active === 'true' ? 'activated' : 'deactivated'} successfully`,
+  );
+};
+
 export {
   getBankaccount,
   getBankAccountBySearch,
@@ -222,4 +247,5 @@ export {
   deleteBankaccount,
   getMerchantBank,
   getBankaccountNickName,
+  activeInactiveBankAccount,
 };

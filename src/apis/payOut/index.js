@@ -8,18 +8,21 @@ import {
   getPayoutsById,
   getPayoutsBySearch,
   checkPayOutStatus,
-  walletsPayouts,
   assignedPayout,
-  getWalletsBalance,
-  tataPayPayouts,
-  getTataPayBalance
+  createTataPayBulkPayoutController,
 } from './payOutController.js';
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
 import { payAssistTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/payAsistWebHook.js';
 import { tataPayTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/tataPayWebHook.js';
-import { getClickrrWalletBalance, initiateClickrrPayout } from '../../clickrr/clickrr.js';
-const router = express.Router(); 
+import {
+  getClickrrWalletBalance,
+  initiateClickrrPayout,
+} from '../../clickrr/clickrr.js';
+// Import balance functions from separate files
+import { getPayAssistWalletBalance } from '../../payassist/payassist.js';
+import { getTataPayWalletBalance } from '../../tatapay/tatapay.js';
+const router = express.Router();
 
 /**
  * @swagger
@@ -99,16 +102,6 @@ router.get(
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(getPayouts),
 );
-router.get(
-  '/wallets-balance',
-  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
-  tryCatchHandler(getWalletsBalance),
-); 
-router.get(
-  '/tatapay-balance',
-  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
-  tryCatchHandler(getTataPayBalance),
-); 
 router.get(
   '/:id',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
@@ -256,17 +249,17 @@ router.delete(
   tryCatchHandler(deletePayout),
 );
 
-router.post(
-  '/wallets',
+router.get(
+  '/payassist/wallets-balance',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
-  tryCatchHandler(walletsPayouts),
-); 
+  tryCatchHandler(getPayAssistWalletBalance),
+);
 
-router.post(
-  '/tatapay-payouts',
+router.get(
+  '/tatapay/tatapay-balance',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
-  tryCatchHandler(tataPayPayouts),
-);  
+  tryCatchHandler(getTataPayWalletBalance),
+);
 
 router.post(
   '/clickrr',
@@ -283,12 +276,126 @@ router.get(
 router.post(
   '/payassist-callback',
   tryCatchHandler(payAssistTransactionStatusCallback),
-); 
- 
+);
+
 router.post(
   '/tatapay-callback',
   tryCatchHandler(tataPayTransactionStatusCallback),
-); 
+);
+
+/**
+ * @swagger
+ * /payout/tatapay/bulk-payout:
+ *   post:
+ *     summary: Create TataPay bulk payout
+ *     description: Process multiple payouts through TataPay in a single request
+ *     tags:
+ *       - Payout
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               payoutEntries:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                       description: Unique payout ID
+ *                     account_holder_name:
+ *                       type: string
+ *                       description: Beneficiary name
+ *                     account_no:
+ *                       type: string
+ *                       description: Bank account number
+ *                     ifsc_code:
+ *                       type: string
+ *                       description: IFSC code
+ *                     bank_name:
+ *                       type: string
+ *                       description: Bank name
+ *                     amount:
+ *                       type: number
+ *                       description: Payout amount
+ *                     remark:
+ *                       type: string
+ *                       description: Payment remark
+ *                 example:
+ *                   - id: "payout_001"
+ *                     account_holder_name: "John Doe"
+ *                     account_no: "1234567890"
+ *                     ifsc_code: "HDFC0001234"
+ *                     bank_name: "HDFC Bank"
+ *                     amount: 1000
+ *                     remark: "Payment for services"
+ *               payoutIds:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 description: Array of payout IDs (alternative to payoutEntries)
+ *                 example: ["payout_001", "payout_002"]
+ *             oneOf:
+ *               - required: [payoutEntries]
+ *               - required: [payoutIds]
+ *     responses:
+ *       200:
+ *         description: Bulk payout processed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: "Bulk payout processed successfully"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     totalRecords:
+ *                       type: number
+ *                       example: 10
+ *                     successpayout:
+ *                       type: number
+ *                       example: 8
+ *                     skippayout:
+ *                       type: number
+ *                       example: 2
+ *                     results:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           success:
+ *                             type: boolean
+ *                           message:
+ *                             type: string
+ *                           payoutId:
+ *                             type: string
+ *                           beneficiaryId:
+ *                             type: string
+ *                           balanceAfter:
+ *                             type: number
+ *       400:
+ *         description: Invalid request data
+ *       401:
+ *         description: Unauthorized access
+ *       500:
+ *         description: Internal server error
+ */
+router.post(
+  '/tatapay/bulk-payout',
+  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  tryCatchHandler(createTataPayBulkPayoutController),
+);
 
 // router.post(
 //   '/payouts',

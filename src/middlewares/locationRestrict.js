@@ -7,6 +7,7 @@ import { getPayInwithMerchantDao } from '../apis/payIn/payInDao.js';
 const BLOCK_LAT = process.env.BLOCK_LAT;
 const BLOCK_LONG = process.env.BLOCK_LONG;
 const TestingIp = process.env.LOCAL_IP;
+
 const getUserLocationMiddleware = async (req, res, next) => {
   let userIp =
     req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.ip;
