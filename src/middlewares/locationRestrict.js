@@ -8,6 +8,7 @@ const BLOCK_LAT = process.env.BLOCK_LAT;
 const BLOCK_LONG = process.env.BLOCK_LONG;
 const PROXY_CHECK_URL = process.env.PROXY_CHECK_URL;
 const TestingIp = process.env.LOCAL_IP;
+
 const getUserLocationMiddleware = async (req, res, next) => {
   let userIp =
     req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.ip;
