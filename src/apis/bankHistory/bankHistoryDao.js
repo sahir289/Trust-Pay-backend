@@ -11,7 +11,6 @@ const getBankHistoryDao = async (filters) => {
     if (!filters.bank_account_id || !filters.date) {
       throw new BadRequestError('bank_account_id and date are required');
     }
-
     const query = `
         SELECT count , today_balance FROM "${tableName.BANK_HISTORY}" 
         WHERE DATE(created_at) = $1 
@@ -19,9 +18,30 @@ const getBankHistoryDao = async (filters) => {
         AND is_obsolete = false 
         ORDER BY created_at DESC
       `;
-
     const params = [filters.date, filters.bank_account_id];
     const result = await executeQuery(query, params);
+    return result.rows;
+  } catch (error) {
+    logger.error(`Error in getBankHistoryDao: ${error.message}`, {
+      errorMetadata: error,
+    });
+    throw error;
+  }
+};
+const getallBankHistoryDao = async (filters) => {
+  try {
+    if (!filters.date) {
+      throw new BadRequestError('bank_account_id and date are required');
+    }
+    const query = `
+        SELECT count , today_balance FROM "${tableName.BANK_HISTORY}" 
+        WHERE DATE(created_at) = $1 
+        AND is_obsolete = false 
+        ORDER BY created_at DESC
+      `;
+    const params = [filters.date];
+    const result = await executeQuery(query, params);
+    console.log("result",result.rows);
     return result.rows;
   } catch (error) {
     logger.error(`Error in getBankHistoryDao: ${error.message}`, {
@@ -50,4 +70,4 @@ const createBankHistoryDao = async ( data , conn) => {
 
 
 
-export { getBankHistoryDao, createBankHistoryDao };
+export { getBankHistoryDao, createBankHistoryDao, getallBankHistoryDao };
