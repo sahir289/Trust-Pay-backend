@@ -137,7 +137,7 @@ export const createTataPayPayout = async (
     }
 
     if (payload.txnStatus) {
-      checkTataPay = {...payload};
+      checkTataPay = { ...payload };
       delete payload.txnStatus;
     } else {
       checkTataPay = await initiateTataPayPayout(
@@ -213,7 +213,9 @@ export const createTataPayBulkPayout = async (
     // Validate bank configuration
     const defaultBankId = company.config.TATA_PAY.defaultBankId;
     if (!defaultBankId || defaultBankId.trim() === '') {
-      throw new BadRequestError('TataPay default bank ID not configured for company');
+      throw new BadRequestError(
+        'TataPay default bank ID not configured for company',
+      );
     }
 
     logger.info('Using TataPay bank configuration:', {
@@ -357,8 +359,10 @@ export const createTataPayBulkPayout = async (
 
       // Process each result in the response
       if (bulkResponse.results && Array.isArray(bulkResponse.results)) {
-        logger.info(`Processing ${bulkResponse.results.length} TataPay bulk response results`);
-        
+        logger.info(
+          `Processing ${bulkResponse.results.length} TataPay bulk response results`,
+        );
+
         bulkResponse.results.forEach((result, index) => {
           // Map based on the id field in the response to our payout entry id
           const matchedEntry = bulkPayoutData.find(
@@ -368,13 +372,18 @@ export const createTataPayBulkPayout = async (
           if (!matchedEntry) {
             logger.warn(
               `No matching payout entry found for response id: ${result.id} at index ${index}`,
-              { result, availableIds: bulkPayoutData.map(e => e.id).slice(0, 5) }
+              {
+                result,
+                availableIds: bulkPayoutData.map((e) => e.id).slice(0, 5),
+              },
             );
             return;
           }
 
           const payoutId = matchedEntry.id;
-          logger.info(`Mapped response result.id ${result.id} to payout entry.id ${payoutId}`);
+          logger.info(
+            `Mapped response result.id ${result.id} to payout entry.id ${payoutId}`,
+          );
 
           if (result.success) {
             successfulPayouts.push({
@@ -429,21 +438,18 @@ export const createTataPayBulkPayout = async (
             'Successful payouts sent to RabbitMQ:',
             successBulkUpdateData,
           );
-          
+
           // Also immediately update database as there's no active consumer
           if (updatePayoutStatus) {
             // Update each payout individually to ensure proper field mapping
             for (const update of successBulkUpdateData.individualUpdates) {
-              await updatePayoutStatus(
-                [update.payoutId],
-                update.status,
-                update.config,
-                {
-                  bank_acc_id: update.bank_acc_id,
-                  utr_id: update.utr_id,
-                  approved_at: update.approved_at,
-                }
-              );
+              await updatePayoutStatus([update.payoutId], {
+                status: update.status,
+                bank_acc_id: update.bank_acc_id,
+                config: update.config,
+                approved_at: update.approved_at,
+                updated_at: new Date().toISOString(),
+              });
             }
             logger.info('Successful payouts updated directly in database');
           }
@@ -456,16 +462,13 @@ export const createTataPayBulkPayout = async (
           if (updatePayoutStatus) {
             // Update each payout individually to ensure proper field mapping
             for (const update of successBulkUpdateData.individualUpdates) {
-              await updatePayoutStatus(
-                [update.payoutId],
-                update.status,
-                update.config,
-                {
-                  bank_acc_id: update.bank_acc_id,
-                  utr_id: update.utr_id,
-                  approved_at: update.approved_at,
-                }
-              );
+              await updatePayoutStatus([update.payoutId], {
+                status: update.status,
+                bank_acc_id: update.bank_acc_id,
+                config: update.config,
+                approved_at: update.approved_at,
+                updated_at: new Date().toISOString(),
+              });
             }
           }
         }
@@ -501,21 +504,19 @@ export const createTataPayBulkPayout = async (
             failedBulkUpdateData,
           );
           logger.info('Failed payouts sent to RabbitMQ:', failedBulkUpdateData);
-          
+
           // Also immediately update database as there's no active consumer
           if (updatePayoutStatus) {
             // Update each payout individually to ensure proper field mapping
             for (const update of failedBulkUpdateData.individualUpdates) {
-              await updatePayoutStatus(
-                [update.payoutId],
-                update.status,
-                update.config,
-                {
-                  bank_acc_id: update.bank_acc_id,
-                  rejected_reason: update.rejected_reason,
-                  rejected_at: update.rejected_at,
-                }
-              );
+              await updatePayoutStatus([update.payoutId], {
+                status: update.status,
+                config: update.config,
+                bank_acc_id: update.bank_acc_id,
+                rejected_reason: update.rejected_reason,
+                rejected_at: update.rejected_at,
+                updated_at: new Date().toISOString(),
+              });
             }
             logger.info('Failed payouts updated directly in database');
           }
@@ -528,16 +529,14 @@ export const createTataPayBulkPayout = async (
           if (updatePayoutStatus) {
             // Update each payout individually to ensure proper field mapping
             for (const update of failedBulkUpdateData.individualUpdates) {
-              await updatePayoutStatus(
-                [update.payoutId],
-                update.status,
-                update.config,
-                {
-                  bank_acc_id: update.bank_acc_id,
-                  rejected_reason: update.rejected_reason,
-                  rejected_at: update.rejected_at,
-                }
-              );
+              await updatePayoutStatus([update.payoutId], {
+                status: update.status,
+                config: update.config,
+                bank_acc_id: update.bank_acc_id,
+                rejected_reason: update.rejected_reason,
+                rejected_at: update.rejected_at,
+                updated_at: new Date().toISOString(),
+              });
             }
           }
         }
