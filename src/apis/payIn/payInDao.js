@@ -323,6 +323,8 @@ export const getPayInForDisputeServiceDao = async (filters = {}) => {
       id,
       merchant_order_id,
       merchant_id,
+      user,
+      upi_short_code,
       status,
       bank_response_id,
       created_at,
