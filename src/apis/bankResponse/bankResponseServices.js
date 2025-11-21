@@ -341,7 +341,7 @@ const createBankResponseService = async (
           parentCommission = await updateParentVendorCalculation(
             subVendorParentInfo.parentUserId,
             Number(botRes.amount),
-            Number(subVendorParentInfo.parentVendor.payin_commission),
+            Number(vendor[0].config?.mediator_payin_commission) || 0,
             localConn,
           );
           totalVendorCommission = payinVendorCommission + parentCommission;
@@ -1660,7 +1660,7 @@ const handleAmountUpdate = async ({
         // Calculate parent commission for amount difference
         const baseParentCommission = calculateCommission(
           Math.abs(updatedAmount),
-          Number(subVendorParentInfo.parentVendor.payin_commission)
+          Number(vendor[0].config?.mediator_payin_commission || 0)
         );
         parentCommission = updatedAmount > 0 ? baseParentCommission : -baseParentCommission;
         
@@ -1901,7 +1901,7 @@ const handleBankIdUpdate = async ({
     if (prevSubVendorParentInfo) {
       prevParentCommission = calculateCommission(
         Math.abs(botRes.amount),
-        Number(prevSubVendorParentInfo.parentVendor.payin_commission),
+          Number(prevVendor[0].config?.mediator_payin_commission || 0)
       );
       totalPrevVendorCommission = prevVendorCommission + prevParentCommission;
       
@@ -1930,7 +1930,7 @@ const handleBankIdUpdate = async ({
     if (newSubVendorParentInfo) {
       newParentCommission = calculateCommission(
         Math.abs(botRes.amount),
-        Number(newSubVendorParentInfo.parentVendor.payin_commission),
+          Number(newVendor[0].config?.mediator_payin_commission || 0)
       );
       totalNewVendorCommission = newVendorCommission + newParentCommission;
       

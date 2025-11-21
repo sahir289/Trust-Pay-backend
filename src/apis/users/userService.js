@@ -501,7 +501,9 @@ const createUserService = async (conn, payload) => {
           net_balance: payload.net_balance || '0',
           ...(sub_code && { sub_code }),
           ...(is_owned && { is_owned }),
-          is_enabled: true 
+          is_enabled: true,
+          mediator_payin_commission: payload.mediator_payin_commission || 0,
+          mediator_payout_commission: payload.mediator_payout_commission || 0,
         },
         payin_commission: Number(payload.payin_commission),
         payout_commission: Number(payload.payout_commission),

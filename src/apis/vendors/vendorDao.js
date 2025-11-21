@@ -388,6 +388,7 @@ export const getVendorByIdDao = async (user_id, company_id) => {
         v.id, 
         v.user_id, 
         v.payout_commission, 
+        v.config,
         d.designation AS designation_name
     FROM "${tableName.VENDOR}" v
     JOIN "User" u ON v.user_id = u.id
