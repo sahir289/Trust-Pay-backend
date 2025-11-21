@@ -1593,15 +1593,14 @@ const createTataPayBulkPayoutService = async (
     };
     
     // Function to update payout status in bulk
-    const updatePayoutStatusBulk = async (payoutIds, status, config) => {
+    const updatePayoutStatusBulk = async (payoutIds, payload ) => {
       try {
         // Update payout records in database
         for (const payoutId of payoutIds) {
           await updatePayoutDao(
             { id: payoutId }, // ids parameter
             { // payload parameter
-              status,
-              config,
+              ...payload,
               updated_at: new Date().toISOString(),
             },
             conn // use the transaction connection
@@ -1610,7 +1609,6 @@ const createTataPayBulkPayoutService = async (
         
         logger.info('Bulk payout status updated successfully:', {
           payoutIds,
-          status,
           count: payoutIds.length,
         });
       } catch (error) {
