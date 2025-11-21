@@ -19,22 +19,12 @@ export const clickrrWebhook = async (req, res) => {
     conn = await getConnection();
     await beginTransaction(conn);
     const payload = req.body;
-    logger.info('Received Clickrr webhook payload:', payload);
 
     const merchant_order_id = payload.referenceId;
-    logger.info(
-      'Processing Clickrr webhook for merchant_order_id:',
-      merchant_order_id,
-    );
     const companyDetails =
       await getCompanyIdByMerchantOrderIdDao(merchant_order_id);
-    logger.info('Fetched company details for Clickrr webhook:', companyDetails);
 
     if (!companyDetails) {
-      logger.error(
-        'Company ID not found for merchant_order_id:',
-        merchant_order_id,
-      );
       throw new NotFoundError(
         'Company ID not found for the given merchant_order_id',
       );
@@ -44,7 +34,6 @@ export const clickrrWebhook = async (req, res) => {
       id: companyDetails.id,
       company_id: companyDetails.company_id,
     };
-    logger.info('Updating payout for Clickrr webhook with IDs:', ids);
     const newPayload = {
       txnStatus: payload.txnStatus,
       utr_id: payload.utr,
@@ -53,7 +42,6 @@ export const clickrrWebhook = async (req, res) => {
         method: Method.CLICKRR,
       },
     };
-    logger.info('Prepared new payload for Clickrr webhook:', newPayload);
 
     logger.info('Payout updated from Clickrr webhook:', payload);
     const clickrrResponse = await updatePayoutService(conn, ids, newPayload);
