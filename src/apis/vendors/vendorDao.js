@@ -567,7 +567,7 @@ export const getVendorsBySearchDao = async (
         `"Vendor".company_id`,
         `"Vendor".config`,
         `COALESCE("Vendor".config->>'is_owned') AS is_owned`,
-        `COALESCE("Vendor".config->>'is_enabled') AS is_enabled`,
+        `COALESCE(NULLIF("Vendor".config->>'is_enabled', ''), 'false')::boolean AS is_enabled`, //Empty string '' casts to true; NULLIF prevents that bug.
         `"user_main".designation_id`,
         `u.user_name AS created_by`,
         `uu.user_name AS updated_by`,

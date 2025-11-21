@@ -23,7 +23,7 @@ const IST = 'Asia/Kolkata';
 
 if (config?.env === 'production') {
   cron.schedule(
-    '3 0 0 * * *', 
+    '1 0 * * *', 
     async () => {
       await runDailyCalculation();
     },
