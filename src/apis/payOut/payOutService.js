@@ -1023,7 +1023,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
           updateParentVendorCalculation(
             subVendorParentInfo.parentUserId,
             Number(data.amount),
-            Number(subVendorParentInfo.parentVendor.payout_commission),
+            Number(vendor.config?.mediator_payout_commission) || 0,
             true,
             conn,
           ),
@@ -1080,7 +1080,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
           updateParentVendorCalculation(
             subVendorParentInfo.parentUserId,
             Number(data.amount),
-            Number(subVendorParentInfo.parentVendor.payout_commission),
+            Number(vendor.config?.mediator_payout_commission) || 0,
             false,
             conn,
           ),

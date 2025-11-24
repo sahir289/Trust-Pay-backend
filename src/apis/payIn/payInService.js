@@ -287,11 +287,7 @@ export const determineType = (bankAssigned) => {
   return 'upi';
 };
 
-export const generatePayInUrlService = async (
-  payload,
-  role,
-  userIp,
-) => {
+export const generatePayInUrlService = async (payload, role, userIp) => {
   try {
     const {
       code,
@@ -317,9 +313,10 @@ export const generatePayInUrlService = async (
       id: merchant.company_id,
     });
 
-    const bankAssigned = await getMerchantBankDao({
-      config_merchants_contains: merchant.id,
-    }) ?? [];
+    const bankAssigned =
+      (await getMerchantBankDao({
+        config_merchants_contains: merchant.id,
+      })) ?? [];
 
     const type = determineType(bankAssigned);
 
@@ -421,16 +418,17 @@ export const generatePayInUrlService = async (
 
     const responseObj = {
       ...result,
-      merchant_details: { merchant_code: merchant?.code || null},
+      merchant_details: { merchant_code: merchant?.code || null },
       bank_res_details: { utr: null, amount: 0 },
     };
 
     setImmediate(() => {
-      newTableEntry(tableName.PAYIN, responseObj)
-        .catch(err => logger.error("Socket emit failed:", err));
-    });    
+      newTableEntry(tableName.PAYIN, responseObj).catch((err) =>
+        logger.error('Socket emit failed:', err),
+      );
+    });
 
-    if(merchant?.config?.allow_intent) {
+    if (merchant?.config?.allow_intent) {
       const duration = calculateDuration(result.created_at);
       await updatePayInUrlDao(result.id, {
         amount: parseFloat(amount),
@@ -449,7 +447,7 @@ export const generatePayInUrlService = async (
       );
       const merchantConfig = {
         h2h: merchant?.config?.is_h2h || false,
-      }
+      };
       result.merchant = merchantConfig;
       result.bank = assign.bank;
       result.type = type;
@@ -459,7 +457,7 @@ export const generatePayInUrlService = async (
   } catch (error) {
     logger.error('Error generating payin url:', error);
     throw error;
-  } 
+  }
 };
 
 export const getPayInUrlService = async (id, conn, tele_check = true) => {
@@ -3794,7 +3792,7 @@ export const updatePayInService = async (
         // Calculate parent commission for amount difference
         const baseParentCommission = calculateCommission(
           Math.abs(amountDiff),
-          Number(subVendorParentInfo.parentVendor.payin_commission),
+          Number(vendor[0].config?.mediator_payin_commission || 0),
         );
         parentCommission =
           amountDiff > 0 ? baseParentCommission : -baseParentCommission;
@@ -4049,7 +4047,7 @@ export const updatePayInService = async (
         if (prevSubVendorParentInfo) {
           prevParentCommission = calculateCommission(
             Math.abs(bankResponse.amount),
-            Number(prevSubVendorParentInfo.parentVendor.payin_commission),
+            Number(prevVendor[0].config?.mediator_payin_commission || 0),
           );
           totalPrevVendorCommission =
             prevVendorCommission + prevParentCommission;
@@ -4085,7 +4083,7 @@ export const updatePayInService = async (
         if (newSubVendorParentInfo) {
           newParentCommission = calculateCommission(
             Math.abs(bankResponse.amount),
-            Number(newSubVendorParentInfo.parentVendor.payin_commission),
+            Number(newVendor[0].config?.mediator_payin_commission || 0),
           );
           totalNewVendorCommission = newVendorCommission + newParentCommission;
 
