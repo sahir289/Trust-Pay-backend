@@ -127,6 +127,7 @@ import {
 import { getAllUsersDao, getUserDao } from '../users/userDao.js';
 import { trackVendorsNetBalance } from '../../utils/trackVendorsNetBalance.js';
 import { createCashfreeOrder } from '../../cashfree/cashfree.js';
+import { createRazorPayOrder } from '../../razorpay/razorpay.js';
 // import { createZenTechIndTransaction } from '../../zentechind/zentechInd.js';
 import { createPaymentTransaction } from '../../intent/createIntentTransaction.js';
 
@@ -852,6 +853,10 @@ export const payInIntentGenerateOrderService = async (
         const order = await createCashfreeOrder(payIn, amount);
         return order?.payment_session_id;
       },
+      Razorpay: async () => {
+        const order = await createRazorPayOrder(payIn, amount);
+        return order?.id;
+      }
     };
 
     const handler = providerHandlers[provider];
@@ -861,7 +866,7 @@ export const payInIntentGenerateOrderService = async (
 
     const session_id = await handler();
 
-    return { id: payIn.id, session_id };
+    return { id: payIn.id, session_id, return: payIn.config?.urls?.return || '' };
   } catch (error) {
     logger.error('Error generate intent payin:', error.message);
     throw error;
@@ -3264,6 +3269,7 @@ export const verifyPayinsService = async (
       allowCashfree: cashfreeDetails?.allow_cashfree || false,
       allowZenTechInd: cashfreeDetails?.allow_zentechind || false,
       allowNmplPay: cashfreeDetails?.allow_nmplpay || false,
+      allowRazorPay: cashfreeDetails?.allow_razorpay || false,
       status: payIn.status,
       min_amount: merchant[0].min_payin,
       max_amount: merchant[0].max_payin,
