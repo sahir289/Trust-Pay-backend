@@ -436,7 +436,7 @@ const createUserService = async (conn, payload) => {
         company_id: payload.company_id,
         first_name: payload.first_name,
         last_name: payload.last_name,
-        code: payload.code,
+        code: payload.code.trim(),
         balance: Number(0),
         min_payin: Number(payload.min_payin),
         max_payin: Number(payload.max_payin),
@@ -494,7 +494,7 @@ const createUserService = async (conn, payload) => {
         company_id: payload.company_id,
         first_name: payload.first_name,
         last_name: payload.last_name,
-        code: payload.code,
+        code: payload.code.trim(),
         balance: Number(0),
         config: {
           bank_response_access: false,
