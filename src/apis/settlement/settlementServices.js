@@ -514,7 +514,7 @@ const handleVendorInternalTransferByAdmin = async (
     await updateParentVendorSettlementCalculation(
       subVendorParentInfo.parentUserId,
       payload.amount,
-      Number(subVendorParentInfo.parentVendor.payin_commission),
+      Number(vendorData[0].config?.mediator_payin_commission) || 0,
       true, 
       conn,
     );
@@ -653,7 +653,7 @@ const calculateVendorCommission = async (payload) => {
   if (subVendorParentInfo) {
     const parentCommission = calculateCommission(
       payload.amount,
-      Number(subVendorParentInfo.parentVendor.payin_commission),
+      Number(vendor.config?.mediator_payin_commission) || 0,
     );
     payload._subVendorParentInfo = subVendorParentInfo;
     payload._parentCommission = parentCommission;
@@ -831,7 +831,7 @@ const handleInternalTransferReversal = async (
     await updateParentVendorSettlementCalculation(
       subVendorParentInfo.parentUserId,
       payload.amount,
-      Number(subVendorParentInfo.parentVendor.payin_commission),
+      Number(vendorData[0].config?.mediator_payin_commission) || 0,
       false, // isApproved = false (add commission back to parent)
       conn,
     );

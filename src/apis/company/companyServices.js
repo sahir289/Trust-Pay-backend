@@ -57,6 +57,7 @@ const createCompanyService = async (conn, payload) => {
       allow_cashfree: false,
       allow_zentechind: false,
       allow_nmplpay: false,
+      allow_razorpay: false,
       allowTataPay: false,
       allow_clickrr: false,
       PAY_ASSIST: {

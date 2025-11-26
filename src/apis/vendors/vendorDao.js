@@ -115,6 +115,7 @@ export const getVendorsCodeDao = async (
   excludeDisabledVendor = false,
   includeSeperateSubVendors = false,
   includeVendorAdmin = false,
+  isEnabled = false,
 ) => {
   try {
     // Convert string to boolean
@@ -131,7 +132,9 @@ export const getVendorsCodeDao = async (
       includeSeperateSubVendors =
         includeSeperateSubVendors.toLowerCase() === 'true';
     }
-
+    if (isEnabled) {
+      isEnabled = isEnabled.toLowerCase() === 'true';
+           }
     let sql = `
       SELECT 
         v.code AS label, 
@@ -176,8 +179,8 @@ export const getVendorsCodeDao = async (
 
     const queryParams = [];
     let paramIndex = 1;
-     if (includeVendorAdmin && includeOnlyVendors && includeSubVendors) {
-       sql += `
+    if (includeVendorAdmin && includeOnlyVendors && includeSubVendors) {
+      sql += `
          AND v.user_id IN (
              SELECT u.id 
              FROM "${tableName.USER}" u
@@ -186,9 +189,8 @@ export const getVendorsCodeDao = async (
              WHERE d.designation IN ('VENDOR_ADMIN','VENDOR','SUB_VENDOR')  
          )
        `;
-     }
-     else if (includeVendorAdmin && includeOnlyVendors) {
-       sql += `
+    } else if (includeVendorAdmin && includeOnlyVendors) {
+      sql += `
          AND v.user_id IN (
              SELECT u.id 
              FROM "${tableName.USER}" u
@@ -197,8 +199,8 @@ export const getVendorsCodeDao = async (
              WHERE d.designation IN ('VENDOR_ADMIN', 'VENDOR')  
          )
        `;
-     } else if (includeOnlyVendors && !includeVendorAdmin) {
-       sql += `
+    } else if (includeOnlyVendors && !includeVendorAdmin) {
+      sql += `
       AND v.user_id IN (
           SELECT u.id 
           FROM "${tableName.USER}" u
@@ -207,8 +209,8 @@ export const getVendorsCodeDao = async (
           WHERE d.designation = 'VENDOR'
         )
       `;
-     } else if (includeVendorAdmin && !includeOnlyVendors) {
-       sql += `
+    } else if (includeVendorAdmin && !includeOnlyVendors) {
+      sql += `
       AND v.user_id IN (
           SELECT u.id 
           FROM "${tableName.USER}" u
@@ -217,8 +219,8 @@ export const getVendorsCodeDao = async (
           WHERE d.designation = 'VENDOR_ADMIN'
         )
       `;
-     } else {
-       sql += `
+    } else {
+      sql += `
       AND v.user_id IN (
           SELECT u.id 
           FROM "${tableName.USER}" u
@@ -227,7 +229,10 @@ export const getVendorsCodeDao = async (
           WHERE d.designation != 'VENDOR_ADMIN'
       )
     `;
-     }
+    }
+    if (isEnabled) {
+      sql += ` AND (v.config->>'is_enabled')::boolean = true`;
+    }
 
     if (filters.company_id) {
       sql += ` AND v.company_id = $${paramIndex++}`;
@@ -383,6 +388,7 @@ export const getVendorByIdDao = async (user_id, company_id) => {
         v.id, 
         v.user_id, 
         v.payout_commission, 
+        v.config,
         d.designation AS designation_name
     FROM "${tableName.VENDOR}" v
     JOIN "User" u ON v.user_id = u.id
@@ -562,6 +568,7 @@ export const getVendorsBySearchDao = async (
         `"Vendor".company_id`,
         `"Vendor".config`,
         `COALESCE("Vendor".config->>'is_owned') AS is_owned`,
+        `COALESCE(NULLIF("Vendor".config->>'is_enabled', ''), 'false')::boolean AS is_enabled`, //Empty string '' casts to true; NULLIF prevents that bug.
         `"user_main".designation_id`,
         `u.user_name AS created_by`,
         `uu.user_name AS updated_by`,

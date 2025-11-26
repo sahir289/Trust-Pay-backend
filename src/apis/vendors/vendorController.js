@@ -81,6 +81,7 @@ const getVendorCodes = async (req, res) => {
     excludeDisabledVendor,
     includeSeperateSubVendors,
     includeVendorAdmin,
+    isEnabled,
   } = req.query;
   const filters = { company_id };
   const data = await getVendorsCodeService(
@@ -93,6 +94,7 @@ const getVendorCodes = async (req, res) => {
     excludeDisabledVendor,
     includeSeperateSubVendors,
     includeVendorAdmin,
+    isEnabled,
   );
   // Log success message
   // Send success response

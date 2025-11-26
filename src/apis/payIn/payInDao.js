@@ -320,24 +320,26 @@ export const getPayinsForServiccDao = async (filters) => {
 export const getPayInForDisputeServiceDao = async (filters = {}) => {
   try {
     const selectColumns = `
-      id,
-      merchant_order_id,
-      merchant_id,
-      status,
-      bank_response_id,
-      created_at,
-      amount,
-      company_id,
-      config,
-      bank_acc_id,
-      user_submitted_utr,
-      amount,
-      is_url_expires,
-      expiration_date
+      p.id,
+      p.merchant_order_id,
+      p.merchant_id,
+      p.user,
+      p.upi_short_code,
+      p.status,
+      p.bank_response_id,
+      p.created_at,
+      p.amount,
+      p.company_id,
+      p.config,
+      p.bank_acc_id,
+      p.user_submitted_utr,
+      p.amount,
+      p.is_url_expires,
+      p.expiration_date
     `;
 
     const [sql, params] = buildSelectQuery(
-      `SELECT ${selectColumns} FROM "${tableName.PAYIN}" WHERE is_obsolete = false`,
+      `SELECT ${selectColumns} FROM "${tableName.PAYIN}" as p WHERE is_obsolete = false`,
       filters,
     );
     const result = await executeQuery(sql, params);

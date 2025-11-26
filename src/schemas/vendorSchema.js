@@ -67,6 +67,9 @@ const VALIDATE_UPDATE_VENDOR_STATUS = Joi.object({
     'string.isoDate': 'Updated At must be a valid date in ISO 8601 format',
   }),
   is_owned: Joi.boolean().label('is_owned').optional(),
+  is_enabled: Joi.boolean().label('is_enabled').optional(),
+  mediator_payin_commission: Joi.number().min(0).optional(),
+  mediator_payout_commission: Joi.number().min(0).optional(),
 });
 
 // Validation Schema for Deleting a Vendor

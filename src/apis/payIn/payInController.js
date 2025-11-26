@@ -52,6 +52,7 @@ import { createHash } from '../../utils/hashUtils.js';
 import { logger } from '../../utils/logger.js';
 import { getRolesById } from '../roles/rolesDao.js';
 import { Role } from '../../constants/index.js';
+import { verifyRazorPaySignature } from '../../razorpay/razorpay.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 
 const TestingIp = process.env.LOCAL_IP;
@@ -259,15 +260,15 @@ export const checkPayInStatus = async (req, res) => {
 export const payInIntentGenerateOrder = async (req, res) => {
   const { merchantOrderId } = req.params;
   // const { company_id } = req.user;
-  const { amount, isRazorpay, cashfree, zentechind, nmplPay } = req.body;
-  const payload = { merchantOrderId, amount, isRazorpay, cashfree, zentechind };
+  const { amount, Razorpay, cashfree, zentechind, nmplPay } = req.body;
+  const payload = { merchantOrderId, amount, Razorpay, cashfree, zentechind };
   const joiValidation = VALIDATE_PAY_IN_INTENT_GENERATE_ORDER.validate(payload);
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
   let provider = [];
 
-  if (isRazorpay) provider.push('Razorpay');
+  if (Razorpay) provider.push('Razorpay');
   if (cashfree) provider.push('Cashfree');
   if (zentechind) provider.push('ZenTechInd');
   if (nmplPay) provider.push('NMPLPay');
@@ -287,6 +288,13 @@ export const payInIntentGenerateOrder = async (req, res) => {
   }
 
   return sendSuccess(res, data, message);
+};
+
+export const verifyPayinsrazorpay = async (req, res) => {
+  const {razorpay_payment_id, razorpay_order_id, razorpay_signature} = req.body;
+
+  const result = await verifyRazorPaySignature(razorpay_order_id, razorpay_payment_id, razorpay_signature);
+  return sendSuccess(res, result, 'Transaction verified successfully');
 };
 
 export const updatePaymentNotificationStatus = async (req, res) => {
