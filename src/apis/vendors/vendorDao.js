@@ -5,7 +5,10 @@ import {
   buildUpdateQuery,
   executeQuery,
 } from '../../utils/db.js';
-import { getUserHierarchyVendor , updateUserHierarchyVendor } from '../userHierarchy/userHierarchyDao.js';
+import {
+  getUserHierarchyVendor,
+  updateUserHierarchyVendor,
+} from '../userHierarchy/userHierarchyDao.js';
 // import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 import { logger } from '../../utils/logger.js';
 import { enhanceVendorsWithSubVendors } from '../../utils/enhanceSubVendor.js';
@@ -52,10 +55,10 @@ export const getVendorsBankReponseDao = async (filters = {}) => {
       LEFT JOIN "${tableName.DESIGNATION}" d ON u.designation_id = d.id 
       WHERE v.is_obsolete = false AND u.is_obsolete = false
     `;
-    
+
     const params = [];
     let paramIndex = 1;
-    
+
     // Handle filters manually
     if (filters.user_id) {
       if (Array.isArray(filters.user_id)) {
@@ -67,21 +70,21 @@ export const getVendorsBankReponseDao = async (filters = {}) => {
       }
       paramIndex++;
     }
-    
+
     if (filters.company_id) {
       sql += ` AND v.company_id = $${paramIndex}`;
       params.push(filters.company_id);
       paramIndex++;
     }
-    
+
     if (filters.code) {
       sql += ` AND v.code = $${paramIndex}`;
       params.push(filters.code);
       paramIndex++;
     }
-    
+
     sql += ` ORDER BY v.created_at DESC`;
-    
+
     const result = await executeQuery(sql, params);
     return result.rows || [];
   } catch (error) {
@@ -125,7 +128,7 @@ export const getVendorsCodeDao = async (
     if (includeOnlyVendors) {
       includeOnlyVendors = includeOnlyVendors.toLowerCase() === 'true';
     }
-    if (includeVendorAdmin) { 
+    if (includeVendorAdmin) {
       includeVendorAdmin = includeVendorAdmin.toLowerCase() === 'true';
     }
     if (includeSeperateSubVendors) {
@@ -134,7 +137,7 @@ export const getVendorsCodeDao = async (
     }
     if (isEnabled) {
       isEnabled = isEnabled.toLowerCase() === 'true';
-           }
+    }
     let sql = `
       SELECT 
         v.code AS label, 
@@ -405,7 +408,7 @@ export const getVendorByIdDao = async (user_id, company_id) => {
     logger.error('Error fetching vendor by ID:', error);
     throw error;
   }
-}
+};
 
 export const getVendorIdsByUserIds = async (user_ids) => {
   try {
@@ -420,7 +423,7 @@ export const getVendorIdsByUserIds = async (user_ids) => {
         AND is_obsolete = false
     `;
     const result = await executeQuery(query, ids);
-    return result.rows.map(row => row.id);
+    return result.rows.map((row) => row.id);
   } catch (error) {
     logger.error('Error in getVendorIdsByUserIds:', error);
     throw error;
@@ -993,10 +996,15 @@ const updateSubCodeWithHistory = (vendorConfig, newSubCode) => ({
   sub_code: newSubCode,
 });
 
-
 //linkVendorDao links a sub-vendor to a parent vendor
 
-export const linkVendorDao = async (vendorUserId, subVendorUserId, user_id) => {
+export const linkVendorDao = async (
+  vendorUserId,
+  subVendorUserId,
+  user_id,
+  mediator_payin_commission,
+  mediator_payout_commission,
+) => {
   try {
     const parentConfig = await getUserHierarchyVendor(vendorUserId);
     const childConfig = await getUserHierarchyVendor(subVendorUserId);
@@ -1017,7 +1025,12 @@ export const linkVendorDao = async (vendorUserId, subVendorUserId, user_id) => {
         await getVendorConfig(subVendorUserId);
       const subCode = buildSubCode(parentCode, childCode);
 
-      const updatedVendorConfig = { ...vendorConfig, sub_code: subCode };
+      const updatedVendorConfig = {
+        ...vendorConfig,
+        sub_code: subCode,
+        mediator_payin_commission: mediator_payin_commission,
+        mediator_payout_commission: mediator_payout_commission,
+      };
       await updateVendorConfig(subVendorUserId, updatedVendorConfig, user_id);
     }
 
@@ -1069,7 +1082,8 @@ export const transferVendorDao = async (
   user_id,
 ) => {
   try {
-    const currentParentConfig = await getUserHierarchyVendor(currentVendorUserId);
+    const currentParentConfig =
+      await getUserHierarchyVendor(currentVendorUserId);
     const newParentConfig = await getUserHierarchyVendor(newVendorUserId);
     const childConfig = await getUserHierarchyVendor(vendorUserId);
     const updatedCurrentConfig = removeSubVendorFromParent(
@@ -1119,4 +1133,4 @@ export const getVendorByUserId = async (user_id) => {
     logger.error('Error fetching vendor by user_id:', error);
     throw error;
   }
-}
+};
