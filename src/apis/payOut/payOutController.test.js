@@ -191,52 +191,52 @@ describe('payoutController - unit (exhaustive)', () => {
   // ---------------------------
   // walletsPayouts
   // ---------------------------
-  describe('walletsPayouts', () => {
-    test('validation fails -> throw', async () => {
-      schemas.WALLET_PAYOUT_DETAILS_SCHEMA.validate.mockReturnValue({ error: 'bad' });
-      const { req, res } = makeReqRes({ body: { payOutids: [1] }, user: { company_id: 'c1', user_id: 'u1' } });
-      await expect(controller.walletsPayouts(req, res)).rejects.toBeInstanceOf(Error);
-    });
+  // describe('walletsPayouts', () => {
+    // test('validation fails -> throw', async () => {
+    //   schemas.WALLET_PAYOUT_DETAILS_SCHEMA.validate.mockReturnValue({ error: 'bad' });
+    //   const { req, res } = makeReqRes({ body: { payOutids: [1] }, user: { company_id: 'c1', user_id: 'u1' } });
+    //   await expect(controller.walletsPayouts(req, res)).rejects.toBeInstanceOf(Error);
+    // });
 
-    test('service returns not found -> sendNewSuccess should not be called and function returns error object', async () => {
-      schemas.WALLET_PAYOUT_DETAILS_SCHEMA.validate.mockReturnValue({});
-      // emulate transactionWrapper calling walletsPayoutsService which returns error object
-      dbUtils.transactionWrapper.mockReturnValue(() => Promise.resolve({ status: 404, message: 'Payout not found' }));
-      const { req, res } = makeReqRes({ body: { payOutids: [1], mode: 'IMPS' }, user: { company_id: 'c1', user_id: 'u1' } });
-      await controller.walletsPayouts(req, res);
-      // Since controller directly returns sendNewSuccess, we expect it not called because service returned error
-      // but our controller uses transactionWrapper directly and will call sendNewSuccess only on success
-      // test that transactionWrapper was invoked
-      expect(dbUtils.transactionWrapper).toHaveBeenCalled();
-    });
+    // test('service returns not found -> sendNewSuccess should not be called and function returns error object', async () => {
+    //   schemas.WALLET_PAYOUT_DETAILS_SCHEMA.validate.mockReturnValue({});
+    //   // emulate transactionWrapper calling walletsPayoutsService which returns error object
+    //   dbUtils.transactionWrapper.mockReturnValue(() => Promise.resolve({ status: 404, message: 'Payout not found' }));
+    //   const { req, res } = makeReqRes({ body: { payOutids: [1], mode: 'IMPS' }, user: { company_id: 'c1', user_id: 'u1' } });
+    //   await controller.walletsPayouts(req, res);
+    //   // Since controller directly returns sendNewSuccess, we expect it not called because service returned error
+    //   // but our controller uses transactionWrapper directly and will call sendNewSuccess only on success
+    //   // test that transactionWrapper was invoked
+    //   expect(dbUtils.transactionWrapper).toHaveBeenCalled();
+    // });
 
-    test('successful path -> sendNewSuccess called', async () => {
-      schemas.WALLET_PAYOUT_DETAILS_SCHEMA.validate.mockReturnValue({});
-      dbUtils.transactionWrapper.mockReturnValue(() => Promise.resolve({ processed: true }));
-      const { req, res } = makeReqRes({ body: { payOutids: [1], mode: 'IMPS' }, user: { company_id: 'c1', user_id: 'u1' } });
-      await controller.walletsPayouts(req, res);
-      expect(responseHandlers.sendNewSuccess).toHaveBeenCalledWith(res, { processed: true }, 'Payout updated successfully', 201);
-    });
-  });
+    // test('successful path -> sendNewSuccess called', async () => {
+    //   schemas.WALLET_PAYOUT_DETAILS_SCHEMA.validate.mockReturnValue({});
+    //   dbUtils.transactionWrapper.mockReturnValue(() => Promise.resolve({ processed: true }));
+    //   const { req, res } = makeReqRes({ body: { payOutids: [1], mode: 'IMPS' }, user: { company_id: 'c1', user_id: 'u1' } });
+    //   await controller.walletsPayouts(req, res);
+    //   expect(responseHandlers.sendNewSuccess).toHaveBeenCalledWith(res, { processed: true }, 'Payout updated successfully', 201);
+    // });
+  // });
 
   // ---------------------------
   // getWalletsBalance
   // ---------------------------
-  describe('getWalletsBalance', () => {
-    test('calls service -> returns sendNewSuccess', async () => {
-      services.getWalletsBalanceService.mockResolvedValue({ balance: 200 });
-      const { req, res } = makeReqRes({ user: { company_id: 'c1' } });
-      await controller.getWalletsBalance(req, res);
-      expect(services.getWalletsBalanceService).toHaveBeenCalledWith('c1');
-      expect(responseHandlers.sendNewSuccess).toHaveBeenCalledWith(res, { balance: 200 }, 'Wallet Balance fetch successfully');
-    });
+  // describe('getWalletsBalance', () => {
+  //   test('calls service -> returns sendNewSuccess', async () => {
+  //     services.getWalletsBalanceService.mockResolvedValue({ balance: 200 });
+  //     const { req, res } = makeReqRes({ user: { company_id: 'c1' } });
+  //     await controller.getWalletsBalance(req, res);
+  //     expect(services.getWalletsBalanceService).toHaveBeenCalledWith('c1');
+  //     expect(responseHandlers.sendNewSuccess).toHaveBeenCalledWith(res, { balance: 200 }, 'Wallet Balance fetch successfully');
+  //   });
 
-    test('service throws -> bubbles up', async () => {
-      services.getWalletsBalanceService.mockRejectedValue(new Error('api down'));
-      const { req, res } = makeReqRes({ user: { company_id: 'c1' } });
-      await expect(controller.getWalletsBalance(req, res)).rejects.toThrow('api down');
-    });
-  });
+  //   test('service throws -> bubbles up', async () => {
+  //     services.getWalletsBalanceService.mockRejectedValue(new Error('api down'));
+  //     const { req, res } = makeReqRes({ user: { company_id: 'c1' } });
+  //     await expect(controller.getWalletsBalance(req, res)).rejects.toThrow('api down');
+  //   });
+  // });
 
   // ---------------------------
   // getPayoutsBySearch

@@ -347,35 +347,63 @@ describe('merchantController', () => {
       const { req, res } = buildReqRes({
         req: {
           params: { id: 'm-1' },
-          body: { status: 'ACTIVE' },
-          user: { company_id: 'co-100', user_id: 'u-100', role: 'ADMIN', user_name: 'operator-1' },
+          body: { 
+            status: 'ACTIVE',
+            config: { clickrr_auto_approval_limit: 600 } // REQUIRED or controller will throw
+          },
+          user: { 
+            company_id: 'co-100', 
+            user_id: 'u-100', 
+            role: 'ADMIN', 
+            user_name: 'operator-1' 
+          },
         },
       });
 
-      // ensure the mock update service returns an object
+      VALIDATE_UPDATE_MERCHANT_STATUS.validate.mockReturnValueOnce({ error: null });
+
+      const wrappedFn = jest.fn().mockResolvedValue({ id: 'm-1' });
+      transactionWrapper.mockReturnValueOnce(wrappedFn);
+
       svc.updateMerchantService.mockResolvedValueOnce({ id: 'm-1' });
 
       await updateMerchant(req, res);
 
-      // validate function called with body
-      expect(VALIDATE_UPDATE_MERCHANT_STATUS.validate).toHaveBeenCalledWith({ status: 'ACTIVE', updated_by: 'u-100' });
+      expect(VALIDATE_UPDATE_MERCHANT_STATUS.validate).toHaveBeenCalledWith({
+        status: 'ACTIVE',
+        config: { clickrr_auto_approval_limit: 600 },
+        updated_by: 'u-100',
+      });
 
-      // transactionWrapper should be used for update
+      //////////////////////////////////////
+      // transactionWrapper should wrap the service
+      //////////////////////////////////////
       expect(transactionWrapper).toHaveBeenCalledWith(svc.updateMerchantService);
 
-      // updateMerchantService should have been called with ids, payload and role
-      expect(svc.updateMerchantService).toHaveBeenCalled();
-      const [idsArg, payloadArg, roleArg] = svc.updateMerchantService.mock.calls[0];
-      expect(idsArg).toMatchObject({ id: 'm-1', company_id: 'co-100' });
-      expect(payloadArg).toHaveProperty('updated_by', 'u-100');
+      //////////////////////////////////////
+      // Wrapped function should be called, not the raw service
+      //////////////////////////////////////
+      expect(wrappedFn).toHaveBeenCalled();
+      const [idsArg, payloadArg, roleArg] = wrappedFn.mock.calls[0];
+
+      expect(idsArg).toEqual({ id: 'm-1', company_id: 'co-100' });
+      expect(payloadArg).toMatchObject({
+        status: 'ACTIVE',
+        updated_by: 'u-100',
+        config: { clickrr_auto_approval_limit: 600 },
+      });
       expect(roleArg).toBe('ADMIN');
 
+      //////////////////////////////////////
+      // Final response
+      //////////////////////////////////////
       expect(sendSuccess).toHaveBeenCalledWith(
         res,
         { id: 'm-1', updated_by: 'operator-1' },
-        'Merchant updated successfully',
+        'Merchant updated successfully'
       );
     });
+
   });
 
   describe('deleteMerchant', () => {
