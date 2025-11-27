@@ -164,7 +164,7 @@ describe('PayIn Controller', () => {
         config: { keys: { public: 'publickey' } },
       });
       getMerchantsDao.mockResolvedValue([
-        { id: 'merchantid', company_id: 'comp123', user_id: 'user123' },
+        { id: 'merchantid', company_id: 'comp123', user_id: 'user123', config: { is_h2h: false } },
       ]);
       const { getCompanyByIDDao } = require('../company/companyDao.js');
       getCompanyByIDDao.mockResolvedValue([
@@ -295,7 +295,7 @@ describe('PayIn Controller', () => {
 
       expect(responseHandlers.sendError).toHaveBeenCalledWith(
         res,
-        'Bank Account has not been linked with Merchant',
+        'No Payment Methods Enabled!',
         404,
       );
       expect(sendBankNotAssignedAlertTelegram).toHaveBeenCalledWith(
@@ -323,7 +323,8 @@ describe('PayIn Controller', () => {
         'user123',
         null,
         TestingIp,
-        false
+        false,
+        'upi'
       );
       expect(responseHandlers.sendNewSuccess).toHaveBeenCalledWith(
         res,
@@ -414,7 +415,8 @@ describe('PayIn Controller', () => {
         'user123',
         'admin',
         '127.0.0.1',
-        false
+        false,
+        'upi'
       );
       expect(responseHandlers.sendNewSuccess).toHaveBeenCalled();
     });

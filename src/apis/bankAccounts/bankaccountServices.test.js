@@ -227,11 +227,11 @@ describe('Bank Account Service', () => {
     
       await expect(
         createBankaccountService(mockConnection, {}, Role.USER, 123)
-      ).rejects.toThrow(BadRequestError);
+      ).rejects.toThrow('Create error');
     
       expect(logger.error).toHaveBeenCalledWith(
         'error getting while  creating banks',
-        error
+        error.message
       );
     });
     

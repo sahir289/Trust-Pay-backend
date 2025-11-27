@@ -363,6 +363,7 @@ jest.mock('./payInDao.js', () => ({
   getPayinsWithoutHistoryDao: jest.fn(),
   getPayInForTelegramResponseArrayDao: jest.fn(),
   getPayInIntentDao: jest.fn(),
+  getPayInForDuplicate: jest.fn(),
 }));
 // BankResponseDao mock is defined in the jest.mock block above
 

@@ -52,6 +52,14 @@ describe('zenTechIndWebhook', () => {
     const mockBankResponse = { id: 'bankResponse123' };
     const mockPayInProcessed = { id: 'payIn123' };
 
+    const expectedTransaction = {
+      order_id: '12345',
+      utr: 'UTR123',
+      amount: '1000',
+      status: 'success',
+      hash: 'validHash'
+    };
+
     generateHash.mockReturnValue('validHash');
     getPayInIntentDao.mockResolvedValue(mockPayIn);
     createBankResponseWebHookService.mockResolvedValue(mockBankResponse);
@@ -60,8 +68,8 @@ describe('zenTechIndWebhook', () => {
 
     await zenTechIndWebhook(req, res);
 
-    expect(sendSuccess).toHaveBeenCalledWith(res, 200, 'Webhook received successfully');
-    expect(generateHash).toHaveBeenCalledWith(req.body.transaction);
+    expect(sendSuccess).toHaveBeenCalledWith(res, {}, 'Webhook received successfully');
+    expect(generateHash).toHaveBeenCalledWith(expectedTransaction);
     expect(getPayInIntentDao).toHaveBeenCalledWith('12345');
     expect(createBankResponseWebHookService).toHaveBeenCalledWith(
       '1000 nil UTR123 bank123',
@@ -88,7 +96,7 @@ describe('zenTechIndWebhook', () => {
 
     await zenTechIndWebhook(req, res);
 
-    expect(sendSuccess).toHaveBeenCalledWith(res, 200, 'Webhook received successfully');
+    expect(sendSuccess).toHaveBeenCalledWith(res, {}, 'Webhook received successfully');
     expect(generateHash).toHaveBeenCalledWith(req.body.transaction);
     expect(logger.error).toHaveBeenCalledWith('Invalid hash in ZenTechInd webhook');
   });
@@ -100,7 +108,7 @@ describe('zenTechIndWebhook', () => {
 
     await zenTechIndWebhook(req, res);
 
-    expect(sendSuccess).toHaveBeenCalledWith(res, 200, 'Webhook received successfully');
+  expect(sendSuccess).toHaveBeenCalledWith(res, {}, 'Webhook received successfully');
     expect(generateHash).toHaveBeenCalledWith(req.body.transaction);
     expect(logger.error).toHaveBeenCalledWith('zenTechInd webhook error:', error);
     expect(getPayInIntentDao).toHaveBeenCalledWith('12345');
@@ -117,7 +125,7 @@ describe('zenTechIndWebhook', () => {
 
     await zenTechIndWebhook(req, res);
 
-    expect(sendSuccess).toHaveBeenCalledWith(res, 200, 'Webhook received successfully');
+    expect(sendSuccess).toHaveBeenCalledWith(res, {}, 'Webhook received successfully');
     expect(createBankResponseWebHookService).not.toHaveBeenCalled();
     expect(processPayInWebHookService).toHaveBeenCalledWith(
       {

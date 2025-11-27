@@ -228,7 +228,7 @@ describe('payoutController - unit (exhaustive)', () => {
       const { req, res } = makeReqRes({ user: { company_id: 'c1' } });
       await controller.getWalletsBalance(req, res);
       expect(services.getWalletsBalanceService).toHaveBeenCalledWith('c1');
-      expect(responseHandlers.sendNewSuccess).toHaveBeenCalledWith(res, { balance: 200 }, 'Wallet Balance fetch successfully', 200);
+      expect(responseHandlers.sendNewSuccess).toHaveBeenCalledWith(res, { balance: 200 }, 'Wallet Balance fetch successfully');
     });
 
     test('service throws -> bubbles up', async () => {

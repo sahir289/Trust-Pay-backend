@@ -34,6 +34,7 @@ describe('Response Utilities', () => {
         data,
         total,
         page,
+        statusCode: status,
       });
       expect(logger.info).toHaveBeenCalledWith(message, { status, data });
     });

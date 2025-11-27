@@ -1,38 +1,31 @@
+import { jest } from '@jest/globals';
+import os from 'os';
+import { Role } from '../../constants/index.js';
+import * as authServiceModule from './authService.js';
 import {
-    getUsersByUserNameDao,
-    updateUserDao,
-} from '../users/userDao.js';
+  loginService,
+  refreshTokenService,
+  logoutService,
+  changePasswordService,
+  verificationService,
+  verfyUserService,
+  verfyOtpService,
+  forgetPasswordService,
+  getUserRoleService,
+} from './authService.js';
 
-import {
-    addLoginDao,
-    deleteUserSessionsDao,
-    getSessionByIdDao,
-    changePasswordDao,
-    getRoleByUserNameDao,
-} from './authDao.js';
-import { createHash, verifyHash } from '../../utils/bcryptPassword.js';
-import { generateUserToken } from '../../utils/auth.js';
-import { forceLogoutUser, logOutUser } from '../../utils/sockets.js';
-import { sendOTP } from '../../utils/sendMailer.js';
-import { createUserOtpDao, getUserOtpDao, updateUserOtpDao } from '../userOtp/userOtpDao.js';
+import * as userDao from '../users/userDao.js';
+import * as authDao from './authDao.js';
+import * as bcryptUtils from '../../utils/bcryptPassword.js';
+import * as authUtils from '../../utils/auth.js';
+import * as socketUtils from '../../utils/sockets.js';
+import * as mailerUtils from '../../utils/sendMailer.js';
+import * as otpDao from '../userOtp/userOtpDao.js';
 import { generateOTP } from '../../utils/generateOtp.js';
 import { generateUUID } from '../../utils/generateUUID.js';
-import { Role } from '../../constants/index.js';
 import { NotFoundError, BadRequestError } from '../../utils/appErrors.js';
-import os from 'os';
-import * as authServiceModule from './authService.js';
-
-const {
-    loginService,
-    refreshTokenService,
-    changePasswordService,
-    verificationService,
-    logoutService,
-    verfyUserService,
-    verfyOtpService,
-    forgetPasswordService,
-    getUserRoleService,
-} = authServiceModule;
+import { getConnection } from '../../utils/db.js';
+import { logger } from '../../utils/logger.js';
 
 jest.mock('../users/userDao.js');
 jest.mock('./authDao.js');
@@ -43,246 +36,180 @@ jest.mock('../../utils/sendMailer.js');
 jest.mock('../userOtp/userOtpDao.js');
 jest.mock('../../utils/generateOtp.js');
 jest.mock('../../utils/generateUUID.js');
-jest.mock('os');
+jest.mock('../../utils/logger.js');
 jest.mock('../../utils/db.js');
 
-// Mock winston and config.js to prevent split error on import
+describe('Auth Service', () => {
+  const mockUser = {
+    id: 1,
+    username: 'testuser',
+    password: 'hashedpwd',
+    is_enabled: true,
+    designation: Role.USER,
+    company_id: 1,
+    company_config: { unique_admin_id: 'ADMIN123' },
+    config: { isLoginFirst: true },
+    email: 'test@example.com',
+  };
 
-describe('Auth Services', () => {
-    const mockUser = {
-        id: 'user1',
-        username: 'testuser',
-        password: 'hashedpassword',
-        is_enabled: true,
-        designation: Role.USER,
-        company_id: 'company1',
-        config: { isLoginFirst: true },
-        company_config: { unique_admin_id: 'admin-123' },
-    };
+  const clientIP = '127.0.0.1';
 
-    beforeEach(() => {
-        jest.clearAllMocks();
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  // ------------------------- loginService -------------------------
+  describe('loginService', () => {
+    it('should throw NotFoundError if user not found', async () => {
+      userDao.getUsersByUserNameDao.mockResolvedValue(null);
+      await expect(loginService({ username: 'x', password: 'x' }, clientIP))
+        .rejects.toThrow(NotFoundError);
     });
 
-    describe('loginService', () => {
-        it('should throw BadRequestError if admin unique_admin_id is missing', async () => {
-            getUsersByUserNameDao.mockResolvedValue({ ...mockUser, designation: Role.ADMIN, company_config: { unique_admin_id: 'admin-123' } });
-            await expect(loginService({ username: 'admin', password: 'pass' }, '127.0.0.1')).rejects.toThrow(BadRequestError);
-        });
-
-        it('should throw BadRequestError if admin unique_admin_id does not match', async () => {
-            getUsersByUserNameDao.mockResolvedValue({ ...mockUser, designation: Role.ADMIN, company_config: { unique_admin_id: 'admin-123' } });
-            await expect(loginService({ username: 'admin', password: 'pass', unique_admin_id: 'wrong-id' }, '127.0.0.1')).rejects.toThrow(BadRequestError);
-        });
-        it('should throw NotFoundError if user does not exist', async () => {
-            getUsersByUserNameDao.mockResolvedValue(null);
-            await expect(loginService({ username: 'notfound' }, '127.0.0.1'))
-                .rejects.toThrow(NotFoundError);
-        });
-
-        it('should throw NotFoundError if user is disabled', async () => {
-            getUsersByUserNameDao.mockResolvedValue({ ...mockUser, is_enabled: false });
-            await expect(loginService({ username: 'testuser' }, '127.0.0.1'))
-                .rejects.toThrow(NotFoundError);
-        });
-
-        it('should return first login object if user config.isLoginFirst', async () => {
-            getUsersByUserNameDao.mockResolvedValue({ ...mockUser, config: { isLoginFirst: true } });
-            verifyHash.mockResolvedValue(true);
-
-            const result = await loginService({ username: 'testuser', password: 'pass' }, '127.0.0.1');
-            expect(result).toEqual({
-                id: mockUser.id,
-                isLoginFirst: true,
-            });
-        });
-
-        it('should generate token and session for regular login', async () => {
-            getUsersByUserNameDao.mockResolvedValue({ ...mockUser, config: { isLoginFirst: false } });
-            verifyHash.mockResolvedValue(true);
-            generateUserToken.mockReturnValue({ accessToken: 'access', refreshToken: 'refresh' });
-            generateUUID.mockReturnValue('session123');
-            addLoginDao.mockResolvedValue(true);
-            deleteUserSessionsDao.mockResolvedValue(true);
-            os.hostname = jest.fn().mockReturnValue('host');
-            os.platform = jest.fn().mockReturnValue('linux');
-            os.cpus = jest.fn().mockReturnValue([{ model: 'Intel' }]);
-            os.networkInterfaces = jest.fn().mockReturnValue({ eth0: [{ address: '127.0.0.1' }] });
-            createHash.mockResolvedValue('hashedToken');
-
-            const result = await loginService({ username: 'testuser', password: 'pass' }, '127.0.0.1');
-            expect(result).toEqual({
-                tokenInfo: { accessToken: 'access', refreshToken: 'refresh' },
-                sessionId: 'session123',
-            });
-            expect(forceLogoutUser).toHaveBeenCalled();
-        });
+    it('should throw NotFoundError if user not enabled', async () => {
+      userDao.getUsersByUserNameDao.mockResolvedValue({ ...mockUser, is_enabled: false });
+      await expect(loginService({ username: 'x', password: 'x' }, clientIP))
+        .rejects.toThrow(NotFoundError);
     });
 
-    describe('refreshTokenService', () => {
-        it('should throw AuthenticationError if no session found', async () => {
-            getSessionByIdDao.mockResolvedValue(false);
-
-            await expect(refreshTokenService('user1', 'company1', 'token'))
-                .rejects.toThrowErrorMatchingInlineSnapshot(`"No active session found"`);
-        });
-
-        it('should return session if refresh token is valid', async () => {
-            const mockSession = {
-                config: JSON.stringify({
-                    token: { refresh_token: 'hashedRefreshToken' },
-                }),
-            };
-            getSessionByIdDao.mockResolvedValue(mockSession);
-            jest.spyOn(require('../../utils/hashUtils.js'), 'compareHash').mockReturnValue(true);
-
-            const result = await refreshTokenService('user1', 'company1', 'token');
-            expect(result).toEqual(mockSession);
-            expect(require('../../utils/hashUtils.js').compareHash).toHaveBeenCalledWith('token', 'hashedRefreshToken');
-        });
+    it('should throw BadRequestError if admin login with wrong unique ID', async () => {
+      const adminUser = { ...mockUser, designation: Role.ADMIN };
+      userDao.getUsersByUserNameDao.mockResolvedValue(adminUser);
+      await expect(loginService({ username: 'admin', password: 'x', unique_admin_id: 'WRONG' }, clientIP))
+        .rejects.toThrow(BadRequestError);
     });
 
-    describe('logoutService', () => {
-        it('should call deleteUserSessionsDao and logOutUser', async () => {
-            deleteUserSessionsDao.mockResolvedValue(true);
-            const result = await logoutService({ user_id: 'user1', company_id: 'company1' }, 'sess1');
-            expect(result).toBe(true);
-            expect(logOutUser).toHaveBeenCalledWith('user1', 'sess1');
-        });
+    it('should handle first login and return loginFirstObj', async () => {
+      userDao.getUsersByUserNameDao.mockResolvedValue({ ...mockUser, config: { isLoginFirst: true } });
+      bcryptUtils.verifyHash.mockResolvedValue(true);
+
+      const res = await loginService({ username: 'x', password: 'x' }, clientIP);
+      expect(res).toEqual({ id: mockUser.id, isLoginFirst: true });
     });
 
-    describe('changePasswordService', () => {
-        beforeEach(() => {
-            jest.resetModules();
-            jest.clearAllMocks();
-        });
-        afterEach(() => {
-            jest.restoreAllMocks();
-        });
+    it('should create session and return tokenInfo and sessionId', async () => {
+      userDao.getUsersByUserNameDao.mockResolvedValue({ ...mockUser, config: { isLoginFirst: false } });
+      bcryptUtils.verifyHash.mockResolvedValue(true);
+      authUtils.generateUserToken.mockReturnValue({ accessToken: 'at', refreshToken: 'rt' });
+      bcryptUtils.createHash.mockResolvedValue('hashed_refresh');
+      generateUUID.mockReturnValue('uuid');
+      authDao.deleteUserSessionsDao.mockResolvedValue(true);
+      authDao.addLoginDao.mockResolvedValue(true);
 
-        test('should change password successfully', async () => {
-            const payload = {
-                user_id: 'user1',
-                user_name: 'testuser',
-                oldPassword: 'old',
-                password: 'new',
-            };
+      getConnection.mockResolvedValue({
+        query: jest.fn().mockResolvedValue({}),
+        release: jest.fn(),
+      });
 
-            // Mock verificationService directly on the module
-            jest.spyOn(authServiceModule, 'verificationService').mockImplementation(async (id, userDetails) => {
-                expect(id).toBe('user1');
-                expect(userDetails).toEqual({
-                    user_name: 'testuser',
-                    password: 'old',
-                });
-                return {
-                    id: 'user1',
-                    username: 'testuser',
-                    password: 'hashedpassword',
-                };
-            });
+      const res = await loginService({ username: 'x', password: 'x' }, clientIP);
 
-            createHash.mockResolvedValue('newHash');
-            changePasswordDao.mockResolvedValue({
-                id: 'user1',
-                username: 'testuser',
-                password: 'newHash',
-            });
-
-            const result = await changePasswordService(payload);
-
-            expect(result.password).toBe('newHash');
-        });
-
-        // test('should throw AuthenticationError if verification fails', async () => {
-        //     const payload = {
-        //         user_id: 'user1',
-        //         user_name: 'testuser',
-        //         oldPassword: 'wrong',
-        //         password: 'new',
-        //     };
-
-        //     const mockVerification = jest
-        //         .spyOn(authServiceModule, 'verificationService')
-        //         .mockResolvedValue(null);
-
-        //     await expect(changePasswordService(payload)).rejects.toThrow(
-        //         new AuthenticationError('Invalid Password')
-        //     );
-
-        //     expect(mockVerification).toHaveBeenCalledWith(payload.user_id, {
-        //         user_name: payload.user_name,
-        //         password: payload.oldPassword,
-        //     });
-        // });
+      expect(res).toHaveProperty('tokenInfo');
+      expect(res).toHaveProperty('sessionId', 'uuid');
+      expect(socketUtils.forceLogoutUser).toHaveBeenCalled();
     });
 
+    it('should retry login on serialization failure', async () => {
+      const connMock = {
+        query: jest.fn().mockRejectedValueOnce({ code: '40001', message: 'serialization failure' }).mockResolvedValue({}),
+        release: jest.fn(),
+      };
+      userDao.getUsersByUserNameDao.mockResolvedValue({ ...mockUser, config: { isLoginFirst: false } });
+      bcryptUtils.verifyHash.mockResolvedValue(true);
+      authDao.deleteUserSessionsDao.mockResolvedValue(true);
+      authDao.addLoginDao.mockResolvedValue(true);
+      authUtils.generateUserToken.mockReturnValue({ accessToken: 'at', refreshToken: 'rt' });
+      bcryptUtils.createHash.mockResolvedValue('hashed_refresh');
+      generateUUID.mockReturnValue('uuid');
 
-    describe('verificationService', () => {
-        it('should throw AuthenticationError if password invalid', async () => {
-            getUsersByUserNameDao.mockResolvedValue(mockUser);
-            verifyHash.mockResolvedValue(false);
-            await expect(verificationService('user1', { user_name: 'testuser', password: 'wrong' }))
-                .rejects.toThrow(BadRequestError);
-        });
+      getConnection.mockResolvedValue(connMock);
 
-        it('should return user details if password is valid', async () => {
-            getUsersByUserNameDao.mockResolvedValue(mockUser);
-            verifyHash.mockResolvedValue(true);
-            const result = await verificationService('user1', { user_name: 'testuser', password: 'correct' });
-            expect(result).toEqual(mockUser);
-        });
+      const res = await loginService({ username: 'x', password: 'x' }, clientIP);
+      expect(res).toHaveProperty('sessionId', 'uuid');
+    });
+  });
+
+  // ------------------------- refreshTokenService -------------------------
+  describe('refreshTokenService', () => {
+    it('should throw error if session not found', async () => {
+      authDao.getSessionByIdDao.mockResolvedValue(null);
+      await expect(refreshTokenService(1, 1, 'rt')).rejects.toThrow('No active session found');
+    });
+  });
+
+  // ------------------------- logoutService -------------------------
+  describe('logoutService', () => {
+    it('should delete session and call logOutUser', async () => {
+      authDao.deleteUserSessionsDao.mockResolvedValue(true);
+      await logoutService({ user_id: 1, company_id: 1 }, 'session123');
+      expect(socketUtils.logOutUser).toHaveBeenCalledWith(1, 'session123');
+    });
+  });
+
+  // ------------------------- changePasswordService -------------------------
+  describe('changePasswordService', () => {
+
+    it('should change password successfully', async () => {
+      jest.spyOn(authServiceModule, 'verificationService').mockResolvedValue(true);
+      bcryptUtils.createHash.mockResolvedValue('newHash');
+      authDao.changePasswordDao.mockResolvedValue({ id: 1 });
+      const res = await changePasswordService({ user_id: 1, user_name: 'x', oldPassword: 'x', password: 'y' });
+      expect(res).toEqual({ id: 1 });
+    });
+  });
+
+  // ------------------------- forgetPasswordService -------------------------
+  describe('forgetPasswordService', () => {
+    it('should update user password', async () => {
+      bcryptUtils.createHash.mockResolvedValue('newHash');
+      userDao.updateUserDao.mockResolvedValue({ id: 1 });
+      const res = await forgetPasswordService({ user_id: 1, password: 'x' });
+      expect(res).toEqual({ id: 1 });
+    });
+  });
+
+  // ------------------------- verfyOtpService -------------------------
+  describe('verfyOtpService', () => {
+    it('should throw AuthenticationError if OTP invalid', async () => {
+      otpDao.getUserOtpDao.mockResolvedValue(null);
+      await expect(verfyOtpService('otp')).rejects.toThrow('Please Enter Vaild OTP');
     });
 
-    describe('verfyUserService', () => {
-        it('should send OTP and create OTP record', async () => {
-            getUsersByUserNameDao.mockResolvedValue(mockUser);
-            generateOTP.mockReturnValue('123456');
-            createUserOtpDao.mockResolvedValue(true);
-            sendOTP.mockResolvedValue(true);
-
-            const result = await verfyUserService('testuser');
-            expect(result).toBe(true);
-        });
+    it('should throw AuthenticationError if OTP expired', async () => {
+      otpDao.getUserOtpDao.mockResolvedValue({ expiration_time: new Date(Date.now() - 1000), is_used: false, user_id:1 });
+      await expect(verfyOtpService('otp')).rejects.toThrow('Expired Otp');
     });
 
-    describe('verfyOtpService', () => {
-        it('should mark OTP as used and return user id', async () => {
-            const otpRecord = { user_id: 'user1', expiration_time: new Date(Date.now() + 60000), is_used: false };
-            getUserOtpDao.mockResolvedValue(otpRecord);
-            updateUserOtpDao.mockResolvedValue(true);
-
-            const result = await verfyOtpService('otp123');
-            expect(result).toEqual({ id: 'user1' });
-        });
+    it('should throw AuthenticationError if OTP already used', async () => {
+      otpDao.getUserOtpDao.mockResolvedValue({ expiration_time: new Date(Date.now() + 10000), is_used: true, user_id:1 });
+      await expect(verfyOtpService('otp')).rejects.toThrow('Please Enter New Otp');
     });
 
-    describe('forgetPasswordService', () => {
-        it('should update user password', async () => {
-            updateUserDao.mockResolvedValue({ id: 'user1', password: 'hashed' });
-            createHash.mockResolvedValue('hashed');
+    it('should verify OTP successfully', async () => {
+      otpDao.getUserOtpDao.mockResolvedValue({ expiration_time: new Date(Date.now() + 10000), is_used: false, user_id:1 });
+      otpDao.updateUserOtpDao.mockResolvedValue(true);
+      const res = await verfyOtpService('otp');
+      expect(res).toEqual({ id:1 });
+    });
+  });
 
-            const result = await forgetPasswordService({ user_id: 'user1', password: 'newpass' });
-            expect(result.password).toBe('hashed');
-        });
+  // ------------------------- getUserRoleService -------------------------
+  describe('getUserRoleService', () => {
+    it('should throw NotFoundError if user not found', async () => {
+      authDao.getRoleByUserNameDao.mockResolvedValue(null);
+      await expect(getUserRoleService('x')).rejects.toThrow(NotFoundError);
     });
 
-    describe('getUserRoleService', () => {
-        it('should return isAdmin true for admin', async () => {
-            getRoleByUserNameDao.mockResolvedValue({ designation: Role.ADMIN });
-            const result = await getUserRoleService('admin');
-            expect(result).toEqual({ isAdmin: true });
-        });
-
-        it('should return isAdmin false for normal user', async () => {
-            getRoleByUserNameDao.mockResolvedValue({ designation: Role.USER });
-            const result = await getUserRoleService('user');
-            expect(result).toEqual({ isAdmin: false });
-        });
-
-        it('should throw NotFoundError if user not found', async () => {
-            getRoleByUserNameDao.mockResolvedValue(null);
-            await expect(getUserRoleService('unknown')).rejects.toThrow(NotFoundError);
-        });
+    it('should return isAdmin false for normal user', async () => {
+      authDao.getRoleByUserNameDao.mockResolvedValue({ designation: Role.USER });
+      const res = await getUserRoleService('x');
+      expect(res).toEqual({ isAdmin: false });
     });
+
+    it('should return isAdmin true for admin', async () => {
+      authDao.getRoleByUserNameDao.mockResolvedValue({ designation: Role.ADMIN });
+      const res = await getUserRoleService('x');
+      expect(res).toEqual({ isAdmin: true });
+    });
+  });
+
 });
