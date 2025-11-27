@@ -43,7 +43,7 @@ export const clickrrWebhook = async (req, res) => {
       },
     };
 
-    logger.info('Payout updated from Clickrr webhook:', newPayload);
+    logger.info(`Payout updated from Clickrr webhook for ID ${merchant_order_id}`, newPayload);
     const clickrrResponse = await updatePayoutService(conn, ids, newPayload);
     logger.info('Payout processed:', clickrrResponse);
     await commit(conn);
