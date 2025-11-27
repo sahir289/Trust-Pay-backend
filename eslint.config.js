@@ -34,13 +34,9 @@ export default [
     files: ['**/*.test.js'],
     languageOptions: {
       globals: {
-<<<<<<< HEAD
-        ...globals.jest,
-=======
         ...globals.browser,
         ...globals.node,  
         process: 'readonly',
->>>>>>> 91bf8e9640b076d4154615c2b49e6596ff8a7373
       },
     },
   },

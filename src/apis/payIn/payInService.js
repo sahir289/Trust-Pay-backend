@@ -456,20 +456,9 @@ export const generatePayInUrlService = async (payload, role, userIp) => {
     // await newTableEntry(tableName.PAYIN);
     return result;
   } catch (error) {
-<<<<<<< HEAD
-    // throw new BadRequestError(error.message);
-    logger.error('Error get payin url:', error);
-    throw error;
-  }
-=======
     logger.error('Error generating payin url:', error);
     throw error;
-<<<<<<< HEAD
   } 
->>>>>>> 91bf8e9640b076d4154615c2b49e6596ff8a7373
-=======
-  }
->>>>>>> 44cbf558b8b060568e3281a694e5c913065f3ca4
 };
 
 export const  getPayInUrlService = async (id, conn, tele_check = true) => {

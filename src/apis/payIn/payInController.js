@@ -74,14 +74,6 @@ export const generatePayInUrl = async (req, res) => {
   const payload = req.query;
   const x_api_key = req.headers['x-api-key'];
   let userIp =
-<<<<<<< HEAD
-  req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.ip;
-  if (userIp == '::1') {
-    userIp = TestingIp;
-  }
-  const fromUI = payload.fromUi || false;
-  delete payload.fromUi; // remove from payload to avoid validation issues
-=======
     req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.ip;
 
   // Handle localhost IP for testing
@@ -89,7 +81,6 @@ export const generatePayInUrl = async (req, res) => {
   const { code, key, roleToken = null } = payload;
   let message;
 
->>>>>>> 91bf8e9640b076d4154615c2b49e6596ff8a7373
   const joiValidation = ASSIGN_PAYIN_SCHEMA.validate(payload);
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
