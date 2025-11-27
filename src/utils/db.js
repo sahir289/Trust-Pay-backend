@@ -442,11 +442,14 @@ export const buildAndExecuteUpdateQuery = async (
       : await executeQuery(query, values); // Use default pool connection
 
     if (!result || !result.rows || result.rows.length === 0) {
+      // Enhanced logging to help debug intermittent "no rows updated" cases
       logger.warn(
-        'No rows updated. Please check the provided IDs and conditions.',
+        `No rows updated for table "${tableName}". Query: ${query} Params: [${values}] Where: ${JSON.stringify(whereCondition)}`,
       );
       throw new Error(
-        'No rows updated. Please check the provided IDs and conditions.',
+        `No rows updated for table "${tableName}". Check IDs/conditions. Where: ${JSON.stringify(
+          whereCondition,
+        )} Params: [${values}]`,
       );
     }
 

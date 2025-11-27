@@ -102,13 +102,13 @@ const getSubVendorParentInfo = async (vendor) => {
 };
 
 // Helper function to calculate commission for parent vendor in settlement
-const updateParentVendorSettlementCalculation = async (parentUserId, amount, vendorCommissionRate, isApproved, conn) => {
+const updateParentVendorSettlementCalculation = async (parentUserId, amount, vendorCommissionRate, isApproved, conn, settlementId = null) => {
   try {
-    logger.info(`Settlement: updateParentVendorSettlementCalculation called with: parentUserId=${parentUserId}, amount=${amount}, rate=${vendorCommissionRate}, isApproved=${isApproved}`);
+    logger.info(`Settlement: updateParentVendorSettlementCalculation called for settlementId=${settlementId ?? 'N/A'} parentUserId=${parentUserId}, amount=${amount}, rate=${vendorCommissionRate}, isApproved=${isApproved}`);
     
     const parentCommission = calculateCommission(amount, vendorCommissionRate);
     
-    logger.info(`Settlement: Calculated parent commission: ${parentCommission}`);
+    logger.info(`Settlement: Calculated parent commission for settlementId=${settlementId ?? 'N/A'}: ${parentCommission}`);
     
     // Get parent calculation data
     const parentCalculationData = await getCalculationforCronDao(parentUserId);
@@ -133,7 +133,7 @@ const updateParentVendorSettlementCalculation = async (parentUserId, amount, ven
           current_balance: -parentCommission,
           net_balance: -parentCommission,
       };
-    logger.info(`Settlement: Updating parent calculation table with: ${JSON.stringify(calculationUpdate)}`);
+    logger.info(`Settlement: Updating parent calculation table for settlementId=${settlementId ?? 'N/A'} with: ${JSON.stringify(calculationUpdate)}`);
     const response = await updateCalculationBalanceDao(
       { id: parentCalculationData[0].id },
       calculationUpdate,
@@ -141,7 +141,7 @@ const updateParentVendorSettlementCalculation = async (parentUserId, amount, ven
     );
     await trackVendorsNetBalance(parentUserId, conn, response);
 
-    logger.info(`Settlement: Parent vendor calculation table updated successfully for userId: ${parentUserId}`);
+    logger.info(`Settlement: Parent vendor calculation table updated successfully for userId: ${parentUserId} (settlementId=${settlementId ?? 'N/A'})`);
     
     return parentCommission;
   } catch (error) {
@@ -505,6 +505,7 @@ const handleVendorInternalTransferByAdmin = async (
     { config },
     conn,
   );
+  logger.info(`Settlement: updateCalculationConfigDao called for id=${calculationData[0].id}, company_id=${calculationData[0].company_id}, method=${payload.method}, config=${JSON.stringify(config)}`);
 
   // Set final payload properties
   payload.status = Status.SUCCESS;
@@ -517,6 +518,7 @@ const handleVendorInternalTransferByAdmin = async (
       Number(subVendorParentInfo.parentVendor.payin_commission),
       true, 
       conn,
+      null, // no settlementId available during create
     );
   }
   return await createSettlementDao(payload, conn);
@@ -834,9 +836,10 @@ const handleInternalTransferReversal = async (
       Number(subVendorParentInfo.parentVendor.payin_commission),
       false, // isApproved = false (add commission back to parent)
       conn,
+      settlementData.id,
     );
     
-    logger.info(`Settlement reversal: Parent vendor calculation updated for sub-vendor settlement reversal`);
+    logger.info(`Settlement reversal: Parent vendor calculation updated for sub-vendor settlement reversal (settlementId=${settlementData.id})`);
   }
 
   return {
@@ -1018,9 +1021,10 @@ const updateSettlementService = async (conn, ids, payload) => {
                 Number(payload._subVendorParentInfo.parentVendor.payin_commission),
                 true, // isApproved = true (remove commission from parent)
                 conn,
+                settlementData.id,
               );
               
-              logger.info(`Settlement approval: Parent vendor calculation updated for sub-vendor settlement`);
+              logger.info(`Settlement approval: Parent vendor calculation updated for sub-vendor settlement (settlementId=${settlementData.id})`);
             }
           } else {
             updatedCalculation = createCalculationUpdate(
@@ -1041,6 +1045,7 @@ const updateSettlementService = async (conn, ids, payload) => {
       delete payload.config.brokerage_commission;
 
       // Update beneficiary account for vendor bank transactions
+      logger.info(`Settlement: updating beneficiary account for settlement id=${settlementData.id}, user_id=${settlementData.user_id}, company_id=${settlementData.company_id}`);
       await updateBeneficiaryAccount(conn, settlementData, payload);
     }
 
@@ -1127,15 +1132,19 @@ const updateSettlementService = async (conn, ids, payload) => {
           isReversed,
         );
       }
-      // Handle transfer methods
+      // Handle transfer methods (currently only BANK)
       else if (TRANSFER_METHODS.includes(payload.method)) {
+        logger.info(`Settlement: calculating transfer method config for settlementId=${settlementData.id}, method=${payload.method}, debit_credit=${payload?.config?.debit_credit}, amount=${payload.amount}, isReversed=${isReversed}`);
         config = calculateTransferMethodConfig(
           payload.method,
-          payload.config.debit_credit,
+          payload.config?.debit_credit,
           calculationData[0].config,
           payload.amount,
           isReversed,
         );
+        if (!config) {
+          logger.warn(`Settlement: No transfer-method config produced for settlementId=${settlementData.id} method=${payload.method} debit_credit=${payload?.config?.debit_credit}`);
+        }
       }
 
       if (config) {
@@ -1144,6 +1153,7 @@ const updateSettlementService = async (conn, ids, payload) => {
           { config },
           conn,
         );
+        logger.info(`Settlement: updateCalculationConfigDao called (post-settlement update) for settlementId=${settlementData.id}, calculationId=${calculationData[0].id}, company_id=${calculationData[0].company_id}, method=${payload.method}, config=${JSON.stringify(config)}`);
       }
     }
 
