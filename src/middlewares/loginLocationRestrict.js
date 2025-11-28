@@ -29,7 +29,7 @@ const loginMiddleware = async (req, res, next) => {
       logger.warn('VPN detected. Access denied.', userData);
       throw new BadRequestError('VPN usage is not allowed');
     }
-    const restrictRegion = ['Gujarat'];
+    const restrictRegion = ['Gujarat']; 
     // Check if the user is from India
     if (
       country.toLowerCase() === 'india' &&
