@@ -25,7 +25,7 @@ const getUserLocationMiddleware = async (req, res, next) => {
   try {
     // Get the user's IP address (checking for reverse proxy headers)
     // Send a request to proxycheck.io to fetch the geolocation data
-    let url = PROXY_CHECK_URL.replace('$%7BuserIp%7D', userIp);
+    let url = PROXY_CHECK_URL.replace('$%7BuserIp%7D', userIp); 
     const response = await axios.get(url);
 
     const userData = response.data[userIp];
