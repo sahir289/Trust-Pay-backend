@@ -214,7 +214,7 @@ describe('gatherAllData', () => {
       'token',
       'Daily Report',
       null, 
-      undefined // Accept undefined if that's what the code returns
+      "-4803239959" // Accept undefined if that's what the code returns
     );
     expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('Dashboard Report CRON Ended for company: 1'));
   });
