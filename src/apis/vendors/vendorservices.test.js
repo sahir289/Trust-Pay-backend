@@ -31,7 +31,7 @@ const {
   deleteVendorDao,
 } = require('./vendorDao');
 const { createCalculationDao } = require('../calculation/calculationDao');
-const { updateBankaccountDao } = require('../bankAccounts/bankaccountDao');
+const { updateBankaccountDao, getBankaccountCheckDao } = require('../bankAccounts/bankaccountDao');
 const { updateUserDao } = require('../users/userDao');
 const { deleteBeneficiaryDao } = require('../beneficiaryAccounts/beneficiaryAccountDao');
 const { createUserHierarchyDao, getUserHierarchysDao, updateUserHierarchyDao } = require('../userHierarchy/userHierarchyDao');
@@ -52,6 +52,7 @@ describe('Vendor Service', () => {
   let mockConn;
 
   beforeEach(() => {
+    jest.clearAllMocks();
     mockConn = {
       release: jest.fn(),
     };
@@ -59,7 +60,7 @@ describe('Vendor Service', () => {
     beginTransaction.mockResolvedValue();
     commit.mockResolvedValue();
     rollback.mockResolvedValue();
-    jest.clearAllMocks();
+    getBankaccountCheckDao.mockResolvedValue(null);
   });
 
   describe('createVendorService', () => {
@@ -168,7 +169,7 @@ describe('Vendor Service', () => {
       getUserHierarchysDao.mockResolvedValue([{ config: { siblings: { sub_vendors: [2, 3] } } }]);
       getVendorsCodeDao.mockResolvedValue(['VEND001', 'VEND002']);
 
-      const result = await getVendorsCodeService(filters, role, designation, user_id, true, false, true, false);
+      const result = await getVendorsCodeService(filters, role, designation, user_id, true, false, true, false, undefined, undefined);
 
       expect(getConnection).toHaveBeenCalledWith('reader');
       expect(beginTransaction).toHaveBeenCalledWith(mockConn);
@@ -179,7 +180,9 @@ describe('Vendor Service', () => {
         true,
         false,
         true,
-        false
+        false,
+        undefined,
+        undefined
       );
       expect(commit).toHaveBeenCalledWith(mockConn);
       expect(result).toEqual(['VEND001', 'VEND002']);
@@ -376,11 +379,13 @@ describe('Vendor Service', () => {
 
     test('should throw BadRequestError if sub-vendor commission is too high', async () => {
       isNetBalanceZeroForTwoHours.mockResolvedValue(true);
-  // To trigger the commission check failure in current implementation,
-  // set the parent vendor's commission to > 1
-  getVendorByUserId.mockResolvedValue({ payin_commission: 2, payout_commission: 0 });
+      // To trigger the commission check failure, both commissions must be > 5
+      getVendorByUserId.mockResolvedValue({ payin_commission: 10, payout_commission: 10 });
+      getBankaccountCheckDao.mockResolvedValue(null);
+      getDesignationIdDao.mockResolvedValue(4);
+      updateUserDao.mockResolvedValue();
 
-  await expect(linkVendorService(1, 2, 3)).rejects.toThrow(BadRequestError);
+      await expect(linkVendorService(1, 2, 3)).rejects.toThrow('Parent Vendor commission must be less than or equal to 5%.');
       expect(rollback).toHaveBeenCalledWith(mockConn);
     });
   });
@@ -445,11 +450,11 @@ describe('Vendor Service', () => {
 
     test('should throw BadRequestError if sub-vendor commission is too high', async () => {
       isNetBalanceZeroForTwoHours.mockResolvedValue(true);
-  // To trigger the commission check failure in current implementation,
-  // set the parent vendor's commission to > 1
-  getVendorByUserId.mockResolvedValue({ payin_commission: 2, payout_commission: 0 });
+      // To trigger the commission check failure, both commissions must be > 5
+      getVendorByUserId.mockResolvedValue({ payin_commission: 10, payout_commission: 10 });
+      getBankaccountCheckDao.mockResolvedValue(null);
 
-  await expect(transferVendorService(1, 2, 3, 4)).rejects.toThrow(BadRequestError);
+      await expect(transferVendorService(1, 2, 3, 4)).rejects.toThrow('Parent Vendor commission must be less than or equal to 5%.');
       expect(rollback).toHaveBeenCalledWith(mockConn);
     });
   });

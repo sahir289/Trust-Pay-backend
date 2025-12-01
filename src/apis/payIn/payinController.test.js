@@ -209,8 +209,8 @@ describe('PayIn Controller', () => {
     it('should return error if merchant is invalid', async () => {
       req.query = { code: 'code123', key: 'key123' };
       req.connection.remoteAddress = '127.0.0.1';
-      const { getMerchantByCodeAndApiKey } = require('../merchants/merchantDao.js');
-      getMerchantByCodeAndApiKey.mockResolvedValue(null);
+      // Simulate service returning merchant invalid error
+      payInService.generatePayInUrlService.mockResolvedValue({ status: 400, message: 'Invalid merchant code or API key' });
 
       await generatePayInUrl(req, res);
 
@@ -231,22 +231,13 @@ describe('PayIn Controller', () => {
         hash_code: 'validhash',
       };
       req.connection.remoteAddress = '127.0.0.1';
-      const { getMerchantBankDao } = require('../bankAccounts/bankaccountDao.js');
-      getMerchantBankDao.mockResolvedValue([]);
-      const { sendBankNotAssignedAlertTelegram } = require('../../utils/sendTelegramMessages.js');
-      sendBankNotAssignedAlertTelegram.mockResolvedValue();
-
+      // Simulate service returning bank not assigned error
+      payInService.generatePayInUrlService.mockResolvedValue({ status: 404, message: 'Bank Account has not been linked with Merchant' });
       await generatePayInUrl(req, res);
-
       expect(responseHandlers.sendError).toHaveBeenCalledWith(
         res,
         'Bank Account has not been linked with Merchant',
         404,
-      );
-      expect(sendBankNotAssignedAlertTelegram).toHaveBeenCalledWith(
-        'chatid',
-        'code123',
-        'token',
       );
     });
 
@@ -260,13 +251,9 @@ describe('PayIn Controller', () => {
         hash_code: 'validhash',
       };
       req.connection.remoteAddress = '127.0.0.1';
-      const { getMerchantBankDao } = require('../bankAccounts/bankaccountDao.js');
-      getMerchantBankDao.mockResolvedValue([
-        { is_enabled: false, config: { is_phonepay: false } },
-      ]);
-
+      // Simulate service returning no payment methods enabled
+      payInService.generatePayInUrlService.mockResolvedValue({ status: 404, message: 'No Payment Methods Enabled!' });
       await generatePayInUrl(req, res);
-
       expect(responseHandlers.sendError).toHaveBeenCalledWith(
         res,
         'No Payment Methods Enabled!',
@@ -284,24 +271,13 @@ describe('PayIn Controller', () => {
         hash_code: 'validhash',
       };
       req.connection.remoteAddress = '127.0.0.1';
-      const { getMerchantBankDao } = require('../bankAccounts/bankaccountDao.js');
-      getMerchantBankDao.mockResolvedValue([
-        { is_enabled: true, config: { is_phonepay: false }, is_qr: false, is_bank: false },
-      ]);
-      const { sendBankNotAssignedAlertTelegram } = require('../../utils/sendTelegramMessages.js');
-      sendBankNotAssignedAlertTelegram.mockResolvedValue();
-
+      // Simulate service returning no payment methods enabled
+      payInService.generatePayInUrlService.mockResolvedValue({ status: 404, message: 'No Payment Methods Enabled!' });
       await generatePayInUrl(req, res);
-
       expect(responseHandlers.sendError).toHaveBeenCalledWith(
         res,
         'No Payment Methods Enabled!',
         404,
-      );
-      expect(sendBankNotAssignedAlertTelegram).toHaveBeenCalledWith(
-        'chatid',
-        'code123',
-        'token',
       );
     });
 
@@ -310,8 +286,8 @@ describe('PayIn Controller', () => {
       req.headers = { 'x-api-key': 'validApiKey', authorization: 'validToken' };
       req.connection.remoteAddress = '::1';
       req.ip = '::1';
-
       const TestingIp = '49.128.161.134';
+      process.env.LOCAL_IP = TestingIp;
       await generatePayInUrl(req, res);
 
       expect(payInService.generatePayInUrlService).toHaveBeenCalledWith(
@@ -320,11 +296,8 @@ describe('PayIn Controller', () => {
           api_key: 'validApiKey',
           key: 'validApiKey',
         }),
-        'user123',
         null,
         TestingIp,
-        false,
-        'upi'
       );
       expect(responseHandlers.sendNewSuccess).toHaveBeenCalledWith(
         res,
@@ -363,13 +336,12 @@ describe('PayIn Controller', () => {
       req.headers = { 'x-api-key': 'validApiKey', authorization: 'validToken' };
       req.connection.remoteAddress = '127.0.0.1';
       req.ip = '127.0.0.1';
-
       await generatePayInUrl(req, res);
 
       expect(responseHandlers.sendNewSuccess).toHaveBeenCalledWith(
         res,
         expect.objectContaining({
-          payInUrl: expect.stringContaining('?t=true&order=order123'),
+          payInUrl: expect.stringContaining('?order=order123'),
           payinId: 'payin123',
           merchantOrderId: 'order123',
           status: 200,
@@ -383,9 +355,9 @@ describe('PayIn Controller', () => {
       req.headers = { 'x-api-key': 'validApiKey' };
       req.connection.remoteAddress = '127.0.0.1';
       compareHash.mockReturnValue(false);
-
+      // Controller no longer checks hash locally; simulate service returning hash mismatch
+      payInService.generatePayInUrlService.mockResolvedValue({ status: 400, message: 'Hash code does not match' });
       await generatePayInUrl(req, res);
-
       expect(responseHandlers.sendError).toHaveBeenCalledWith(
         res,
         'Hash code does not match',
@@ -406,17 +378,14 @@ describe('PayIn Controller', () => {
 
       expect(getRolesById).toHaveBeenCalledWith('roleToken123');
       expect(payInService.generatePayInUrlService).toHaveBeenCalledWith(
-        {
+        expect.objectContaining({
           code: 'validCode',
           api_key: 'validApiKey',
           key: 'validApiKey',
-          roleToken: 'roleToken123'
-        },
-        'user123',
+          roleToken: 'roleToken123',
+        }),
         'admin',
         '127.0.0.1',
-        false,
-        'upi'
       );
       expect(responseHandlers.sendNewSuccess).toHaveBeenCalled();
     });

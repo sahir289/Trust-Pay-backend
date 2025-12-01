@@ -249,6 +249,8 @@ describe('Vendor Controller', () => {
         undefined,
         undefined,
         undefined,
+        undefined,
+        undefined,
         undefined
       );
       expect(sendSuccess).toHaveBeenCalledWith(expect.any(Object), mockData, 'Vendors fetched successfully');

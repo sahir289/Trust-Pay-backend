@@ -317,12 +317,20 @@ jest.mock('../../webhooks/razorPay.js', () => {
     }),
   };
 });
-jest.mock('../merchants/merchantDao.js', () => ({
-  getMerchantsByCodeDao: jest.fn(),
-  getMerchantsDao: jest.fn(),
-  getMerchantByUserIdDao: jest.fn(),
-  updateMerchantBalanceDao: jest.fn().mockResolvedValue({}),
-}));
+jest.mock('../merchants/merchantDao.js', () => {
+  const m = {};
+  m.getMerchantsByCodeDao = jest.fn();
+  // Provide a compatibility wrapper so tests that set getMerchantsByCodeDao
+  // also satisfy calls to getMerchantsByCodeAndApiKeyDao used in services.
+  m.getMerchantsByCodeAndApiKeyDao = jest.fn(async (code, api_key) => {
+    const res = await (m.getMerchantsByCodeDao ? m.getMerchantsByCodeDao(code) : []);
+    return res || [];
+  });
+  m.getMerchantsDao = jest.fn();
+  m.getMerchantByUserIdDao = jest.fn();
+  m.updateMerchantBalanceDao = jest.fn().mockResolvedValue({});
+  return m;
+});
 jest.mock('../bankAccounts/bankaccountDao.js', () => {
   const mockBankAccount = {
     id: 'bank1',
@@ -343,7 +351,7 @@ jest.mock('../bankAccounts/bankaccountDao.js', () => {
     updateBankaccountDao: jest.fn().mockResolvedValue(mockBankAccount)
   };
 });
-jest.mock('./payInDao.js', () => ({
+jest.mock('./payInDao', () => ({
   getPayInDao: jest.fn(),
   generatePayInUrlDao: jest.fn(),
   updatePayInUrlDao: jest.fn(),
@@ -361,9 +369,10 @@ jest.mock('./payInDao.js', () => ({
   getPayInForUpdateDao: jest.fn(),
   getPayInForTelegramResponseDao: jest.fn(),
   getPayinsWithoutHistoryDao: jest.fn(),
-  getPayInForTelegramResponseArrayDao: jest.fn(),
+  getPayInForTelegramResponseArrayDao: jest.fn().mockResolvedValue([]),
+  getPayInWithMerchantOrderIdDao: jest.fn(),
   getPayInIntentDao: jest.fn(),
-  getPayInForDuplicate: jest.fn(),
+  getPayInForDuplicate: jest.fn().mockResolvedValue([]),
 }));
 // BankResponseDao mock is defined in the jest.mock block above
 
@@ -807,7 +816,7 @@ describe('PayIn Service Tests', () => {
           },
         },
       ]);
-      require('./payInDao').getPayInForCheckDao.mockResolvedValue([]);
+      require('./payInDao').getPayInWithMerchantOrderIdDao.mockResolvedValue(null);
       require('./payInDao').generatePayInUrlDao.mockResolvedValue(mockPayIn);
       require('../../utils/sockets').newTableEntry.mockResolvedValue();
     });
@@ -824,29 +833,31 @@ describe('PayIn Service Tests', () => {
         api_key: 'private_key',
       };
 
-      const result = await generatePayInUrlService({}, payload, 'user1', 'MERCHANT', '192.168.1.1', false);
+      const result = await generatePayInUrlService(payload, 'MERCHANT', '192.168.1.1');
 
       expect(result).toEqual(mockPayIn);
       expect(require('../merchants/merchantDao').getMerchantsByCodeDao).toHaveBeenCalledWith('merchant_code');
-      expect(require('./payInDao').getPayInForCheckDao).toHaveBeenCalledWith({ merchant_order_id: 'order123' });
+      expect(require('./payInDao').getPayInWithMerchantOrderIdDao).toHaveBeenCalledWith('order123');
       expect(require('./payInDao').generatePayInUrlDao).toHaveBeenCalledWith(expect.any(Object));
+      // setImmediate in service defers socket emission; wait for it to run
+      await new Promise((resolve) => setImmediate(resolve));
       expect(require('../../utils/sockets').newTableEntry).toHaveBeenCalled();
     });
 
     test('returns error for invalid API key', async () => {
       const payload = { code: 'merchant_code', user_id: 'user1', amount: 100, api_key: 'invalid_key' };
-      const result = await generatePayInUrlService({}, payload, 'user1', 'MERCHANT', '192.168.1.1', false);
+      const result = await generatePayInUrlService(payload, 'MERCHANT', '192.168.1.1');
 
       expect(result).toEqual({ status: 404, message: 'Enter valid Api key' });
-      expect(require('./payInDao').getPayInForCheckDao).toHaveBeenCalled();
+      expect(require('./payInDao').getPayInWithMerchantOrderIdDao).toHaveBeenCalled();
     });
 
     test('returns error for amount out of range', async () => {
       const payload = { code: 'merchant_code', user_id: 'user1', amount: 10000, api_key: 'private_key' };
-      const result = await generatePayInUrlService({}, payload, 'user1', 'MERCHANT', '192.168.1.1', false);
+      const result = await generatePayInUrlService(payload, 'MERCHANT', '192.168.1.1');
 
       expect(result).toEqual({ status: 400, message: 'Amount must be between 10 and 1000' });
-      expect(require('./payInDao').getPayInForCheckDao).toHaveBeenCalled();
+      expect(require('./payInDao').getPayInWithMerchantOrderIdDao).toHaveBeenCalled();
     });
 
     test('returns error for non-whitelisted IP', async () => {
@@ -865,7 +876,7 @@ describe('PayIn Service Tests', () => {
         },
       ]);
       const payload = { code: 'merchant_code', user_id: 'user1', amount: 100, api_key: 'private_key' };
-      const result = await generatePayInUrlService({}, payload, 'user1', 'MERCHANT', '192.168.1.1', false);
+      const result = await generatePayInUrlService(payload, 'MERCHANT', '192.168.1.1');
 
       expect(result).toEqual({ status: 400, message: 'IP not whitelisted' });
     });

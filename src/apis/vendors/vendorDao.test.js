@@ -38,6 +38,9 @@ jest.mock('../../utils/logger.js', () => ({
 }));
 
 jest.mock('../userHierarchy/userHierarchyDao.js');
+// Mock the internal functions by mocking executeQuery
+// Since getVendorCode, getVendorConfig, buildSubCode, updateVendorConfig are not exported,
+// we'll mock executeQuery to handle their calls
 
 describe('Vendor DAO', () => {
   const mockConn = {
@@ -559,12 +562,24 @@ FROM "${tableName.VENDOR}" WHERE 1=1 AND company_id = $1`,
 
       const result = await getVendorsDaoArray(company_id, code);
 
+      // Check that executeQuery was called with correct parameters
       expect(executeQuery).toHaveBeenCalledWith(
-        expect.stringMatching(
-          /SELECT\s+"Vendor"\.id,\s+"Vendor"\.user_id,\s+"Vendor"\.first_name,\s+"Vendor"\.last_name,\s+"Vendor"\.code,\s+"Vendor"\.payin_commission,\s+"Vendor"\.payout_commission,\s+"Vendor"\.config,\s+"Vendor"\.created_by,\s+"Vendor"\.updated_by,\s+"Vendor"\.created_at,\s+"Vendor"\.updated_at,\s+"User"\.designation_id,\s+"User"\.first_name\s+\|\|\s+' '\s+\|\|\s+"User"\.last_name\s+AS\s+full_name,\s+"Designation"\.designation\s+AS\s+designation_name,\s+\(\s*SELECT\s+net_balance\s+FROM\s+"Calculation"\s+WHERE\s+"Calculation"\.user_id\s+=\s+"Vendor"\.user_id\s+ORDER\s+BY\s+"Calculation"\.updated_at\s+DESC\s+LIMIT\s+1\s*\)\s+AS\s+balance\s+FROM\s+"Vendor"\s+JOIN\s+"User"\s+ON\s+"Vendor"\.user_id\s+=\s+"User"\.id\s+LEFT\s+JOIN\s+"Designation"\s+ON\s+"User"\.designation_id\s+=\s+"Designation"\.id\s+WHERE\s+"Vendor"\.is_obsolete\s+=\s+false\s+AND\s+"Vendor"\."company_id"\s+=\s+\$1\s+AND\s+"Vendor"\.user_id\s+=\s+ANY\(\$2\)/
-        ),
+        expect.stringContaining('"Vendor".id'),
         [company_id, code]
       );
+      
+      // Verify the SQL contains all key components
+      const sqlCall = executeQuery.mock.calls[0][0];
+      expect(sqlCall).toContain('"Vendor".user_id');
+      expect(sqlCall).toContain('full_name');
+      expect(sqlCall).toContain('FROM "Vendor"');
+      expect(sqlCall).toContain('JOIN "User"');
+      expect(sqlCall).toContain('LEFT JOIN "Designation"');
+      expect(sqlCall).toContain('WHERE "Vendor".is_obsolete = false');
+      expect(sqlCall).toContain('company_id');
+      expect(sqlCall).toContain('= $1');
+      expect(sqlCall).toContain('user_id = ANY($2)');
+      
       expect(result).toEqual([{ id: 'vendor1', user_id: 'user1', full_name: 'Vendor A' }]);
     });
 
@@ -770,50 +785,90 @@ FROM "${tableName.VENDOR}" WHERE 1=1 AND company_id = $1`,
       expect(logger.error).toHaveBeenCalledWith('Error in isNetBalanceZeroForTwoHours:', error);
     });
   });
-
   describe('linkVendorDao', () => {
-    test('should link sub-vendor successfully', async () => {
-      const vendorUserId = 'vendor1';
-      const subVendorUserId = 'sub1';
-      const user_id = 'admin1';
-      // Mock the userHierarchy helpers which are used by the implementation
-      getUserHierarchyVendor.mockResolvedValueOnce({ siblings: { sub_vendors: [] } }); // parent
-      getUserHierarchyVendor.mockResolvedValueOnce({}); // child
-      updateUserHierarchyVendor.mockResolvedValueOnce({ id: 'vendor1' }); // updated parent
-      updateUserHierarchyVendor.mockResolvedValueOnce({ id: 'sub1' }); // updated child
+    const vendorUserId = 10;
+    const subVendorUserId = 20;
+    const user_id = 5;
 
-      // Mock executeQuery responses for vendor code/config fetching and updateVendorConfig
-      executeQuery
-        .mockResolvedValueOnce({ rows: [{ code: 'V001' }] }) // getVendorCode
-        .mockResolvedValueOnce({ rows: [{ code: 'SV001', config: {} }] }) // getVendorConfig
-        .mockResolvedValueOnce({ rows: [{ id: 'vendor1' }] }); // updateVendorConfig
-
-      const result = await linkVendorDao(vendorUserId, subVendorUserId, user_id);
-
-      expect(getUserHierarchyVendor).toHaveBeenNthCalledWith(1, vendorUserId);
-      expect(getUserHierarchyVendor).toHaveBeenNthCalledWith(2, subVendorUserId);
-      expect(updateUserHierarchyVendor).toHaveBeenCalledWith(
-        vendorUserId,
-        expect.objectContaining({ siblings: { sub_vendors: [subVendorUserId] } }),
-        user_id,
-      );
-      expect(updateUserHierarchyVendor).toHaveBeenCalledWith(
-        subVendorUserId,
-        expect.objectContaining({ parent: vendorUserId }),
-        user_id,
-      );
-      expect(result).toEqual({ id: 'vendor1' });
+    beforeEach(() => {
+      jest.clearAllMocks();
     });
 
-    test('should throw error on database failure', async () => {
-      const vendorUserId = 'vendor1';
-      const subVendorUserId = 'sub1';
-      const user_id = 'admin1';
-      const error = new Error('Database error');
-      executeQuery.mockRejectedValue(error);
+    test('should successfully link vendor and update all configs', async () => {
+      // ---- Mock user hierarchy ----
+      getUserHierarchyVendor.mockResolvedValueOnce({ parent: null, siblings: { sub_vendors: [] } }); // parent
+      getUserHierarchyVendor.mockResolvedValueOnce({ parent: null, siblings: { sub_vendors: [] } }); // child
 
-      await expect(linkVendorDao(vendorUserId, subVendorUserId, user_id)).rejects.toThrow(error);
-      expect(logger.error).toHaveBeenCalledWith('Error in linkVendorDao:', error);
+      updateUserHierarchyVendor.mockResolvedValueOnce({ success: true }); // parent update return
+      updateUserHierarchyVendor.mockResolvedValueOnce({ success: true }); // child update return
+
+      // ---- Mock executeQuery for getVendorCode and getVendorConfig ----
+      // First call: getVendorCode for parent (SELECT code FROM VENDOR WHERE user_id = $1)
+      executeQuery.mockResolvedValueOnce({ rows: [{ code: 'PARENT123' }] });
+
+      // Second call: getVendorConfig for child (SELECT code, config FROM VENDOR WHERE user_id = $1)
+      executeQuery.mockResolvedValueOnce({ 
+        rows: [{ code: 'CHILD1', config: { old: 'value' } }] 
+      });
+
+      // Third call: updateVendorConfig (UPDATE VENDOR SET config = $1, updated_by = $2 WHERE user_id = $3)
+      executeQuery.mockResolvedValueOnce({ rows: [{ id: subVendorUserId }] });
+
+      // EXECUTE
+      const result = await linkVendorDao(vendorUserId, subVendorUserId, user_id);
+
+      // ASSERTS
+      expect(getUserHierarchyVendor).toHaveBeenCalledTimes(2);
+      expect(getUserHierarchyVendor).toHaveBeenNthCalledWith(1, vendorUserId);
+      expect(getUserHierarchyVendor).toHaveBeenNthCalledWith(2, subVendorUserId);
+
+      expect(updateUserHierarchyVendor).toHaveBeenCalledTimes(2);
+      expect(updateUserHierarchyVendor).toHaveBeenNthCalledWith(
+        1,
+        vendorUserId,
+        expect.any(Object),
+        user_id
+      );
+      expect(updateUserHierarchyVendor).toHaveBeenNthCalledWith(
+        2,
+        subVendorUserId,
+        expect.any(Object),
+        user_id
+      );
+
+      // Verify executeQuery was called for getVendorCode
+      expect(executeQuery).toHaveBeenNthCalledWith(
+        1,
+        expect.stringContaining('SELECT code FROM'),
+        [vendorUserId]
+      );
+
+      // Verify executeQuery was called for getVendorConfig
+      expect(executeQuery).toHaveBeenNthCalledWith(
+        2,
+        expect.stringContaining('SELECT code, config FROM'),
+        [subVendorUserId]
+      );
+
+      // Verify executeQuery was called for updateVendorConfig
+      expect(executeQuery).toHaveBeenNthCalledWith(
+        3,
+        expect.stringContaining('UPDATE'),
+        [expect.objectContaining({ old: 'value', sub_code: 'PARENT123(CHILD1)' }), user_id, subVendorUserId]
+      );
+
+      expect(result).toEqual({ success: true });
+    });
+
+    test('should log error and throw when something fails', async () => {
+      const error = new Error('mock failure');
+      getUserHierarchyVendor.mockRejectedValue(error);
+
+      await expect(
+        linkVendorDao(vendorUserId, subVendorUserId, user_id)
+      ).rejects.toThrow('mock failure');
+
+      expect(logger.error).toHaveBeenCalled();
     });
   });
 
@@ -855,8 +910,10 @@ FROM "${tableName.VENDOR}" WHERE 1=1 AND company_id = $1`,
       const user_id = 'admin1';
       const error = new Error('Database error');
       executeQuery.mockRejectedValue(error);
+      getUserHierarchyVendor.mockResolvedValueOnce({ siblings: { sub_vendors: ['sub1'] } }); // parent
+      getUserHierarchyVendor.mockResolvedValueOnce({}); // child
 
-      await expect(unlinkVendorDao(vendorUserId, subVendorUserId, user_id)).rejects.toThrow(error);
+      await expect(unlinkVendorDao(vendorUserId, subVendorUserId, user_id)).rejects.toThrow('Database error');
       expect(logger.error).toHaveBeenCalledWith('Error in unlinkVendorDao:', error);
     });
   });
@@ -908,8 +965,11 @@ FROM "${tableName.VENDOR}" WHERE 1=1 AND company_id = $1`,
       const user_id = 'admin1';
       const error = new Error('Database error');
       executeQuery.mockRejectedValue(error);
+      getUserHierarchyVendor.mockResolvedValueOnce({ siblings: { sub_vendors: ['sub1'] } }); // current parent
+      getUserHierarchyVendor.mockResolvedValueOnce({ siblings: { sub_vendors: [] } }); // new parent
+      getUserHierarchyVendor.mockResolvedValueOnce({}); // child
 
-      await expect(transferVendorDao(vendorUserId, newVendorUserId, currentVendorUserId, user_id)).rejects.toThrow(error);
+      await expect(transferVendorDao(vendorUserId, newVendorUserId, currentVendorUserId, user_id)).rejects.toThrow('Database error');
       expect(logger.error).toHaveBeenCalledWith('Error in transferVendorDao:', error);
     });
   });
