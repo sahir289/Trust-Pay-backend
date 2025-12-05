@@ -387,57 +387,59 @@ const getSettlementsBySearchService = async (
   }
 };
 
+const _createSettlementServiceInternal = async (conn, payload, role) => {
+  const isInternalTransfer =
+    payload.method === 'INTERNAL_QR_TRANSFER' ||
+    payload.method === 'INTERNAL_BANK_TRANSFER';
+
+  // Early return for non-internal transfers without reference_id
+  if (!isInternalTransfer || !payload.config?.reference_id) {
+    const result = await createSettlementDao(payload, conn);
+    return result;
+  }
+
+  // Validate bank response for internal transfers
+  const bankResponses = await getBankResponseByUTR(
+    payload.config.reference_id,
+  );
+  if (!bankResponses) {
+    throw new NotFoundError('Bank response not found for the provided UTR');
+  }
+
+  // Get settlement data
+  const settlementArray = await getSettlementByUTRDao(
+    payload.config?.reference_id,
+  );
+
+  if (
+    bankResponses.is_used ||
+    bankResponses.status !== Status.BOT ||
+    settlementArray?.length
+  ) {
+    throw new BadRequestError('UTR is already used');
+  }
+
+  // Handle vendor role internal transfers
+  if (role !== Role.VENDOR) {
+    const result = await handleVendorInternalTransferByAdmin(
+      conn,
+      payload,
+      bankResponses,
+    );
+    return result;
+  }
+
+  // Handle other roles internal transfers
+  const result = await handleVendorInternalTransfer(payload);
+  return result;
+};
+
 const createSettlementService = async (payload, role) => {
   let conn;
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-
-    const isInternalTransfer =
-      payload.method === 'INTERNAL_QR_TRANSFER' ||
-      payload.method === 'INTERNAL_BANK_TRANSFER';
-
-    // Early return for non-internal transfers without reference_id
-    if (!isInternalTransfer || !payload.config?.reference_id) {
-      const result = await createSettlementDao(payload, conn);
-      await commit(conn);
-      return result;
-    }
-
-    // Validate bank response for internal transfers
-    const bankResponses = await getBankResponseByUTR(
-      payload.config.reference_id,
-    );
-    if (!bankResponses) {
-      throw new NotFoundError('Bank response not found for the provided UTR');
-    }
-
-    // Get settlement data
-    const settlementArray = await getSettlementByUTRDao(
-      payload.config?.reference_id,
-    );
-
-    if (
-      bankResponses.is_used ||
-      bankResponses.status !== Status.BOT ||
-      settlementArray?.length
-    ) {
-      throw new BadRequestError('UTR is already used');
-    }
-
-    // Handle vendor role internal transfers
-    if (role !== Role.VENDOR) {
-      const result = await handleVendorInternalTransferByAdmin(
-        conn,
-        payload,
-        bankResponses,
-      );
-      await commit(conn);
-      return result;
-    }
-
-    // Handle other roles internal transfers
-    const result = await handleVendorInternalTransfer(payload);
+    const result = await _createSettlementServiceInternal(conn, payload, role);
     await commit(conn);
     return result;
   } catch (error) {
@@ -954,14 +956,9 @@ const calculateTransferMethodConfig = (
   return { [keyName]: totalSettlementAmount };
 };
 
-const updateSettlementService = async (ids, payload) => {
-  let conn;
-  try {
-    conn = await getConnection();
-    await beginTransaction(conn);
-
-    await checkLockEdit(conn, ids.id);
-    payload.config = payload.config || {};
+const _updateSettlementServiceInternal = async (conn, ids, payload) => {
+  await checkLockEdit(conn, ids.id);
+  payload.config = payload.config || {};
 
     // Get settlement data
     const settlementArray = await getSettlementDao({
@@ -1170,6 +1167,15 @@ const updateSettlementService = async (ids, payload) => {
       }
     }
 
+    return updateData;
+};
+
+const updateSettlementService = async (ids, payload) => {
+  let conn;
+  try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+    const updateData = await _updateSettlementServiceInternal(conn, ids, payload);
     await commit(conn);
     return updateData;
   } catch (error) {

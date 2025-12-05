@@ -13,19 +13,23 @@ import {
 import { columns, merchantColumns, Role } from '../../constants/index.js';
 import { filterResponse } from '../../helpers/index.js';
 import { logger } from '../../utils/logger.js';
+const _createUserHierarchyServiceInternal = async (conn, payload, role) => {
+  const filterColumns =
+    role === Role.MERCHANT
+      ? merchantColumns.USER_HIERARCHY
+      : columns.USER_HIERARCHY;
+  const data = await createUserHierarchyDao(payload);
+  const finalResult = filterResponse(data, filterColumns);
+  return finalResult;
+};
+
 const createUserHierarchyService = async (payload, role) => {
   let conn;
   try {
-    const filterColumns =
-      role === Role.MERCHANT
-        ? merchantColumns.USER_HIERARCHY
-        : columns.USER_HIERARCHY;
     conn = await getConnection();
-    await beginTransaction(conn); // Start a transaction
-    const data = await createUserHierarchyDao(payload);
-    await commit(conn); // Commit the transaction
-
-    const finalResult = filterResponse(data, filterColumns);
+    await beginTransaction(conn);
+    const finalResult = await _createUserHierarchyServiceInternal(conn, payload, role);
+    await commit(conn);
     return finalResult;
   } catch (error) {
     if (conn) {
@@ -70,19 +74,23 @@ const getUserHierarchyService = async (filters, role, page, limit) => {
   }
 };
 
+const _updateUserHierarchyServiceInternal = async (conn, id, payload, role) => {
+  const filterColumns =
+    role === Role.MERCHANT
+      ? merchantColumns.USER_HIERARCHY
+      : columns.USER_HIERARCHY;
+  const data = await updateUserHierarchyDao(id, payload);
+  const finalResult = await filterResponse(data, filterColumns);
+  return finalResult;
+};
+
 const updateUserHierarchyService = async (id, payload, role) => {
   let conn;
   try {
-    const filterColumns =
-      role === Role.MERCHANT
-        ? merchantColumns.USER_HIERARCHY
-        : columns.USER_HIERARCHY;
     conn = await getConnection();
-    await beginTransaction(conn); // Start a transaction
-    const data = await updateUserHierarchyDao(id, payload); // Adjust DAO call for update
-    await commit(conn); // Commit the transaction
-
-    const finalResult = await filterResponse(data, filterColumns);
+    await beginTransaction(conn);
+    const finalResult = await _updateUserHierarchyServiceInternal(conn, id, payload, role);
+    await commit(conn);
     return finalResult;
   } catch (error) {
     if (conn) {
@@ -105,19 +113,24 @@ const updateUserHierarchyService = async (id, payload, role) => {
   }
 };
 
+const _deleteUserHierarchyServiceInternal = async (conn, ids, updated_by, role) => {
+  const filterColumns =
+    role === Role.MERCHANT
+      ? merchantColumns.USER_HIERARCHY
+      : columns.USER_HIERARCHY;
+  const payload = { is_obsolete: true, updated_by };
+  const data = await deleteUserHierarchyDao(ids, payload);
+  const finalResult = await filterResponse(data, filterColumns);
+  return finalResult;
+};
+
 const deleteUserHierarchyService = async (ids, updated_by, role) => {
   let conn;
   try {
-    const filterColumns =
-      role === Role.MERCHANT
-        ? merchantColumns.USER_HIERARCHY
-        : columns.USER_HIERARCHY;
     conn = await getConnection();
-    await beginTransaction(conn); // Start a transaction
-    const payload = { is_obsolete: true, updated_by };
-    const data = await deleteUserHierarchyDao(ids, payload); // Adjust DAO call for delete
-    await commit(conn); // Commit the transaction
-    const finalResult = await filterResponse(data, filterColumns);
+    await beginTransaction(conn);
+    const finalResult = await _deleteUserHierarchyServiceInternal(conn, ids, updated_by, role);
+    await commit(conn);
     return finalResult;
   } catch (error) {
     if (conn) {

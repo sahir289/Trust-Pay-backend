@@ -230,6 +230,34 @@ const getBankaccountServiceNickName = async (
   }
 };
 
+const _createBankaccountServiceInternal = async (
+  conn,
+  payload,
+  designation,
+  user_id,
+  // company_id,
+) => {
+  //child add bankaccount for its parent
+  if (designation === Role.VENDOR_OPERATIONS) {
+    const childHierarchy = await getUserHierarchysDao({ user_id });
+    const parentUserId = childHierarchy[0].config.parent;
+    payload.user_id = parentUserId;
+  }
+  if (designation === Role.VENDOR_ADMIN && !payload.user_id) {
+      throw new BadRequestError('Vendor Admins are not allowed to create own bank accounts.');
+  }
+  const result = await createBankaccountDao(payload);
+  // await notifyAdminsAndUsers({
+  //   conn,
+  //   company_id: company_id,
+  //   message: `A new ${payload.bank_used_for} bank account with nick name ${payload.nick_name} has been created.`,
+  //   payloadUserId: payload.user_id,
+  //   actorUserId: user_id,
+  //   category: 'Bank Account',
+  // });
+  return result;
+};
+
 const createBankaccountService = async (
   payload,
   designation,
@@ -240,26 +268,13 @@ const createBankaccountService = async (
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-
-    //child add bankaccount for its parent
-    if (designation === Role.VENDOR_OPERATIONS) {
-      const childHierarchy = await getUserHierarchysDao({ user_id });
-      const parentUserId = childHierarchy[0].config.parent;
-      payload.user_id = parentUserId;
-    }
-    if (designation === Role.VENDOR_ADMIN && !payload.user_id) {
-        throw new BadRequestError('Vendor Admins are not allowed to create own bank accounts.');
-    }
-    const result = await createBankaccountDao(payload);
-    // await notifyAdminsAndUsers({
-    //   conn,
-    //   company_id: company_id,
-    //   message: `A new ${payload.bank_used_for} bank account with nick name ${payload.nick_name} has been created.`,
-    //   payloadUserId: payload.user_id,
-    //   actorUserId: user_id,
-    //   category: 'Bank Account',
-    // });
-
+    const result = await _createBankaccountServiceInternal(
+      conn,
+      payload,
+      designation,
+      user_id,
+      // company_id,
+    );
     await commit(conn);
     return result;
   } catch (error) {
@@ -482,18 +497,21 @@ const deleteBankaccountService = async (ids, user_id) => {
   }
 };
 
+const _activeInactiveBankAccountServiceInternal = async (conn, ids, payload) => {
+  const result = await updateBankaccountDao(
+    { id: ids.id, company_id: ids.company_id },
+    payload,
+    conn,
+  );
+  return result;
+};
+
 const activeInactiveBankAccountService = async (ids, payload) => {
   let conn;
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-
-    const result = await updateBankaccountDao(
-      { id: ids.id, company_id: ids.company_id },
-      payload,
-      conn,
-    );
-
+    const result = await _activeInactiveBankAccountServiceInternal(conn, ids, payload);
     await commit(conn);
     return result;
   } catch (error) {

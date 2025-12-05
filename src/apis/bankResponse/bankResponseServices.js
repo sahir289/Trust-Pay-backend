@@ -1390,20 +1390,25 @@ const getBankResponseBySearchService = async (
     throw error;
   }
 };
+const _updateBankResponseServiceInternal = async (conn, id, payload, role) => {
+  const filterColumns =
+    role === Role.MERCHANT
+      ? merchantColumns.BANK_RESPONSE
+      : role === Role.VENDOR || role === Role.SUB_VENDOR
+        ? vendorColumns.BANK_RESPONSE
+        : columns.BANK_RESPONSE;
+  const data = await updateBankResponseDao(id, payload, conn);
+  const finalResult = filterResponse(data, filterColumns);
+  return finalResult;
+};
+
 const updateBankResponseService = async (id, payload, role) => {
   let conn;
   try {
-    const filterColumns =
-      role === Role.MERCHANT
-        ? merchantColumns.BANK_RESPONSE
-        : role === Role.VENDOR || role === Role.SUB_VENDOR
-          ? vendorColumns.BANK_RESPONSE
-          : columns.BANK_RESPONSE;
     conn = await getConnection();
-    await beginTransaction(conn); // Start a transaction
-    const data = await updateBankResponseDao(id, payload, conn); // Adjust DAO call for update
-    await commit(conn); // Commit the transaction
-    const finalResult = filterResponse(data, filterColumns);
+    await beginTransaction(conn);
+    const finalResult = await _updateBankResponseServiceInternal(conn, id, payload, role);
+    await commit(conn);
     return finalResult;
   } catch (error) {
     if (conn) {
@@ -1464,148 +1469,152 @@ const getBankMessageServices = async (
   }
 };
 
-const resetBankResponseService = async (id, userData) => {
+const _resetBankResponseServiceInternal = async (conn, id, userData) => {
   const { company_id, user_name, user_id, role, amount, utr, bank_id } =
     userData;
 
+  // Fetch bank response
+  const botRes = await getBankResponseDao({ id, company_id });
+  if (!botRes) {
+    logger.error(`Bank response not found for ID: ${id}`);
+    throw new NotFoundError('Bank response not found');
+  }
+
+  // Check for successful pay-in
+  let payInData = await getPayInsForResetBankResDao({
+    user_submitted_utr: botRes.utr,
+    company_id,
+  });
+  if (!payInData?.length) {
+    payInData = await getPayInsForResetBankResDao({
+      bank_response_id: botRes.id,
+      company_id,
+    });
+  }
+
+  const hasSuccess = payInData?.some(
+    (item) => item.status === Status.SUCCESS,
+  );
+  if (hasSuccess) {
+    const successPayIn = payInData.find(
+      (item) => item.status === Status.SUCCESS,
+    );
+    logger.warn(
+      `UTR already confirmed for Merchant Order ID: ${successPayIn.merchant_order_id}`,
+      'warn',
+    );
+    throw new BadRequestError(
+      `UTR is already confirmed with Merchant Order ID ${successPayIn.merchant_order_id}. No changes applied. Previous Amount: ${botRes.amount}`,
+    );
+  }
+
+  const changes = {
+    amount: botRes.amount,
+    utr: botRes.utr,
+    bank_id: botRes.bank_id,
+    config: botRes.config || {},
+    bank_name: (await getBankaccountDao({ id: botRes.bank_id }))[0]
+      ?.nick_name,
+  };
+
+  // Prepare base update data
+  let updateData = {
+    is_used: false,
+    updated_by: user_name,
+    config: botRes.config || {},
+  };
+
+  // Handle specific updates based on input
+  let message = 'Bot response reset successful';
+  if (typeof amount === 'number' && !isNaN(amount)) {
+    const result = await handleAmountUpdate({
+      botRes,
+      amount,
+      user_name,
+      company_id,
+      role,
+      payInData,
+      conn,
+    });
+    updateData = result.updateData;
+    changes.config.previousAmount = botRes.amount;
+    changes.amount = amount;
+    message = result.message;
+  }
+
+  if (utr) {
+    const bot = await getBankResponseDao({ utr: utr, company_id });
+    if (bot) {
+      logger.error(`Bank response found: ${utr}`);
+      throw new NotFoundError(
+        'This UTR has already been used. Please provide a new one.',
+      );
+    }
+    const utrResult = await handleUtrUpdate({
+      botRes,
+      utr,
+      user_id,
+      user_name,
+      conn,
+      company_id,
+    });
+    updateData = utrResult;
+    changes.utr = utr;
+    changes.config.previousUTR = botRes.utr;
+  }
+
+  if (bank_id) {
+    const newBank = await getBankaccountDao({ id: bank_id });
+    const bankResult = await handleBankIdUpdate({
+      botRes,
+      bank_id,
+      company_id,
+      user_id,
+      user_name,
+      conn,
+    });
+    updateData = bankResult;
+    changes.bank_id = bank_id;
+    changes.nick_name = newBank[0]?.nick_name;
+    changes.config.previousBank = (
+      await getBankaccountDao({ id: botRes.bank_id })
+    )[0]?.nick_name;
+  }
+
+  if (!amount && !utr && !bank_id) {
+    await updatePayInData({ payInData, user_name, botRes });
+    await resetBankResponseDao(id, updateData);
+  }
+
+  // logger.info(`Bank response reset successful for ID: ${id}`, 'info');
+  // await notifyAdminsAndUsers({
+  //   conn,
+  //   company_id: company_id,
+  //   message: `The entry with UTR ${botRes.utr} has been updated.`,
+  //   payloadUserId: user_id,
+  //   actorUserId: user_id,
+  //   category: 'Data Entries',
+  // });
+
+  const results = {
+    message,
+    id,
+    data: changes,
+    updated_by: user_name,
+    updated_at: new Date().toISOString(),
+    company_id: company_id,
+  };
+  await newTableEntry(tableName.BANK_RESPONSE, results);
+
+  return results;
+};
+
+const resetBankResponseService = async (id, userData) => {
   let conn;
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-
-    // Fetch bank response
-    const botRes = await getBankResponseDao({ id, company_id });
-    if (!botRes) {
-      logger.error(`Bank response not found for ID: ${id}`);
-      throw new NotFoundError('Bank response not found');
-    }
-
-    // Check for successful pay-in
-    let payInData = await getPayInsForResetBankResDao({
-      user_submitted_utr: botRes.utr,
-      company_id,
-    });
-    if (!payInData?.length) {
-      payInData = await getPayInsForResetBankResDao({
-        bank_response_id: botRes.id,
-        company_id,
-      });
-    }
-
-    const hasSuccess = payInData?.some(
-      (item) => item.status === Status.SUCCESS,
-    );
-    if (hasSuccess) {
-      const successPayIn = payInData.find(
-        (item) => item.status === Status.SUCCESS,
-      );
-      logger.warn(
-        `UTR already confirmed for Merchant Order ID: ${successPayIn.merchant_order_id}`,
-        'warn',
-      );
-      throw new BadRequestError(
-        `UTR is already confirmed with Merchant Order ID ${successPayIn.merchant_order_id}. No changes applied. Previous Amount: ${botRes.amount}`,
-      );
-    }
-
-    const changes = {
-      amount: botRes.amount,
-      utr: botRes.utr,
-      bank_id: botRes.bank_id,
-      config: botRes.config || {},
-      bank_name: (await getBankaccountDao({ id: botRes.bank_id }))[0]
-        ?.nick_name,
-    };
-
-    // Prepare base update data
-    let updateData = {
-      is_used: false,
-      updated_by: user_name,
-      config: botRes.config || {},
-    };
-
-    // Handle specific updates based on input
-    let message = 'Bot response reset successful';
-    if (typeof amount === 'number' && !isNaN(amount)) {
-      const result = await handleAmountUpdate({
-        botRes,
-        amount,
-        user_name,
-        company_id,
-        role,
-        payInData,
-        conn,
-      });
-      updateData = result.updateData;
-      changes.config.previousAmount = botRes.amount;
-      changes.amount = amount;
-      message = result.message;
-    }
-
-    if (utr) {
-      const bot = await getBankResponseDao({ utr: utr, company_id });
-      if (bot) {
-        logger.error(`Bank response found: ${utr}`);
-        throw new NotFoundError(
-          'This UTR has already been used. Please provide a new one.',
-        );
-      }
-      const utrResult = await handleUtrUpdate({
-        botRes,
-        utr,
-        user_id,
-        user_name,
-        conn,
-        company_id,
-      });
-      updateData = utrResult;
-      changes.utr = utr;
-      changes.config.previousUTR = botRes.utr;
-    }
-
-    if (bank_id) {
-      const newBank = await getBankaccountDao({ id: bank_id });
-      const bankResult = await handleBankIdUpdate({
-        botRes,
-        bank_id,
-        company_id,
-        user_id,
-        user_name,
-        conn,
-      });
-      updateData = bankResult;
-      changes.bank_id = bank_id;
-      changes.nick_name = newBank[0]?.nick_name;
-      changes.config.previousBank = (
-        await getBankaccountDao({ id: botRes.bank_id })
-      )[0]?.nick_name;
-    }
-
-    if (!amount && !utr && !bank_id) {
-      await updatePayInData({ payInData, user_name, botRes });
-      await resetBankResponseDao(id, updateData);
-    }
-
-    // logger.info(`Bank response reset successful for ID: ${id}`, 'info');
-    // await notifyAdminsAndUsers({
-    //   conn,
-    //   company_id: company_id,
-    //   message: `The entry with UTR ${botRes.utr} has been updated.`,
-    //   payloadUserId: user_id,
-    //   actorUserId: user_id,
-    //   category: 'Data Entries',
-    // });
-
-    const results = {
-      message,
-      id,
-      data: changes,
-      updated_by: user_name,
-      updated_at: new Date().toISOString(),
-      company_id: company_id,
-    };
-    await newTableEntry(tableName.BANK_RESPONSE, results);
-
+    const results = await _resetBankResponseServiceInternal(conn, id, userData);
     await commit(conn);
     return results;
   } catch (error) {
@@ -2391,6 +2400,33 @@ async function extractCreditedTransactions(pdfBuffer, bankId) {
 }
 
 // Main service function
+const _importBankResponseServiceInternal = async (
+  conn,
+  payload,
+  companyId,
+  role,
+  name,
+) => {
+  // Validate payload
+  if (!payload || !payload.pdfBuffer) {
+    throw new BadRequestError('No valid PDF buffer provided in payload');
+  }
+
+  // Extract credited transactions
+  const creditedTransactions = await extractCreditedTransactions(
+    payload.pdfBuffer,
+    payload.bank_id,
+  );
+
+  for (const transaction of creditedTransactions) {
+    await createBankResponseService(transaction, companyId, role, name);
+  }
+
+  return {
+    message: `${payload.fileType} imported successfully`,
+  };
+};
+
 const importBankResponseService = async (
   payload,
   companyId,
@@ -2401,26 +2437,9 @@ const importBankResponseService = async (
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-
-    // Validate payload
-    if (!payload || !payload.pdfBuffer) {
-      throw new BadRequestError('No valid PDF buffer provided in payload');
-    }
-
-    // Extract credited transactions
-    const creditedTransactions = await extractCreditedTransactions(
-      payload.pdfBuffer,
-      payload.bank_id,
-    );
-
-    for (const transaction of creditedTransactions) {
-      await createBankResponseService(transaction, companyId, role, name);
-    }
-
+    const result = await _importBankResponseServiceInternal(conn, payload, companyId, role, name);
     await commit(conn);
-    return {
-      message: `${payload.fileType} imported successfully`,
-    };
+    return result;
   } catch (error) {
     if (conn) await rollback(conn);
     logger.error('Error in importBankResponseService:', error);

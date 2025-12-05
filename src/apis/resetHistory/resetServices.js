@@ -100,22 +100,25 @@ const getResetHistoryBySearchService = async (filters) => {
   }
 };
 
+const _createResetHistoryServiceInternal = async (conn, payload) => {
+  const result = await createResetHistoryDao(payload,conn);
+  // await notifyAdminsAndUsers({
+  //   conn,
+  //   company_id: payload.company_id,
+  //   message: `PayIn with merchant order id: ${merchant_order_id} has been reset.`,
+  //   payloadUserId: payload.updated_by,
+  //   actorUserId: payload.updated_by,
+  //   category: 'Data Entries',
+  // });
+  return result;
+};
+
 const createResetHistoryService = async (payload) => {
   let conn;
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    
-    const result = await createResetHistoryDao(payload,conn);
-    // await notifyAdminsAndUsers({
-    //   conn,
-    //   company_id: payload.company_id,
-    //   message: `PayIn with merchant order id: ${merchant_order_id} has been reset.`,
-    //   payloadUserId: payload.updated_by,
-    //   actorUserId: payload.updated_by,
-    //   category: 'Data Entries',
-    // });
-    
+    const result = await _createResetHistoryServiceInternal(conn, payload);
     await commit(conn);
     return result;
   } catch (error) {

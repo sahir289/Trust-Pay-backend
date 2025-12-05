@@ -249,6 +249,35 @@ const getBeneficiaryAccountBySearchService = async (
   }
 };
 
+const _getBeneficiaryAccountServiceByBankNameInternal = async (
+  conn,
+  company_id,
+  type,
+  role,
+  user_id,
+  designation,
+) => {
+  let filters = {};
+  if (role == Role.VENDOR) {
+    filters.user_id = [user_id];
+  }
+  const userHierarchys = await getUserHierarchysDao({ user_id });
+  if (designation == Role.VENDOR_OPERATIONS) {
+    const parentID = userHierarchys[0]?.config?.parent;
+    if (parentID) {
+      filters.user_id = [parentID];
+    }
+  }
+
+  const result = await getBeneficiaryAccountDaoByBankName(
+    conn,
+    company_id,
+    type,
+    filters,
+  );
+  return result;
+};
+
 const getBeneficiaryAccountServiceByBankName = async (
   company_id,
   type,
@@ -260,24 +289,13 @@ const getBeneficiaryAccountServiceByBankName = async (
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-
-    let filters = {};
-    if (role == Role.VENDOR) {
-      filters.user_id = [user_id];
-    }
-    const userHierarchys = await getUserHierarchysDao({ user_id });
-    if (designation == Role.VENDOR_OPERATIONS) {
-      const parentID = userHierarchys[0]?.config?.parent;
-      if (parentID) {
-        filters.user_id = [parentID];
-      }
-    }
-
-    const result = await getBeneficiaryAccountDaoByBankName(
+    const result = await _getBeneficiaryAccountServiceByBankNameInternal(
       conn,
       company_id,
       type,
-      filters,
+      role,
+      user_id,
+      designation,
     );
     await commit(conn);
     return result;
@@ -301,95 +319,143 @@ const getBeneficiaryAccountServiceByBankName = async (
   }
 };
 
+const _createBeneficiaryAccountServiceInternal = async (conn, payload, company_id) => {
+  // Set user_id to created_by if not already set
+  payload.user_id = payload.user_id || payload.created_by;
+
+  // Fetch user and role
+  const [user] = await getUserByIdDao(conn, { id: payload.user_id });
+  if (!user) throw new BadRequestError('User not found');
+  const [roleObj] = await getRoleDao({ role: user.role });
+  if (!roleObj) throw new BadRequestError('Role not found');
+  payload.role_id = roleObj.id;
+
+  // Prepare config based on role
+  if (roleObj.role === Role.ADMIN) {
+    const adminUser = await getUserByCompanyCreatedAtDao(
+      company_id,
+      Role.ADMIN,
+    );
+    if (adminUser) payload.user_id = adminUser.id;
+    payload.config = {
+      type: payload?.type,
+      initial_balance: payload?.initial_balance || 0,
+      closing_balance: payload?.initial_balance || 0,
+      is_enabled: false,
+    };
+    delete payload.type; // Remove type if it's not needed in config
+    delete payload?.initial_balance; // Remove initial_balance if it's not needed in config
+  } else if (roleObj.role === Role.VENDOR) {
+    payload.config = {
+      type: 'Personal',
+      initial_balance: 0,
+      closing_balance: 0,
+      is_enabled: true,
+    };
+    delete payload?.type;
+    delete payload?.initial_balance; // Remove initial_balance if it's not needed in config
+  } else if (roleObj.role === Role.MERCHANT) {
+    payload.config = {
+      type: 'Personal',
+    };
+    delete payload?.type;
+  }
+
+  // Check for duplicates
+  if ([Role.VENDOR, Role.MERCHANT, Role.ADMIN].includes(roleObj.role)) {
+    const filters = { acc_no: payload.acc_no };
+    if (roleObj.role === Role.VENDOR) filters.user_id = payload.user_id;
+    const exists = await getBeneficiaryAccountDao(
+      filters,
+      null,
+      null,
+      roleObj.role,
+    );
+    if (exists.length > 0)
+      throw new BadRequestError(
+        'Beneficiary account already exists for this merchant',
+      );
+  }
+
+  // Create account
+  const result = await createBeneficiaryAccountDao(conn, payload);
+
+  // Notify users
+  // const vendorUsers = await getUserByRoleDao(company_id, Role.VENDOR);
+  // const vendorUserIds = vendorUsers.map((u) => u.id);
+  // const notifyIds =
+  //   roleObj.role === Role.ADMIN ? vendorUserIds : [payload.user_id];
+  // await notifyAdminsAndUsers({
+  //   conn,
+  //   company_id,
+  //   message: `The new Beneficiary Account with Bank Name ${payload.bank_name} has been created.`,
+  //   payloadUserId: notifyIds,
+  //   actorUserId: payload.updated_by,
+  //   category: 'Beneficiary Account',
+  // });
+
+  return result;
+};
+
 const createBeneficiaryAccountService = async (payload, company_id) => {
   let conn;
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-
-    // Set user_id to created_by if not already set
-    payload.user_id = payload.user_id || payload.created_by;
-
-    // Fetch user and role
-    const [user] = await getUserByIdDao(conn, { id: payload.user_id });
-    if (!user) throw new BadRequestError('User not found');
-    const [roleObj] = await getRoleDao({ role: user.role });
-    if (!roleObj) throw new BadRequestError('Role not found');
-    payload.role_id = roleObj.id;
-
-    // Prepare config based on role
-    if (roleObj.role === Role.ADMIN) {
-      const adminUser = await getUserByCompanyCreatedAtDao(
-        company_id,
-        Role.ADMIN,
-      );
-      if (adminUser) payload.user_id = adminUser.id;
-      payload.config = {
-        type: payload?.type,
-        initial_balance: payload?.initial_balance || 0,
-        closing_balance: payload?.initial_balance || 0,
-        is_enabled: false,
-      };
-      delete payload.type; // Remove type if it's not needed in config
-      delete payload?.initial_balance; // Remove initial_balance if it's not needed in config
-    } else if (roleObj.role === Role.VENDOR) {
-      payload.config = {
-        type: 'Personal',
-        initial_balance: 0,
-        closing_balance: 0,
-        is_enabled: true,
-      };
-      delete payload?.type;
-      delete payload?.initial_balance; // Remove initial_balance if it's not needed in config
-    } else if (roleObj.role === Role.MERCHANT) {
-      payload.config = {
-        type: 'Personal',
-      };
-      delete payload?.type;
-    }
-
-    // Check for duplicates
-    if ([Role.VENDOR, Role.MERCHANT, Role.ADMIN].includes(roleObj.role)) {
-      const filters = { acc_no: payload.acc_no };
-      if (roleObj.role === Role.VENDOR) filters.user_id = payload.user_id;
-      const exists = await getBeneficiaryAccountDao(
-        filters,
-        null,
-        null,
-        roleObj.role,
-      );
-      if (exists.length > 0)
-        throw new BadRequestError(
-          'Beneficiary account already exists for this merchant',
-        );
-    }
-
-    // Create account
-    const result = await createBeneficiaryAccountDao(conn, payload);
-
-    // Notify users
-    // const vendorUsers = await getUserByRoleDao(company_id, Role.VENDOR);
-    // const vendorUserIds = vendorUsers.map((u) => u.id);
-    // const notifyIds =
-    //   roleObj.role === Role.ADMIN ? vendorUserIds : [payload.user_id];
-    // await notifyAdminsAndUsers({
-    //   conn,
-    //   company_id,
-    //   message: `The new Beneficiary Account with Bank Name ${payload.bank_name} has been created.`,
-    //   payloadUserId: notifyIds,
-    //   actorUserId: payload.updated_by,
-    //   category: 'Beneficiary Account',
-    // });
-
+    const result = await _createBeneficiaryAccountServiceInternal(conn, payload, company_id);
     await commit(conn);
     return result;
   } catch (error) {
     if (conn) await rollback(conn);
-    logger.error('Error creating beneficiary account', error);
+    logger.error('error getting while creating beneficiary account', error);
     throw error;
   } finally {
     if (conn) conn.release();
   }
+};
+
+const _updateBeneficiaryAccountService = async (conn, ids, payload) => {
+  if (payload.acc_no) {
+    let filters = {};
+    filters.acc_no = payload.acc_no;
+    filters.company_id = ids.company_id;
+    const exists = await checkBeneficiaryAccountExistsDao(filters);
+    if (exists) {
+      throw new BadRequestError('Beneficiary account no. already exists');
+    }
+  }
+  const [banks] = await getBeneficiaryAccountDao({
+    id: ids.id,
+    company_id: ids.company_id,
+  });
+
+  if (!banks) {
+    throw new BadRequestError('Beneficiary account not found');
+  }
+
+  const result = await updateBeneficiaryAccountDao(
+    { id: ids.id, company_id: ids.company_id },
+    payload,
+    conn,
+  );
+
+  // let notifyIds = [];
+  // if (role === Role.ADMIN) {
+  // Notify users
+  // const vendorUsers = await getUserByRoleDao(ids.company_id, Role.VENDOR);
+  // const vendorUserIds = vendorUsers.map((u) => u.id);
+  // notifyIds = role === Role.ADMIN ? vendorUserIds : [payload.updated_by];
+  // }
+
+  // await notifyAdminsAndUsers({
+  //   conn,
+  //   company_id: ids.company_id,
+  //   message: `The Beneficiary Account with Bank Name ${banks.bank_name} has been updated.`,
+  //   payloadUserId: notifyIds,
+  //   actorUserId: payload.updated_by,
+  //   category: 'Beneficiary Account',
+  // });
+  return result;
 };
 
 const updateBeneficiaryAccountService = async (ids, payload) => {
@@ -397,48 +463,7 @@ const updateBeneficiaryAccountService = async (ids, payload) => {
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-
-    if (payload.acc_no) {
-      let filters = {};
-      filters.acc_no = payload.acc_no;
-      filters.company_id = ids.company_id;
-      const exists = await checkBeneficiaryAccountExistsDao(filters);
-      if (exists) {
-        throw new BadRequestError('Beneficiary account no. already exists');
-      }
-    }
-    const [banks] = await getBeneficiaryAccountDao({
-      id: ids.id,
-      company_id: ids.company_id,
-    });
-
-    if (!banks) {
-      throw new BadRequestError('Beneficiary account not found');
-    }
-
-    const result = await updateBeneficiaryAccountDao(
-      { id: ids.id, company_id: ids.company_id },
-      payload,
-      conn,
-    );
-
-    // let notifyIds = [];
-    // if (role === Role.ADMIN) {
-    // Notify users
-    // const vendorUsers = await getUserByRoleDao(ids.company_id, Role.VENDOR);
-    // const vendorUserIds = vendorUsers.map((u) => u.id);
-    // notifyIds = role === Role.ADMIN ? vendorUserIds : [payload.updated_by];
-    // }
-
-    // await notifyAdminsAndUsers({
-    //   conn,
-    //   company_id: ids.company_id,
-    //   message: `The Beneficiary Account with Bank Name ${banks.bank_name} has been updated.`,
-    //   payloadUserId: notifyIds,
-    //   actorUserId: payload.updated_by,
-    //   category: 'Beneficiary Account',
-    // });
-
+    const result = await _updateBeneficiaryAccountService(conn, ids, payload);
     await commit(conn);
     return result;
   } catch (error) {
@@ -450,18 +475,21 @@ const updateBeneficiaryAccountService = async (ids, payload) => {
   }
 };
 
+const _deleteBeneficiaryAccountServiceInternal = async (conn, ids) => {
+  let result = await deleteBeneficiaryDao(
+    conn,
+    { id: ids.id, company_id: ids.company_id },
+    { is_obsolete: true },
+  );
+  return result;
+};
+
 const deleteBeneficiaryAccountService = async (ids) => {
   let conn;
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-
-    let result = await deleteBeneficiaryDao(
-      conn,
-      { id: ids.id, company_id: ids.company_id },
-      { is_obsolete: true },
-    );
-
+    const result = await _deleteBeneficiaryAccountServiceInternal(conn, ids);
     await commit(conn);
     return result;
   } catch (error) {

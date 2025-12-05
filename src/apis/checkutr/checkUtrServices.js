@@ -64,22 +64,25 @@ const getCheckUtrBySearchService = async (company_id, search, page, limit) => {
   }
 };
 
+const _createCheckUtrServiceInternal = async (conn, payload) => {
+  const result = await createCheckUtrDao(payload);
+  // await notifyAdminsAndUsers({
+  //   conn,
+  //   company_id: payload.company_id,
+  //   message: `Check UTR has been performed for merchant order ID: ${merchant_order_id} with UTR: ${utr}`,
+  //   payloadUserId: payload.updated_by,
+  //   actorUserId: payload.updated_by,
+  //   category: 'Data Entries',
+  // });
+  return result;
+};
+
 const createCheckUtrService = async (payload) => {
   let conn;
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    
-    const result = await createCheckUtrDao(payload);
-    // await notifyAdminsAndUsers({
-    //   conn,
-    //   company_id: payload.company_id,
-    //   message: `Check UTR has been performed for merchant order ID: ${merchant_order_id} with UTR: ${utr}`,
-    //   payloadUserId: payload.updated_by,
-    //   actorUserId: payload.updated_by,
-    //   category: 'Data Entries',
-    // });
-    
+    const result = await _createCheckUtrServiceInternal(conn, payload);
     await commit(conn);
     return result;
   } catch (error) {

@@ -38,77 +38,81 @@ import { updateUserDao, getUsersNameDao } from '../users/userDao.js';
 import { deleteBeneficiaryDao } from '../beneficiaryAccounts/beneficiaryAccountDao.js';
 import { notifyBankResponseAccessUpdate } from '../../utils/sockets.js';
 import { BadRequestError, NotFoundError } from '../../utils/appErrors.js';
+const _createVendorServiceInternal = async (conn, payload) => {
+  const parentId = payload.parent_id;
+  const userDesignation = payload.designation;
+  delete payload.parent_id;
+  delete payload.designation;
+  delete payload.role;
+  let role_id = payload.role_id;
+  delete payload.role_id;
+  const data = await createVendorDao(payload, conn);
+  const calculationPayload = {
+    user_id: data.user_id,
+    role_id: role_id,
+    company_id: data.company_id,
+  };
+  await createCalculationDao(conn, calculationPayload);
+
+  // Handle SUB_VENDOR hierarchy creation
+  if (userDesignation === Role.SUB_VENDOR && parentId) {
+    try {
+      const hierarchy = await getUserHierarchysDao({ user_id: parentId });
+      if (!hierarchy || hierarchy.length === 0) {
+        logger.error('No hierarchy found for parentId:', parentId);
+        return;
+      }
+      // Add the new SUB_VENDOR to the parent's siblings.sub_vendors array
+      const currentChildren =
+        hierarchy[0]?.config?.siblings?.sub_vendors || [];
+      const userConfig = hierarchy[0]?.config;
+      await updateUserHierarchyDao(
+        { id: hierarchy[0].id },
+        {
+          config: {
+            ...userConfig,
+            siblings: {
+              ...userConfig.siblings,
+              sub_vendors: [...currentChildren, data.user_id],
+            },
+          },
+        },
+        conn,
+      );
+    } catch (error) {
+      logger.error('Error updating vendor hierarchy:', error);
+    }
+  }
+
+  await createUserHierarchyDao(
+    {
+      user_id: data.user_id,
+      // role_id: Role_id,
+      created_by: data.created_by,
+      updated_by: data.updated_by,
+      company_id: data.company_id,
+      ...(parentId && { config: { parent: parentId } }),
+    },
+    conn,
+  );
+  // await notifyAdminsAndUsers({
+  //   conn,
+  //   company_id: data.company_id,
+  //   message: `New Vendor with code: ${data.code} has been created.`,
+  //   payloadUserId: data.updated_by,
+  //   actorUserId: data.updated_by,
+  //   category: 'Client',
+  //   subCategory: 'Vendor'
+  // });
+  return data;
+};
+
 const createVendorService = async (payload) => {
   let conn;
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const parentId = payload.parent_id;
-    const userDesignation = payload.designation;
-    delete payload.parent_id;
-    delete payload.designation;
-    delete payload.role;
-    let role_id = payload.role_id;
-    delete payload.role_id;
-    const data = await createVendorDao(payload, conn);
-    const calculationPayload = {
-      user_id: data.user_id,
-      role_id: role_id,
-      company_id: data.company_id,
-    };
-    await createCalculationDao(conn, calculationPayload);
-
-    // Handle SUB_VENDOR hierarchy creation
-    if (userDesignation === Role.SUB_VENDOR && parentId) {
-      try {
-        const hierarchy = await getUserHierarchysDao({ user_id: parentId });
-        if (!hierarchy || hierarchy.length === 0) {
-          logger.error('No hierarchy found for parentId:', parentId);
-          return;
-        }
-        // Add the new SUB_VENDOR to the parent's siblings.sub_vendors array
-        const currentChildren =
-          hierarchy[0]?.config?.siblings?.sub_vendors || [];
-        const userConfig = hierarchy[0]?.config;
-        await updateUserHierarchyDao(
-          { id: hierarchy[0].id },
-          {
-            config: {
-              ...userConfig,
-              siblings: {
-                ...userConfig.siblings,
-                sub_vendors: [...currentChildren, data.user_id],
-              },
-            },
-          },
-          conn,
-        );
-      } catch (error) {
-        logger.error('Error updating vendor hierarchy:', error);
-      }
-    }
-
-    await createUserHierarchyDao(
-      {
-        user_id: data.user_id,
-        // role_id: Role_id,
-        created_by: data.created_by,
-        updated_by: data.updated_by,
-        company_id: data.company_id,
-        ...(parentId && { config: { parent: parentId } }),
-      },
-      conn,
-    );
-    // await notifyAdminsAndUsers({
-    //   conn,
-    //   company_id: data.company_id,
-    //   message: `New Vendor with code: ${data.code} has been created.`,
-    //   payloadUserId: data.updated_by,
-    //   actorUserId: data.updated_by,
-    //   category: 'Client',
-    //   subCategory: 'Vendor'
-    // });
-    
+    const data = await _createVendorServiceInternal(conn, payload);
     await commit(conn);
     return data;
   } catch (error) {
@@ -359,47 +363,52 @@ const getVendorsBySearchService = async (
   }
 };
 
+const _updateVendorServiceInternal = async (conn, ids, payload) => {
+  const data = await updateVendorDao(ids, payload, conn); // Adjust DAO call for update
+  if (
+    data?.config?.bank_response_access === 'false' ||
+    data?.config?.bank_response_access === false ||
+    data?.config?.bank_response_access === '' ||
+    data?.config?.bank_response_access === null
+  ) {
+    // Emit specific socket event for bank response access update
+    await notifyBankResponseAccessUpdate(
+      data.user_id,
+      data?.config?.bank_response_access,
+      data.code,
+    );
+  }
+  if (payload.payin_commission || payload.payout_commission) {
+    const userHierarchys = await getUsersNameDao(
+       data.user_id,
+    );
+    if (
+      (userHierarchys.designation === Role.VENDOR_ADMIN)&& (payload.payin_commission > 5 ||
+      payload.payout_commission > 5)
+    ) {
+      throw new BadRequestError(
+        'Vendor commission must be less than or equal to 5%.',
+      );
+    }
+  }
+  // await notifyAdminsAndUsers({
+  //   conn,
+  //   company_id: data.company_id,
+  //   message: `Vendor with code: ${data.code} has been updated.`,
+  //   payloadUserId: data.updated_by,
+  //   actorUserId: data.updated_by,
+  //   category: 'Client',
+  //   subCategory: 'Vendor'
+  // });
+  return data;
+};
+
 const updateVendorService = async (ids, payload) => {
   let conn;
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const data = await updateVendorDao(ids, payload, conn); // Adjust DAO call for update
-    if (
-      data?.config?.bank_response_access === 'false' ||
-      data?.config?.bank_response_access === false ||
-      data?.config?.bank_response_access === '' ||
-      data?.config?.bank_response_access === null
-    ) {
-      // Emit specific socket event for bank response access update
-      await notifyBankResponseAccessUpdate(
-        data.user_id,
-        data?.config?.bank_response_access,
-        data.code,
-      );
-    }
-    if (payload.payin_commission || payload.payout_commission) {
-      const userHierarchys = await getUsersNameDao(
-         data.user_id,
-      );
-      if (
-        (userHierarchys.designation === Role.VENDOR_ADMIN)&& (payload.payin_commission > 5 ||
-        payload.payout_commission > 5)
-      ) {
-        throw new BadRequestError(
-          'Vendor commission must be less than or equal to 5%.',
-        );
-      }
-    }
-    // await notifyAdminsAndUsers({
-    //   conn,
-    //   company_id: data.company_id,
-    //   message: `Vendor with code: ${data.code} has been updated.`,
-    //   payloadUserId: data.updated_by,
-    //   actorUserId: data.updated_by,
-    //   category: 'Client',
-    //   subCategory: 'Vendor'
-    // });
+    const data = await _updateVendorServiceInternal(conn, ids, payload);
     await commit(conn); // Commit the transaction
     return data;
   } catch (error) {
@@ -423,68 +432,73 @@ const updateVendorService = async (ids, payload) => {
   }
 };
 
+const _deleteVendorServiceInternal = async (conn, ids, updated_by) => {
+  const payload = { is_obsolete: true, updated_by };
+  const data = await deleteVendorDao(conn, ids, payload); // Adjust DAO call for delete
+  //delete banks and childs for particular user
+  if (data) {
+    const payloadBank = {
+      config: { is_freeze: true, isFromDeletedParent: true },
+      is_qr: false,
+      is_bank: false,
+      is_enabled: false,
+      updated_by,
+    };
+    await updateUserDao({ id: ids.user_id || ids.id }, payload, conn);
+    await deleteBeneficiaryDao(
+      conn,
+      { user_id: ids.user_id || ids.id },
+      { is_obsolete: true },
+    );
+    await updateBankaccountDao(
+      { user_id: ids.user_id || ids.id },
+      payloadBank,
+      conn,
+      true,
+    );
+    //for childs user hierachys
+    const UserHierarchy = await getUserHierarchysDao({
+      user_id: ids.user_id || ids.id,
+    });
+    if (UserHierarchy[0]?.config?.child?.operations) {
+      const userIds = UserHierarchy[0].config.child.operations;
+      for (const userId of userIds) {
+        await updateUserDao({ id: userId }, payload, conn);
+      }
+    }
+    if (UserHierarchy[0]?.config?.siblings?.sub_vendors) {
+      const userIds = UserHierarchy[0].config.siblings.sub_vendors;
+      for (const userId of userIds) {
+        const vendorDesignationId = await getDesignationIdDao(
+          Role.VENDOR,
+          conn,
+        );
+        await updateUserDao(
+          { id: userId },
+          { designation_id: vendorDesignationId, updated_by: updated_by },
+          conn,
+        );
+      }
+    }
+  }
+  // await notifyAdminsAndUsers({
+  //   conn,
+  //   company_id: ids.company_id,
+  //   message: `Vendor with code: ${data.code} has been deleted.`,
+  //   payloadUserId: user_id,
+  //   actorUserId: user_id,
+  //   category: 'Client',
+  //   subCategory: 'Vendor'
+  // });
+  return data;
+};
+
 const deleteVendorService = async (ids, updated_by) => {
   let conn;
   try {
     conn = await getConnection();
     await beginTransaction(conn); // Start a transaction
-    const payload = { is_obsolete: true, updated_by };
-    const data = await deleteVendorDao(conn, ids, payload); // Adjust DAO call for delete
-    //delete banks and childs for particular user
-    if (data) {
-      const payloadBank = {
-        config: { is_freeze: true, isFromDeletedParent: true },
-        is_qr: false,
-        is_bank: false,
-        is_enabled: false,
-        updated_by,
-      };
-      await updateUserDao({ id: ids.user_id || ids.id }, payload, conn);
-      await deleteBeneficiaryDao(
-        conn,
-        { user_id: ids.user_id || ids.id },
-        { is_obsolete: true },
-      );
-      await updateBankaccountDao(
-        { user_id: ids.user_id || ids.id },
-        payloadBank,
-        conn,
-        true,
-      );
-      //for childs user hierachys
-      const UserHierarchy = await getUserHierarchysDao({
-        user_id: ids.user_id || ids.id,
-      });
-      if (UserHierarchy[0]?.config?.child?.operations) {
-        const userIds = UserHierarchy[0].config.child.operations;
-        for (const userId of userIds) {
-          await updateUserDao({ id: userId }, payload, conn);
-        }
-      }
-      if (UserHierarchy[0]?.config?.siblings?.sub_vendors) {
-        const userIds = UserHierarchy[0].config.siblings.sub_vendors;
-        for (const userId of userIds) {
-          const vendorDesignationId = await getDesignationIdDao(
-            Role.VENDOR,
-            conn,
-          );
-          await updateUserDao(
-            { id: userId },
-            { designation_id: vendorDesignationId, updated_by: updated_by },
-            conn,
-          );
-        }
-      }
-    }
-    // await notifyAdminsAndUsers({
-    //   conn,
-    //   company_id: ids.company_id,
-    //   message: `Vendor with code: ${data.code} has been deleted.`,
-    //   payloadUserId: user_id,
-    //   actorUserId: user_id,
-    //   category: 'Client',
-    //   subCategory: 'Vendor'
-    // });
+    const data = await _deleteVendorServiceInternal(conn, ids, updated_by);
     await commit(conn); // Commit the transaction
     return data;
   } catch (error) {
@@ -547,42 +561,47 @@ const getVendorsByCodeService = async (code) => {
   }
 };
 
+const _linkVendorServiceInternal = async (conn, vendorUserId, subVendorUserId, user_id, mediator_payin_commission, mediator_payout_commission) => {
+  if (!(await isNetBalanceZeroForTwoHours(subVendorUserId))) {
+    throw new BadRequestError('Vendor net balance must be zero to link.');
+  }
+  const parent = await getVendorByUserId(vendorUserId);
+  const banks = await getBankaccountCheckDao({ user_id: vendorUserId })
+  if (banks) {
+    throw new BadRequestError(
+      'Parent cannot contain any existing banks. Please remove all banks from the parent before adding a new Vendor.',
+    );
+  }
+  if (
+    parent.payin_commission > 5 &&
+    parent.payout_commission > 5
+  ) {
+    throw new BadRequestError(
+      'Parent Vendor commission must be less than or equal to 5%.',
+    );
+  }
+  const result = await linkVendorDao(vendorUserId, subVendorUserId, user_id, mediator_payin_commission, mediator_payout_commission);
+  // Change designation to SUB_VENDOR in user table using DAO
+  const subVendorDesignationId = await getDesignationIdDao(
+    Role.SUB_VENDOR,
+    conn,
+  );
+  if (subVendorDesignationId) {
+    await updateUserDao(
+      { id: subVendorUserId },
+      { designation_id: subVendorDesignationId, updated_by: user_id },
+      conn,
+    );
+  }
+  return result;
+};
+
 const linkVendorService = async (vendorUserId, subVendorUserId, user_id, mediator_payin_commission, mediator_payout_commission) => {
   let conn;
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    if (!(await isNetBalanceZeroForTwoHours(subVendorUserId))) {
-      throw new BadRequestError('Vendor net balance must be zero to link.');
-    }
-    const parent = await getVendorByUserId(vendorUserId);
-    const banks = await getBankaccountCheckDao({ user_id: vendorUserId })
-    if (banks) {
-      throw new BadRequestError(
-        'Parent cannot contain any existing banks. Please remove all banks from the parent before adding a new Vendor.',
-      );
-    }
-    if (
-      parent.payin_commission > 5 &&
-      parent.payout_commission > 5
-    ) {
-      throw new BadRequestError(
-        'Parent Vendor commission must be less than or equal to 5%.',
-      );
-    }
-    const result = await linkVendorDao(vendorUserId, subVendorUserId, user_id, mediator_payin_commission, mediator_payout_commission);
-    // Change designation to SUB_VENDOR in user table using DAO
-    const subVendorDesignationId = await getDesignationIdDao(
-      Role.SUB_VENDOR,
-      conn,
-    );
-    if (subVendorDesignationId) {
-      await updateUserDao(
-        { id: subVendorUserId },
-        { designation_id: subVendorDesignationId, updated_by: user_id },
-        conn,
-      );
-    }
+    const result = await _linkVendorServiceInternal(conn, vendorUserId, subVendorUserId, user_id, mediator_payin_commission, mediator_payout_commission);
     await commit(conn);
     return result;
   } catch (error) {
@@ -606,28 +625,33 @@ const linkVendorService = async (vendorUserId, subVendorUserId, user_id, mediato
   }
 };
 
+const _unlinkVendorServiceInternal = async (conn, vendorUserId, subVendorUserId, user_id) => {
+  if (!(await isNetBalanceZeroForTwoHours(subVendorUserId))) {
+    throw new BadRequestError('Vendor net balance must be zero to unlink.');
+  }
+  const result = await unlinkVendorDao(
+    vendorUserId,
+    subVendorUserId,
+    user_id,
+  );
+  // Change designation to VENDOR in user table using DAO
+  const vendorDesignationId = await getDesignationIdDao(Role.VENDOR, conn);
+  if (vendorDesignationId) {
+    await updateUserDao(
+      { id: subVendorUserId },
+      { designation_id: vendorDesignationId, updated_by: user_id },
+      conn,
+    );
+  }
+  return result;
+};
+
 const unlinkVendorService = async (vendorUserId, subVendorUserId, user_id) => {
   let conn;
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    if (!(await isNetBalanceZeroForTwoHours(subVendorUserId))) {
-      throw new BadRequestError('Vendor net balance must be zero to unlink.');
-    }
-    const result = await unlinkVendorDao(
-      vendorUserId,
-      subVendorUserId,
-      user_id,
-    );
-    // Change designation to VENDOR in user table using DAO
-    const vendorDesignationId = await getDesignationIdDao(Role.VENDOR, conn);
-    if (vendorDesignationId) {
-      await updateUserDao(
-        { id: subVendorUserId },
-        { designation_id: vendorDesignationId, updated_by: user_id },
-        conn,
-      );
-    }
+    const result = await _unlinkVendorServiceInternal(conn, vendorUserId, subVendorUserId, user_id);
     await commit(conn);
     return result;
   } catch (error) {
@@ -651,6 +675,40 @@ const unlinkVendorService = async (vendorUserId, subVendorUserId, user_id) => {
   }
 };
 
+const _transferVendorServiceInternal = async (
+  conn,
+  subVendorUserId,
+  newVendorUserId,
+  currentVendorUserId,
+  user_id,
+) => {
+  if (!(await isNetBalanceZeroForTwoHours(subVendorUserId))) {
+    throw new BadRequestError('Vendor net balance must be zero to transfer.');
+  }
+  const parent = await getVendorByUserId(newVendorUserId);
+  const banks = await getBankaccountCheckDao({ user_id: newVendorUserId });
+  if (banks) {
+    throw new BadRequestError(
+      'Parent cannot contain any existing banks. Please remove all banks from the New parent before transfering a new Vendor.',
+    );
+  }
+  if (
+    parent.payin_commission > 5 &&
+    parent.payout_commission > 5
+  ) {
+    throw new BadRequestError(
+      'Parent Vendor commission must be less than or equal to 5%.',
+    );
+  }
+  const result = await transferVendorDao(
+    subVendorUserId,
+    newVendorUserId,
+    currentVendorUserId,
+    user_id,
+  );
+  return result;
+};
+
 const transferVendorService = async (
   subVendorUserId,
   newVendorUserId,
@@ -661,25 +719,8 @@ const transferVendorService = async (
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    if (!(await isNetBalanceZeroForTwoHours(subVendorUserId))) {
-      throw new BadRequestError('Vendor net balance must be zero to transfer.');
-    }
-    const parent = await getVendorByUserId(newVendorUserId);
-    const banks = await getBankaccountCheckDao({ user_id: newVendorUserId });
-    if (banks) {
-      throw new BadRequestError(
-        'Parent cannot contain any existing banks. Please remove all banks from the New parent before transfering a new Vendor.',
-      );
-    }
-    if (
-      parent.payin_commission > 5 &&
-      parent.payout_commission > 5
-    ) {
-      throw new BadRequestError(
-        'Parent Vendor commission must be less than or equal to 5%.',
-      );
-    }
-    const result = await transferVendorDao(
+    const result = await _transferVendorServiceInternal(
+      conn,
       subVendorUserId,
       newVendorUserId,
       currentVendorUserId,

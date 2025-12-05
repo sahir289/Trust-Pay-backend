@@ -38,15 +38,10 @@ const getCompanyByIdService = async (id) => {
   }
 };
 
-const createCompanyService = async (payload) => {
-  let conn;
-  try {
-    conn = await getConnection();
-    await beginTransaction(conn);
-    
-    // Validate payload
-    // Create company
-    function generateFormatted8DigitCode() {
+const _createCompanyServiceInternal = async (conn, payload) => {
+  // Validate payload
+  // Create company
+  function generateFormatted8DigitCode() {
       let code = Math.floor(10000000 + Math.random() * 90000000).toString();
       return code.match(/.{1,4}/g).join('-');
     }
@@ -120,9 +115,7 @@ const createCompanyService = async (payload) => {
     };
     // Create user - this will manage its own transaction
     const user = await createUserService(userPayload);
-    
-    await commit(conn);
-    
+
     // Return result
     return {
       company_id: company.id,
@@ -130,6 +123,16 @@ const createCompanyService = async (payload) => {
       designation_ids: designations.map((designation) => designation.id),
       user_id: user.id,
     };
+};
+
+const createCompanyService = async (payload) => {
+  let conn;
+  try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+    const result = await _createCompanyServiceInternal(conn, payload);
+    await commit(conn);
+    return result;
   } catch (error) {
     if (conn) {
       await rollback(conn);

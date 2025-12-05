@@ -130,15 +130,15 @@ import { createCashfreeOrder } from '../../cashfree/cashfree.js';
 import { createRazorPayOrder } from '../../razorpay/razorpay.js';
 // import { createZenTechIndTransaction } from '../../zentechind/zentechInd.js';
 import { createPaymentTransaction } from '../../intent/createIntentTransaction.js';
-// Transaction management imports (for future refactoring)
-// import {
-//   getConnection,
-//   beginTransaction,
-//   commit,
-//   rollback,
-// } from '../../utils/db.js';
+// Transaction management imports
+import {
+  getConnection,
+  beginTransaction,
+  commit,
+  rollback,
+} from '../../utils/db.js';
 
-export const generatePayInUrlByHashService = async (conn, req) => {
+export const generatePayInUrlByHashService = async (req) => {
   try {
     const { user_id, code, ot, key, amount } = req.query;
     const { role_id, role } = req.user;
@@ -947,13 +947,15 @@ export const updatePaymentNotificationStatusService = async (
 };
 
 export const updateDepositStatusService = async (
-  conn,
   merchantOrderId,
   nick_name,
   company_id,
   updated_by,
 ) => {
+  let conn;
   try {
+    conn = await getConnection();
+    await beginTransaction(conn);
     const payInData = await getPayInForUpdateServiceDao({
       merchant_order_id: merchantOrderId,
       company_id,
@@ -1139,20 +1141,26 @@ export const updateDepositStatusService = async (
       utr_id: bankResponse.utr || '',
     });
 
+    await commit(conn);
     return;
   } catch (error) {
+    if (conn) await rollback(conn);
     logger.error('Error updating deposit status:', error);
     throw error;
+  } finally {
+    if (conn) conn.release();
   }
 };
 
 export const resetDepositService = async (
-  conn,
   merchant_order_id,
   company_id,
   updated_by,
 ) => {
+  let conn;
   try {
+    conn = await getConnection();
+    await beginTransaction(conn);
     const payIn = await getPayInForResetDao({
       merchant_order_id: merchant_order_id,
       company_id: company_id,
@@ -1497,7 +1505,7 @@ export const getPayinsSummaryService = async (filters) => {
   }
 };
 
-export const processPayInService = async (
+export const _processPayInServiceInternal = async (
   conn,
   payload,
   updated_by,
@@ -1506,17 +1514,16 @@ export const processPayInService = async (
   designation,
   h2h,
 ) => {
-  try {
-    const {
-      userSubmittedUtr,
-      merchantOrderId,
-      amount,
-      from_telegram,
-      telegramMessage,
-      telegramBotToken,
-      user_submitted_image,
-      // : payload.fileKey
-    } = payload;
+  const {
+    userSubmittedUtr,
+    merchantOrderId,
+    amount,
+    from_telegram,
+    telegramMessage,
+    telegramBotToken,
+    user_submitted_image,
+    // : payload.fileKey
+  } = payload;
     // validate payIn
     // throw error if not exist or expires
     const orderid = merchantOrderId;
@@ -1996,168 +2003,186 @@ export const processPayInService = async (
       //   subCategory: 'PayIn',
       // });
       // }
-    } else {
-      return updatePayInData.status === Status.DISPUTE
-        ? {
-            ...result,
-            message: `${payIn.merchant_order_id} is in Dispute: Requested amount ${updatePayInData.amount}, received amount ${bankResponse.amount}`,
-          }
-        : result;
     }
+
+  return result;
+};
+
+export const processPayInService = async (
+  payload,
+  updated_by,
+  tele_check = true,
+  img_utr = false,
+  designation,
+  h2h,
+) => {
+  let conn;
+  try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+    const result = await _processPayInServiceInternal(
+      conn,
+      payload,
+      updated_by,
+      tele_check,
+      img_utr,
+      designation,
+      h2h,
+    );
+    await commit(conn);
+    return result;
   } catch (error) {
+    if (conn) await rollback(conn);
     logger.error('Error processing PayIn:', error);
     throw error;
+  } finally {
+    if (conn) conn.release();
   }
 };
 
 export const processPayInWebHookService = async (conn, payload, updated_by) => {
-  try {
-    const { userSubmittedUtr, merchantOrderId, amount, status } = payload;
+  const { userSubmittedUtr, merchantOrderId, amount, status } = payload;
 
-    const payIn = await getPayinsForServiccDao({
-      merchant_order_id: merchantOrderId,
-    });
-    const [bank] = await getBankaccountDao({
-      id: payIn?.bank_acc_id,
-      company_id: payIn.company_id,
-    });
-    let bankResponse = await getBankResponseByJustUTRDao(userSubmittedUtr);
-    const [vendor] = await getVendorsDao({ user_id: bank.user_id });
-    let [merchant] = await getMerchantsDao({ id: payIn.merchant_id });
+  const payIn = await getPayinsForServiccDao({
+    merchant_order_id: merchantOrderId,
+  });
+  const [bank] = await getBankaccountDao({
+    id: payIn?.bank_acc_id,
+    company_id: payIn.company_id,
+  });
+  let bankResponse = await getBankResponseByJustUTRDao(userSubmittedUtr);
+  const [vendor] = await getVendorsDao({ user_id: bank.user_id });
+  let [merchant] = await getMerchantsDao({ id: payIn.merchant_id });
 
-    const upperStatus = status.toUpperCase();
-    const finalStatus =
-      upperStatus === 'USER_DROPPED' ? Status.DROPPED : upperStatus;
+  const upperStatus = status.toUpperCase();
+  const finalStatus =
+    upperStatus === 'USER_DROPPED' ? Status.DROPPED : upperStatus;
 
-    const duration = calculateDuration(payIn.created_at);
-    const updatePayInData = {
-      amount,
-      user_submitted_utr: userSubmittedUtr,
-      status: finalStatus,
-      bank_response_id: bankResponse?.id,
-      is_url_expires: true,
-      one_time_used: true,
-      duration,
-      is_notified: true,
-      updated_by: updated_by || '',
-      approved_at:
-        finalStatus === Status.SUCCESS ? new Date().toISOString() : null,
-    };
+  const duration = calculateDuration(payIn.created_at);
+  const updatePayInData = {
+    amount,
+    user_submitted_utr: userSubmittedUtr,
+    status: finalStatus,
+    bank_response_id: bankResponse?.id,
+    is_url_expires: true,
+    one_time_used: true,
+    duration,
+    is_notified: true,
+    updated_by: updated_by || '',
+    approved_at:
+      finalStatus === Status.SUCCESS ? new Date().toISOString() : null,
+  };
 
-    if (finalStatus === Status.SUCCESS) {
-      // Handle sub-vendor and parent commission logic
-      const merchantCommission = calculateCommission(
-        bankResponse.amount,
-        Number(merchant.payin_commission),
-      );
-      const vendorCommission = calculateCommission(
-        bankResponse.amount,
-        Number(vendor?.payin_commission),
-      );
+  if (finalStatus === Status.SUCCESS) {
+    // Handle sub-vendor and parent commission logic
+    const merchantCommission = calculateCommission(
+      bankResponse.amount,
+      Number(merchant.payin_commission),
+    );
+    const vendorCommission = calculateCommission(
+      bankResponse.amount,
+      Number(vendor?.payin_commission),
+    );
 
-      // let totalVendorCommission = vendorCommission;
-      // let brokerageCommission = 0;
-      // let parentCommission = 0;
+    // let totalVendorCommission = vendorCommission;
+    // let brokerageCommission = 0;
+    // let parentCommission = 0;
 
-      // const subVendorParentInfo = await getSubVendorParentInfo(vendor);
-      // if (subVendorParentInfo) {
-      //   // Calculate parent commission
-      //   // parentCommission = await updateParentVendorCalculation(
-      //   //   subVendorParentInfo.parentUserId,
-      //   //   Number(bankResponse.amount),
-      //   //   Number(subVendorParentInfo.parentVendor.payin_commission),
-      //   //   conn,
-      //   // );
+    // const subVendorParentInfo = await getSubVendorParentInfo(vendor);
+    // if (subVendorParentInfo) {
+    //   // Calculate parent commission
+    //   // parentCommission = await updateParentVendorCalculation(
+    //   //   subVendorParentInfo.parentUserId,
+    //   //   Number(bankResponse.amount),
+    //   //   Number(subVendorParentInfo.parentVendor.payin_commission),
+    //   //   conn,
+    //   // );
 
-      //   totalVendorCommission = vendorCommission + parentCommission;
-      //   brokerageCommission = parentCommission;
+    //   totalVendorCommission = vendorCommission + parentCommission;
+    //   brokerageCommission = parentCommission;
 
-      //   updatePayInData.config = {
-      //     ...payIn.config,
-      //     actual_vendor_commission: vendorCommission,
-      //     brokerage_commission: brokerageCommission,
-      //   };
+    //   updatePayInData.config = {
+    //     ...payIn.config,
+    //     actual_vendor_commission: vendorCommission,
+    //     brokerage_commission: brokerageCommission,
+    //   };
 
-      //   logger.info(
-      //     `Sub-vendor commission calculated: sub=${vendorCommission}, parent=${parentCommission}, total=${totalVendorCommission}`,
-      //   );
-      // } else {
-      //   updatePayInData.config = {
-      //     ...payIn.config,
-      //     actual_vendor_commission: vendorCommission,
-      //   };
-      // }
+    //   logger.info(
+    //     `Sub-vendor commission calculated: sub=${vendorCommission}, parent=${parentCommission}, total=${totalVendorCommission}`,
+    //   );
+    // } else {
+    //   updatePayInData.config = {
+    //     ...payIn.config,
+    //     actual_vendor_commission: vendorCommission,
+    //   };
+    // }
 
-      updatePayInData.approved_at = new Date();
-      updatePayInData.payin_merchant_commission = merchantCommission;
-      updatePayInData.payin_vendor_commission = vendorCommission;
+    updatePayInData.approved_at = new Date();
+    updatePayInData.payin_merchant_commission = merchantCommission;
+    updatePayInData.payin_vendor_commission = vendorCommission;
 
-      await updateCalculationTable(
-        merchant.user_id,
-        {
-          payinCommission: merchantCommission,
-          amount: Number(bankResponse.amount),
-        },
-        conn,
-      );
-    }
-
-    await updatePayInUrlDao(payIn.id, updatePayInData, conn);
-
-    const result = {
-      status: finalStatus,
-      merchantOrderId: payIn.merchant_order_id,
-      payinId: payIn.id,
-      amount: bankResponse.amount,
-      req_amount: payIn.amount,
-      utr_id: userSubmittedUtr,
-    };
-    logger.info('Webhook processing result:', result);
-
-    const responseObj = {
-      id: payIn.id,
-      sno: payIn.sno,
-      amount,
-      status: finalStatus,
-      user_submitted_utr: userSubmittedUtr,
-      duration,
-      merchant_id: payIn.merchant_id,
-      nick_name: bank.nick_name,
-      vendor_user_id: vendor?.id || null,
-      bank_acc_id: payIn.bank_acc_id,
-      payin_merchant_commission:
-        updatePayInData.payin_merchant_commission || null,
-      merchant_details: {
-        merchant_code: merchant?.code || null,
-        dispute: finalStatus === Status.DISPUTE,
-        return_url: payIn.config?.urls?.return || null,
-        notify_url: payIn.config?.urls?.notify || null,
+    await updateCalculationTable(
+      merchant.user_id,
+      {
+        payinCommission: merchantCommission,
+        amount: Number(bankResponse.amount),
       },
-      merchant_order_id: payIn.merchant_order_id,
-      payin_details: {
-        urls: payIn.config?.urls || {},
-        user: payIn.config?.user || {},
-      },
-      bank_res_details: {
-        utr: bankResponse.utr || null,
-        amount: bankResponse.amount || null,
-      },
-      user: payIn.user,
-      updated_at: payIn.updated_at,
-      created_at: payIn.created_at,
-      vendor_code: vendor?.code || null,
-      company_id: payIn.company_id,
-    };
-
-    await newTableEntry(tableName.PAYIN, responseObj);
-    // This is async function but it's just the callback sending function there fore we are not using await
-    await merchantPayinCallback(payIn.config?.urls?.notify, result);
-
-    return result;
-  } catch (error) {
-    logger.error('Error processing PayIn:', error);
-    throw error;
+      conn,
+    );
   }
+
+  await updatePayInUrlDao(payIn.id, updatePayInData, conn);
+
+  const result = {
+    status: finalStatus,
+    merchantOrderId: payIn.merchant_order_id,
+    payinId: payIn.id,
+    amount: bankResponse.amount,
+    req_amount: payIn.amount,
+    utr_id: userSubmittedUtr,
+  };
+  logger.info('Webhook processing result:', result);
+
+  const responseObj = {
+    id: payIn.id,
+    sno: payIn.sno,
+    amount,
+    status: finalStatus,
+    user_submitted_utr: userSubmittedUtr,
+    duration,
+    merchant_id: payIn.merchant_id,
+    nick_name: bank.nick_name,
+    vendor_user_id: vendor?.id || null,
+    bank_acc_id: payIn.bank_acc_id,
+    payin_merchant_commission:
+      updatePayInData.payin_merchant_commission || null,
+    merchant_details: {
+      merchant_code: merchant?.code || null,
+      dispute: finalStatus === Status.DISPUTE,
+      return_url: payIn.config?.urls?.return || null,
+      notify_url: payIn.config?.urls?.notify || null,
+    },
+    merchant_order_id: payIn.merchant_order_id,
+    payin_details: {
+      urls: payIn.config?.urls || {},
+      user: payIn.config?.user || {},
+    },
+    bank_res_details: {
+      utr: bankResponse.utr || null,
+      amount: bankResponse.amount || null,
+    },
+    user: payIn.user,
+    updated_at: payIn.updated_at,
+    created_at: payIn.created_at,
+    vendor_code: vendor?.code || null,
+    company_id: payIn.company_id,
+  };
+
+  await newTableEntry(tableName.PAYIN, responseObj);
+  // This is async function but it's just the callback sending function there fore we are not using await
+  await merchantPayinCallback(payIn.config?.urls?.notify, result);
+
+  return result;
 };
 
 // const calculateCommissions = async (merchantId, vendorId, amount) => {
@@ -2176,8 +2201,11 @@ export const processPayInWebHookService = async (conn, payload, updated_by) => {
 //   };
 // };
 
-export const telegramResponseService = async (conn, message) => {
+export const telegramResponseService = async (message) => {
+  let conn;
   try {
+    conn = await getConnection();
+    await beginTransaction(conn);
     const { photo } = message;
     const TELEGRAM_BOT_TOKEN = config.telegramOcrBotToken;
 
@@ -2377,7 +2405,7 @@ export const telegramResponseService = async (conn, message) => {
       return;
     }
 
-    await processPayInService(
+    await _processPayInServiceInternal(
       conn,
       {
         amount: payIn.amount,
@@ -2390,14 +2418,21 @@ export const telegramResponseService = async (conn, message) => {
       null,
       false,
     );
+    await commit(conn);
   } catch (error) {
+    if (conn) await rollback(conn);
     logger.error('Error processing Telegram response:', error);
     throw error;
+  } finally {
+    if (conn) conn.release();
   }
 };
 
-export const processPayInByImageService = async (conn, payload) => {
+export const processPayInByImageService = async (payload) => {
+  let conn;
   try {
+    conn = await getConnection();
+    await beginTransaction(conn);
     const { base64Image, merchantOrderId } = payload;
     const content = await getImageContentFromOCr(base64Image);
     let payInData;
@@ -2428,25 +2463,32 @@ export const processPayInByImageService = async (conn, payload) => {
       };
     }
 
-    return await processPayInService(conn, {
+    const result = await _processPayInServiceInternal(conn, {
       ...payload,
       userSubmittedUtr: content.utr,
       amount: payInData.amount,
       user_submitted_image: payload.fileKey,
     });
+    await commit(conn);
+    return result;
   } catch (error) {
+    if (conn) await rollback(conn);
     logger.error('Error processing PayIn by image:', error);
     throw error;
+  } finally {
+    if (conn) conn.release();
   }
 };
 
 export const disputeDuplicateTransactionService = async (
-  conn,
   payload,
   company_id,
   updated_by,
 ) => {
+  let conn;
   try {
+    conn = await getConnection();
+    await beginTransaction(conn);
     const { payInId, merchantOrderId, confirmed, amount } = payload;
     const payIn = await getPayInForDisputeServiceDao({
       id: payInId,
@@ -2793,22 +2835,28 @@ export const disputeDuplicateTransactionService = async (
 
     // await Promise.all(notifications);
     await newTableEntry(tableName.PAYIN, { id: payIn.id, ...response });
+    await commit(conn);
     return response;
   } catch (error) {
+    if (conn) await rollback(conn);
     logger.error('Error in disputeDuplicateTransactionService:', error.message);
     throw error;
+  } finally {
+    if (conn) conn.release();
   }
 };
 
 export const telegramCheckUTRService = async (
-  conn,
   utr,
   merchant_order_id,
   company_id,
   updated_by,
   designation,
 ) => {
+  let conn;
   try {
+    conn = await getConnection();
+    await beginTransaction(conn);
     const bankResponse = await getBankResponsePayinDao({
       utr: utr,
       status:
@@ -2883,7 +2931,7 @@ export const telegramCheckUTRService = async (
     }
     // updatePayInUrlDao({ id: payIn.id }, { is_url_expires: false }, conn);
 
-    return await processPayInService(
+    const result = await _processPayInServiceInternal(
       conn,
       {
         userSubmittedUtr: utr,
@@ -2895,9 +2943,14 @@ export const telegramCheckUTRService = async (
       false,
       designation,
     );
+    await commit(conn);
+    return result;
   } catch (error) {
+    if (conn) await rollback(conn);
     logger.error('Error in telegramCheckUTRService:', error);
     throw error;
+  } finally {
+    if (conn) conn.release();
   }
 };
 
@@ -2910,7 +2963,7 @@ export const getPayinsServiceById = async (id) => {
   }
 };
 
-export const updateUtrPayinService = async (conn, id, user_id, utr) => {
+export const updateUtrPayinService = async (id, user_id, utr) => {
   try {
     const updatedUtr = utr && !utr.endsWith('.') ? utr + '.' : utr;
     const payload = {
@@ -2918,7 +2971,7 @@ export const updateUtrPayinService = async (conn, id, user_id, utr) => {
       bank_response_id: null,
       updated_by: user_id,
     };
-    const updateUtr = await updatePayInUrlDao(id, payload, conn);
+    const updateUtr = await updatePayInUrlDao(id, payload);
     return updateUtr;
   } catch (error) {
     logger.error('Error in updateUtrPayinService:', error);
@@ -2926,17 +2979,16 @@ export const updateUtrPayinService = async (conn, id, user_id, utr) => {
   }
 };
 
-export const checkPendingPayinStatusService = async (
+const _checkPendingPayinStatusServiceInternal = async (
   conn,
   user_id,
   company_id,
   user_name,
 ) => {
-  try {
-    const payins = await getPayInPendingDao({
-      company_id,
-      status: Status.PENDING,
-    });
+  const payins = await getPayInPendingDao({
+    company_id,
+    status: Status.PENDING,
+  });
     const processedPayinIds = [];
     for (const currentPayin of payins) {
       let duration;
@@ -3136,20 +3188,36 @@ export const checkPendingPayinStatusService = async (
       await newTableEntry(tableName.PAYIN);
     }
     return processedPayinIds;
+};
+
+export const checkPendingPayinStatusService = async (
+  user_id,
+  company_id,
+  user_name,
+) => {
+  let conn;
+  try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+    const processedPayinIds = await _checkPendingPayinStatusServiceInternal(conn, user_id, company_id, user_name);
+    await commit(conn);
+    return processedPayinIds;
   } catch (error) {
+    if (conn) await rollback(conn);
     logger.error('Error in checkPendingPayinStatusService:', error);
     throw error;
+  } finally {
+    if (conn) conn.release();
   }
 };
 
-export const verifyPayinsService = async (
+const _verifyPayinsServiceInternal = async (
   conn,
   merchantOrderId,
   user_location,
   oneTimeUsed,
 ) => {
-  try {
-    const payIn = await getPayInUrlService(merchantOrderId);
+  const payIn = await getPayInUrlService(merchantOrderId);
 
     if (!payIn) {
       throw new BadRequestError('Invalid merchant order id');
@@ -3293,9 +3361,26 @@ export const verifyPayinsService = async (
     usedTokens.add(merchantOrderId);
     logger.info('PayIn URL verified successfully:', response);
     return result;
+};
+
+export const verifyPayinsService = async (
+  merchantOrderId,
+  user_location,
+  oneTimeUsed,
+) => {
+  let conn;
+  try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+    const result = await _verifyPayinsServiceInternal(conn, merchantOrderId, user_location, oneTimeUsed);
+    await commit(conn);
+    return result;
   } catch (error) {
+    if (conn) await rollback(conn);
     logger.error('Error in verifyPayinsService:', error);
     throw error;
+  } finally {
+    if (conn) conn.release();
   }
 };
 
@@ -3714,13 +3799,15 @@ const updateCalculationParentBalances = async (
   }
 };
 export const updatePayInService = async (
-  conn,
   payload,
   merchant_order_id,
   user_id,
   company_id,
 ) => {
+  let conn;
   try {
+    conn = await getConnection();
+    await beginTransaction(conn);
     // Fetch user_name using user_id
     let user_name = '';
     if (user_id) {
@@ -4367,13 +4454,17 @@ export const updatePayInService = async (
     };
     await newTableEntry(tableName.PAYIN, updatedPayInData);
 
+    await commit(conn);
     return updatedPayInData;
   } catch (error) {
+    if (conn) await rollback(conn);
     logger.error(`Error in updatePayInService: ${error.message}`, {
       error,
       merchant_order_id,
       user_id,
     });
     throw error;
+  } finally {
+    if (conn) conn.release();
   }
 };

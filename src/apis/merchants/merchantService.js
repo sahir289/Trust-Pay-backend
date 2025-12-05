@@ -41,79 +41,82 @@ import { updateUserDao } from '../users/userDao.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 // Create Merchant Service
 
+const _createMerchantServiceInternal = async (conn, payload) => {
+  const parentId = payload.parent_id;
+  delete payload.parentId;
+  let Role_id = payload.role_id;
+  let userRole = payload.role;
+  let userDesignation = payload.designation;
+  delete payload.role_id;
+  delete payload.role;
+  delete payload.designation;
+  const data = await createMerchantDao(payload, conn);
+  const calculationPayload = {
+    role_id: Role_id,
+    user_id: data.user_id,
+    company_id: data.company_id,
+  };
+  await createCalculationDao(conn, calculationPayload);
+  if (userRole === Role.MERCHANT) {
+    await createUserHierarchyDao(
+      {
+        user_id: data.user_id,
+        // role_id: Role_id,
+        created_by: data.created_by,
+        updated_by: data.updated_by,
+        company_id: data.company_id,
+      },
+      conn,
+    );
+  }
+  if (
+    // userDesignation === Role.MERCHANT ||
+    userDesignation === Role.SUB_MERCHANT
+  ) {
+    try {
+      const hierarchy = await getUserHierarchysDao({ user_id: parentId });
+      if (!hierarchy || !hierarchy[0]?.id) {
+        logger.error('No hierarchy found for parentId:', parentId);
+        return;
+      }
+      //  {"child":{"operations":[]},"siblings":{"sub_merchants":["19fb0634-31cc-41f3-a09f-29b524e4aee5","972d353d-158f-4013-93d6-a17f7e606800"]}}
+      const currentChildren =
+        hierarchy[0]?.config?.siblings?.sub_merchants || [];
+      const userConfig = hierarchy[0]?.config;
+      await updateUserHierarchyDao(
+        { id: hierarchy[0].id },
+        {
+          config: {
+            ...userConfig,
+            siblings: { sub_merchants: [...currentChildren, data.user_id] },
+          },
+        },
+        conn,
+      );
+    } catch (error) {
+      logger.error('Error updating hierarchy:', error);
+    }
+  }
+  logger.log('Merchant created successfully');
+  // await notifyAdminsAndUsers({
+  //   conn,
+  //   company_id: payload.company_id,
+  //   message: `New Merchant with Code ${data.code} has been created.`,
+  //   payloadUserId: payload.updated_by,
+  //   actorUserId:
+  //     userDesignation === Role.SUB_MERCHANT ? parentId : payload.updated_by,
+  //   category: 'Client',
+  //   subCategory: 'Merchant'
+  // });
+  return data;
+};
+
 const createMerchantService = async (payload) => {
   let conn;
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-
-    const parentId = payload.parent_id;
-    delete payload.parentId;
-    let Role_id = payload.role_id;
-    let userRole = payload.role;
-    let userDesignation = payload.designation;
-    delete payload.role_id;
-    delete payload.role;
-    delete payload.designation;
-    const data = await createMerchantDao(payload, conn);
-    const calculationPayload = {
-      role_id: Role_id,
-      user_id: data.user_id,
-      company_id: data.company_id,
-    };
-    await createCalculationDao(conn, calculationPayload);
-    if (userRole === Role.MERCHANT) {
-      await createUserHierarchyDao(
-        {
-          user_id: data.user_id,
-          // role_id: Role_id,
-          created_by: data.created_by,
-          updated_by: data.updated_by,
-          company_id: data.company_id,
-        },
-        conn,
-      );
-    }
-    if (
-      // userDesignation === Role.MERCHANT ||
-      userDesignation === Role.SUB_MERCHANT
-    ) {
-      try {
-        const hierarchy = await getUserHierarchysDao({ user_id: parentId });
-        if (!hierarchy || !hierarchy[0]?.id) {
-          logger.error('No hierarchy found for parentId:', parentId);
-          return;
-        }
-        //  {"child":{"operations":[]},"siblings":{"sub_merchants":["19fb0634-31cc-41f3-a09f-29b524e4aee5","972d353d-158f-4013-93d6-a17f7e606800"]}}
-        const currentChildren =
-          hierarchy[0]?.config?.siblings?.sub_merchants || [];
-        const userConfig = hierarchy[0]?.config;
-        await updateUserHierarchyDao(
-          { id: hierarchy[0].id },
-          {
-            config: {
-              ...userConfig,
-              siblings: { sub_merchants: [...currentChildren, data.user_id] },
-            },
-          },
-          conn,
-        );
-      } catch (error) {
-        logger.error('Error updating hierarchy:', error);
-      }
-    }
-    logger.log('Merchant created successfully');
-    // await notifyAdminsAndUsers({
-    //   conn,
-    //   company_id: payload.company_id,
-    //   message: `New Merchant with Code ${data.code} has been created.`,
-    //   payloadUserId: payload.updated_by,
-    //   actorUserId:
-    //     userDesignation === Role.SUB_MERCHANT ? parentId : payload.updated_by,
-    //   category: 'Client',
-    //   subCategory: 'Merchant'
-    // });
-
+    const data = await _createMerchantServiceInternal(conn, payload);
     await commit(conn);
     return data;
   } catch (error) {
@@ -373,34 +376,37 @@ const getMerchantsServiceCode = async (
 };
 
 // Update Merchant Service
+const _updateMerchantServiceInternal = async (conn, ids, payload) => {
+  // const filterColumns =
+  //   role === Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
+  if (payload?.whitelist_ips || payload?.whitelist_ips === '') {
+    payload.config = {
+      ...payload.config,
+      whitelist_ips: payload?.whitelist_ips,
+    };
+  }
+  delete payload.whitelist_ips;
+  const data = await updateMerchantDao(ids, payload, conn); // Adjust DAO call for update
+  logger.log('Merchant updated successfully');
+  // const finalResult = filterResponse(data, filterColumns);
+  // await notifyAdminsAndUsers({
+  //   conn,
+  //   company_id: ids.company_id,
+  //   message: `Merchant with Code ${data.code} has been updated.`,
+  //   payloadUserId: payload.updated_by,
+  //   actorUserId: payload.updated_by,
+  //   category: 'Client',
+  //   subCategory: 'Merchant'
+  // });
+  return data;
+};
+
 const updateMerchantService = async (ids, payload) => {
   let conn;
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-
-    // const filterColumns =
-    //   role === Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
-    if (payload?.whitelist_ips || payload?.whitelist_ips === '') {
-      payload.config = {
-        ...payload.config,
-        whitelist_ips: payload?.whitelist_ips,
-      };
-    }
-    delete payload.whitelist_ips;
-    const data = await updateMerchantDao(ids, payload, conn); // Adjust DAO call for update
-    logger.log('Merchant updated successfully');
-    // const finalResult = filterResponse(data, filterColumns);
-    // await notifyAdminsAndUsers({
-    //   conn,
-    //   company_id: ids.company_id,
-    //   message: `Merchant with Code ${data.code} has been updated.`,
-    //   payloadUserId: payload.updated_by,
-    //   actorUserId: payload.updated_by,
-    //   category: 'Client',
-    //   subCategory: 'Merchant'
-    // });
-
+    const data = await _updateMerchantServiceInternal(conn, ids, payload);
     await commit(conn);
     return data;
   } catch (error) {
@@ -413,98 +419,103 @@ const updateMerchantService = async (ids, payload) => {
 };
 
 // Delete Merchant Service (with Transaction Handling)
+const _deleteMerchantServiceInternal = async (conn, ids, updated_by, roleIs) => {
+  const id = ids.id;
+  const merchantDetails = await getMerchantsDao(
+    { id },
+    1,
+    10,
+    'updated_at',
+    null,
+    roleIs,
+  );
+
+  //------delete merchant and submerchant--------------------
+
+  const user_id = merchantDetails[0].user_id;
+  const subMerchants = await getUserHierarchysDao({ user_id });
+  const subMerchantIds =
+    subMerchants[0]?.config?.siblings?.sub_merchants || [];
+  const operationIds = subMerchants[0]?.config?.child?.operations || [];
+  const allMerchantIds = [merchantDetails[0].id]; // start with this id
+  const allIds = [...subMerchantIds, ...operationIds];
+  for (const id of allIds) {
+    const idsList = await getMerchantsDao({ user_id: id });
+    if (Array.isArray(idsList)) {
+      for (const merchant of idsList) {
+        allMerchantIds.push(merchant.id);
+      }
+    } else if (idsList && idsList.id) {
+      allMerchantIds.push(idsList.id);
+    }
+  }
+
+  //------remove from bank assigned to merchant which are deleted--------------------
+
+  ids.id = allMerchantIds;
+  const merchant_id = [merchantDetails[0].id, ...subMerchantIds];
+  const bankDetails = await getBankaccountDao(
+    { merchant_id },
+    null,
+    null,
+    roleIs,
+  );
+  const userId = [merchantDetails[0].id];
+  for (const subMerchantId of subMerchantIds) {
+    const idsList = await getMerchantsDao({ user_id: subMerchantId });
+    if (Array.isArray(idsList)) {
+      for (const merchant of idsList) {
+        userId.push(merchant.id);
+      }
+    } else if (idsList && idsList.id) {
+      userId.push(idsList.id);
+    }
+  }
+  for (const bank of bankDetails) {
+    const currentMerchants = bank.config?.merchants || [];
+    const filteredMerchants = currentMerchants.filter(
+      (m) => !userId.includes(m),
+    );
+    const bankId = bank.id;
+    await updateBankaccountDao(
+      { id: bankId, company_id: ids.company_id },
+      { config: { merchants: filteredMerchants } },
+      conn,
+    );
+  }
+  //delete user of merchant also
+  const userIds = [
+    merchantDetails[0].user_id,
+    ...subMerchantIds,
+    ...operationIds,
+  ];
+  await updateUserDao({ id: userIds }, { is_obsolete: true }, conn);
+  const payload = { is_obsolete: true, updated_by };
+  const data = await deleteMerchantDao(conn, ids, payload); // Adjust DAO call for delete
+  logger.log('Merchant deleted successfully');
+  // const userArr = await getUserByIdDao(conn, {
+  //   id: userIds,
+  //   company_id: ids.company_id,
+  // });
+  // const userCodes = userArr.map((user) => user.code).join(', ');
+  // await notifyAdminsAndUsers({
+  //   conn,
+  //   company_id: ids.company_id,
+  //   message: `Merchants with Code ${userCodes} has been deleted.`,
+  //   payloadUserId: updated_by,
+  //   actorUserId: updated_by,
+  //   category: 'Client',
+  //   subCategory: 'Merchant'
+  // });
+  return data;
+};
+
 const deleteMerchantService = async (ids, updated_by, roleIs) => {
   let conn;
   try {
     conn = await getConnection();
     await beginTransaction(conn); // Start a transaction
-    const id = ids.id;
-    const merchantDetails = await getMerchantsDao(
-      { id },
-      1,
-      10,
-      'updated_at',
-      null,
-      roleIs,
-    );
-
-    //------delete merchant and submerchant--------------------
-
-    const user_id = merchantDetails[0].user_id;
-    const subMerchants = await getUserHierarchysDao({ user_id });
-    const subMerchantIds =
-      subMerchants[0]?.config?.siblings?.sub_merchants || [];
-    const operationIds = subMerchants[0]?.config?.child?.operations || [];
-    const allMerchantIds = [merchantDetails[0].id]; // start with this id
-    const allIds = [...subMerchantIds, ...operationIds];
-    for (const id of allIds) {
-      const idsList = await getMerchantsDao({ user_id: id });
-      if (Array.isArray(idsList)) {
-        for (const merchant of idsList) {
-          allMerchantIds.push(merchant.id);
-        }
-      } else if (idsList && idsList.id) {
-        allMerchantIds.push(idsList.id);
-      }
-    }
-
-    //------remove from bank assigned to merchant which are deleted--------------------
-
-    ids.id = allMerchantIds;
-    const merchant_id = [merchantDetails[0].id, ...subMerchantIds];
-    const bankDetails = await getBankaccountDao(
-      { merchant_id },
-      null,
-      null,
-      roleIs,
-    );
-    const userId = [merchantDetails[0].id];
-    for (const subMerchantId of subMerchantIds) {
-      const idsList = await getMerchantsDao({ user_id: subMerchantId });
-      if (Array.isArray(idsList)) {
-        for (const merchant of idsList) {
-          userId.push(merchant.id);
-        }
-      } else if (idsList && idsList.id) {
-        userId.push(idsList.id);
-      }
-    }
-    for (const bank of bankDetails) {
-      const currentMerchants = bank.config?.merchants || [];
-      const filteredMerchants = currentMerchants.filter(
-        (m) => !userId.includes(m),
-      );
-      const bankId = bank.id;
-      await updateBankaccountDao(
-        { id: bankId, company_id: ids.company_id },
-        { config: { merchants: filteredMerchants } },
-        conn,
-      );
-    }
-    //delete user of merchant also
-    const userIds = [
-      merchantDetails[0].user_id,
-      ...subMerchantIds,
-      ...operationIds,
-    ];
-    await updateUserDao({ id: userIds }, { is_obsolete: true }, conn);
-    const payload = { is_obsolete: true, updated_by };
-    const data = await deleteMerchantDao(conn, ids, payload); // Adjust DAO call for delete
-    logger.log('Merchant deleted successfully');
-    // const userArr = await getUserByIdDao(conn, {
-    //   id: userIds,
-    //   company_id: ids.company_id,
-    // });
-    // const userCodes = userArr.map((user) => user.code).join(', ');
-    // await notifyAdminsAndUsers({
-    //   conn,
-    //   company_id: ids.company_id,
-    //   message: `Merchants with Code ${userCodes} has been deleted.`,
-    //   payloadUserId: updated_by,
-    //   actorUserId: updated_by,
-    //   category: 'Client',
-    //   subCategory: 'Merchant'
-    // });
+    const data = await _deleteMerchantServiceInternal(conn, ids, updated_by, roleIs);
     await commit(conn); // Commit the transaction
     return data;
   } catch (error) {

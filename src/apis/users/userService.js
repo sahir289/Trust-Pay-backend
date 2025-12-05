@@ -311,12 +311,8 @@ const getUsersByUserNameService = async (username, ids, role) => {
   }
 };
 
-const createUserService = async (payload) => {
-  let conn;
-  try {
-    conn = await getConnection();
-    await beginTransaction(conn);
-    const { user_name } = payload;
+const _createUserServiceInternal = async (conn, payload) => {
+  const { user_name } = payload;
     let company_id = payload.company_id;
     const user = await getUsersByUserNameDao(company_id, user_name);
     if (user?.user_name || user?.email || user?.contact_no) {
@@ -557,12 +553,43 @@ const createUserService = async (payload) => {
     //   category: 'User',
     // });
     return User;
+};
+
+const createUserService = async (payload) => {
+  let conn;
+  try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+    const User = await _createUserServiceInternal(conn, payload);
+    await commit(conn);
+    return User;
   } catch (error) {
+    if (conn) await rollback(conn);
     console.error(error);
     logger.error('Error in createUserService:', error);
-
     throw error;
+  } finally {
+    if (conn) conn.release();
   }
+};
+
+const _userUpdateServiceInternal = async (conn, ids, payload) => {
+  // if (payload.email) {
+  //   const verifyEmail = await getUsersDao({ email: payload.email });
+  //   if (verifyEmail.length > 0) {
+  //     throw new BadRequestError('Email already Registered');
+  //   }
+  // }
+  const User = await updateUserDao(ids, payload, conn);
+  // await notifyAdminsAndUsers({
+  //   conn,
+  //   company_id: ids.company_id,
+  //   message: `User with username: ${User.user_name} has been updated.`,
+  //   payloadUserId: payload.updated_by,
+  //   actorUserId: payload.updated_by,
+  //   category: 'User',
+  // });
+  return User;
 };
 
 const userUpdateService = async (ids, payload) => {
@@ -570,22 +597,7 @@ const userUpdateService = async (ids, payload) => {
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    // if (payload.email) {
-    //   const verifyEmail = await getUsersDao({ email: payload.email });
-    //   if (verifyEmail.length > 0) {
-    //     throw new BadRequestError('Email already Registered');
-    //   }
-    // }
-    const User = await updateUserDao(ids, payload, conn);
-    // await notifyAdminsAndUsers({
-    //   conn,
-    //   company_id: ids.company_id,
-    //   message: `User with username: ${User.user_name} has been updated.`,
-    //   payloadUserId: payload.updated_by,
-    //   actorUserId: payload.updated_by,
-    //   category: 'User',
-    // });
-    
+    const User = await _userUpdateServiceInternal(conn, ids, payload);
     await commit(conn);
     return User;
   } catch (error) {
