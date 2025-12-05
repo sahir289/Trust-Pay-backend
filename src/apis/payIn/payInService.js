@@ -130,6 +130,13 @@ import { createCashfreeOrder } from '../../cashfree/cashfree.js';
 import { createRazorPayOrder } from '../../razorpay/razorpay.js';
 // import { createZenTechIndTransaction } from '../../zentechind/zentechInd.js';
 import { createPaymentTransaction } from '../../intent/createIntentTransaction.js';
+// Transaction management imports (for future refactoring)
+// import {
+//   getConnection,
+//   beginTransaction,
+//   commit,
+//   rollback,
+// } from '../../utils/db.js';
 
 export const generatePayInUrlByHashService = async (conn, req) => {
   try {

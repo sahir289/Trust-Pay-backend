@@ -38,8 +38,11 @@ import { updateUserDao, getUsersNameDao } from '../users/userDao.js';
 import { deleteBeneficiaryDao } from '../beneficiaryAccounts/beneficiaryAccountDao.js';
 import { notifyBankResponseAccessUpdate } from '../../utils/sockets.js';
 import { BadRequestError, NotFoundError } from '../../utils/appErrors.js';
-const createVendorService = async (conn, payload) => {
+const createVendorService = async (payload) => {
+  let conn;
   try {
+    conn = await getConnection();
+    await beginTransaction(conn);
     const parentId = payload.parent_id;
     const userDesignation = payload.designation;
     delete payload.parent_id;
@@ -105,10 +108,19 @@ const createVendorService = async (conn, payload) => {
     //   category: 'Client',
     //   subCategory: 'Vendor'
     // });
+    
+    await commit(conn);
     return data;
   } catch (error) {
+    if (conn) {
+      await rollback(conn);
+    }
     logger.error('Error while creating Vendor', error);
     throw error;
+  } finally {
+    if (conn) {
+      conn.release();
+    }
   }
 };
 

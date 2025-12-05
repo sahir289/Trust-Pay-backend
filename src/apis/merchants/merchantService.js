@@ -41,8 +41,12 @@ import { updateUserDao } from '../users/userDao.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 // Create Merchant Service
 
-const createMerchantService = async (conn, payload) => {
+const createMerchantService = async (payload) => {
+  let conn;
   try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+
     const parentId = payload.parent_id;
     delete payload.parentId;
     let Role_id = payload.role_id;
@@ -109,10 +113,15 @@ const createMerchantService = async (conn, payload) => {
     //   category: 'Client',
     //   subCategory: 'Merchant'
     // });
+
+    await commit(conn);
     return data;
   } catch (error) {
+    if (conn) await rollback(conn);
     logger.error('Error while creating merchant', error);
     throw error;
+  } finally {
+    if (conn) conn.release();
   }
 };
 
@@ -364,8 +373,12 @@ const getMerchantsServiceCode = async (
 };
 
 // Update Merchant Service
-const updateMerchantService = async (conn, ids, payload) => {
+const updateMerchantService = async (ids, payload) => {
+  let conn;
   try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+
     // const filterColumns =
     //   role === Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
     if (payload?.whitelist_ips || payload?.whitelist_ips === '') {
@@ -387,10 +400,15 @@ const updateMerchantService = async (conn, ids, payload) => {
     //   category: 'Client',
     //   subCategory: 'Merchant'
     // });
+
+    await commit(conn);
     return data;
   } catch (error) {
+    if (conn) await rollback(conn);
     logger.error('Error while updating merchant', error);
     throw error;
+  } finally {
+    if (conn) conn.release();
   }
 };
 

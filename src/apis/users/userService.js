@@ -1,6 +1,11 @@
 import { InternalServerError } from '../../utils/appErrors.js';
 import { createHash } from '../../utils/bcryptPassword.js';
-import { getConnection } from '../../utils/db.js';
+import {
+  getConnection,
+  beginTransaction,
+  commit,
+  rollback,
+} from '../../utils/db.js';
 import { generateUUID } from '../../utils/generateUUID.js';
 import { generatePassword } from '../../utils/generatePassword.js';
 import { sendCredentialsEmail } from '../../utils/sendMailer.js';
@@ -306,8 +311,11 @@ const getUsersByUserNameService = async (username, ids, role) => {
   }
 };
 
-const createUserService = async (conn, payload) => {
+const createUserService = async (payload) => {
+  let conn;
   try {
+    conn = await getConnection();
+    await beginTransaction(conn);
     const { user_name } = payload;
     let company_id = payload.company_id;
     const user = await getUsersByUserNameDao(company_id, user_name);
@@ -469,7 +477,7 @@ const createUserService = async (conn, payload) => {
           unblocked_countries: unblocked_countries,
         },
       };
-      merchant = await createMerchantService(conn, merchantPayload);
+      merchant = await createMerchantService(merchantPayload);
     }
     ///for vendor sub-vendor
     if (
@@ -513,7 +521,7 @@ const createUserService = async (conn, payload) => {
         role: userRole[0].role,
         parent_id: payload?.parent_id ? payload?.parent_id : payload.created_by,
       };
-      await createVendorService(conn, vendorPayload);
+      await createVendorService(vendorPayload);
     }
 
     if (User) {
@@ -557,8 +565,11 @@ const createUserService = async (conn, payload) => {
   }
 };
 
-const userUpdateService = async (conn, ids, payload) => {
+const userUpdateService = async (ids, payload) => {
+  let conn;
   try {
+    conn = await getConnection();
+    await beginTransaction(conn);
     // if (payload.email) {
     //   const verifyEmail = await getUsersDao({ email: payload.email });
     //   if (verifyEmail.length > 0) {
@@ -574,10 +585,19 @@ const userUpdateService = async (conn, ids, payload) => {
     //   actorUserId: payload.updated_by,
     //   category: 'User',
     // });
+    
+    await commit(conn);
     return User;
   } catch (error) {
+    if (conn) {
+      await rollback(conn);
+    }
     logger.error('error getting while updating user', error);
     throw error;
+  } finally {
+    if (conn) {
+      conn.release();
+    }
   }
 };
 

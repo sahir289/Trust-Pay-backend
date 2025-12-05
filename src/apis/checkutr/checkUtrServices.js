@@ -1,5 +1,11 @@
 import { BadRequestError, InternalServerError } from '../../utils/appErrors.js';
 import { logger } from '../../utils/logger.js';
+import {
+  getConnection,
+  beginTransaction,
+  commit,
+  rollback,
+} from '../../utils/db.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 import {
   createCheckUtrDao,
@@ -58,8 +64,12 @@ const getCheckUtrBySearchService = async (company_id, search, page, limit) => {
   }
 };
 
-const createCheckUtrService = async (conn, payload) => {
+const createCheckUtrService = async (payload) => {
+  let conn;
   try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+    
     const result = await createCheckUtrDao(payload);
     // await notifyAdminsAndUsers({
     //   conn,
@@ -69,10 +79,19 @@ const createCheckUtrService = async (conn, payload) => {
     //   actorUserId: payload.updated_by,
     //   category: 'Data Entries',
     // });
+    
+    await commit(conn);
     return result;
   } catch (error) {
+    if (conn) {
+      await rollback(conn);
+    }
     logger.error('error getting while check utr', error);
     throw error;
+  } finally {
+    if (conn) {
+      conn.release();
+    }
   }
 };
 

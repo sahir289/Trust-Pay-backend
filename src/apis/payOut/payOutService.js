@@ -276,14 +276,16 @@ const updateParentVendorCalculation = async (
 };
 
 const createPayoutService = async (
-  conn,
   headers,
   payload,
   role,
   userIp,
   fromUI,
 ) => {
+  let conn;
   try {
+    conn = await getConnection();
+    await beginTransaction(conn);
     // const filterColumns =
     //   role === Role.MERCHANT
     //     ? merchantColumns.PAYOUT
@@ -468,7 +470,8 @@ const createPayoutService = async (
         }
         // specific to clickrr max payout limit
         const updatedPayload = { config: { method: 'CLICKRR' } };
-        updatedData = await updatePayoutService(conn, ids, updatedPayload);
+        // Use the DAO directly since we're already in a transaction
+        updatedData = await updatePayoutDao(ids, updatedPayload, conn);
         data = updatedData;
       }
     }
@@ -483,10 +486,19 @@ const createPayoutService = async (
 
     // const finalResult = filterResponse(data, filterColumns);
     await newTableEntry(tableName.PAYOUT);
+    
+    await commit(conn);
     return data;
   } catch (error) {
+    if (conn) {
+      await rollback(conn);
+    }
     logger.error('Error in createPayoutService', error.message);
     throw error;
+  } finally {
+    if (conn) {
+      conn.release();
+    }
   }
 };
 
@@ -732,8 +744,11 @@ const getPayoutsBySearchService = async (
   }
 };
 
-const updatePayoutService = async (conn, ids, payload, role) => {
+const updatePayoutService = async (ids, payload, role) => {
+  let conn;
   try {
+    conn = await getConnection();
+    await beginTransaction(conn);
     if (!payload?.config?.method === Method.CLICKRR && !payload?.config?.method === Method.PAYASSIST && !payload?.config?.method === Method.TATAPAY)
       await checkLockEdit(conn, ids.id);
 
@@ -1117,10 +1132,18 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       });
     }
 
+    await commit(conn);
     return data;
   } catch (error) {
+    if (conn) {
+      await rollback(conn);
+    }
     logger.error('Error in updatePayoutService:', error.message);
     throw error;
+  } finally {
+    if (conn) {
+      conn.release();
+    }
   }
 };
 
@@ -1378,13 +1401,16 @@ const ekoPayoutStatus = async (id, res) => {
 };
 
 const assignedPayoutService = async (
-  conn,
   id,
   payload,
   updated_by,
   company_id,
 ) => {
+  let conn;
   try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+    
     const data = await assignedPayoutDao(
       payload,
       id,
@@ -1393,10 +1419,19 @@ const assignedPayoutService = async (
       conn,
     );
     await newTableEntry(tableName.PAYOUT);
+    
+    await commit(conn);
     return data;
   } catch (error) {
+    if (conn) {
+      await rollback(conn);
+    }
     logger.error('Error while vendor assigning to Payout', error);
     throw error;
+  } finally {
+    if (conn) {
+      conn.release();
+    }
   }
 };
 
@@ -1560,7 +1595,6 @@ const checkPayOutStatusService = async (
  * @returns {Promise<Object>} - Service response
  */
 const createTataPayBulkPayoutService = async (
-  conn,
   {
     payoutEntries,
     payoutIds,
@@ -1568,7 +1602,10 @@ const createTataPayBulkPayoutService = async (
     user_id,
   }
 ) => {
+  let conn;
   try {
+    conn = await getConnection();
+    await beginTransaction(conn);
     // Function to fetch payout data by IDs if needed
     const getPayoutData = async (ids, companyId) => {
       const payouts = await getPayoutsDao(
@@ -1706,9 +1743,13 @@ const createTataPayBulkPayoutService = async (
       skippayout: result.data.skippayout,
     });
     
+    await commit(conn);
     return result;
     
   } catch (error) {
+    if (conn) {
+      await rollback(conn);
+    }
     logger.error('TataPay bulk payout service error:', {
       error: error.message,
       company_id,
@@ -1717,6 +1758,10 @@ const createTataPayBulkPayoutService = async (
       payoutIds: payoutIds?.length || 0,
     });
     throw error;
+  } finally {
+    if (conn) {
+      conn.release();
+    }
   }
 };
 

@@ -3,6 +3,12 @@ import {
   NotFoundError,
 } from '../../utils/appErrors.js';
 import {
+  beginTransaction,
+  commit,
+  getConnection,
+  rollback,
+} from '../../utils/db.js';
+import {
   createSettlementDao,
   deleteSettlementDao,
   getSettlementDao,
@@ -381,15 +387,21 @@ const getSettlementsBySearchService = async (
   }
 };
 
-const createSettlementService = async (conn, payload, role) => {
+const createSettlementService = async (payload, role) => {
+  let conn;
   try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+
     const isInternalTransfer =
       payload.method === 'INTERNAL_QR_TRANSFER' ||
       payload.method === 'INTERNAL_BANK_TRANSFER';
 
     // Early return for non-internal transfers without reference_id
     if (!isInternalTransfer || !payload.config?.reference_id) {
-      return await createSettlementDao(payload, conn);
+      const result = await createSettlementDao(payload, conn);
+      await commit(conn);
+      return result;
     }
 
     // Validate bank response for internal transfers
@@ -415,18 +427,25 @@ const createSettlementService = async (conn, payload, role) => {
 
     // Handle vendor role internal transfers
     if (role !== Role.VENDOR) {
-      return await handleVendorInternalTransferByAdmin(
+      const result = await handleVendorInternalTransferByAdmin(
         conn,
         payload,
         bankResponses,
       );
+      await commit(conn);
+      return result;
     }
 
     // Handle other roles internal transfers
-    return await handleVendorInternalTransfer(payload);
+    const result = await handleVendorInternalTransfer(payload);
+    await commit(conn);
+    return result;
   } catch (error) {
+    if (conn) await rollback(conn);
     logger.error('Error while creating Settlement', error);
     throw error;
+  } finally {
+    if (conn) conn.release();
   }
 };
 
@@ -935,8 +954,12 @@ const calculateTransferMethodConfig = (
   return { [keyName]: totalSettlementAmount };
 };
 
-const updateSettlementService = async (conn, ids, payload) => {
+const updateSettlementService = async (ids, payload) => {
+  let conn;
   try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+
     await checkLockEdit(conn, ids.id);
     payload.config = payload.config || {};
 
@@ -1147,24 +1170,37 @@ const updateSettlementService = async (conn, ids, payload) => {
       }
     }
 
+    await commit(conn);
     return updateData;
   } catch (error) {
+    if (conn) await rollback(conn);
     logger.error('Error while updating Settlement', error);
     throw error;
+  } finally {
+    if (conn) conn.release();
   }
 };
 
-const deleteSettlementService = async (conn, ids) => {
+const deleteSettlementService = async (ids) => {
+  let conn;
   try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+
     const updatedData = await deleteSettlementDao(
       conn,
       { id: ids.id, company_id: ids.company_id },
       { is_obsolete: true, updated_by: ids.user_id },
     );
+
+    await commit(conn);
     return updatedData;
   } catch (error) {
+    if (conn) await rollback(conn);
     logger.error('error getting while deleting settlement', error);
     throw error;
+  } finally {
+    if (conn) conn.release();
   }
 };
 

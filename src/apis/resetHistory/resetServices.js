@@ -1,5 +1,11 @@
 import { InternalServerError } from '../../utils/appErrors.js';
 import {
+  getConnection,
+  beginTransaction,
+  commit,
+  rollback,
+} from '../../utils/db.js';
+import {
   getBankResponseDao,
   updateBotResponseDao,
 } from '../bankResponse/bankResponseDao.js';
@@ -94,8 +100,12 @@ const getResetHistoryBySearchService = async (filters) => {
   }
 };
 
-const createResetHistoryService = async (conn, payload) => {
+const createResetHistoryService = async (payload) => {
+  let conn;
   try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+    
     const result = await createResetHistoryDao(payload,conn);
     // await notifyAdminsAndUsers({
     //   conn,
@@ -105,10 +115,19 @@ const createResetHistoryService = async (conn, payload) => {
     //   actorUserId: payload.updated_by,
     //   category: 'Data Entries',
     // });
+    
+    await commit(conn);
     return result;
   } catch (error) {
+    if (conn) {
+      await rollback(conn);
+    }
     logger.error('error getting while reset history', error);
     throw new InternalServerError('Error getting while reset history');
+  } finally {
+    if (conn) {
+      conn.release();
+    }
   }
 };
 

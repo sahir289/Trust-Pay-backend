@@ -5,6 +5,12 @@ import {
   updateDesignationDao,
   deleteDesignationDao,
 } from './designationDao.js';
+import {
+  getConnection,
+  beginTransaction,
+  commit,
+  rollback,
+} from '../../utils/db.js';
 
 const getDesignationService = async (user, page, limit) => {
   try {
@@ -16,13 +22,26 @@ const getDesignationService = async (user, page, limit) => {
   }
 };
 
-const createDesignationService = async (conn, payload) => {
+const createDesignationService = async (payload) => {
+  let conn;
   try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+    
     const result = await createDesignationDao(conn, payload);
+    
+    await commit(conn);
     return result;
   } catch (error) {
+    if (conn) {
+      await rollback(conn);
+    }
     logger.error('error getting while Designation', error);
     throw error;
+  } finally {
+    if (conn) {
+      conn.release();
+    }
   }
 };
 

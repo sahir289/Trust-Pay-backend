@@ -61,7 +61,7 @@ import {
 } from '../../utils/db.js';
 import { filterResponse } from '../../helpers/index.js';
 // import { notifyNewTableEntry } from '../../utils/sockets.js';
-import { updateBankaccountService } from '../bankAccounts/bankaccountServices.js';
+import { _updateBankaccountInternal } from '../bankAccounts/bankaccountServices.js';
 import PDFParser from 'pdf2json';
 import { calculateDuration } from '../../helpers/index.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
@@ -305,13 +305,11 @@ const createBankResponseService = async (
           },
           localConn,
         );
-        await updateBankaccountService(
+        await _updateBankaccountInternal(
           localConn,
           { id: botRes?.bank_id, company_id: companyId },
           { latest_balance: res.today_balance },
           role,
-          companyId,
-          bankDetails[0].user_id,
         );
         vendor = await getVendorsBankReponseDao({
           user_id: bankDetails[0].user_id,
@@ -1006,13 +1004,11 @@ const createBankResponseWebHookService = async (
           },
           localConn,
         );
-        await updateBankaccountService(
+        await _updateBankaccountInternal(
           localConn,
           { id: botRes?.bank_id, company_id: companyId },
           { latest_balance: res.today_balance },
           role,
-          companyId,
-          bankDetails[0].user_id,
         );
         vendor = await getVendorsBankReponseDao({
           user_id: bankDetails[0].user_id,
@@ -1468,11 +1464,15 @@ const getBankMessageServices = async (
   }
 };
 
-const resetBankResponseService = async (conn, id, userData) => {
+const resetBankResponseService = async (id, userData) => {
   const { company_id, user_name, user_id, role, amount, utr, bank_id } =
     userData;
 
+  let conn;
   try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+
     // Fetch bank response
     const botRes = await getBankResponseDao({ id, company_id });
     if (!botRes) {
@@ -1534,7 +1534,6 @@ const resetBankResponseService = async (conn, id, userData) => {
         company_id,
         role,
         payInData,
-        user_id,
         conn,
       });
       updateData = result.updateData;
@@ -1606,10 +1605,15 @@ const resetBankResponseService = async (conn, id, userData) => {
       company_id: company_id,
     };
     await newTableEntry(tableName.BANK_RESPONSE, results);
+
+    await commit(conn);
     return results;
   } catch (error) {
+    if (conn) await rollback(conn);
     logger.error(`Error resetting bank response for ID: ${id}`, error.message);
     throw error;
+  } finally {
+    if (conn) conn.release();
   }
 };
 
@@ -1620,7 +1624,6 @@ const handleAmountUpdate = async ({
   user_name,
   role,
   payInData,
-  user_id,
   conn,
 }) => {
   try {
@@ -1749,13 +1752,11 @@ const handleAmountUpdate = async ({
           },
         ).then((res) => {
           if (res.is_enabled) {
-            updateBankaccountService(
+            _updateBankaccountInternal(
               conn,
               { id: bank.id, company_id: res.company_id },
               { latest_balance: res.today_balance },
               role,
-              res.company_id,
-              user_id,
             );
           }
         }),
@@ -2391,13 +2392,16 @@ async function extractCreditedTransactions(pdfBuffer, bankId) {
 
 // Main service function
 const importBankResponseService = async (
-  conn,
   payload,
   companyId,
   role,
   name,
 ) => {
+  let conn;
   try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+
     // Validate payload
     if (!payload || !payload.pdfBuffer) {
       throw new BadRequestError('No valid PDF buffer provided in payload');
@@ -2410,15 +2414,19 @@ const importBankResponseService = async (
     );
 
     for (const transaction of creditedTransactions) {
-      await createBankResponseService(conn, transaction, companyId, role, name);
+      await createBankResponseService(transaction, companyId, role, name);
     }
 
+    await commit(conn);
     return {
       message: `${payload.fileType} imported successfully`,
     };
   } catch (error) {
+    if (conn) await rollback(conn);
     logger.error('Error in importBankResponseService:', error);
     throw error;
+  } finally {
+    if (conn) conn.release();
   }
 };
 
