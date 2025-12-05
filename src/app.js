@@ -10,7 +10,7 @@ import {
 } from './middlewares/requestExtension.js';
 import apis from './apis/index.js';
 import errorHandler from './middlewares/errorHandler.js';
-import config from './config/config.js';
+// import config from './config/config.js';
 import '../src/cron/gatherAllData.js';
 
 const app = express();
@@ -31,7 +31,7 @@ app.use(express.static('public'));
 app.use(methodOverride());
 app.use(
   cors({
-    origin: [config?.reactFrontOrigin, config?.reactPaymentOrigin],
+    origin: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Allowed methods
     credentials: true,
   }),
