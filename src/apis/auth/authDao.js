@@ -3,7 +3,7 @@ import { executeQuery } from '../../utils/db.js';
 import { stringifyJSON } from '../../utils/index.js';
 import { logger } from '../../utils/logger.js';
 
-const addLoginDao = async (user_id, config, company_id, sessionId, conn = null) => {
+const addLoginDao = async (user_id, config, company_id, sessionId) => {
   try {
     // const id = generateUUID();
     const configData = stringifyJSON(config, (key, value) =>
@@ -19,11 +19,7 @@ const addLoginDao = async (user_id, config, company_id, sessionId, conn = null) 
       WHERE user_id = $1 AND company_id = $2 AND is_obsolete = false
     `;
     
-    if (conn && conn.query) {
-      await conn.query(cleanupSql, [user_id, company_id]);
-    } else {
-      await executeQuery(cleanupSql, [user_id, company_id]);
-    }
+    await executeQuery(cleanupSql, [user_id, company_id]);
     
     // Now insert the new session
     const sql = `
@@ -33,12 +29,7 @@ const addLoginDao = async (user_id, config, company_id, sessionId, conn = null) 
     `;
     const values = [user_id, company_id, configData, sessionId];
     
-    let result;
-    if (conn && conn.query) {
-      result = await conn.query(sql, values);
-    } else {
-      result = await executeQuery(sql, values);
-    }
+    const result = await executeQuery(sql, values);
     
     return result.rows?.[0] || undefined;
   } catch (error) {
@@ -99,7 +90,7 @@ const updateSessionDao = async (user_id, company_id, session_id, config) => {
   }
 };
 
-const deleteUserSessionsDao = async (user_id, company_id, session_id, conn = null) => {
+const deleteUserSessionsDao = async (user_id, company_id, session_id) => {
   try {
     let query = `UPDATE "${tableName.ACCESS_TOKEN}" SET is_obsolete = true WHERE user_id = $1 AND company_id = $2`;
     const params = [user_id, company_id];
@@ -109,12 +100,7 @@ const deleteUserSessionsDao = async (user_id, company_id, session_id, conn = nul
       params.push(session_id);
     }
 
-    let result;
-    if (conn && conn.query) {
-      result = await conn.query(query, params);
-    } else {
-      result = await executeQuery(query, params);
-    }
+    const result = await executeQuery(query, params);
     
     return result.rows;
   } catch (error) {

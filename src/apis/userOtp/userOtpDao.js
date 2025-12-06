@@ -6,15 +6,10 @@ import {
 } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
 
-const createUserOtpDao = async (payload, conn) => {
+const createUserOtpDao = async (payload) => {
   try {
     const [sql, params] = buildInsertQuery(tableName.USER_OTP, payload);
-    let result;
-    if (conn) {
-      result = await conn.query(sql, params);
-    } else {
-      result = await executeQuery(sql, params);
-    }
+    const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
     logger.error(`Error creating OTP for user_id: ${payload.user_id}`, error);
@@ -44,13 +39,9 @@ LIMIT 1
     throw error;
   }
 };
-const updateUserOtpDao = async (user_id, data, conn) => {
+const updateUserOtpDao = async (user_id, data) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.USER_OTP, data, user_id);
-    if (conn && conn.query) {
-      const result = await conn.query(sql, params);
-      return result.rows[0];
-    }
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {

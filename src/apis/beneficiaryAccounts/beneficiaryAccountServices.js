@@ -257,25 +257,30 @@ const _getBeneficiaryAccountServiceByBankNameInternal = async (
   user_id,
   designation,
 ) => {
-  let filters = {};
-  if (role == Role.VENDOR) {
-    filters.user_id = [user_id];
-  }
-  const userHierarchys = await getUserHierarchysDao({ user_id });
-  if (designation == Role.VENDOR_OPERATIONS) {
-    const parentID = userHierarchys[0]?.config?.parent;
-    if (parentID) {
-      filters.user_id = [parentID];
+  try {
+    let filters = {};
+    if (role == Role.VENDOR) {
+      filters.user_id = [user_id];
     }
-  }
+    const userHierarchys = await getUserHierarchysDao({ user_id });
+    if (designation == Role.VENDOR_OPERATIONS) {
+      const parentID = userHierarchys[0]?.config?.parent;
+      if (parentID) {
+        filters.user_id = [parentID];
+      }
+    }
 
-  const result = await getBeneficiaryAccountDaoByBankName(
-    conn,
-    company_id,
-    type,
-    filters,
-  );
-  return result;
+    const result = await getBeneficiaryAccountDaoByBankName(
+      conn,
+      company_id,
+      type,
+      filters,
+    );
+    return result;
+  } catch (error) {
+    logger.error('error in _getBeneficiaryAccountServiceByBankNameInternal', error);
+    throw error;
+  }
 };
 
 const getBeneficiaryAccountServiceByBankName = async (
@@ -320,15 +325,16 @@ const getBeneficiaryAccountServiceByBankName = async (
 };
 
 const _createBeneficiaryAccountServiceInternal = async (conn, payload, company_id) => {
-  // Set user_id to created_by if not already set
-  payload.user_id = payload.user_id || payload.created_by;
+  try {
+    // Set user_id to created_by if not already set
+    payload.user_id = payload.user_id || payload.created_by;
 
-  // Fetch user and role
-  const [user] = await getUserByIdDao(conn, { id: payload.user_id });
-  if (!user) throw new BadRequestError('User not found');
-  const [roleObj] = await getRoleDao({ role: user.role });
-  if (!roleObj) throw new BadRequestError('Role not found');
-  payload.role_id = roleObj.id;
+    // Fetch user and role
+    const [user] = await getUserByIdDao(conn, { id: payload.user_id });
+    if (!user) throw new BadRequestError('User not found');
+    const [roleObj] = await getRoleDao({ role: user.role });
+    if (!roleObj) throw new BadRequestError('Role not found');
+    payload.role_id = roleObj.id;
 
   // Prepare config based on role
   if (roleObj.role === Role.ADMIN) {
@@ -394,7 +400,11 @@ const _createBeneficiaryAccountServiceInternal = async (conn, payload, company_i
   //   category: 'Beneficiary Account',
   // });
 
-  return result;
+    return result;
+  } catch (error) {
+    logger.error('error in _createBeneficiaryAccountServiceInternal', error);
+    throw error;
+  }
 };
 
 const createBeneficiaryAccountService = async (payload, company_id) => {
@@ -476,12 +486,17 @@ const updateBeneficiaryAccountService = async (ids, payload) => {
 };
 
 const _deleteBeneficiaryAccountServiceInternal = async (conn, ids) => {
-  let result = await deleteBeneficiaryDao(
-    conn,
-    { id: ids.id, company_id: ids.company_id },
-    { is_obsolete: true },
-  );
-  return result;
+  try {
+    let result = await deleteBeneficiaryDao(
+      conn,
+      { id: ids.id, company_id: ids.company_id },
+      { is_obsolete: true },
+    );
+    return result;
+  } catch (error) {
+    logger.error('error in _deleteBeneficiaryAccountServiceInternal', error);
+    throw error;
+  }
 };
 
 const deleteBeneficiaryAccountService = async (ids) => {

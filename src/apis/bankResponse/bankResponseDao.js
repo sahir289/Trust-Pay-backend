@@ -1082,16 +1082,11 @@ const getInternalBankResponseByUTR = async (utr) => {
   }
 };
 
-const createBankResponseDao = async (conn, data) => {
+const createBankResponseDao = async (data) => {
   try {
     // data.id = generateUUID();
     const [sql, params] = buildInsertQuery(tableName.BANK_RESPONSE, data);
-    let result;
-    if (conn && conn.query) {
-      result = await conn.query(sql, params); // Use connection to execute query
-    } else {
-      result = await executeQuery(sql, params); // Use executeQuery if no connection
-    }
+    const result = await executeQuery(sql, params);
     const insertedEntry = result.rows[0];
     // const nickName = await getBankAccountNickNameForEsDao(
     //   insertedEntry.bank_id,
@@ -1105,16 +1100,10 @@ const createBankResponseDao = async (conn, data) => {
   }
 };
 
-export const updateBankResponseDao = async (id, data, conn) => {
+export const updateBankResponseDao = async (id, data) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.BANK_RESPONSE, data, id);
-    let result;
-    if (conn && conn.query) {
-      result = await conn.query(sql, params);
-      // await newTableEntry(tableName.BANK_RESPONSE);
-    } else {
-      result = await executeQuery(sql, params);
-    }
+    const result = await executeQuery(sql, params);
     // let insertedEntry = {
     //   ...data,
     //   updated_at: result.rows[0].updated_at,
@@ -1190,17 +1179,12 @@ const resetBankResponseDao = async (id, data) => {
   }
 };
 
-const updateBotResponseDao = async (id, data, conn) => {
+const updateBotResponseDao = async (id, data) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.BANK_RESPONSE, data, {
       id,
     });
-    let result;
-    if (conn && conn.query) {
-      result = await conn.query(sql, params); // Use connection to execute query
-    } else {
-      result = await executeQuery(sql, params); // Use executeQuery if no connection
-    }
+    const result = await executeQuery(sql, params);
     // await newTableEntry(tableName.BANK_RESPONSE);
     // let insertedEntry = {
     //   ...data,

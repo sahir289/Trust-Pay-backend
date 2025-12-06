@@ -47,6 +47,7 @@ const _createChargeBackServiceInternal = async (
   company_id,
   user_id,
 ) => {
+  try {
     payload.vendor_user_id = PayinDetails[0].vendor_user_id;
     payload.merchant_user_id = PayinDetails[0].merchant_user_id;
     payload.payin_id = PayinDetails[0].payin_id;
@@ -182,7 +183,13 @@ const _createChargeBackServiceInternal = async (
     //   actorUserId: payload.merchant_user_id,
     //   category: 'ChargeBack',
     // });
-    return data;
+    const filterColumns = role === Role.MERCHANT ? merchantColumns.CHARGE_BACK : columns.CHARGE_BACK;
+    const finalResult = filterResponse(data, filterColumns);
+    return finalResult;
+  } catch (error) {
+    logger.error('error in _createChargeBackServiceInternal', error);
+    throw error;
+  }
 };
 
 const createChargeBackService = async (
@@ -420,7 +427,7 @@ const getChargeBacksBySearchService = async (
 };
 
 const _blockChargebackUserServiceInternal = async (conn, ids, data) => {
-
+  try {
     const { id, company_id } = ids;
     const { user_ip, userId, merchant_user_id } = data.config;
 
@@ -551,10 +558,13 @@ const _blockChargebackUserServiceInternal = async (conn, ids, data) => {
       );
     }
 
-    return {
-      id: chargebackdata[0].id,
-      config: { blocked_users: updatedChargebackBlockedUsers },
-    };
+    const config = { blocked_users: updatedChargebackBlockedUsers };
+    const result = await updateChargeBackDao({ id, company_id }, { config });
+    return result;
+  } catch (error) {
+    logger.error('error in _blockChargebackUserServiceInternal', error);
+    throw error;
+  }
 };
 
 const blockChargebackUserService = async (ids, data) => {
@@ -588,8 +598,9 @@ const blockChargebackUserService = async (ids, data) => {
 };
 
 const _updateChargeBackServiceInternal = async (conn, ids, payload, chargeBack) => {
-  const data = await updateChargeBackDao(ids, payload);
-  let MerchantuserId = data.merchant_user_id;
+  try {
+    const data = await updateChargeBackDao(ids, payload);
+    let MerchantuserId = data.merchant_user_id;
   const merchantCalculation = await getCalculationforCronDao(MerchantuserId);
   let amount = Number(data.amount - chargeBack.amount);
   if (data.amount > chargeBack.amount) {
@@ -625,7 +636,11 @@ const _updateChargeBackServiceInternal = async (conn, ids, payload, chargeBack) 
   );
   
   await trackVendorsNetBalance(vendorCalculation[0].user_id, conn, response);
-  return data;
+    return data;
+  } catch (error) {
+    logger.error('error in _updateChargeBackServiceInternal', error);
+    throw error;
+  }
 };
 
 const updateChargeBackService = async (ids, payload) => {
@@ -671,16 +686,21 @@ const updateChargeBackService = async (ids, payload) => {
 };
 
 const _deleteChargeBackServiceInternal = async (conn, ids, payload, role) => {
-  const filterColumns =
-    role === Role.MERCHANT
-      ? merchantColumns.CHARGE_BACK
-      : role === Role.VENDOR || role === Role.SUB_VENDOR
-        ? vendorColumns.CHARGE_BACK
-        : columns.CHARGE_BACK;
+  try {
+    const filterColumns =
+      role === Role.MERCHANT
+        ? merchantColumns.CHARGE_BACK
+        : role === Role.VENDOR || role === Role.SUB_VENDOR
+          ? vendorColumns.CHARGE_BACK
+          : columns.CHARGE_BACK;
 
-  const data = await deleteChargeBackDao(ids, payload);
-  const finalResult = filterResponse(data, filterColumns);
-  return finalResult;
+    const data = await deleteChargeBackDao(ids, payload);
+    const finalResult = filterResponse(data, filterColumns);
+    return finalResult;
+  } catch (error) {
+    logger.error('error in _deleteChargeBackServiceInternal', error);
+    throw error;
+  }
 };
 
 const deleteChargeBackService = async (ids, payload, role) => {

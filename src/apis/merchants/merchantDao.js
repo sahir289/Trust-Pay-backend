@@ -8,14 +8,10 @@ import {
 } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
 import { enhanceMerchantsWithSubMerchants } from '../../utils/enhanceSubMerchant.js';
-export const createMerchantDao = async (data, conn) => {
+export const createMerchantDao = async (data) => {
   try {
     delete data.parent_id;
     const [sql, params] = buildInsertQuery(tableName.MERCHANT, data);
-    if (conn && conn.query) {
-      const result = await conn.query(sql, params);
-      return result.rows[0];
-    }
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
@@ -831,14 +827,13 @@ export const getMerchantsForValidatePayinDao = async (filters) => {
   }
 };
 
-export const updateMerchantDao = async (ids, data, conn) => {
+export const updateMerchantDao = async (ids, data) => {
   return await buildAndExecuteUpdateQuery(
     'Merchant',
     data,
     ids,
     {},
     { returnUpdated: true },
-    conn,
   );
 };
 

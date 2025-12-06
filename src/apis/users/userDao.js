@@ -338,7 +338,7 @@ export const getUsersBySearchDao = async (
     throw error;
   }
 };
-const getUserByIdDao = async (conn, ids) => {
+const getUserByIdDao = async (ids) => {
   try {
     let baseQuery = `
       SELECT 
@@ -391,8 +391,8 @@ const getUserByIdDao = async (conn, ids) => {
       baseQuery += ` AND u.company_id = $${queryParams.length + 1}`;
       queryParams.push(ids.company_id);
     }
-    const result = await conn.query(baseQuery, queryParams);
-    if (result.rowCount === 0) {
+    const result = await executeQuery(baseQuery, queryParams);
+    if (result.rows.length === 0) {
       logger.error('No user found with the provided id and filters');
       return [];
     }
@@ -478,17 +478,11 @@ const getUsersByUserNameDao = async (ids, username) => {
   }
 };
 
-const createUserDao = async (payload, conn) => {
+const createUserDao = async (payload) => {
   try {
     const [sql, params] = buildInsertQuery(tableName.USER, payload);
 
-    let result;
-    ///temperary for conn ...in future can excute to query in if condition
-    if (conn) {
-      result = await conn.query(sql, params);
-    } else {
-      result = await executeQuery(sql, params);
-    }
+    const result = await executeQuery(sql, params);
     logger.info(
       `User with username: ${payload.user_name} created successfully`,
     );
@@ -520,14 +514,9 @@ const getUsersForCronDao = async () => {
   }
 };
 
-const updateUserDao = async (ids, data, conn) => {
+const updateUserDao = async (ids, data) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.USER, data, ids);
-
-    if (conn && conn.query) {
-      const result = await conn.query(sql, params);
-      return result.rows[0];
-    }
 
     const result = await executeQuery(sql, params);
     return result.rows[0];

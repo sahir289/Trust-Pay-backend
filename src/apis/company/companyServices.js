@@ -39,9 +39,10 @@ const getCompanyByIdService = async (id) => {
 };
 
 const _createCompanyServiceInternal = async (conn, payload) => {
-  // Validate payload
-  // Create company
-  function generateFormatted8DigitCode() {
+  try {
+    // Validate payload
+    // Create company
+    function generateFormatted8DigitCode() {
       let code = Math.floor(10000000 + Math.random() * 90000000).toString();
       return code.match(/.{1,4}/g).join('-');
     }
@@ -123,6 +124,10 @@ const _createCompanyServiceInternal = async (conn, payload) => {
       designation_ids: designations.map((designation) => designation.id),
       user_id: user.id,
     };
+  } catch (error) {
+    logger.error('error in _createCompanyServiceInternal', error);
+    throw error;
+  }
 };
 
 const createCompanyService = async (payload) => {

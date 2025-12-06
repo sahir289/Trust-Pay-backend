@@ -14,13 +14,18 @@ import { columns, merchantColumns, Role } from '../../constants/index.js';
 import { filterResponse } from '../../helpers/index.js';
 import { logger } from '../../utils/logger.js';
 const _createUserHierarchyServiceInternal = async (conn, payload, role) => {
-  const filterColumns =
-    role === Role.MERCHANT
-      ? merchantColumns.USER_HIERARCHY
-      : columns.USER_HIERARCHY;
-  const data = await createUserHierarchyDao(payload);
-  const finalResult = filterResponse(data, filterColumns);
-  return finalResult;
+  try {
+    const filterColumns =
+      role === Role.MERCHANT
+        ? merchantColumns.USER_HIERARCHY
+        : columns.USER_HIERARCHY;
+    const data = await createUserHierarchyDao(payload);
+    const finalResult = filterResponse(data, filterColumns);
+    return finalResult;
+  } catch (error) {
+    logger.error('error in _createUserHierarchyServiceInternal', error);
+    throw error;
+  }
 };
 
 const createUserHierarchyService = async (payload, role) => {
@@ -75,13 +80,18 @@ const getUserHierarchyService = async (filters, role, page, limit) => {
 };
 
 const _updateUserHierarchyServiceInternal = async (conn, id, payload, role) => {
-  const filterColumns =
-    role === Role.MERCHANT
-      ? merchantColumns.USER_HIERARCHY
-      : columns.USER_HIERARCHY;
-  const data = await updateUserHierarchyDao(id, payload);
-  const finalResult = await filterResponse(data, filterColumns);
-  return finalResult;
+  try {
+    const filterColumns =
+      role === Role.MERCHANT
+        ? merchantColumns.USER_HIERARCHY
+        : columns.USER_HIERARCHY;
+    const data = await updateUserHierarchyDao(id, payload);
+    const finalResult = await filterResponse(data, filterColumns);
+    return finalResult;
+  } catch (error) {
+    logger.error('error in _updateUserHierarchyServiceInternal', error);
+    throw error;
+  }
 };
 
 const updateUserHierarchyService = async (id, payload, role) => {
@@ -114,14 +124,19 @@ const updateUserHierarchyService = async (id, payload, role) => {
 };
 
 const _deleteUserHierarchyServiceInternal = async (conn, ids, updated_by, role) => {
-  const filterColumns =
-    role === Role.MERCHANT
-      ? merchantColumns.USER_HIERARCHY
-      : columns.USER_HIERARCHY;
-  const payload = { is_obsolete: true, updated_by };
-  const data = await deleteUserHierarchyDao(ids, payload);
-  const finalResult = await filterResponse(data, filterColumns);
-  return finalResult;
+  try {
+    const filterColumns =
+      role === Role.MERCHANT
+        ? merchantColumns.USER_HIERARCHY
+        : columns.USER_HIERARCHY;
+    const payload = { is_obsolete: true, updated_by };
+    const data = await deleteUserHierarchyDao(ids, payload);
+    const finalResult = await filterResponse(data, filterColumns);
+    return finalResult;
+  } catch (error) {
+    logger.error('error in _deleteUserHierarchyServiceInternal', error);
+    throw error;
+  }
 };
 
 const deleteUserHierarchyService = async (ids, updated_by, role) => {

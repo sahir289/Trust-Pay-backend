@@ -468,7 +468,7 @@ export const generatePayInUrlService = async (payload, role, userIp) => {
   }
 };
 
-export const getPayInUrlService = async (id, conn, tele_check = true) => {
+export const getPayInUrlService = async (id, tele_check = true) => {
   try {
     const currentTime = Date.now();
     const payIn = await getPayinsForServiccDao({ merchant_order_id: id });
@@ -497,7 +497,6 @@ export const getPayInUrlService = async (id, conn, tele_check = true) => {
           is_url_expires: true,
           status: Status.DROPPED,
         },
-        conn,
       );
       // Notifying merchant about expired URL
       // This is async function but it's just the callback sending function there fore we are not using await
@@ -1111,10 +1110,9 @@ export const updateDepositStatusService = async (
     const updatePayInRes = await updatePayInUrlDao(
       payInData.id,
       updatePayInData,
-      conn,
     );
 
-    await updateBotResponseDao({ id: bank.id }, { is_used: true }, conn);
+    await updateBotResponseDao({ id: bank.id }, { is_used: true });
 
     newTableEntry(tableName.PAYIN, { id: payInData.id, ...updatePayInRes });
 
@@ -1221,11 +1219,11 @@ export const resetDepositService = async (
       ///for update bankresponse with id
       const id = bankResponse.id;
       if (!payInSuccess.length && payIn.status != Status.DUPLICATE) {
-        await updateBotResponseDao(id, { is_used: false }, conn);
+        await updateBotResponseDao(id, { is_used: false });
       }
     }
 
-    return await updatePayInUrlDao(payIn.id, updatePayInData, conn);
+    return await updatePayInUrlDao(payIn.id, updatePayInData);
   } catch (error) {
     logger.error('Error reset deposit service:', error);
     throw error;
@@ -1542,7 +1540,7 @@ export const _processPayInServiceInternal = async (
         throw new BadRequestError('Please Enter Valid Amount');
       }
     }
-    const payIn = await getPayInUrlService(merchantOrderId, conn, tele_check);
+    const payIn = await getPayInUrlService(merchantOrderId, tele_check);
     if (
       Object.keys(payIn).length === 2 &&
       'error' in payIn &&
@@ -1646,7 +1644,7 @@ export const _processPayInServiceInternal = async (
       updatePayInData.duration = duration;
       result.utr_id =
         bankResponse.utr || payIn.user_submitted_utr || userSubmittedUtr;
-      await updatePayInUrlDao(payIn.id, updatePayInData, conn);
+      await updatePayInUrlDao(payIn.id, updatePayInData);
 
       const responseObj = {
         id: payIn.id,
@@ -1711,7 +1709,7 @@ export const _processPayInServiceInternal = async (
       result.status = Status.BANK_MISMATCH;
       result.utr_id =
         bankResponse.utr || payIn.user_submitted_utr || userSubmittedUtr;
-      await updatePayInUrlDao(payIn.id, updatePayInData, conn);
+      await updatePayInUrlDao(payIn.id, updatePayInData);
 
       const responseObj = {
         id: payIn.id,
@@ -1889,7 +1887,7 @@ export const _processPayInServiceInternal = async (
     // );
     // }
 
-    await updatePayInUrlDao(payIn.id, updatePayInData, conn);
+    await updatePayInUrlDao(payIn.id, updatePayInData);
     // After updating payin, build the response object
 
     const responseObj = {
@@ -2040,7 +2038,7 @@ export const processPayInService = async (
   }
 };
 
-export const processPayInWebHookService = async (conn, payload, updated_by) => {
+export const processPayInWebHookService = async (payload, updated_by) => {
   const { userSubmittedUtr, merchantOrderId, amount, status } = payload;
 
   const payIn = await getPayinsForServiccDao({
@@ -2127,11 +2125,10 @@ export const processPayInWebHookService = async (conn, payload, updated_by) => {
         payinCommission: merchantCommission,
         amount: Number(bankResponse.amount),
       },
-      conn,
     );
   }
 
-  await updatePayInUrlDao(payIn.id, updatePayInData, conn);
+  await updatePayInUrlDao(payIn.id, updatePayInData);
 
   const result = {
     status: finalStatus,
@@ -2985,10 +2982,11 @@ const _checkPendingPayinStatusServiceInternal = async (
   company_id,
   user_name,
 ) => {
-  const payins = await getPayInPendingDao({
-    company_id,
-    status: Status.PENDING,
-  });
+  try {
+    const payins = await getPayInPendingDao({
+      company_id,
+      status: Status.PENDING,
+    });
     const processedPayinIds = [];
     for (const currentPayin of payins) {
       let duration;
@@ -3188,6 +3186,10 @@ const _checkPendingPayinStatusServiceInternal = async (
       await newTableEntry(tableName.PAYIN);
     }
     return processedPayinIds;
+  } catch (error) {
+    logger.error('error in _checkPendingPayinStatusServiceInternal', error);
+    throw error;
+  }
 };
 
 export const checkPendingPayinStatusService = async (
@@ -3217,7 +3219,8 @@ const _verifyPayinsServiceInternal = async (
   user_location,
   oneTimeUsed,
 ) => {
-  const payIn = await getPayInUrlService(merchantOrderId);
+  try {
+    const payIn = await getPayInUrlService(merchantOrderId);
 
     if (!payIn) {
       throw new BadRequestError('Invalid merchant order id');
@@ -3361,6 +3364,10 @@ const _verifyPayinsServiceInternal = async (
     usedTokens.add(merchantOrderId);
     logger.info('PayIn URL verified successfully:', response);
     return result;
+  } catch (error) {
+    logger.error('error in _verifyPayinsServiceInternal', error);
+    throw error;
+  }
 };
 
 export const verifyPayinsService = async (
@@ -3534,7 +3541,7 @@ const checkIsPayInExpired = (payIn) => {
   return false;
 };
 
-export const updateCalculationTable = async (user_id, data, conn) => {
+export const updateCalculationTable = async (user_id, data) => {
   try {
     if (isNaN(Number(data.amount) - Number(data.payinCommission))) {
       throw new BadRequestError('Invalid amount or commission');
@@ -3556,10 +3563,9 @@ export const updateCalculationTable = async (user_id, data, conn) => {
           current_balance: totalAmount,
           net_balance: totalAmount,
         },
-        conn,
       );
 
-      await trackVendorsNetBalance(user_id, conn, response);
+      await trackVendorsNetBalance(user_id, response);
     }
   } catch (error) {
     logger.error('Error in updateCalculationTable:', error);
@@ -3730,9 +3736,8 @@ const updateCalculationBalances = async (
             net_balance: amountDiff - commission,
             ...data,
           },
-          conn,
         );
-        await trackVendorsNetBalance(calc.user_id, conn, updatedCalc);
+        await trackVendorsNetBalance(calc.user_id, updatedCalc);
       }
     }
   } catch (error) {
@@ -3788,9 +3793,8 @@ const updateCalculationParentBalances = async (
             net_balance: -commission,
             ...data,
           },
-          conn,
         );
-        await trackVendorsNetBalance(calc.user_id, conn, updatedCalc);
+        await trackVendorsNetBalance(calc.user_id, updatedCalc);
       }
     }
   } catch (error) {

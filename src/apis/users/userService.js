@@ -312,7 +312,8 @@ const getUsersByUserNameService = async (username, ids, role) => {
 };
 
 const _createUserServiceInternal = async (conn, payload) => {
-  const { user_name } = payload;
+  try {
+    const { user_name } = payload;
     let company_id = payload.company_id;
     const user = await getUsersByUserNameDao(company_id, user_name);
     if (user?.user_name || user?.email || user?.contact_no) {
@@ -553,6 +554,10 @@ const _createUserServiceInternal = async (conn, payload) => {
     //   category: 'User',
     // });
     return User;
+  } catch (error) {
+    logger.error('error in _createUserServiceInternal', error);
+    throw error;
+  }
 };
 
 const createUserService = async (payload) => {
@@ -574,13 +579,14 @@ const createUserService = async (payload) => {
 };
 
 const _userUpdateServiceInternal = async (conn, ids, payload) => {
-  // if (payload.email) {
-  //   const verifyEmail = await getUsersDao({ email: payload.email });
-  //   if (verifyEmail.length > 0) {
-  //     throw new BadRequestError('Email already Registered');
-  //   }
-  // }
-  const User = await updateUserDao(ids, payload, conn);
+  try {
+    // if (payload.email) {
+    //   const verifyEmail = await getUsersDao({ email: payload.email });
+    //   if (verifyEmail.length > 0) {
+    //     throw new BadRequestError('Email already Registered');
+    //   }
+    // }
+    const User = await updateUserDao(ids, payload, conn);
   // await notifyAdminsAndUsers({
   //   conn,
   //   company_id: ids.company_id,
@@ -589,7 +595,11 @@ const _userUpdateServiceInternal = async (conn, ids, payload) => {
   //   actorUserId: payload.updated_by,
   //   category: 'User',
   // });
-  return User;
+    return User;
+  } catch (error) {
+    logger.error('error in _userUpdateServiceInternal', error);
+    throw error;
+  }
 };
 
 const userUpdateService = async (ids, payload) => {

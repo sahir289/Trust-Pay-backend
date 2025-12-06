@@ -231,31 +231,35 @@ const getBankaccountServiceNickName = async (
 };
 
 const _createBankaccountServiceInternal = async (
-  conn,
   payload,
   designation,
   user_id,
   // company_id,
 ) => {
-  //child add bankaccount for its parent
-  if (designation === Role.VENDOR_OPERATIONS) {
-    const childHierarchy = await getUserHierarchysDao({ user_id });
-    const parentUserId = childHierarchy[0].config.parent;
-    payload.user_id = parentUserId;
+  try {
+    //child add bankaccount for its parent
+    if (designation === Role.VENDOR_OPERATIONS) {
+      const childHierarchy = await getUserHierarchysDao({ user_id });
+      const parentUserId = childHierarchy[0].config.parent;
+      payload.user_id = parentUserId;
+    }
+    if (designation === Role.VENDOR_ADMIN && !payload.user_id) {
+        throw new BadRequestError('Vendor Admins are not allowed to create own bank accounts.');
+    }
+    const result = await createBankaccountDao(payload);
+    // await notifyAdminsAndUsers({
+    //   conn,
+    //   company_id: company_id,
+    //   message: `A new ${payload.bank_used_for} bank account with nick name ${payload.nick_name} has been created.`,
+    //   payloadUserId: payload.user_id,
+    //   actorUserId: user_id,
+    //   category: 'Bank Account',
+    // });
+    return result;
+  } catch (error) {
+    logger.error('error in _createBankaccountServiceInternal', error);
+    throw error;
   }
-  if (designation === Role.VENDOR_ADMIN && !payload.user_id) {
-      throw new BadRequestError('Vendor Admins are not allowed to create own bank accounts.');
-  }
-  const result = await createBankaccountDao(payload);
-  // await notifyAdminsAndUsers({
-  //   conn,
-  //   company_id: company_id,
-  //   message: `A new ${payload.bank_used_for} bank account with nick name ${payload.nick_name} has been created.`,
-  //   payloadUserId: payload.user_id,
-  //   actorUserId: user_id,
-  //   category: 'Bank Account',
-  // });
-  return result;
 };
 
 const createBankaccountService = async (
@@ -269,7 +273,6 @@ const createBankaccountService = async (
     conn = await getConnection();
     await beginTransaction(conn);
     const result = await _createBankaccountServiceInternal(
-      conn,
       payload,
       designation,
       user_id,
@@ -288,19 +291,19 @@ const createBankaccountService = async (
 
 // Internal helper for updateBankaccount - used when called within another service's transaction
 const _updateBankaccountInternal = async (
-  conn,
   ids,
   payload,
   role,
   // company_id,
   // user_id,
 ) => {
-  let result;
+  try {
+    let result;
 
-  const bank = await getBankaccountDao({
-    id: ids.id,
-    company_id: ids.company_id,
-  });
+    const bank = await getBankaccountDao({
+      id: ids.id,
+      company_id: ids.company_id,
+    });
 
   if (payload?.is_enabled === false) {
     // Clear merchants array when bank is disabled
@@ -394,7 +397,6 @@ const _updateBankaccountInternal = async (
     result = await updateBankaccountDao(
       { id: ids.id, company_id: ids.company_id },
       payload,
-      conn,
     );
   }
   if (payloadData?.config?.is_freeze === true) {
@@ -411,7 +413,6 @@ const _updateBankaccountInternal = async (
             {
               status: '/freezed',
             },
-            conn,
           );
         }
       }
@@ -430,13 +431,16 @@ const _updateBankaccountInternal = async (
           {
             status: '/success',
           },
-          conn,
         );
       }
     }
   }
 
-  return result;
+    return result;
+  } catch (error) {
+    logger.error('error in _updateBankaccountInternal', error);
+    throw error;
+  }
 };
 
 // Public service - manages its own transaction
@@ -452,7 +456,7 @@ const updateBankaccountService = async (
     conn = await getConnection();
     await beginTransaction(conn);
 
-    const result = await _updateBankaccountInternal(conn, ids, payload, role);
+    const result = await _updateBankaccountInternal(ids, payload, role);
 
     await commit(conn);
     return result;
@@ -498,12 +502,17 @@ const deleteBankaccountService = async (ids, user_id) => {
 };
 
 const _activeInactiveBankAccountServiceInternal = async (conn, ids, payload) => {
-  const result = await updateBankaccountDao(
-    { id: ids.id, company_id: ids.company_id },
-    payload,
-    conn,
-  );
-  return result;
+  try {
+    const result = await updateBankaccountDao(
+      { id: ids.id, company_id: ids.company_id },
+      payload,
+      conn,
+    );
+    return result;
+  } catch (error) {
+    logger.error('error in _activeInactiveBankAccountServiceInternal', error);
+    throw error;
+  }
 };
 
 const activeInactiveBankAccountService = async (ids, payload) => {

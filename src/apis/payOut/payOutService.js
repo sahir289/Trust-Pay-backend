@@ -283,6 +283,7 @@ const _createPayoutServiceInternal = async (
   userIp,
   fromUI,
 ) => {
+  try {
     // const filterColumns =
     //   role === Role.MERCHANT
     //     ? merchantColumns.PAYOUT
@@ -484,6 +485,10 @@ const _createPayoutServiceInternal = async (
     // const finalResult = filterResponse(data, filterColumns);
     await newTableEntry(tableName.PAYOUT);
     return data;
+  } catch (error) {
+    logger.error('error in _createPayoutServiceInternal', error);
+    throw error;
+  }
 };
 
 const createPayoutService = async (
@@ -756,6 +761,14 @@ const getPayoutsBySearchService = async (
 };
 
 const _updatePayoutServiceInternal = async (conn, ids, payload, role) => {
+  try {
+    const filterColumns =
+      role === Role.MERCHANT
+        ? merchantColumns.PAYOUT
+        : role === Role.VENDOR || role === Role.SUB_VENDOR
+          ? vendorColumns.PAYOUT
+          : columns.PAYOUT;
+
     if (!payload?.config?.method === Method.CLICKRR && !payload?.config?.method === Method.PAYASSIST && !payload?.config?.method === Method.TATAPAY)
       await checkLockEdit(conn, ids.id);
 
@@ -1139,7 +1152,12 @@ const _updatePayoutServiceInternal = async (conn, ids, payload, role) => {
       });
     }
 
-    return data;
+    const finalResult = filterResponse(data, filterColumns);
+    return finalResult;
+  } catch (error) {
+    logger.error('error in _updatePayoutServiceInternal', error);
+    throw error;
+  }
 };
 
 const updatePayoutService = async (ids, payload, role) => {
@@ -1164,7 +1182,7 @@ const updatePayoutService = async (ids, payload, role) => {
 };
 
 ///for update payout calculation of payout
-const updateCalculationTable = async (user_id, data, isApproved, conn) => {
+const updateCalculationTable = async (user_id, data, isApproved) => {
   // Early validation
   if (!user_id) {
     logger.warn('No user_id provided to updateCalculationTable');
@@ -1223,12 +1241,11 @@ const updateCalculationTable = async (user_id, data, isApproved, conn) => {
   const response = await updateCalculationBalanceDao(
     { id: calculationId },
     payload,
-    conn,
   );
 
   // logger.info(`Calculation table updated successfully for user_id: ${user_id}`);
 
-  await trackVendorsNetBalance(calculationData[0].user_id, conn, response);
+  await trackVendorsNetBalance(calculationData[0].user_id, response);
   return response;
 };
 
@@ -1423,15 +1440,20 @@ const _assignedPayoutServiceInternal = async (
   updated_by,
   company_id,
 ) => {
-  const data = await assignedPayoutDao(
-    payload,
-    id,
-    updated_by,
-    company_id,
-    conn,
-  );
-  await newTableEntry(tableName.PAYOUT);
-  return data;
+  try {
+    const data = await assignedPayoutDao(
+      payload,
+      id,
+      updated_by,
+      company_id,
+      conn,
+    );
+    await newTableEntry(tableName.PAYOUT);
+    return data;
+  } catch (error) {
+    logger.error('error in _assignedPayoutServiceInternal', error);
+    throw error;
+  }
 };
 
 const assignedPayoutService = async (
@@ -1461,17 +1483,22 @@ const assignedPayoutService = async (
 };
 
 const _deletePayoutServiceInternal = async (conn, id, updated_by, role) => {
-  const filterColumns =
-    role === Role.MERCHANT
-      ? merchantColumns.PAYOUT
-      : role === Role.VENDOR || role === Role.SUB_VENDOR
-        ? vendorColumns.PAYOUT
-        : columns.PAYOUT;
-  const payload = { is_obsolete: true };
-  payload.updated_by = updated_by;
-  const data = await deletePayoutDao(id, payload);
-  const finalResult = await filterResponse(data, filterColumns);
-  return finalResult;
+  try {
+    const filterColumns =
+      role === Role.MERCHANT
+        ? merchantColumns.PAYOUT
+        : role === Role.VENDOR || role === Role.SUB_VENDOR
+          ? vendorColumns.PAYOUT
+          : columns.PAYOUT;
+    const payload = { is_obsolete: true };
+    payload.updated_by = updated_by;
+    const data = await deletePayoutDao(id, payload);
+    const finalResult = await filterResponse(data, filterColumns);
+    return finalResult;
+  } catch (error) {
+    logger.error('error in _deletePayoutServiceInternal', error);
+    throw error;
+  }
 };
 
 const deletePayoutService = async (id, updated_by, role) => {
@@ -1633,6 +1660,7 @@ const _createTataPayBulkPayoutServiceInternal = async (
     user_id,
   }
 ) => {
+  try {
     // Function to fetch payout data by IDs if needed
     const getPayoutData = async (ids, companyId) => {
       const payouts = await getPayoutsDao(
@@ -1771,6 +1799,10 @@ const _createTataPayBulkPayoutServiceInternal = async (
     });
     
     return result;
+  } catch (error) {
+    logger.error('error in _createTataPayBulkPayoutServiceInternal', error);
+    throw error;
+  }
 };
 
 const createTataPayBulkPayoutService = async (

@@ -1391,15 +1391,20 @@ const getBankResponseBySearchService = async (
   }
 };
 const _updateBankResponseServiceInternal = async (conn, id, payload, role) => {
-  const filterColumns =
-    role === Role.MERCHANT
-      ? merchantColumns.BANK_RESPONSE
-      : role === Role.VENDOR || role === Role.SUB_VENDOR
-        ? vendorColumns.BANK_RESPONSE
-        : columns.BANK_RESPONSE;
-  const data = await updateBankResponseDao(id, payload, conn);
-  const finalResult = filterResponse(data, filterColumns);
-  return finalResult;
+  try {
+    const filterColumns =
+      role === Role.MERCHANT
+        ? merchantColumns.BANK_RESPONSE
+        : role === Role.VENDOR || role === Role.SUB_VENDOR
+          ? vendorColumns.BANK_RESPONSE
+          : columns.BANK_RESPONSE;
+    const data = await updateBankResponseDao(id, payload, conn);
+    const finalResult = filterResponse(data, filterColumns);
+    return finalResult;
+  } catch (error) {
+    logger.error('error in _updateBankResponseServiceInternal', error);
+    throw error;
+  }
 };
 
 const updateBankResponseService = async (id, payload, role) => {
@@ -1470,11 +1475,12 @@ const getBankMessageServices = async (
 };
 
 const _resetBankResponseServiceInternal = async (conn, id, userData) => {
-  const { company_id, user_name, user_id, role, amount, utr, bank_id } =
-    userData;
+  try {
+    const { company_id, user_name, user_id, role, amount, utr, bank_id } =
+      userData;
 
-  // Fetch bank response
-  const botRes = await getBankResponseDao({ id, company_id });
+    // Fetch bank response
+    const botRes = await getBankResponseDao({ id, company_id });
   if (!botRes) {
     logger.error(`Bank response not found for ID: ${id}`);
     throw new NotFoundError('Bank response not found');
@@ -1606,7 +1612,11 @@ const _resetBankResponseServiceInternal = async (conn, id, userData) => {
   };
   await newTableEntry(tableName.BANK_RESPONSE, results);
 
-  return results;
+    return results;
+  } catch (error) {
+    logger.error('error in _resetBankResponseServiceInternal', error);
+    throw error;
+  }
 };
 
 const resetBankResponseService = async (id, userData) => {
@@ -2407,10 +2417,11 @@ const _importBankResponseServiceInternal = async (
   role,
   name,
 ) => {
-  // Validate payload
-  if (!payload || !payload.pdfBuffer) {
-    throw new BadRequestError('No valid PDF buffer provided in payload');
-  }
+  try {
+    // Validate payload
+    if (!payload || !payload.pdfBuffer) {
+      throw new BadRequestError('No valid PDF buffer provided in payload');
+    }
 
   // Extract credited transactions
   const creditedTransactions = await extractCreditedTransactions(
@@ -2422,9 +2433,13 @@ const _importBankResponseServiceInternal = async (
     await createBankResponseService(transaction, companyId, role, name);
   }
 
-  return {
-    message: `${payload.fileType} imported successfully`,
-  };
+    return {
+      message: `${payload.fileType} imported successfully`,
+    };
+  } catch (error) {
+    logger.error('error in _importBankResponseServiceInternal', error);
+    throw error;
+  }
 };
 
 const importBankResponseService = async (
