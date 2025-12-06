@@ -114,7 +114,7 @@ const updateCalculationService = async (filters, payload, role) => {
         : role === Role.VENDOR || role === Role.SUB_VENDOR
           ? vendorColumns.CALCULATION
           : columns.CALCULATION;
-    const data = await updateCalculationDao(filters, payload, conn);
+    const data = await updateCalculationDao(filters, payload);
     const finalResult = filterResponse(data, filterColumns);
 
     await commit(conn);

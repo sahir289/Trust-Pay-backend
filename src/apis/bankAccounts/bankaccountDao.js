@@ -826,7 +826,7 @@ const deleteBankaccountDao = async (id, data) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.BANK_ACCOUNT, data, id);
     const result = await executeQuery(sql, params);
-    return result.rows[0];
+    return result;
   } catch (error)  {
     logger.error('Error in deleteBankaccountDao:', error);
     throw error;

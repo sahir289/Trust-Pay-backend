@@ -64,7 +64,7 @@ const getCheckUtrBySearchService = async (company_id, search, page, limit) => {
   }
 };
 
-const _createCheckUtrServiceInternal = async (conn, payload) => {
+const _createCheckUtrServiceInternal = async (payload) => {
   try {
     const result = await createCheckUtrDao(payload);
     // await notifyAdminsAndUsers({
@@ -87,7 +87,7 @@ const createCheckUtrService = async (payload) => {
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const result = await _createCheckUtrServiceInternal(conn, payload);
+    const result = await _createCheckUtrServiceInternal(payload);
     await commit(conn);
     return result;
   } catch (error) {

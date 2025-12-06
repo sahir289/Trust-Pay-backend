@@ -13,7 +13,7 @@ import {
 import { columns, merchantColumns, Role } from '../../constants/index.js';
 import { filterResponse } from '../../helpers/index.js';
 import { logger } from '../../utils/logger.js';
-const _createUserHierarchyServiceInternal = async (conn, payload, role) => {
+const _createUserHierarchyServiceInternal = async (payload, role) => {
   try {
     const filterColumns =
       role === Role.MERCHANT
@@ -33,7 +33,7 @@ const createUserHierarchyService = async (payload, role) => {
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const finalResult = await _createUserHierarchyServiceInternal(conn, payload, role);
+    const finalResult = await _createUserHierarchyServiceInternal(payload, role);
     await commit(conn);
     return finalResult;
   } catch (error) {
@@ -79,7 +79,7 @@ const getUserHierarchyService = async (filters, role, page, limit) => {
   }
 };
 
-const _updateUserHierarchyServiceInternal = async (conn, id, payload, role) => {
+const _updateUserHierarchyServiceInternal = async (id, payload, role) => {
   try {
     const filterColumns =
       role === Role.MERCHANT
@@ -99,7 +99,7 @@ const updateUserHierarchyService = async (id, payload, role) => {
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const finalResult = await _updateUserHierarchyServiceInternal(conn, id, payload, role);
+    const finalResult = await _updateUserHierarchyServiceInternal(id, payload, role);
     await commit(conn);
     return finalResult;
   } catch (error) {
@@ -123,7 +123,7 @@ const updateUserHierarchyService = async (id, payload, role) => {
   }
 };
 
-const _deleteUserHierarchyServiceInternal = async (conn, ids, updated_by, role) => {
+const _deleteUserHierarchyServiceInternal = async (ids, updated_by, role) => {
   try {
     const filterColumns =
       role === Role.MERCHANT
@@ -144,7 +144,7 @@ const deleteUserHierarchyService = async (ids, updated_by, role) => {
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const finalResult = await _deleteUserHierarchyServiceInternal(conn, ids, updated_by, role);
+    const finalResult = await _deleteUserHierarchyServiceInternal(ids, updated_by, role);
     await commit(conn);
     return finalResult;
   } catch (error) {

@@ -1,11 +1,5 @@
 import { InternalServerError } from '../../utils/appErrors.js';
 import {
-  getConnection,
-  beginTransaction,
-  commit,
-  rollback,
-} from '../../utils/db.js';
-import {
   getBankResponseDao,
   updateBotResponseDao,
 } from '../bankResponse/bankResponseDao.js';
@@ -100,37 +94,31 @@ const getResetHistoryBySearchService = async (filters) => {
   }
 };
 
-const _createResetHistoryServiceInternal = async (conn, payload) => {
-  const result = await createResetHistoryDao(payload,conn);
-  // await notifyAdminsAndUsers({
-  //   conn,
-  //   company_id: payload.company_id,
-  //   message: `PayIn with merchant order id: ${merchant_order_id} has been reset.`,
-  //   payloadUserId: payload.updated_by,
-  //   actorUserId: payload.updated_by,
-  //   category: 'Data Entries',
-  // });
-  return result;
+const _createResetHistoryServiceInternal = async (payload) => {
+  try {
+    const result = await createResetHistoryDao(payload);
+    // await notifyAdminsAndUsers({
+    //   conn,
+    //   company_id: payload.company_id,
+    //   message: `PayIn with merchant order id: ${merchant_order_id} has been reset.`,
+    //   payloadUserId: payload.updated_by,
+    //   actorUserId: payload.updated_by,
+    //   category: 'Data Entries',
+    // });
+    return result;
+  } catch (error) {
+    logger.error('error in _createResetHistoryServiceInternal', error);
+    throw error;
+  }
 };
 
 const createResetHistoryService = async (payload) => {
-  let conn;
   try {
-    conn = await getConnection();
-    await beginTransaction(conn);
-    const result = await _createResetHistoryServiceInternal(conn, payload);
-    await commit(conn);
+    const result = await _createResetHistoryServiceInternal(payload);
     return result;
   } catch (error) {
-    if (conn) {
-      await rollback(conn);
-    }
     logger.error('error getting while reset history', error);
     throw new InternalServerError('Error getting while reset history');
-  } finally {
-    if (conn) {
-      conn.release();
-    }
   }
 };
 

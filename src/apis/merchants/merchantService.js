@@ -50,7 +50,7 @@ const _createMerchantServiceInternal = async (conn, payload) => {
   delete payload.role_id;
   delete payload.role;
   delete payload.designation;
-  const data = await createMerchantDao(payload, conn);
+  const data = await createMerchantDao(payload);
   const calculationPayload = {
     role_id: Role_id,
     user_id: data.user_id,
@@ -386,7 +386,7 @@ const _updateMerchantServiceInternal = async (conn, ids, payload) => {
     };
   }
   delete payload.whitelist_ips;
-  const data = await updateMerchantDao(ids, payload, conn); // Adjust DAO call for update
+  const data = await updateMerchantDao(ids, payload); // Adjust DAO call for update
   logger.log('Merchant updated successfully');
   // const finalResult = filterResponse(data, filterColumns);
   // await notifyAdminsAndUsers({
@@ -489,7 +489,7 @@ const _deleteMerchantServiceInternal = async (conn, ids, updated_by, roleIs) => 
     ...subMerchantIds,
     ...operationIds,
   ];
-  await updateUserDao({ id: userIds }, { is_obsolete: true }, conn);
+  await updateUserDao({ id: userIds }, { is_obsolete: true });
   const payload = { is_obsolete: true, updated_by };
   const data = await deleteMerchantDao(conn, ids, payload); // Adjust DAO call for delete
   logger.log('Merchant deleted successfully');

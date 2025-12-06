@@ -447,7 +447,7 @@ const createBankResponseService = async (
             id: payInUtr.merchant_id,
           });
 
-          await updateBotResponseDao(botRes.id, { is_used: true }, localConn);
+          await updateBotResponseDao(botRes.id, { is_used: true });
           const currentPayinBank = await getBankaccountDashBoardReportDao({
             id: payInUtr.bank_acc_id,
             company_id: companyId,
@@ -616,7 +616,7 @@ const createBankResponseService = async (
             localConn,
             { utr: botRes.utr, amount: botRes.amount }, //temperary
           );
-          await updateBotResponseDao(botRes.id, { is_used: true }, localConn);
+          await updateBotResponseDao(botRes.id, { is_used: true });
 
           const obj = {
             id: updatePayin.id,
@@ -713,7 +713,7 @@ const createBankResponseService = async (
             localConn,
             { utr: botRes.utr, amount: botRes.amount }, //temperary
           );
-          await updateBotResponseDao(botRes.id, { is_used: true }, localConn);
+          await updateBotResponseDao(botRes.id, { is_used: true });
           if (updatePayInDataRes) {
             const obj = {
               id: updatePayInDataRes.id,
@@ -1390,7 +1390,7 @@ const getBankResponseBySearchService = async (
     throw error;
   }
 };
-const _updateBankResponseServiceInternal = async (conn, id, payload, role) => {
+const _updateBankResponseServiceInternal = async (id, payload, role) => {
   try {
     const filterColumns =
       role === Role.MERCHANT
@@ -1398,7 +1398,7 @@ const _updateBankResponseServiceInternal = async (conn, id, payload, role) => {
         : role === Role.VENDOR || role === Role.SUB_VENDOR
           ? vendorColumns.BANK_RESPONSE
           : columns.BANK_RESPONSE;
-    const data = await updateBankResponseDao(id, payload, conn);
+    const data = await updateBankResponseDao(id, payload);
     const finalResult = filterResponse(data, filterColumns);
     return finalResult;
   } catch (error) {
@@ -1412,7 +1412,7 @@ const updateBankResponseService = async (id, payload, role) => {
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const finalResult = await _updateBankResponseServiceInternal(conn, id, payload, role);
+    const finalResult = await _updateBankResponseServiceInternal(id, payload, role);
     await commit(conn);
     return finalResult;
   } catch (error) {
@@ -1474,7 +1474,7 @@ const getBankMessageServices = async (
   }
 };
 
-const _resetBankResponseServiceInternal = async (conn, id, userData) => {
+const _resetBankResponseServiceInternal = async (id, userData) => {
   try {
     const { company_id, user_name, user_id, role, amount, utr, bank_id } =
       userData;
@@ -1540,7 +1540,6 @@ const _resetBankResponseServiceInternal = async (conn, id, userData) => {
       company_id,
       role,
       payInData,
-      conn,
     });
     updateData = result.updateData;
     changes.config.previousAmount = botRes.amount;
@@ -1561,7 +1560,6 @@ const _resetBankResponseServiceInternal = async (conn, id, userData) => {
       utr,
       user_id,
       user_name,
-      conn,
       company_id,
     });
     updateData = utrResult;
@@ -1577,7 +1575,6 @@ const _resetBankResponseServiceInternal = async (conn, id, userData) => {
       company_id,
       user_id,
       user_name,
-      conn,
     });
     updateData = bankResult;
     changes.bank_id = bank_id;
@@ -1624,7 +1621,7 @@ const resetBankResponseService = async (id, userData) => {
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const results = await _resetBankResponseServiceInternal(conn, id, userData);
+    const results = await _resetBankResponseServiceInternal(id, userData);
     await commit(conn);
     return results;
   } catch (error) {
@@ -1643,7 +1640,6 @@ const handleAmountUpdate = async ({
   user_name,
   role,
   payInData,
-  conn,
 }) => {
   try {
     const previousAmount = botRes.amount;
@@ -1743,7 +1739,6 @@ const handleAmountUpdate = async ({
           vendorCalculations,
           updatedAmount,
           payinCommission, // Only vendor commission, not total
-          conn,
         ),
       ];
 
@@ -1755,7 +1750,6 @@ const handleAmountUpdate = async ({
             parentCalculations,
             0, // Parent vendor amount is always 0 for adjustments
             parentCommission,
-            conn,
           )
         );
       }
@@ -1772,7 +1766,6 @@ const handleAmountUpdate = async ({
         ).then((res) => {
           if (res.is_enabled) {
             _updateBankaccountInternal(
-              conn,
               { id: bank.id, company_id: res.company_id },
               { latest_balance: res.today_balance },
               role,
@@ -1780,7 +1773,7 @@ const handleAmountUpdate = async ({
           }
         }),
         updatePayInData({ payInData, user_name, botRes }),
-        updateBotResponseDao(botRes.id, updateData, conn),
+        updateBotResponseDao(botRes.id, updateData),
       );
 
       // Execute all updates
@@ -1803,7 +1796,6 @@ const handleUtrUpdate = async ({
   utr,
   user_id,
   user_name,
-  conn,
   company_id,
 }) => {
   try {
@@ -1829,7 +1821,7 @@ const handleUtrUpdate = async ({
       });
       await newTableEntry(tableName.PAYIN);
     }
-    await updateBotResponseDao(botRes.id, updateData, conn);
+    await updateBotResponseDao(botRes.id, updateData);
   } catch (error) {
     logger.error('Error in handle bank utr update:', error.message);
     throw error;
@@ -1843,7 +1835,6 @@ const handleBankIdUpdate = async ({
   company_id,
   user_id,
   user_name,
-  conn,
 }) => {
   try {
     const [prevBank, newBank] = await Promise.all([
@@ -1976,7 +1967,6 @@ const handleBankIdUpdate = async ({
         prevVendorNextCurrentCalcs,
         -botRes.amount,
         -prevVendorCommission, // Only vendor commission, not total
-        conn,
         -1,
       ),
       updateCalculationBalances(
@@ -1984,7 +1974,6 @@ const handleBankIdUpdate = async ({
         newVendorNextCurrentCalcs,
         botRes.amount,
         newVendorCommission, // Only vendor commission, not total
-        conn,
         1,
       ),
     ];
@@ -1997,7 +1986,6 @@ const handleBankIdUpdate = async ({
           prevParentNextCalcs,
           0, // Parent vendor amount is always 0
           -prevParentCommission, // Reverse the commission
-          conn,
           -1,
         )
       );
@@ -2010,7 +1998,6 @@ const handleBankIdUpdate = async ({
           newParentNextCalcs,
           0, // Parent vendor amount is always 0
           newParentCommission, // Add the commission
-          conn,
           1,
         )
       );
@@ -2036,7 +2023,7 @@ const handleBankIdUpdate = async ({
           updated_by: user_id,
         },
       ),
-      updateBotResponseDao(botRes.id, updateData, conn),
+      updateBotResponseDao(botRes.id, updateData),
     ];
 
     // Execute all updates
@@ -2483,7 +2470,6 @@ const updateCalculationBalances = async (
   nextCalculations,
   amountDiff,
   commission,
-  conn,
   count = 0,
 ) => {
   try {
@@ -2500,12 +2486,10 @@ const updateCalculationBalances = async (
     const updatedCurrentCalculation = await updateCalculationBalanceDao(
       { id: currentCalculation[0].id },
       updates,
-      conn,
     );
 
     await trackVendorsNetBalance(
       currentCalculation[0].user_id,
-      conn,
       updatedCurrentCalculation,
     );
 
@@ -2529,10 +2513,9 @@ const updateCalculationBalances = async (
             net_balance: amountDiff - commission,
             ...data,
           },
-          conn,
         );
 
-        await trackVendorsNetBalance(calc.user_id, conn, updatedCalc);
+        await trackVendorsNetBalance(calc.user_id, updatedCalc);
       }
     }
   } catch (error) {

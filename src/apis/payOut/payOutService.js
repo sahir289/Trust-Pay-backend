@@ -469,7 +469,7 @@ const _createPayoutServiceInternal = async (
         // specific to clickrr max payout limit
         const updatedPayload = { config: { method: 'CLICKRR' } };
         // Use the DAO directly since we're already in a transaction
-        updatedData = await updatePayoutDao(ids, updatedPayload, conn);
+        updatedData = await updatePayoutDao(ids, updatedPayload);
         data = updatedData;
       }
     }
@@ -925,7 +925,7 @@ const _updatePayoutServiceInternal = async (conn, ids, payload, role) => {
       payload = updatedPayload;
     }
 
-    const data = await updatePayoutDao(ids, payload, conn);
+    const data = await updatePayoutDao(ids, payload);
 
     await newTableEntry(tableName.PAYOUT);
     if (data.status == Status.INITIATED) {
@@ -1482,7 +1482,7 @@ const assignedPayoutService = async (
   }
 };
 
-const _deletePayoutServiceInternal = async (conn, id, updated_by, role) => {
+const _deletePayoutServiceInternal = async (id, updated_by, role) => {
   try {
     const filterColumns =
       role === Role.MERCHANT
@@ -1506,7 +1506,7 @@ const deletePayoutService = async (id, updated_by, role) => {
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const finalResult = await _deletePayoutServiceInternal(conn, id, updated_by, role);
+    const finalResult = await _deletePayoutServiceInternal(id, updated_by, role);
     await commit(conn);
     return finalResult;
   } catch (error) {

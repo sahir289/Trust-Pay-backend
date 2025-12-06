@@ -408,7 +408,7 @@ const getBeneficiaryAccountDaoByBankName = async (
     const result = await executeQuery(baseQuery, queryParams);
 
     return {
-      totalCount: result.rows.length,
+      totalCount: result.rowCount,
       bankNames: result.rows,
     };
   } catch (error) {

@@ -38,7 +38,7 @@ const getCompanyByIdService = async (id) => {
   }
 };
 
-const _createCompanyServiceInternal = async (conn, payload) => {
+const _createCompanyServiceInternal = async (payload) => {
   try {
     // Validate payload
     // Create company
@@ -86,7 +86,7 @@ const _createCompanyServiceInternal = async (conn, payload) => {
       },
     };
 
-    const company = await createCompanyDao(conn, {
+    const company = await createCompanyDao({
       first_name: payload.first_name,
       last_name: payload.last_name,
       email: payload.email,
@@ -135,7 +135,7 @@ const createCompanyService = async (payload) => {
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const result = await _createCompanyServiceInternal(conn, payload);
+    const result = await _createCompanyServiceInternal(payload);
     await commit(conn);
     return result;
   } catch (error) {

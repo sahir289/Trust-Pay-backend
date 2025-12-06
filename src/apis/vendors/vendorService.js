@@ -46,7 +46,7 @@ const _createVendorServiceInternal = async (conn, payload) => {
   delete payload.role;
   let role_id = payload.role_id;
   delete payload.role_id;
-  const data = await createVendorDao(payload, conn);
+  const data = await createVendorDao(payload);
   const calculationPayload = {
     user_id: data.user_id,
     role_id: role_id,
@@ -364,7 +364,7 @@ const getVendorsBySearchService = async (
 };
 
 const _updateVendorServiceInternal = async (conn, ids, payload) => {
-  const data = await updateVendorDao(ids, payload, conn); // Adjust DAO call for update
+  const data = await updateVendorDao(ids, payload); // Adjust DAO call for update
   if (
     data?.config?.bank_response_access === 'false' ||
     data?.config?.bank_response_access === false ||
@@ -444,7 +444,7 @@ const _deleteVendorServiceInternal = async (conn, ids, updated_by) => {
       is_enabled: false,
       updated_by,
     };
-    await updateUserDao({ id: ids.user_id || ids.id }, payload, conn);
+    await updateUserDao({ id: ids.user_id || ids.id }, payload);
     await deleteBeneficiaryDao(
       conn,
       { user_id: ids.user_id || ids.id },
@@ -463,7 +463,7 @@ const _deleteVendorServiceInternal = async (conn, ids, updated_by) => {
     if (UserHierarchy[0]?.config?.child?.operations) {
       const userIds = UserHierarchy[0].config.child.operations;
       for (const userId of userIds) {
-        await updateUserDao({ id: userId }, payload, conn);
+        await updateUserDao({ id: userId }, payload);
       }
     }
     if (UserHierarchy[0]?.config?.siblings?.sub_vendors) {
@@ -635,7 +635,7 @@ const _unlinkVendorServiceInternal = async (conn, vendorUserId, subVendorUserId,
     user_id,
   );
   // Change designation to VENDOR in user table using DAO
-  const vendorDesignationId = await getDesignationIdDao(Role.VENDOR, conn);
+  const vendorDesignationId = await getDesignationIdDao(Role.VENDOR);
   if (vendorDesignationId) {
     await updateUserDao(
       { id: subVendorUserId },

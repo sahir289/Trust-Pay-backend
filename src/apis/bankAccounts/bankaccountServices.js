@@ -451,21 +451,13 @@ const updateBankaccountService = async (
   // company_id,
   // user_id,
 ) => {
-  let conn;
   try {
-    conn = await getConnection();
-    await beginTransaction(conn);
-
     const result = await _updateBankaccountInternal(ids, payload, role);
 
-    await commit(conn);
     return result;
   } catch (error) {
-    if (conn) await rollback(conn);
     logger.error('error getting while  updating banks', error);
     throw error;
-  } finally {
-    if (conn) conn.release();
   }
 };
 
@@ -501,12 +493,11 @@ const deleteBankaccountService = async (ids, user_id) => {
   }
 };
 
-const _activeInactiveBankAccountServiceInternal = async (conn, ids, payload) => {
+const _activeInactiveBankAccountServiceInternal = async (ids, payload) => {
   try {
     const result = await updateBankaccountDao(
       { id: ids.id, company_id: ids.company_id },
       payload,
-      conn,
     );
     return result;
   } catch (error) {
@@ -520,7 +511,7 @@ const activeInactiveBankAccountService = async (ids, payload) => {
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const result = await _activeInactiveBankAccountServiceInternal(conn, ids, payload);
+    const result = await _activeInactiveBankAccountServiceInternal(ids, payload);
     await commit(conn);
     return result;
   } catch (error) {

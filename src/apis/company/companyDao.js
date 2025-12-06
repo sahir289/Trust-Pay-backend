@@ -102,7 +102,7 @@ const createCompanyDao = async (payload) => {
   try {
     const [sql, params] = buildInsertQuery(tableName.COMPANY, payload);
     const result = await executeQuery(sql, params);
-    return result.rows;
+    return result.rows[0];
   } catch (error) {
     logger.error('Error fetching company:', error);
     throw error;

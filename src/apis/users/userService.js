@@ -294,7 +294,7 @@ const getUsersByUserNameService = async (username, ids, role) => {
           ? vendorColumns.USER
           : columns.USER;
     conn = await getConnection('reader');
-    const data = await getUsersByUserNameDao(ids, username, conn);
+    const data = await getUsersByUserNameDao(ids, username);
     const finalResult = filterResponse(data, filterColumns);
     return finalResult;
   } catch (error) {
@@ -351,7 +351,7 @@ const _createUserServiceInternal = async (conn, payload) => {
     delete payload.payout_notify;
     delete payload.return;
     delete payload.site;
-    const User = await createUserDao(userPayload, conn);
+    const User = await createUserDao(userPayload);
 
     const designation = await getDesignationDao({ id: payload.designation_id });
     const userRole = await getRoleDao({ id: payload.role_id });
@@ -586,7 +586,7 @@ const _userUpdateServiceInternal = async (conn, ids, payload) => {
     //     throw new BadRequestError('Email already Registered');
     //   }
     // }
-    const User = await updateUserDao(ids, payload, conn);
+    const User = await updateUserDao(ids, payload);
   // await notifyAdminsAndUsers({
   //   conn,
   //   company_id: ids.company_id,

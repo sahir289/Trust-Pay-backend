@@ -394,7 +394,7 @@ const _createSettlementServiceInternal = async (conn, payload, role) => {
 
   // Early return for non-internal transfers without reference_id
   if (!isInternalTransfer || !payload.config?.reference_id) {
-    const result = await createSettlementDao(payload, conn);
+    const result = await createSettlementDao(payload);
     return result;
   }
 
@@ -540,7 +540,7 @@ const handleVendorInternalTransferByAdmin = async (
       conn,
     );
   }
-  return await createSettlementDao(payload, conn);
+  return await createSettlementDao(payload);
 };
 
 // Helper function for internal transfers from vendors
@@ -1052,7 +1052,7 @@ const _updateSettlementServiceInternal = async (conn, ids, payload) => {
 
         // Update calculation balance
         const { id } = calculationData[0];
-        const updatedCalculationData = await updateCalculationBalanceDao({ id }, updatedCalculation, conn);
+        const updatedCalculationData = await updateCalculationBalanceDao({ id }, updatedCalculation);
         
         await trackVendorsNetBalance(calculationData[0].user_id, conn, updatedCalculationData);
       }
@@ -1111,7 +1111,7 @@ const _updateSettlementServiceInternal = async (conn, ids, payload) => {
       // Update calculation balance
       if (calculationData.length > 0) {
         const { id } = calculationData[0];
-        const updatedCalculationResponse = await updateCalculationBalanceDao({ id }, updatedCalculation, conn);
+        const updatedCalculationResponse = await updateCalculationBalanceDao({ id }, updatedCalculation);
         
         await trackVendorsNetBalance(calculationData[0].user_id, conn, updatedCalculationResponse);
       }

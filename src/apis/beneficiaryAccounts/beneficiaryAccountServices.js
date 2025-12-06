@@ -250,7 +250,6 @@ const getBeneficiaryAccountBySearchService = async (
 };
 
 const _getBeneficiaryAccountServiceByBankNameInternal = async (
-  conn,
   company_id,
   type,
   role,
@@ -271,7 +270,6 @@ const _getBeneficiaryAccountServiceByBankNameInternal = async (
     }
 
     const result = await getBeneficiaryAccountDaoByBankName(
-      conn,
       company_id,
       type,
       filters,
@@ -295,7 +293,6 @@ const getBeneficiaryAccountServiceByBankName = async (
     conn = await getConnection();
     await beginTransaction(conn);
     const result = await _getBeneficiaryAccountServiceByBankNameInternal(
-      conn,
       company_id,
       type,
       role,
@@ -324,13 +321,13 @@ const getBeneficiaryAccountServiceByBankName = async (
   }
 };
 
-const _createBeneficiaryAccountServiceInternal = async (conn, payload, company_id) => {
+const _createBeneficiaryAccountServiceInternal = async (payload, company_id) => {
   try {
     // Set user_id to created_by if not already set
     payload.user_id = payload.user_id || payload.created_by;
 
     // Fetch user and role
-    const [user] = await getUserByIdDao(conn, { id: payload.user_id });
+    const [user] = await getUserByIdDao({ id: payload.user_id });
     if (!user) throw new BadRequestError('User not found');
     const [roleObj] = await getRoleDao({ role: user.role });
     if (!roleObj) throw new BadRequestError('Role not found');
@@ -384,7 +381,7 @@ const _createBeneficiaryAccountServiceInternal = async (conn, payload, company_i
   }
 
   // Create account
-  const result = await createBeneficiaryAccountDao(conn, payload);
+  const result = await createBeneficiaryAccountDao(payload);
 
   // Notify users
   // const vendorUsers = await getUserByRoleDao(company_id, Role.VENDOR);
@@ -412,7 +409,7 @@ const createBeneficiaryAccountService = async (payload, company_id) => {
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const result = await _createBeneficiaryAccountServiceInternal(conn, payload, company_id);
+    const result = await _createBeneficiaryAccountServiceInternal(payload, company_id);
     await commit(conn);
     return result;
   } catch (error) {
@@ -485,10 +482,9 @@ const updateBeneficiaryAccountService = async (ids, payload) => {
   }
 };
 
-const _deleteBeneficiaryAccountServiceInternal = async (conn, ids) => {
+const _deleteBeneficiaryAccountServiceInternal = async (ids) => {
   try {
     let result = await deleteBeneficiaryDao(
-      conn,
       { id: ids.id, company_id: ids.company_id },
       { is_obsolete: true },
     );
@@ -504,13 +500,13 @@ const deleteBeneficiaryAccountService = async (ids) => {
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const result = await _deleteBeneficiaryAccountServiceInternal(conn, ids);
+    const result = await _deleteBeneficiaryAccountServiceInternal(ids);
     await commit(conn);
     return result;
   } catch (error) {
     if (conn) await rollback(conn);
     logger.error('error getting while deleting banks', error);
-    throw new BadRequestError('Error getting while  deleting banks');
+    throw new Error('Error getting while  deleting banks');
   } finally {
     if (conn) conn.release();
   }

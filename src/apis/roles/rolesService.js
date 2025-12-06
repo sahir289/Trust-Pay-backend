@@ -5,12 +5,6 @@ import {
   updateRoleDao,
   deleteRoleDao,
 } from './rolesDao.js';
-import {
-  getConnection,
-  beginTransaction,
-  commit,
-  rollback,
-} from '../../utils/db.js';
 
 const getRoleService = async (filters) => {
   try {
@@ -23,48 +17,23 @@ const getRoleService = async (filters) => {
 };
 
 const createRoleService = async (payload) => {
-  let conn;
   try {
-    conn = await getConnection();
-    await beginTransaction(conn);
-    
-    const data = await createRoleDao(conn, payload);
-    
-    await commit(conn);
+    const data = await createRoleDao(payload);
+
     return data;
   } catch (error) {
-    if (conn) {
-      await rollback(conn);
-    }
     logger.error('Error while creating Role', error);
     throw error;
-  } finally {
-    if (conn) {
-      conn.release();
-    }
   }
 };
 
 const updateRoleService = async (id, body) => {
-  let conn;
   try {
-    conn = await getConnection();
-    await beginTransaction(conn);
-    
-    const data = await updateRoleDao(conn, id, body);
-    
-    await commit(conn);
+    const data = await updateRoleDao(id, body);
     return data;
   } catch (error) {
-    if (conn) {
-      await rollback(conn);
-    }
     logger.error('Error while updating Role', error);
     throw error;
-  } finally {
-    if (conn) {
-      conn.release();
-    }
   }
 };
 

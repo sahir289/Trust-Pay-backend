@@ -392,7 +392,7 @@ const getUserByIdDao = async (ids) => {
       queryParams.push(ids.company_id);
     }
     const result = await executeQuery(baseQuery, queryParams);
-    if (result.rows.length === 0) {
+    if (result.rowCount === 0) {
       logger.error('No user found with the provided id and filters');
       return [];
     }
