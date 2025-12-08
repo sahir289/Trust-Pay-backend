@@ -112,7 +112,7 @@ const getSubVendorParentInfo = async (vendor) => {
 };
 
 // Helper function to calculate commission for parent vendor
-const updateParentVendorCalculation = async (parentUserId, amount, vendorCommissionRate, conn) => {
+const updateParentVendorCalculation = async (parentUserId, amount, vendorCommissionRate) => {
   try {
     const parentCommission = calculateCommission(amount, vendorCommissionRate);
     
@@ -122,7 +122,6 @@ const updateParentVendorCalculation = async (parentUserId, amount, vendorCommiss
         payinCommission: parentCommission,
         amount: 0, // Parent vendor amount is always 0, only commission is tracked
       },
-      conn,
     );
 
     return parentCommission;
@@ -303,10 +302,8 @@ const createBankResponseService = async (
               parseFloat(botRes.amount),
             payin_count: parseFloat(bankDetails[0].payin_count + 1),
           },
-          localConn,
         );
         await _updateBankaccountInternal(
-          localConn,
           { id: botRes?.bank_id, company_id: companyId },
           { latest_balance: res.today_balance },
           role,
@@ -322,7 +319,6 @@ const createBankResponseService = async (
           {
             balance: parseFloat(vendor[0].balance) + parseFloat(botRes.amount),
           },
-          localConn,
         );
         const payinVendorCommission = calculateCommission(
           botRes.amount,
@@ -340,7 +336,6 @@ const createBankResponseService = async (
             subVendorParentInfo.parentUserId,
             Number(botRes.amount),
             Number(vendor[0].config?.mediator_payin_commission) || 0,
-            localConn,
           );
           totalVendorCommission = payinVendorCommission + parentCommission;
           logger.info(`Sub-vendor commission calculated immediately on bankResponse creation: sub=${payinVendorCommission}, parent=${parentCommission}, total=${totalVendorCommission}`);
@@ -352,7 +347,6 @@ const createBankResponseService = async (
             payinCommission: payinVendorCommission,
             amount: botRes.amount,
           },
-          localConn,
         );
       }
       let duration;
@@ -439,7 +433,6 @@ const createBankResponseService = async (
           const updatePayInDataRes = await updatePayInUrlDao(
             payInUtr.id,
             payInData,
-            localConn,
             {utr:botRes.utr ,amount :botRes.amount}  //temperary
           );
 
@@ -613,7 +606,6 @@ const createBankResponseService = async (
           const updatePayin = await updatePayInUrlDao(
             payInUtr.id,
             payInData,
-            localConn,
             { utr: botRes.utr, amount: botRes.amount }, //temperary
           );
           await updateBotResponseDao(botRes.id, { is_used: true });
@@ -669,7 +661,6 @@ const createBankResponseService = async (
               payinCommission: payinMerchantCommission,
               amount: botRes.amount,
             },
-            localConn,
           );
           await commit(localConn);
           // if (shouldRelease) localConn.release();
@@ -710,7 +701,6 @@ const createBankResponseService = async (
           const updatePayInDataRes = await updatePayInUrlDao(
             payInUtr.id,
             payInData,
-            localConn,
             { utr: botRes.utr, amount: botRes.amount }, //temperary
           );
           await updateBotResponseDao(botRes.id, { is_used: true });
@@ -1002,10 +992,8 @@ const createBankResponseWebHookService = async (
               parseFloat(botRes.amount),
             payin_count: parseFloat(bankDetails[0].payin_count + 1),
           },
-          localConn,
         );
         await _updateBankaccountInternal(
-          localConn,
           { id: botRes?.bank_id, company_id: companyId },
           { latest_balance: res.today_balance },
           role,
@@ -1021,7 +1009,6 @@ const createBankResponseWebHookService = async (
           {
             balance: parseFloat(vendor[0].balance) + parseFloat(botRes.amount),
           },
-          localConn,
         );
         const payinVendorCommission = calculateCommission(
           botRes.amount,
@@ -1053,7 +1040,6 @@ const createBankResponseWebHookService = async (
             payinCommission: payinVendorCommission,
             amount: botRes.amount,
           },
-          localConn,
         );
       }
 
@@ -2401,7 +2387,6 @@ async function extractCreditedTransactions(pdfBuffer, bankId) {
 
 // Main service function
 const _importBankResponseServiceInternal = async (
-  conn,
   payload,
   companyId,
   role,
@@ -2442,7 +2427,7 @@ const importBankResponseService = async (
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const result = await _importBankResponseServiceInternal(conn, payload, companyId, role, name);
+    const result = await _importBankResponseServiceInternal(payload, companyId, role, name);
     await commit(conn);
     return result;
   } catch (error) {

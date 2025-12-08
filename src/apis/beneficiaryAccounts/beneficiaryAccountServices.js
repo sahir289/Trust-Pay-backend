@@ -469,7 +469,7 @@ const updateBeneficiaryAccountService = async (ids, payload) => {
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const result = await _updateBeneficiaryAccountService(conn, ids, payload);
+    const result = await _updateBeneficiaryAccountService(ids, payload);
     await commit(conn);
     return result;
   } catch (error) {
