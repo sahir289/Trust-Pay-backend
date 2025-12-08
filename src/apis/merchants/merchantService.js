@@ -426,92 +426,98 @@ const updateMerchantService = async (ids, payload) => {
 
 // Delete Merchant Service (with Transaction Handling)
 const _deleteMerchantServiceInternal = async (ids, updated_by, roleIs) => {
-  const id = ids.id;
-  const merchantDetails = await getMerchantsDao(
-    { id },
-    1,
-    10,
-    'updated_at',
-    null,
-    roleIs,
-  );
-
-  //------delete merchant and submerchant--------------------
-
-  const user_id = merchantDetails[0].user_id;
-  const subMerchants = await getUserHierarchysDao({ user_id });
-  const subMerchantIds = subMerchants[0]?.config?.siblings?.sub_merchants || [];
-  const operationIds = subMerchants[0]?.config?.child?.operations || [];
-  const allMerchantIds = [merchantDetails[0].id]; // start with this id
-  const allIds = [...subMerchantIds, ...operationIds];
-  for (const id of allIds) {
-    const idsList = await getMerchantsDao({ user_id: id });
-    if (Array.isArray(idsList)) {
-      for (const merchant of idsList) {
-        allMerchantIds.push(merchant.id);
-      }
-    } else if (idsList && idsList.id) {
-      allMerchantIds.push(idsList.id);
-    }
-  }
-
-  //------remove from bank assigned to merchant which are deleted--------------------
-
-  ids.id = allMerchantIds;
-  const merchant_id = [merchantDetails[0].id, ...subMerchantIds];
-  const bankDetails = await getBankaccountDao(
-    { merchant_id },
-    null,
-    null,
-    roleIs,
-  );
-  const userId = [merchantDetails[0].id];
-  for (const subMerchantId of subMerchantIds) {
-    const idsList = await getMerchantsDao({ user_id: subMerchantId });
-    if (Array.isArray(idsList)) {
-      for (const merchant of idsList) {
-        userId.push(merchant.id);
-      }
-    } else if (idsList && idsList.id) {
-      userId.push(idsList.id);
-    }
-  }
-  for (const bank of bankDetails) {
-    const currentMerchants = bank.config?.merchants || [];
-    const filteredMerchants = currentMerchants.filter(
-      (m) => !userId.includes(m),
+  try {
+    const id = ids.id;
+    const merchantDetails = await getMerchantsDao(
+      { id },
+      1,
+      10,
+      'updated_at',
+      null,
+      roleIs,
     );
-    const bankId = bank.id;
-    await updateBankaccountDao(
-      { id: bankId, company_id: ids.company_id },
-      { config: { merchants: filteredMerchants } },
+
+    //------delete merchant and submerchant--------------------
+
+    const user_id = merchantDetails[0].user_id;
+    const subMerchants = await getUserHierarchysDao({ user_id });
+    const subMerchantIds =
+      subMerchants[0]?.config?.siblings?.sub_merchants || [];
+    const operationIds = subMerchants[0]?.config?.child?.operations || [];
+    const allMerchantIds = [merchantDetails[0].id]; // start with this id
+    const allIds = [...subMerchantIds, ...operationIds];
+    for (const id of allIds) {
+      const idsList = await getMerchantsDao({ user_id: id });
+      if (Array.isArray(idsList)) {
+        for (const merchant of idsList) {
+          allMerchantIds.push(merchant.id);
+        }
+      } else if (idsList && idsList.id) {
+        allMerchantIds.push(idsList.id);
+      }
+    }
+
+    //------remove from bank assigned to merchant which are deleted--------------------
+
+    ids.id = allMerchantIds;
+    const merchant_id = [merchantDetails[0].id, ...subMerchantIds];
+    const bankDetails = await getBankaccountDao(
+      { merchant_id },
+      null,
+      null,
+      roleIs,
     );
+    const userId = [merchantDetails[0].id];
+    for (const subMerchantId of subMerchantIds) {
+      const idsList = await getMerchantsDao({ user_id: subMerchantId });
+      if (Array.isArray(idsList)) {
+        for (const merchant of idsList) {
+          userId.push(merchant.id);
+        }
+      } else if (idsList && idsList.id) {
+        userId.push(idsList.id);
+      }
+    }
+    for (const bank of bankDetails) {
+      const currentMerchants = bank.config?.merchants || [];
+      const filteredMerchants = currentMerchants.filter(
+        (m) => !userId.includes(m),
+      );
+      const bankId = bank.id;
+      await updateBankaccountDao(
+        { id: bankId, company_id: ids.company_id },
+        { config: { merchants: filteredMerchants } },
+      );
+    }
+    //delete user of merchant also
+    const userIds = [
+      merchantDetails[0].user_id,
+      ...subMerchantIds,
+      ...operationIds,
+    ];
+    await updateUserDao({ id: userIds }, { is_obsolete: true });
+    const payload = { is_obsolete: true, updated_by };
+    const data = await deleteMerchantDao(ids, payload); // Adjust DAO call for delete
+    logger.log('Merchant deleted successfully');
+    // const userArr = await getUserByIdDao(conn, {
+    //   id: userIds,
+    //   company_id: ids.company_id,
+    // });
+    // const userCodes = userArr.map((user) => user.code).join(', ');
+    // await notifyAdminsAndUsers({
+    //   conn,
+    //   company_id: ids.company_id,
+    //   message: `Merchants with Code ${userCodes} has been deleted.`,
+    //   payloadUserId: updated_by,
+    //   actorUserId: updated_by,
+    //   category: 'Client',
+    //   subCategory: 'Merchant'
+    // });
+    return data;
+  } catch (error) {
+    logger.error('Error in _deleteMerchantServiceInternal', error);
+    throw error;
   }
-  //delete user of merchant also
-  const userIds = [
-    merchantDetails[0].user_id,
-    ...subMerchantIds,
-    ...operationIds,
-  ];
-  await updateUserDao({ id: userIds }, { is_obsolete: true });
-  const payload = { is_obsolete: true, updated_by };
-  const data = await deleteMerchantDao(ids, payload); // Adjust DAO call for delete
-  logger.log('Merchant deleted successfully');
-  // const userArr = await getUserByIdDao(conn, {
-  //   id: userIds,
-  //   company_id: ids.company_id,
-  // });
-  // const userCodes = userArr.map((user) => user.code).join(', ');
-  // await notifyAdminsAndUsers({
-  //   conn,
-  //   company_id: ids.company_id,
-  //   message: `Merchants with Code ${userCodes} has been deleted.`,
-  //   payloadUserId: updated_by,
-  //   actorUserId: updated_by,
-  //   category: 'Client',
-  //   subCategory: 'Merchant'
-  // });
-  return data;
 };
 
 const deleteMerchantService = async (ids, updated_by, roleIs) => {
