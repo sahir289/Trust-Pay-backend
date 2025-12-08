@@ -1,4 +1,3 @@
-import { transactionWrapper } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import { createBankResponseWebHookService } from '../bankResponse/bankResponseServices.js';
@@ -59,8 +58,8 @@ export const nmplPayWebhook = async (req, res) => {
       );
       logger.info('Bank response created:', bankResponse);
     }
-    logger.info('Calling transactionWrapper for payload', payload);
-    const payin = await transactionWrapper(processPayInWebHookService)(
+    logger.info('Calling processPayInWebHookService for payload', payload);
+    const payin = await processPayInWebHookService(
       payload,
       '',
     );

@@ -13,13 +13,9 @@ import {
 import { logger } from '../../utils/logger.js';
 import { enhanceVendorsWithSubVendors } from '../../utils/enhanceSubVendor.js';
 
-export const createVendorDao = async (data, conn) => {
+export const createVendorDao = async (data) => {
   try {
     const [sql, params] = buildInsertQuery(tableName.VENDOR, data);
-    if (conn && conn.query) {
-      const result = await conn.query(sql, params);
-      return result.rows[0];
-    }
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
@@ -112,7 +108,6 @@ export const getVendorsDashBoardReportDao = async (filters = {}) => {
 };
 export const getVendorsCodeDao = async (
   filters,
-  conn,
   includeSubVendors = false,
   includeOnlyVendors = false,
   excludeDisabledVendor = false,
@@ -253,7 +248,7 @@ export const getVendorsCodeDao = async (
     }
 
     sql += ` GROUP BY v.id, v.code, v.user_id ORDER BY v.code ASC`;
-    const result = await conn.query(sql, queryParams);
+    const result = await executeQuery(sql, queryParams);
     logger.log('Fetched Vendors:', result.rows.length, 'rows');
     return result.rows;
   } catch (error) {
@@ -687,13 +682,9 @@ export const getVendorsBySearchDao = async (
     throw error;
   }
 };
-export const updateVendorDao = async (id, data, conn) => {
+export const updateVendorDao = async (id, data) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.VENDOR, data, id);
-    if (conn && conn.query) {
-      const result = await conn.query(sql, params);
-      return result.rows[0];
-    }
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
@@ -702,10 +693,10 @@ export const updateVendorDao = async (id, data, conn) => {
   }
 };
 
-export const deleteVendorDao = async (conn, id, data) => {
+export const deleteVendorDao = async (id, data) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.VENDOR, data, id);
-    const result = await conn.query(sql, params);
+    const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in deleteVendorDao:', error);
@@ -866,14 +857,9 @@ export const getVendorByUserDao = async (userId) => {
 /**
  * Get designation id by designation name
  */
-export const getDesignationIdDao = async (designation, conn) => {
+export const getDesignationIdDao = async (designation) => {
   const sql = `SELECT id FROM "${tableName.DESIGNATION}" WHERE designation = $1 LIMIT 1;`;
-  let result;
-  if (conn && conn.query) {
-    result = await conn.query(sql, [designation]);
-  } else {
-    result = await executeQuery(sql, [designation]);
-  }
+  const result = await executeQuery(sql, [designation]);
   return result.rows[0]?.id || null;
 };
 

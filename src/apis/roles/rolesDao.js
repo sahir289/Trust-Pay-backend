@@ -40,13 +40,9 @@ const getRoleDao = async (
   }
 };
 
-const createRoleDao = async (conn, data) => {
+const createRoleDao = async (data) => {
   try {
     const [sql, params] = buildInsertQuery(tableName.ROLE, data);
-    if (conn && conn.query) {
-      const result = await conn.query(sql, params);
-      return result.rows[0];
-    }
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
@@ -55,13 +51,9 @@ const createRoleDao = async (conn, data) => {
   }
 };
 
-const updateRoleDao = async (conn, id, data) => {
+const updateRoleDao = async (id, data) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.ROLE, data, id);
-    if (conn && conn.query) {
-      const result = await conn.query(sql, params);
-      return result.rows[0];
-    }
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {

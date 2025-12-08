@@ -24,7 +24,7 @@ const collectBankData = async (timezone = 'Asia/Kolkata') => {
   try {
     conn = await getConnection('writer');
     //added payin_count to update everyday
-    await createBankHistoryService(conn);
+    await createBankHistoryService();
     const sql =
       'UPDATE public."BankAccount" SET today_balance = 0 , payin_count = 0 ';
     await conn.query(sql);

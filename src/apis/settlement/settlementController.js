@@ -4,7 +4,6 @@ import {
   VALIDATE_SETTLEMENT_BY_ID_DELETE,
 } from '../../schemas/settlementSchema.js';
 import { NotFoundError, ValidationError } from '../../utils/appErrors.js';
-import { transactionWrapper } from '../../utils/db.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import {
   createSettlementService,
@@ -181,7 +180,7 @@ const createSettlementController = async (req, res) => {
     },
   };
   // const data =
-  const settlement = await transactionWrapper(createSettlementService)(
+  const settlement = await createSettlementService(
     data,
     role,
   );
@@ -206,7 +205,7 @@ const updateSettlementController = async (req, res) => {
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
-  const data = await transactionWrapper(updateSettlementService)(
+  const data = await updateSettlementService(
     ids,
     payload,
     role,
@@ -228,7 +227,7 @@ const deleteSettlementController = async (req, res) => {
     throw new ValidationError(joiValidation.error);
   }
   // const updatedData =
-  const settlement = await transactionWrapper(deleteSettlementService)(ids);
+  const settlement = await deleteSettlementService(ids);
   sendSuccess(
     res,
     { id: settlement.id, deleted_by: user_name },

@@ -3,7 +3,7 @@ import { createBankHistoryDao } from './bankHistoryDao.js';
 import { logger } from '../../utils/logger.js';
 import { BadRequestError } from '../../utils/appErrors.js';
 
-export const createBankHistoryService = async (conn) => {
+export const createBankHistoryService = async () => {
   try {
     const banks = await getBankaccountDashBoardReportDao();
     if (!Array.isArray(banks)) {
@@ -18,7 +18,7 @@ export const createBankHistoryService = async (conn) => {
      count: bank.payin_count || 0,
     }));
     const results = await Promise.all(
-      payloads.map((payload) => createBankHistoryDao(payload, conn)),
+      payloads.map((payload) => createBankHistoryDao(payload)),
     );
     return results; 
   } catch (error) {

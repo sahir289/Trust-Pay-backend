@@ -39,17 +39,14 @@ import {
 } from '../merchants/merchantDao.js';
 import { trackVendorsNetBalance } from '../../utils/trackVendorsNetBalance.js';
 
-const createChargeBackService = async (
+const _createChargeBackServiceInternal = async (
   payload,
   PayinDetails,
   role,
   company_id,
   user_id,
 ) => {
-  let conn;
   try {
-    conn = await getConnection();
-    await beginTransaction(conn);
     payload.vendor_user_id = PayinDetails[0].vendor_user_id;
     payload.merchant_user_id = PayinDetails[0].merchant_user_id;
     payload.payin_id = PayinDetails[0].payin_id;
@@ -95,7 +92,6 @@ const createChargeBackService = async (
           blocked_users: dbCompanyBlockedUsers,
         },
       },
-      conn,
     );
     const data = await createChargeBackDao(payload);
     const MerchantuserId = data.merchant_user_id;
@@ -140,7 +136,6 @@ const createChargeBackService = async (
           blocked_users: dbMerchantBlockedUsers,
         },
       },
-      conn,
     );
     const merchantCalculation = await getCalculationforCronDao(MerchantuserId);
     if (!merchantCalculation || !merchantCalculation[0]) {
@@ -156,7 +151,6 @@ const createChargeBackService = async (
         current_balance: -amount,
         net_balance: -amount,
       },
-      conn,
     );
     const VendorUserId = data.vendor_user_id;
     const vendorCalculation = await getCalculationforCronDao(VendorUserId);
@@ -173,11 +167,9 @@ const createChargeBackService = async (
     const response = await updateCalculationBalanceDao(
       { id: VendorId },
       updatedCalculation,
-      conn,
     );
     
-    await trackVendorsNetBalance(vendorCalculation[0].user_id, conn, response);
-    await commit(conn);
+    await trackVendorsNetBalance(vendorCalculation[0].user_id, response);
     // await notifyAdminsAndUsers({
     //   conn,
     //   company_id: payload.company_id,
@@ -186,6 +178,28 @@ const createChargeBackService = async (
     //   actorUserId: payload.merchant_user_id,
     //   category: 'ChargeBack',
     // });
+    const filterColumns = role === Role.MERCHANT ? merchantColumns.CHARGE_BACK : columns.CHARGE_BACK;
+    const finalResult = filterResponse(data, filterColumns);
+    return finalResult;
+  } catch (error) {
+    logger.error('error in _createChargeBackServiceInternal', error);
+    throw error;
+  }
+};
+
+const createChargeBackService = async (
+  payload,
+  PayinDetails,
+  role,
+  company_id,
+  user_id,
+) => {
+  let conn;
+  try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+    const data = await _createChargeBackServiceInternal(payload, PayinDetails, role, company_id, user_id);
+    await commit(conn);
     return data;
   } catch (error) {
     if (conn) {
@@ -407,13 +421,8 @@ const getChargeBacksBySearchService = async (
   }
 };
 
-const blockChargebackUserService = async (ids, data) => {
-  let conn;
+const _blockChargebackUserServiceInternal = async (ids, data) => {
   try {
-    conn = await getConnection();
-
-    await beginTransaction(conn);
-
     const { id, company_id } = ids;
     const { user_ip, userId, merchant_user_id } = data.config;
 
@@ -459,7 +468,6 @@ const blockChargebackUserService = async (ids, data) => {
     await updateChargeBackDao(
       { id: chargebackdata[0].id },
       { config: { blocked_users: updatedChargebackBlockedUsers } },
-      conn,
     );
     if (!isBlocked) {
       // ---- Company block ----
@@ -477,7 +485,6 @@ const blockChargebackUserService = async (ids, data) => {
       await updateCompanyConfigDao(
         { id: company_id },
         { config: { blocked_users: updatedCompanyBlockedUsers } },
-        conn,
       );
       // ---- Merchant block ----
       let merchantBlockedUsers = merchantData[0]?.config?.blocked_users || [];
@@ -501,7 +508,6 @@ const blockChargebackUserService = async (ids, data) => {
             blocked_users: updatedMerchantBlockedUsers,
           },
         },
-        conn,
       );
     } else {
       // ---- Company unblock ----
@@ -520,7 +526,6 @@ const blockChargebackUserService = async (ids, data) => {
       await updateCompanyConfigDao(
         { id: company_id },
         { config: { blocked_users: updatedCompanyBlockedUsers } },
-        conn,
       );
       // ---- Merchant unblock ----
       let merchantBlockedUsers = merchantData[0]?.config?.blocked_users || [];
@@ -540,34 +545,78 @@ const blockChargebackUserService = async (ids, data) => {
             blocked_users: updatedMerchantBlockedUsers,
           },
         },
-        conn,
       );
     }
 
-    await commit(conn);
-    return {
-      id: chargebackdata[0].id,
-      config: { blocked_users: updatedChargebackBlockedUsers },
-    };
+    const config = { blocked_users: updatedChargebackBlockedUsers };
+    const result = await updateChargeBackDao({ id, company_id }, { config });
+    return result;
   } catch (error) {
-    if (conn) {
-      try {
-        await rollback(conn);
-      } catch (rollbackError) {
-        logger.error('Error during transaction rollback', rollbackError);
-      }
-      throw error;
-    }
+    logger.error('error in _blockChargebackUserServiceInternal', error);
+    throw error;
+  }
+};
+
+const blockChargebackUserService = async (ids, data) => {
+  let conn;
+  try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+
+    const result = await _blockChargebackUserServiceInternal(ids, data);
+
+    await commit(conn);
+    return result;
+  } catch (error) {
+    if (conn) await rollback(conn);
     logger.error('Error in blockChargebackUserService', error);
     throw error;
   } finally {
-    if (conn) {
-      try {
-        conn.release();
-      } catch (releaseError) {
-        logger.error('Error while releasing the connection', releaseError);
-      }
-    }
+    if (conn) conn.release();
+  }
+};
+
+const _updateChargeBackServiceInternal = async (ids, payload, chargeBack) => {
+  try {
+    const data = await updateChargeBackDao(ids, payload);
+    let MerchantuserId = data.merchant_user_id;
+  const merchantCalculation = await getCalculationforCronDao(MerchantuserId);
+  let amount = Number(data.amount - chargeBack.amount);
+  if (data.amount > chargeBack.amount) {
+    amount = Math.abs(amount);
+  } else {
+    amount = -Math.abs(amount);
+  }
+  let merchantId = merchantCalculation[0].id;
+  await updateCalculationBalanceDao(
+    { id: merchantId },
+    {
+      total_chargeback_count: 1,
+      total_chargeback_amount: amount,
+      current_balance: -amount,
+      net_balance: -amount,
+    },
+  );
+  // update vendor calculations
+  let VendorUserId = data.vendor_user_id;
+  const vendorCalculation = await getCalculationforCronDao(VendorUserId);
+  let VendorId = vendorCalculation[0].id;
+  const updatedCalculation = {
+    total_chargeback_count: 1,
+    total_chargeback_amount: amount,
+    current_balance: -amount,
+    net_balance: -amount,
+  };
+  const response = await updateCalculationBalanceDao(
+    { id: VendorId },
+    updatedCalculation,
+  );
+  
+  await trackVendorsNetBalance(vendorCalculation[0].user_id, response);
+    return data;
+  } catch (error) {
+    logger.error('error in _updateChargeBackServiceInternal', error);
+    throw error;
   }
 };
 
@@ -589,44 +638,8 @@ const updateChargeBackService = async (ids, payload) => {
     }
     conn = await getConnection();
     await beginTransaction(conn);
-    const data = await updateChargeBackDao(ids, payload);
-    let MerchantuserId = data.merchant_user_id;
-    const merchantCalculation = await getCalculationforCronDao(MerchantuserId);
-    let amount = Number(data.amount - chargeBack.amount);
-    if (data.amount > chargeBack.amount) {
-      amount = Math.abs(amount);
-    } else {
-      amount = -Math.abs(amount);
-    }
-    let merchantId = merchantCalculation[0].id;
-    await updateCalculationBalanceDao(
-      { id: merchantId },
-      {
-        total_chargeback_count: 1,
-        total_chargeback_amount: amount,
-        current_balance: -amount,
-        net_balance: -amount,
-      },
-      conn,
-    );
-    // update vendor calculations
-    let VendorUserId = data.vendor_user_id;
-    const vendorCalculation = await getCalculationforCronDao(VendorUserId);
-    let VendorId = vendorCalculation[0].id;
-    const updatedCalculation = {
-      total_chargeback_count: 1,
-      total_chargeback_amount: amount,
-      current_balance: -amount,
-      net_balance: -amount,
-    };
-    const response = await updateCalculationBalanceDao(
-      { id: VendorId },
-      updatedCalculation,
-      conn,
-    );
-    
-    await trackVendorsNetBalance(vendorCalculation[0].user_id, conn, response);
-    await commit(conn); // Commit the transaction
+    const data = await _updateChargeBackServiceInternal(ids, payload, chargeBack);
+    await commit(conn);
     return data;
   } catch (error) {
     if (conn) {
@@ -649,8 +662,7 @@ const updateChargeBackService = async (ids, payload) => {
   }
 };
 
-const deleteChargeBackService = async (ids, payload, role) => {
-  let conn;
+const _deleteChargeBackServiceInternal = async (ids, payload, role) => {
   try {
     const filterColumns =
       role === Role.MERCHANT
@@ -659,13 +671,22 @@ const deleteChargeBackService = async (ids, payload, role) => {
           ? vendorColumns.CHARGE_BACK
           : columns.CHARGE_BACK;
 
-    conn = await getConnection();
-    await beginTransaction(conn); // Start a transaction
-
-    const data = await deleteChargeBackDao(ids, payload); // Adjust DAO call for delete
-    await commit(conn); // Commit the transaction
-
+    const data = await deleteChargeBackDao(ids, payload);
     const finalResult = filterResponse(data, filterColumns);
+    return finalResult;
+  } catch (error) {
+    logger.error('error in _deleteChargeBackServiceInternal', error);
+    throw error;
+  }
+};
+
+const deleteChargeBackService = async (ids, payload, role) => {
+  let conn;
+  try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+    const finalResult = await _deleteChargeBackServiceInternal(ids, payload, role);
+    await commit(conn);
     return finalResult;
   } catch (error) {
     if (conn) {

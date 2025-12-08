@@ -1997,18 +1997,10 @@ export const getPayInForDuplicate = async (filters = {}) => {
   }
 };
 
-export const updatePayInUrlDao = async (id, data, conn,
-  // Adddata
-) => {
+export const updatePayInUrlDao = async (id, data) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.PAYIN, data, { id });
-    let result;
-    if (conn && conn.query) {
-      result = await conn.query(sql, params);
-      // await newTableEntry(tableName.PAYIN);
-    } else {
-      result = await executeQuery(sql, params);
-    }
+    const result = await executeQuery(sql, params);
     // if (data.status === Status.SUCCESS) {
     //   await newTableEntry('SUM');
     // }

@@ -98,15 +98,11 @@ const getCompanyByIDDao = async (filters) => {
   }
 };
 
-const createCompanyDao = async (conn, payload) => {
+const createCompanyDao = async (payload) => {
   try {
     const [sql, params] = buildInsertQuery(tableName.COMPANY, payload);
-    if (conn && conn.query) {
-      const result = await conn.query(sql, params);
-      return result.rows[0];
-    }
     const result = await executeQuery(sql, params);
-    return result.rows;
+    return result.rows[0];
   } catch (error) {
     logger.error('Error fetching company:', error);
     throw error;
@@ -123,14 +119,13 @@ const updateCompanyDao = async (id, data) => {
     throw error;
   }
 };
-const updateCompanyConfigDao = async (id, data, conn) => {
+const updateCompanyConfigDao = async (id, data) => {
   return await buildAndExecuteUpdateQuery(
     tableName.COMPANY,
     data,
     id,
     {},
     { returnUpdated: true },
-    conn,
   );
 };
 

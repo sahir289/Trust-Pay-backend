@@ -51,14 +51,9 @@ const getallBankHistoryDao = async (filters) => {
   }
 };
 
-const createBankHistoryDao = async ( data , conn) => {
+const createBankHistoryDao = async (data) => {
   try {
     const [sql, params] = buildInsertQuery(tableName.BANK_HISTORY, data);
-
-    if (conn && conn.query) {
-      const result = await conn.query(sql, params);
-      return result.rows[0];
-    }
 
     const result = await executeQuery(sql, params);
     return result.rows[0];

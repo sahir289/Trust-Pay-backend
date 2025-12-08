@@ -1,6 +1,11 @@
 import { InternalServerError } from '../../utils/appErrors.js';
 import { createHash } from '../../utils/bcryptPassword.js';
-import { getConnection } from '../../utils/db.js';
+import {
+  getConnection,
+  beginTransaction,
+  commit,
+  rollback,
+} from '../../utils/db.js';
 import { generateUUID } from '../../utils/generateUUID.js';
 import { generatePassword } from '../../utils/generatePassword.js';
 import { sendCredentialsEmail } from '../../utils/sendMailer.js';
@@ -289,7 +294,7 @@ const getUsersByUserNameService = async (username, ids, role) => {
           ? vendorColumns.USER
           : columns.USER;
     conn = await getConnection('reader');
-    const data = await getUsersByUserNameDao(ids, username, conn);
+    const data = await getUsersByUserNameDao(ids, username);
     const finalResult = filterResponse(data, filterColumns);
     return finalResult;
   } catch (error) {
@@ -306,7 +311,7 @@ const getUsersByUserNameService = async (username, ids, role) => {
   }
 };
 
-const createUserService = async (conn, payload) => {
+const _createUserServiceInternal = async (payload) => {
   try {
     const { user_name } = payload;
     let company_id = payload.company_id;
@@ -346,7 +351,7 @@ const createUserService = async (conn, payload) => {
     delete payload.payout_notify;
     delete payload.return;
     delete payload.site;
-    const User = await createUserDao(userPayload, conn);
+    const User = await createUserDao(userPayload);
 
     const designation = await getDesignationDao({ id: payload.designation_id });
     const userRole = await getRoleDao({ id: payload.role_id });
@@ -388,7 +393,6 @@ const createUserService = async (conn, payload) => {
             child: { operations: [...currentChildren, User.id] },
           },
         },
-        conn,
       );
       if (
         userDesignation[0].designation == Role.VENDOR_OPERATIONS ||
@@ -406,7 +410,6 @@ const createUserService = async (conn, payload) => {
                 : payload.created_by,
             },
           },
-          conn,
         );
       }
     }
@@ -469,7 +472,7 @@ const createUserService = async (conn, payload) => {
           unblocked_countries: unblocked_countries,
         },
       };
-      merchant = await createMerchantService(conn, merchantPayload);
+      merchant = await createMerchantService(merchantPayload);
     }
     ///for vendor sub-vendor
     if (
@@ -513,7 +516,7 @@ const createUserService = async (conn, payload) => {
         role: userRole[0].role,
         parent_id: payload?.parent_id ? payload?.parent_id : payload.created_by,
       };
-      await createVendorService(conn, vendorPayload);
+      await createVendorService(vendorPayload);
     }
 
     if (User) {
@@ -550,14 +553,30 @@ const createUserService = async (conn, payload) => {
     // });
     return User;
   } catch (error) {
-    console.error(error);
-    logger.error('Error in createUserService:', error);
-
+    logger.error('error in _createUserServiceInternal', error);
     throw error;
   }
 };
 
-const userUpdateService = async (conn, ids, payload) => {
+const createUserService = async (payload) => {
+  let conn;
+  try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+    const User = await _createUserServiceInternal(payload);
+    await commit(conn);
+    return User;
+  } catch (error) {
+    if (conn) await rollback(conn);
+    console.error(error);
+    logger.error('Error in createUserService:', error);
+    throw error;
+  } finally {
+    if (conn) conn.release();
+  }
+};
+
+const _userUpdateServiceInternal = async (ids, payload) => {
   try {
     // if (payload.email) {
     //   const verifyEmail = await getUsersDao({ email: payload.email });
@@ -565,19 +584,40 @@ const userUpdateService = async (conn, ids, payload) => {
     //     throw new BadRequestError('Email already Registered');
     //   }
     // }
-    const User = await updateUserDao(ids, payload, conn);
-    // await notifyAdminsAndUsers({
-    //   conn,
-    //   company_id: ids.company_id,
-    //   message: `User with username: ${User.user_name} has been updated.`,
-    //   payloadUserId: payload.updated_by,
-    //   actorUserId: payload.updated_by,
-    //   category: 'User',
-    // });
+    const User = await updateUserDao(ids, payload);
+  // await notifyAdminsAndUsers({
+  //   conn,
+  //   company_id: ids.company_id,
+  //   message: `User with username: ${User.user_name} has been updated.`,
+  //   payloadUserId: payload.updated_by,
+  //   actorUserId: payload.updated_by,
+  //   category: 'User',
+  // });
     return User;
   } catch (error) {
+    logger.error('error in _userUpdateServiceInternal', error);
+    throw error;
+  }
+};
+
+const userUpdateService = async (ids, payload) => {
+  let conn;
+  try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+    const User = await _userUpdateServiceInternal(ids, payload);
+    await commit(conn);
+    return User;
+  } catch (error) {
+    if (conn) {
+      await rollback(conn);
+    }
     logger.error('error getting while updating user', error);
     throw error;
+  } finally {
+    if (conn) {
+      conn.release();
+    }
   }
 };
 

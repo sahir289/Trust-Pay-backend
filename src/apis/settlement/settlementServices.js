@@ -3,6 +3,12 @@ import {
   NotFoundError,
 } from '../../utils/appErrors.js';
 import {
+  beginTransaction,
+  commit,
+  getConnection,
+  rollback,
+} from '../../utils/db.js';
+import {
   createSettlementDao,
   deleteSettlementDao,
   getSettlementDao,
@@ -102,7 +108,7 @@ const getSubVendorParentInfo = async (vendor) => {
 };
 
 // Helper function to calculate commission for parent vendor in settlement
-const updateParentVendorSettlementCalculation = async (parentUserId, amount, vendorCommissionRate, isApproved, conn) => {
+const updateParentVendorSettlementCalculation = async (parentUserId, amount, vendorCommissionRate, isApproved) => {
   try {
     logger.info(`Settlement: updateParentVendorSettlementCalculation called with: parentUserId=${parentUserId}, amount=${amount}, rate=${vendorCommissionRate}, isApproved=${isApproved}`);
     
@@ -137,9 +143,8 @@ const updateParentVendorSettlementCalculation = async (parentUserId, amount, ven
     const response = await updateCalculationBalanceDao(
       { id: parentCalculationData[0].id },
       calculationUpdate,
-      conn,
     );
-    await trackVendorsNetBalance(parentUserId, conn, response);
+    await trackVendorsNetBalance(parentUserId, response);
 
     logger.info(`Settlement: Parent vendor calculation table updated successfully for userId: ${parentUserId}`);
     
@@ -381,58 +386,71 @@ const getSettlementsBySearchService = async (
   }
 };
 
-const createSettlementService = async (conn, payload, role) => {
+const _createSettlementServiceInternal = async (payload, role) => {
+  const isInternalTransfer =
+    payload.method === 'INTERNAL_QR_TRANSFER' ||
+    payload.method === 'INTERNAL_BANK_TRANSFER';
+
+  // Early return for non-internal transfers without reference_id
+  if (!isInternalTransfer || !payload.config?.reference_id) {
+    const result = await createSettlementDao(payload);
+    return result;
+  }
+
+  // Validate bank response for internal transfers
+  const bankResponses = await getBankResponseByUTR(
+    payload.config.reference_id,
+  );
+  if (!bankResponses) {
+    throw new NotFoundError('Bank response not found for the provided UTR');
+  }
+
+  // Get settlement data
+  const settlementArray = await getSettlementByUTRDao(
+    payload.config?.reference_id,
+  );
+
+  if (
+    bankResponses.is_used ||
+    bankResponses.status !== Status.BOT ||
+    settlementArray?.length
+  ) {
+    throw new BadRequestError('UTR is already used');
+  }
+
+  // Handle vendor role internal transfers
+  if (role !== Role.VENDOR) {
+    const result = await handleVendorInternalTransferByAdmin(
+      payload,
+      bankResponses,
+    );
+    return result;
+  }
+
+  // Handle other roles internal transfers
+  const result = await handleVendorInternalTransfer(payload);
+  return result;
+};
+
+const createSettlementService = async (payload, role) => {
+  let conn;
   try {
-    const isInternalTransfer =
-      payload.method === 'INTERNAL_QR_TRANSFER' ||
-      payload.method === 'INTERNAL_BANK_TRANSFER';
-
-    // Early return for non-internal transfers without reference_id
-    if (!isInternalTransfer || !payload.config?.reference_id) {
-      return await createSettlementDao(payload, conn);
-    }
-
-    // Validate bank response for internal transfers
-    const bankResponses = await getBankResponseByUTR(
-      payload.config.reference_id,
-    );
-    if (!bankResponses) {
-      throw new NotFoundError('Bank response not found for the provided UTR');
-    }
-
-    // Get settlement data
-    const settlementArray = await getSettlementByUTRDao(
-      payload.config?.reference_id,
-    );
-
-    if (
-      bankResponses.is_used ||
-      bankResponses.status !== Status.BOT ||
-      settlementArray?.length
-    ) {
-      throw new BadRequestError('UTR is already used');
-    }
-
-    // Handle vendor role internal transfers
-    if (role !== Role.VENDOR) {
-      return await handleVendorInternalTransferByAdmin(
-        conn,
-        payload,
-        bankResponses,
-      );
-    }
-
-    // Handle other roles internal transfers
-    return await handleVendorInternalTransfer(payload);
+    conn = await getConnection();
+    await beginTransaction(conn);
+    const result = await _createSettlementServiceInternal(payload, role);
+    await commit(conn);
+    return result;
   } catch (error) {
+    if (conn) await rollback(conn);
     logger.error('Error while creating Settlement', error);
     throw error;
+  } finally {
+    if (conn) conn.release();
   }
 };
 
 // Helper function for internal transfers from admin
 const handleVendorInternalTransferByAdmin = async (
-  conn,
   payload,
   bankResponses,
 ) => {
@@ -456,7 +474,6 @@ const handleVendorInternalTransferByAdmin = async (
   const response = await updateBankResponseDao(
     { id: bankResponses.id },
     { status: '/internalTransfer' },
-    conn,
   );
   const responseObj = {
     id: response.id,
@@ -489,10 +506,9 @@ const handleVendorInternalTransferByAdmin = async (
   const calculationResponse = await updateCalculationBalanceDao(
     { id: calculationData[0].id },
     updatedCalculation,
-    conn,
   );
   
-  await trackVendorsNetBalance(calculationData[0].user_id, conn, calculationResponse);
+  await trackVendorsNetBalance(calculationData[0].user_id, calculationResponse);
 
   // Update calculation config based on method
   const config = getConfigForMethod(
@@ -503,7 +519,6 @@ const handleVendorInternalTransferByAdmin = async (
   await updateCalculationConfigDao(
     { id: calculationData[0].id },
     { config },
-    conn,
   );
 
   // Set final payload properties
@@ -515,11 +530,10 @@ const handleVendorInternalTransferByAdmin = async (
       subVendorParentInfo.parentUserId,
       payload.amount,
       Number(vendorData[0].config?.mediator_payin_commission) || 0,
-      true, 
-      conn,
+      true,
     );
   }
-  return await createSettlementDao(payload, conn);
+  return await createSettlementDao(payload);
 };
 
 // Helper function for internal transfers from vendors
@@ -592,7 +606,6 @@ const validateUTR = (payload, settlementData) => {
 
 // Helper function to handle internal transfer UTR
 const handleInternalTransferUTR = async (
-  conn,
   payload,
   settlementData,
   changeUTRStatus,
@@ -619,7 +632,6 @@ const handleInternalTransferUTR = async (
         const response = await updateBankResponseDao(
           { id: bankResponses.id },
           { status: '/internalTransfer' },
-          conn,
         );
 
         const responseObj = createBankResponseObject(
@@ -705,7 +717,6 @@ const createCalculationUpdate = (
 
 // Helper function to update beneficiary account
 const updateBeneficiaryAccount = async (
-  conn,
   settlementData,
   payload,
   isReversed = false,
@@ -746,7 +757,6 @@ const updateBeneficiaryAccount = async (
   await updateBeneficiaryAccountDao(
     { id: beneficiaryAcc.id, company_id: settlementData.company_id },
     { config: beneficiaryUpdatedConfig },
-    conn,
     false,
   );
 
@@ -778,7 +788,6 @@ const updateBeneficiaryAccount = async (
 
 // Helper function to handle internal transfer reversal
 const handleInternalTransferReversal = async (
-  conn,
   settlementData,
   payload,
 ) => {
@@ -811,7 +820,6 @@ const handleInternalTransferReversal = async (
   const response = await updateBankResponseDao(
     { id: bankResponses.id },
     { status: '/success' },
-    conn,
   );
 
   const responseObj = createBankResponseObject(
@@ -833,7 +841,6 @@ const handleInternalTransferReversal = async (
       payload.amount,
       Number(vendorData[0].config?.mediator_payin_commission) || 0,
       false, // isApproved = false (add commission back to parent)
-      conn,
     );
     
     logger.info(`Settlement reversal: Parent vendor calculation updated for sub-vendor settlement reversal`);
@@ -935,10 +942,9 @@ const calculateTransferMethodConfig = (
   return { [keyName]: totalSettlementAmount };
 };
 
-const updateSettlementService = async (conn, ids, payload) => {
-  try {
-    await checkLockEdit(conn, ids.id);
-    payload.config = payload.config || {};
+const _updateSettlementServiceInternal = async (ids, payload) => {
+  await checkLockEdit(ids.id);
+  payload.config = payload.config || {};
 
     // Get settlement data
     const settlementArray = await getSettlementDao({
@@ -963,7 +969,6 @@ const updateSettlementService = async (conn, ids, payload) => {
 
     // Handle internal transfer UTR
     await handleInternalTransferUTR(
-      conn,
       payload,
       settlementData,
       changeUTRStatus,
@@ -1017,7 +1022,6 @@ const updateSettlementService = async (conn, ids, payload) => {
                 payload.amount,
                 Number(payload._subVendorParentInfo.parentVendor.payin_commission),
                 true, // isApproved = true (remove commission from parent)
-                conn,
               );
               
               logger.info(`Settlement approval: Parent vendor calculation updated for sub-vendor settlement`);
@@ -1032,16 +1036,16 @@ const updateSettlementService = async (conn, ids, payload) => {
 
         // Update calculation balance
         const { id } = calculationData[0];
-        const updatedCalculationData = await updateCalculationBalanceDao({ id }, updatedCalculation, conn);
+        const updatedCalculationData = await updateCalculationBalanceDao({ id }, updatedCalculation);
         
-        await trackVendorsNetBalance(calculationData[0].user_id, conn, updatedCalculationData);
+        await trackVendorsNetBalance(calculationData[0].user_id, updatedCalculationData);
       }
       delete payload._subVendorParentInfo;
       delete payload._parentCommission;
       delete payload.config.brokerage_commission;
 
       // Update beneficiary account for vendor bank transactions
-      await updateBeneficiaryAccount(conn, settlementData, payload);
+      await updateBeneficiaryAccount(settlementData, payload);
     }
 
     // Handle reversal (status INITIATED)
@@ -1072,7 +1076,6 @@ const updateSettlementService = async (conn, ids, payload) => {
 
         if (isInternalMethod) {
           updatedCalculation = await handleInternalTransferReversal(
-            conn,
             settlementData,
             payload,
           );
@@ -1084,16 +1087,16 @@ const updateSettlementService = async (conn, ids, payload) => {
             true,
           );
           // Update beneficiary account for vendor bank transactions
-          await updateBeneficiaryAccount(conn, settlementData, payload, true);
+          await updateBeneficiaryAccount(settlementData, payload, true);
         }
       }
 
       // Update calculation balance
       if (calculationData.length > 0) {
         const { id } = calculationData[0];
-        const updatedCalculationResponse = await updateCalculationBalanceDao({ id }, updatedCalculation, conn);
+        const updatedCalculationResponse = await updateCalculationBalanceDao({ id }, updatedCalculation);
         
-        await trackVendorsNetBalance(calculationData[0].user_id, conn, updatedCalculationResponse);
+        await trackVendorsNetBalance(calculationData[0].user_id, updatedCalculationResponse);
       }
     }
 
@@ -1104,7 +1107,6 @@ const updateSettlementService = async (conn, ids, payload) => {
 
     // Update settlement
     const updateData = await updateSettlementDao(
-      conn,
       { id: ids.id, company_id: ids.company_id },
       payload,
     );
@@ -1142,29 +1144,49 @@ const updateSettlementService = async (conn, ids, payload) => {
         await updateCalculationConfigDao(
           { id: calculationData[0].id },
           { config },
-          conn,
         );
       }
     }
 
     return updateData;
+};
+
+const updateSettlementService = async (ids, payload) => {
+  let conn;
+  try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+    const updateData = await _updateSettlementServiceInternal(ids, payload);
+    await commit(conn);
+    return updateData;
   } catch (error) {
+    if (conn) await rollback(conn);
     logger.error('Error while updating Settlement', error);
     throw error;
+  } finally {
+    if (conn) conn.release();
   }
 };
 
-const deleteSettlementService = async (conn, ids) => {
+const deleteSettlementService = async (ids) => {
+  let conn;
   try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+
     const updatedData = await deleteSettlementDao(
-      conn,
       { id: ids.id, company_id: ids.company_id },
       { is_obsolete: true, updated_by: ids.user_id },
     );
+
+    await commit(conn);
     return updatedData;
   } catch (error) {
+    if (conn) await rollback(conn);
     logger.error('error getting while deleting settlement', error);
     throw error;
+  } finally {
+    if (conn) conn.release();
   }
 };
 

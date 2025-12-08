@@ -693,7 +693,6 @@ const createBankaccountDao = async (payload) => {
 };
 
 const getBankAccountDaoNickName = async (
-  conn,
   company_id,
   type,
   filters = {},
@@ -742,7 +741,7 @@ const getBankAccountDaoNickName = async (
       ORDER BY nick_name ASC
     `;
     // Execute query
-    const result = await conn.query(baseQuery, queryParams);
+    const result = await executeQuery(baseQuery, queryParams);
     return {
       totalCount: result.rowCount,
       bankNames: result.rows,
@@ -753,7 +752,7 @@ const getBankAccountDaoNickName = async (
   }
 };
 
-const updateBankaccountDao = async (id, payload, conn, isParentDeleted) => {
+const updateBankaccountDao = async (id, payload, isParentDeleted) => {
   try {
     // Fetch existing bank config to merge with added_at
     const existingBankArr = await getBankaccountDao({
@@ -802,8 +801,8 @@ const updateBankaccountDao = async (id, payload, conn, isParentDeleted) => {
         payload,
         id,
       );
-      const result = await conn.query(sql, params);
-      return result;
+      const result = await executeQuery(sql, params);
+      return result.rows[0];
     }
     
     // Use buildAndExecuteUpdateQuery to update the bank account
@@ -813,7 +812,6 @@ const updateBankaccountDao = async (id, payload, conn, isParentDeleted) => {
       id,
       {}, // No special fields
       { returnUpdated: true }, // Return the updated row
-      conn, // Use the provided connection
     );
     
     return result;
@@ -824,15 +822,10 @@ const updateBankaccountDao = async (id, payload, conn, isParentDeleted) => {
   }
 };
 
-const deleteBankaccountDao = async (conn, id, data) => {
+const deleteBankaccountDao = async (id, data) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.BANK_ACCOUNT, data, id);
-    let result;
-    if (conn && conn.query) {
-      result = await conn.query(sql, params); // Use connection to execute query
-    } else {
-      result = await executeQuery(sql, params); // Use executeQuery if no connection
-    }
+    const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error)  {
     logger.error('Error in deleteBankaccountDao:', error);
@@ -844,7 +837,6 @@ const updateBanktBalanceDao = async (
   filters,
   amount,
   updated_by,
-  conn,
 ) => {
   try {
     const [sql, params] = buildUpdateQuery(
@@ -854,12 +846,7 @@ const updateBanktBalanceDao = async (
       { balance: '+', today_balance: '+' },
     );
     
-    let result;
-    if (conn && conn.query) {
-      result = await conn.query(sql, params);
-    } else {
-      result = await executeQuery(sql, params);
-    }
+    const result = await executeQuery(sql, params);
     
     return result.rows[0];
   } catch (error) {

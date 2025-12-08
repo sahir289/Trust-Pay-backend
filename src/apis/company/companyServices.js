@@ -11,6 +11,12 @@ import { getRoleDao } from '../roles/rolesDao.js';
 import { RoleIs, DesignationIs } from '../../constants/index.js';
 import { getDesignationDao } from '../designation/designationDao.js';
 import { logger } from '../../utils/logger.js';
+import {
+  getConnection,
+  beginTransaction,
+  commit,
+  rollback,
+} from '../../utils/db.js';
 
 const getCompanyService = async (id) => {
   try {
@@ -32,7 +38,7 @@ const getCompanyByIdService = async (id) => {
   }
 };
 
-const createCompanyService = async (conn, payload) => {
+const _createCompanyServiceInternal = async (payload) => {
   try {
     // Validate payload
     // Create company
@@ -80,7 +86,7 @@ const createCompanyService = async (conn, payload) => {
       },
     };
 
-    const company = await createCompanyDao(conn, {
+    const company = await createCompanyDao({
       first_name: payload.first_name,
       last_name: payload.last_name,
       email: payload.email,
@@ -108,8 +114,9 @@ const createCompanyService = async (conn, payload) => {
       unique_admin_id: unique_id,
       code: payload.first_name.split('').reverse().join(''),
     };
-    // Create user
-    const user = await createUserService(conn, userPayload);
+    // Create user - this will manage its own transaction
+    const user = await createUserService(userPayload);
+
     // Return result
     return {
       company_id: company.id,
@@ -118,8 +125,29 @@ const createCompanyService = async (conn, payload) => {
       user_id: user.id,
     };
   } catch (error) {
+    logger.error('error in _createCompanyServiceInternal', error);
+    throw error;
+  }
+};
+
+const createCompanyService = async (payload) => {
+  let conn;
+  try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+    const result = await _createCompanyServiceInternal(payload);
+    await commit(conn);
+    return result;
+  } catch (error) {
+    if (conn) {
+      await rollback(conn);
+    }
     logger.error('Error while creating company:', error);
     throw error;
+  } finally {
+    if (conn) {
+      conn.release();
+    }
   }
 };
 

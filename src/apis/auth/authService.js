@@ -102,7 +102,7 @@ const loginService = async (config, clientIP, retryCount = 0) => {
       
       // First, immediately invalidate ALL existing sessions for this user
       // This prevents any race condition with multiple simultaneous logins
-      await deleteUserSessionsDao(user.id, user.company_id, null, conn);
+      await deleteUserSessionsDao(user.id, user.company_id, null);
       
       // Add a small delay to ensure any concurrent operations complete
       await new Promise(resolve => setTimeout(resolve, 50));
@@ -130,7 +130,7 @@ const loginService = async (config, clientIP, retryCount = 0) => {
       };
 
       // Create new session - this should be the only active session
-      await addLoginDao(user.id, newConfig, user.company_id, sessionId, conn);
+      await addLoginDao(user.id, newConfig, user.company_id, sessionId);
       
       // Commit the transaction
       await conn.query('COMMIT');
@@ -372,10 +372,16 @@ const getUserRoleService = async (userName) => {
 
     let response = {
       isAdmin: false,
+      isVendor: false,
     };
     if (user.designation === Role.ADMIN) {
       response = {
         isAdmin: true,
+      };
+    }
+    else if (user.role === Role.VENDOR) {
+      response = {
+        isVendor: true,
       };
     }
     return response;

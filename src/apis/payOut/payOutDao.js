@@ -18,7 +18,7 @@ import { logger } from '../../utils/logger.js';
 import dayjs from 'dayjs';
 const IST = 'Asia/Kolkata';
 
-export const createPayoutDao = async (conn, data) => {
+export const createPayoutDao = async (data) => {
   try {
     // Ensure `config` is initialized if not provided
     if (!data.config) {
@@ -26,9 +26,7 @@ export const createPayoutDao = async (conn, data) => {
     }
 
     const [sql, params] = buildInsertQuery(tableName.PAYOUT, data);
-    const result = conn
-      ? await conn.query(sql, params)
-      : await executeQuery(sql, params);
+    const result = await executeQuery(sql, params);
     // const insertedEntry = result.rows[0];
     // const merchant = await getMerchantForEsDao(insertedEntry.merchant_id);
     // insertedEntry.merchant_details = {
@@ -1093,7 +1091,7 @@ export const getInitiatedAndPendingSummaryByMerchant = async (company_id) => {
     throw error;
   }
 };
-export const getPayoutsCronDao = async (conn, payload) => {
+export const getPayoutsCronDao = async (payload) => {
   try {
     let baseQuery = `SELECT * FROM public."Payout" 
       WHERE is_obsolete = false AND status = $1
@@ -1101,7 +1099,7 @@ export const getPayoutsCronDao = async (conn, payload) => {
     `;
     const queryParams = [payload];
 
-    const result = await conn.query(baseQuery, queryParams);
+    const result = await executeQuery(baseQuery, queryParams);
     return result.rows;
   } catch (error) {
     logger.error('Error in createPayoutDao:', error);
@@ -1109,7 +1107,7 @@ export const getPayoutsCronDao = async (conn, payload) => {
   }
 };
 
-export const updatePayoutDao = async (ids, data, conn) => {
+export const updatePayoutDao = async (ids, data) => {
   try {
     // Clone the data object to avoid modifying the original
     const updateData = { ...data };
@@ -1135,7 +1133,6 @@ export const updatePayoutDao = async (ids, data, conn) => {
     ids,
     {}, // No special fields
     { returnUpdated: true },
-    conn,
   );
    
 //     let esResult = result;

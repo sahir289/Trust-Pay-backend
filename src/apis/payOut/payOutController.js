@@ -1,4 +1,3 @@
-import { transactionWrapper } from '../../utils/db.js';
 import {
   sendSuccess,
   sendNewSuccess,
@@ -54,7 +53,7 @@ const createPayout = async (req, res) => {
     payload.created_by = user_id;
     payload.updated_by = user_id;
     payload.x_api_key = x_api_key;
-    result = await transactionWrapper(createPayoutService)(
+    result = await createPayoutService(
       req.headers,
       payload,
       role,
@@ -63,7 +62,7 @@ const createPayout = async (req, res) => {
     );
   } else {
     payload.x_api_key = x_api_key;
-    result = await transactionWrapper(createPayoutService)(
+    result = await createPayoutService(
       req.headers,
       payload,
       null,
@@ -149,7 +148,7 @@ const updatePayout = async (req, res) => {
 
   payload.updated_by = user_id;
   const ids = { id, company_id };
-  const update = await transactionWrapper(updatePayoutService)(
+  const update = await updatePayoutService(
     ids,
     payload,
     role,
@@ -171,7 +170,7 @@ const assignedPayout = async (req, res) => {
   }
   const updated_by = user_id;
   const ids = { id };
-  const update = await transactionWrapper(assignedPayoutService)(
+  const update = await assignedPayoutService(
     ids,
     payouts_ids,
     updated_by,
@@ -229,7 +228,7 @@ const createTataPayBulkPayoutController = async (req, res) => {
   const { payoutEntries, payoutIds } = req.body;
   const { company_id, user_id } = req.user;
 
-  const result = await transactionWrapper(createTataPayBulkPayoutService)({
+  const result = await createTataPayBulkPayoutService({
     payoutEntries,
     payoutIds,
     company_id,

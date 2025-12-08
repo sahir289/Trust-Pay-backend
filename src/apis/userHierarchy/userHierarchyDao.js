@@ -7,13 +7,9 @@ import {
 } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
 import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
-export const createUserHierarchyDao = async (data, conn) => {
+export const createUserHierarchyDao = async (data) => {
   try {
     const [sql, params] = buildInsertQuery(tableName.USER_HIERARCHY, data);
-    if (conn && conn.query) {
-      const result = await conn.query(sql, params);
-      return result.rows[0];
-    }
     const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
@@ -69,15 +65,10 @@ export const getUserHierarchysDao = async (
   }
 };
 
-export const updateUserHierarchyDao = async (id, data, conn) => {
+export const updateUserHierarchyDao = async (id, data) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.USER_HIERARCHY, data, id);
-    let result;
-    if (conn) {
-      result = await conn.query(sql, params);
-      return result.rows[0];
-    }
-    result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in updateUserHierarchyDao:', error);
