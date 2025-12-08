@@ -558,12 +558,21 @@ const _blockChargebackUserServiceInternal = async (ids, data) => {
 };
 
 const blockChargebackUserService = async (ids, data) => {
+  let conn;
   try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+
     const result = await _blockChargebackUserServiceInternal(ids, data);
+
+    await commit(conn);
     return result;
   } catch (error) {
+    if (conn) await rollback(conn);
     logger.error('Error in blockChargebackUserService', error);
     throw error;
+  } finally {
+    if (conn) conn.release();
   }
 };
 
