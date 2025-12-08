@@ -462,14 +462,9 @@ const updateBankaccountService = async (
 };
 
 const deleteBankaccountService = async (ids, user_id) => {
-  let conn;
   try {
-    conn = await getConnection();
-    await beginTransaction(conn);
-
     const payload = { is_obsolete: true, updated_by: user_id };
     const result = await deleteBankaccountDao(
-      conn,
       { id: ids.id, company_id: ids.company_id },
       payload,
     );
@@ -482,15 +477,11 @@ const deleteBankaccountService = async (ids, user_id) => {
     //   category: 'Bank Account',
     // });
 
-    await commit(conn);
     return result;
   } catch (error) {
-    if (conn) await rollback(conn);
     logger.error('error getting while deleting banks', error);
-    throw new BadRequestError('Error getting while  deleting banks');
-  } finally {
-    if (conn) conn.release();
-  }
+    throw error;
+  } 
 };
 
 const _activeInactiveBankAccountServiceInternal = async (ids, payload) => {
