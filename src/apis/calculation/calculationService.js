@@ -87,7 +87,7 @@ const createCalculationService = async (payload, role) => {
         : role === Role.VENDOR || role === Role.SUB_VENDOR
           ? vendorColumns.CALCULATION
           : columns.CALCULATION;
-    const data = await createCalculationDao(conn, payload); // Ensuring transaction safety
+    const data = await createCalculationDao(payload); // Ensuring transaction safety
     const finalResult = filterResponse(data, filterColumns);
 
     await commit(conn);
@@ -142,7 +142,7 @@ const deleteCalculationService = async (id, role) => {
           ? vendorColumns.CALCULATION
           : columns.CALCULATION;
     const userData = { is_obsolete: true };
-    const data = await deleteCalculationDao(conn, id, userData);
+    const data = await deleteCalculationDao(id, userData);
     const finalResult = filterResponse(data, filterColumns);
 
     await commit(conn);

@@ -372,10 +372,16 @@ const getUserRoleService = async (userName) => {
 
     let response = {
       isAdmin: false,
+      isVendor: false,
     };
     if (user.designation === Role.ADMIN) {
       response = {
         isAdmin: true,
+      };
+    }
+    else if (user.role === Role.VENDOR) {
+      response = {
+        isVendor: true,
       };
     }
     return response;

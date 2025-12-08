@@ -311,7 +311,7 @@ const getUsersByUserNameService = async (username, ids, role) => {
   }
 };
 
-const _createUserServiceInternal = async (conn, payload) => {
+const _createUserServiceInternal = async (payload) => {
   try {
     const { user_name } = payload;
     let company_id = payload.company_id;
@@ -393,7 +393,6 @@ const _createUserServiceInternal = async (conn, payload) => {
             child: { operations: [...currentChildren, User.id] },
           },
         },
-        conn,
       );
       if (
         userDesignation[0].designation == Role.VENDOR_OPERATIONS ||
@@ -411,7 +410,6 @@ const _createUserServiceInternal = async (conn, payload) => {
                 : payload.created_by,
             },
           },
-          conn,
         );
       }
     }
@@ -565,7 +563,7 @@ const createUserService = async (payload) => {
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const User = await _createUserServiceInternal(conn, payload);
+    const User = await _createUserServiceInternal(payload);
     await commit(conn);
     return User;
   } catch (error) {
@@ -578,7 +576,7 @@ const createUserService = async (payload) => {
   }
 };
 
-const _userUpdateServiceInternal = async (conn, ids, payload) => {
+const _userUpdateServiceInternal = async (ids, payload) => {
   try {
     // if (payload.email) {
     //   const verifyEmail = await getUsersDao({ email: payload.email });
@@ -607,7 +605,7 @@ const userUpdateService = async (ids, payload) => {
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const User = await _userUpdateServiceInternal(conn, ids, payload);
+    const User = await _userUpdateServiceInternal(ids, payload);
     await commit(conn);
     return User;
   } catch (error) {

@@ -276,7 +276,6 @@ const updateParentVendorCalculation = async (
 };
 
 const _createPayoutServiceInternal = async (
-  conn,
   headers,
   payload,
   role,
@@ -419,7 +418,7 @@ const _createPayoutServiceInternal = async (
     // }
 
     delete payload.x_api_key;
-    let data = await createPayoutDao(conn, payload);
+    let data = await createPayoutDao(payload);
 
     if (balanceRestriction) {
       const { totalNetBalance } = await getCalculationDao({ user_id });
@@ -502,7 +501,7 @@ const createPayoutService = async (
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const data = await _createPayoutServiceInternal(conn, headers, payload, role, userIp, fromUI);
+    const data = await _createPayoutServiceInternal(headers, payload, role, userIp, fromUI);
     await commit(conn);
     return data;
   } catch (error) {
@@ -760,7 +759,7 @@ const getPayoutsBySearchService = async (
   }
 };
 
-const _updatePayoutServiceInternal = async (conn, ids, payload, role) => {
+const _updatePayoutServiceInternal = async (ids, payload, role) => {
   try {
     const filterColumns =
       role === Role.MERCHANT
@@ -770,7 +769,7 @@ const _updatePayoutServiceInternal = async (conn, ids, payload, role) => {
           : columns.PAYOUT;
 
     if (!payload?.config?.method === Method.CLICKRR && !payload?.config?.method === Method.PAYASSIST && !payload?.config?.method === Method.TATAPAY)
-      await checkLockEdit(conn, ids.id);
+      await checkLockEdit(ids.id);
 
     // Early validation for UTR uniqueness
     if (payload?.utr_id) {
@@ -808,7 +807,6 @@ const _updatePayoutServiceInternal = async (conn, ids, payload, role) => {
       null,
       'DESC',
       null,
-      conn,
     );
 
     const singleWithdrawData = singleWithdrawDataArr[0];
@@ -1042,13 +1040,11 @@ const _updatePayoutServiceInternal = async (conn, ids, payload, role) => {
           merchant.user_id,
           { payoutCommission: merchantCommission, amount: data.amount },
           true,
-          conn,
         ),
         updateCalculationTable(
           vendor.user_id,
           { payoutCommission: vendorCommission, amount: data.amount },
           true,
-          conn,
         ),
       ];
 
@@ -1060,7 +1056,6 @@ const _updatePayoutServiceInternal = async (conn, ids, payload, role) => {
             Number(data.amount),
             Number(vendor.config?.mediator_payout_commission) || 0,
             true,
-            conn,
           ),
         );
       }
@@ -1079,7 +1074,6 @@ const _updatePayoutServiceInternal = async (conn, ids, payload, role) => {
                 ? false
                 : true,
           },
-          conn,
         ),
         updatePayoutDao(
           ids,
@@ -1089,7 +1083,6 @@ const _updatePayoutServiceInternal = async (conn, ids, payload, role) => {
             vendor_id: vendor.id,
             // config: payoutConfig,
           },
-          conn,
         ),
       ]);
     } else if (data.status === Status.REVERSED && data.approved_at !== null) {
@@ -1099,13 +1092,11 @@ const _updatePayoutServiceInternal = async (conn, ids, payload, role) => {
           merchant.user_id,
           { payoutCommission: merchantCommission, amount: data.amount },
           false,
-          conn,
         ),
         updateCalculationTable(
           vendor.user_id,
           { payoutCommission: vendorCommission, amount: data.amount },
           false,
-          conn,
         ),
       ];
 
@@ -1117,7 +1108,6 @@ const _updatePayoutServiceInternal = async (conn, ids, payload, role) => {
             Number(data.amount),
             Number(vendor.config?.mediator_payout_commission) || 0,
             false,
-            conn,
           ),
         );
       }
@@ -1135,7 +1125,6 @@ const _updatePayoutServiceInternal = async (conn, ids, payload, role) => {
                 ? false
                 : true,
           },
-          conn,
         ),
       ]);
     }
@@ -1165,7 +1154,7 @@ const updatePayoutService = async (ids, payload, role) => {
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const data = await _updatePayoutServiceInternal(conn, ids, payload, role);
+    const data = await _updatePayoutServiceInternal(ids, payload, role);
     await commit(conn);
     return data;
   } catch (error) {
@@ -1434,7 +1423,6 @@ const ekoPayoutStatus = async (id, res) => {
 };
 
 const _assignedPayoutServiceInternal = async (
-  conn,
   id,
   payload,
   updated_by,
@@ -1446,7 +1434,6 @@ const _assignedPayoutServiceInternal = async (
       id,
       updated_by,
       company_id,
-      conn,
     );
     await newTableEntry(tableName.PAYOUT);
     return data;
@@ -1466,7 +1453,7 @@ const assignedPayoutService = async (
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const data = await _assignedPayoutServiceInternal(conn, id, payload, updated_by, company_id);
+    const data = await _assignedPayoutServiceInternal(id, payload, updated_by, company_id);
     await commit(conn);
     return data;
   } catch (error) {
@@ -1652,7 +1639,6 @@ const checkPayOutStatusService = async (
  * @returns {Promise<Object>} - Service response
  */
 const _createTataPayBulkPayoutServiceInternal = async (
-  conn,
   {
     payoutEntries,
     payoutIds,
@@ -1674,7 +1660,6 @@ const _createTataPayBulkPayoutServiceInternal = async (
         null,
         'DESC',
         null,
-        conn
       );
       
       if (!payouts || payouts.length === 0) {
@@ -1695,7 +1680,6 @@ const _createTataPayBulkPayoutServiceInternal = async (
               ...payload,
               updated_at: new Date().toISOString(),
             },
-            conn // use the transaction connection
           );
         }
         
@@ -1767,7 +1751,6 @@ const _createTataPayBulkPayoutServiceInternal = async (
                 await updatePayoutDao(
                   { id: update.payoutId }, // ids parameter
                   updatePayload, // payload parameter
-                  conn // use the transaction connection
                 );
                 
                 logger.info(`Direct database update completed for payout ID: ${update.payoutId}`);
@@ -1817,7 +1800,7 @@ const createTataPayBulkPayoutService = async (
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const result = await _createTataPayBulkPayoutServiceInternal(conn, { payoutEntries, payoutIds, company_id, user_id });
+    const result = await _createTataPayBulkPayoutServiceInternal({ payoutEntries, payoutIds, company_id, user_id });
     await commit(conn);
     return result;
   } catch (error) {

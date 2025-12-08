@@ -108,7 +108,6 @@ export const getVendorsDashBoardReportDao = async (filters = {}) => {
 };
 export const getVendorsCodeDao = async (
   filters,
-  conn,
   includeSubVendors = false,
   includeOnlyVendors = false,
   excludeDisabledVendor = false,
@@ -249,7 +248,7 @@ export const getVendorsCodeDao = async (
     }
 
     sql += ` GROUP BY v.id, v.code, v.user_id ORDER BY v.code ASC`;
-    const result = await conn.query(sql, queryParams);
+    const result = await executeQuery(sql, queryParams);
     logger.log('Fetched Vendors:', result.rows.length, 'rows');
     return result.rows;
   } catch (error) {

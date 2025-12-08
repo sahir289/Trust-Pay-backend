@@ -41,7 +41,7 @@ import { updateUserDao } from '../users/userDao.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 // Create Merchant Service
 
-const _createMerchantServiceInternal = async (conn, payload) => {
+const _createMerchantServiceInternal = async (payload) => {
   const parentId = payload.parent_id;
   delete payload.parentId;
   let Role_id = payload.role_id;
@@ -56,7 +56,7 @@ const _createMerchantServiceInternal = async (conn, payload) => {
     user_id: data.user_id,
     company_id: data.company_id,
   };
-  await createCalculationDao(conn, calculationPayload);
+  await createCalculationDao(calculationPayload);
   if (userRole === Role.MERCHANT) {
     await createUserHierarchyDao(
       {
@@ -66,7 +66,6 @@ const _createMerchantServiceInternal = async (conn, payload) => {
         updated_by: data.updated_by,
         company_id: data.company_id,
       },
-      conn,
     );
   }
   if (
@@ -91,7 +90,6 @@ const _createMerchantServiceInternal = async (conn, payload) => {
             siblings: { sub_merchants: [...currentChildren, data.user_id] },
           },
         },
-        conn,
       );
     } catch (error) {
       logger.error('Error updating hierarchy:', error);
@@ -116,7 +114,7 @@ const createMerchantService = async (payload) => {
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const data = await _createMerchantServiceInternal(conn, payload);
+    const data = await _createMerchantServiceInternal(payload);
     await commit(conn);
     return data;
   } catch (error) {
@@ -376,7 +374,7 @@ const getMerchantsServiceCode = async (
 };
 
 // Update Merchant Service
-const _updateMerchantServiceInternal = async (conn, ids, payload) => {
+const _updateMerchantServiceInternal = async (ids, payload) => {
   // const filterColumns =
   //   role === Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
   if (payload?.whitelist_ips || payload?.whitelist_ips === '') {
@@ -406,7 +404,7 @@ const updateMerchantService = async (ids, payload) => {
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const data = await _updateMerchantServiceInternal(conn, ids, payload);
+    const data = await _updateMerchantServiceInternal(ids, payload);
     await commit(conn);
     return data;
   } catch (error) {
@@ -419,7 +417,7 @@ const updateMerchantService = async (ids, payload) => {
 };
 
 // Delete Merchant Service (with Transaction Handling)
-const _deleteMerchantServiceInternal = async (conn, ids, updated_by, roleIs) => {
+const _deleteMerchantServiceInternal = async (ids, updated_by, roleIs) => {
   const id = ids.id;
   const merchantDetails = await getMerchantsDao(
     { id },
@@ -480,7 +478,6 @@ const _deleteMerchantServiceInternal = async (conn, ids, updated_by, roleIs) => 
     await updateBankaccountDao(
       { id: bankId, company_id: ids.company_id },
       { config: { merchants: filteredMerchants } },
-      conn,
     );
   }
   //delete user of merchant also
@@ -491,7 +488,7 @@ const _deleteMerchantServiceInternal = async (conn, ids, updated_by, roleIs) => 
   ];
   await updateUserDao({ id: userIds }, { is_obsolete: true });
   const payload = { is_obsolete: true, updated_by };
-  const data = await deleteMerchantDao(conn, ids, payload); // Adjust DAO call for delete
+  const data = await deleteMerchantDao(ids, payload); // Adjust DAO call for delete
   logger.log('Merchant deleted successfully');
   // const userArr = await getUserByIdDao(conn, {
   //   id: userIds,
@@ -515,7 +512,7 @@ const deleteMerchantService = async (ids, updated_by, roleIs) => {
   try {
     conn = await getConnection();
     await beginTransaction(conn); // Start a transaction
-    const data = await _deleteMerchantServiceInternal(conn, ids, updated_by, roleIs);
+    const data = await _deleteMerchantServiceInternal(ids, updated_by, roleIs);
     await commit(conn); // Commit the transaction
     return data;
   } catch (error) {

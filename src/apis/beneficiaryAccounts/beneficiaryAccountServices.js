@@ -443,7 +443,6 @@ const _updateBeneficiaryAccountService = async (conn, ids, payload) => {
   const result = await updateBeneficiaryAccountDao(
     { id: ids.id, company_id: ids.company_id },
     payload,
-    conn,
   );
 
   // let notifyIds = [];

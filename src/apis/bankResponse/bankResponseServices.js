@@ -1640,6 +1640,7 @@ const handleAmountUpdate = async ({
   user_name,
   role,
   payInData,
+  user_id,
 }) => {
   try {
     const previousAmount = botRes.amount;
@@ -1769,6 +1770,8 @@ const handleAmountUpdate = async ({
               { id: bank.id, company_id: res.company_id },
               { latest_balance: res.today_balance },
               role,
+              res.company_id,
+              user_id,
             );
           }
         }),

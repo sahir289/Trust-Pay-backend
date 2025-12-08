@@ -1,10 +1,11 @@
 import { BadRequestError } from './appErrors.js';
+import { executeQuery } from './db.js';
 import { logger } from './logger.js';
 
-export async function checkLockEdit(conn, id, payin) {
+export async function checkLockEdit(id, payin) {
   try {
     const lockKey = parseInt(id.replace(/-/g, ''), 16) % 1000000;
-    const lockResult = await conn.query(
+    const lockResult = await executeQuery(
       'SELECT pg_try_advisory_xact_lock($1) AS acquired',
       [lockKey],
     );
