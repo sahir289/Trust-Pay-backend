@@ -202,7 +202,6 @@ const getBankaccountServiceNickName = async (
     }
 
     const result = await getBankAccountDaoNickName(
-      conn,
       company_id,
       type,
       filters,
