@@ -244,7 +244,6 @@ const updateParentVendorCalculation = async (
   amount,
   vendorCommissionRate,
   isApproved,
-  conn,
 ) => {
   try {
     // logger.info(
@@ -261,7 +260,6 @@ const updateParentVendorCalculation = async (
         amount: 0, // Parent vendor amount is always 0, only commission is tracked
       },
       isApproved,
-      conn,
     );
 
     // logger.info(
@@ -613,7 +611,6 @@ const getPayoutsService = async (
       limit,
       sortOrder,
       role,
-      conn,
     );
     await commit(conn);
     return { totalCount: data[0]?.total, payout: data };

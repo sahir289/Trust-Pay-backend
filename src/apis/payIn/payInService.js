@@ -109,8 +109,8 @@ import {
 import { tableName } from '../../constants/index.js';
 import { newTableEntry } from '../../utils/sockets.js';
 // import { getConnection } from '../../utils/db.js';
-import { createCheckUtrService } from '../checkutr/checkUtrServices.js';
-import { createResetHistoryService } from '../resetHistory/resetServices.js';
+import { _createCheckUtrServiceInternal } from '../checkutr/checkUtrServices.js';
+import { _createResetHistoryServiceInternal } from '../resetHistory/resetServices.js';
 // import { updateBankaccountService } from '../bankAccounts/bankaccountServices.js';
 import { stringifyJSON } from '../../utils/index.js';
 import { createHash } from '../../utils/hashUtils.js';
@@ -1078,7 +1078,6 @@ export const updateDepositStatusService = async (
           amount: payInData.amount,
           payinCommission: payinCommission,
         },
-        conn,
       );
 
       // update vendor caclulation table
@@ -1167,8 +1166,7 @@ export const resetDepositService = async (
     if (!payIn) {
       throw new NotFoundError('Merchant Order ID not found');
     }
-    await createResetHistoryService(
-      conn,
+    await _createResetHistoryServiceInternal(
       {
         payin_id: payIn.id,
         pre_status: payIn.status,
@@ -2763,7 +2761,6 @@ export const disputeDuplicateTransactionService = async (
         { id: payIn.merchant_id },
         toAmount,
         updated_by,
-        conn,
       );
       await updateCalculationTable(merchant.user_id, {
         payinCommission,
@@ -2877,8 +2874,7 @@ export const telegramCheckUTRService = async (
       );
     }
 
-    await createCheckUtrService(
-      conn,
+    await _createCheckUtrServiceInternal(
       {
         payin_id: payIn.id,
         utr,
@@ -3681,7 +3677,6 @@ const updateCalculationBalances = async (
   nextCalculations,
   amountDiff,
   commission,
-  conn,
   count,
 ) => {
   try {
@@ -3699,11 +3694,9 @@ const updateCalculationBalances = async (
     const updatedCurrentCalculation = await updateCalculationBalanceDao(
       { id: currentCalculation[0].id },
       updates,
-      conn,
     );
     await trackVendorsNetBalance(
       currentCalculation[0].user_id,
-      conn,
       updatedCurrentCalculation,
     );
 
@@ -3741,7 +3734,6 @@ const updateCalculationParentBalances = async (
   nextCalculations,
   amountDiff,
   commission,
-  conn,
   count,
 ) => {
   try {
@@ -3757,11 +3749,9 @@ const updateCalculationParentBalances = async (
     const updatedCurrentCalculation = await updateCalculationBalanceDao(
       { id: currentCalculation[0].id },
       updates,
-      conn,
     );
     await trackVendorsNetBalance(
       currentCalculation[0].user_id,
-      conn,
       updatedCurrentCalculation,
     );
     if (nextCalculations.length > 0) {
@@ -3998,7 +3988,6 @@ export const updatePayInService = async (
               previousUpdater: bankResponse.updated_by,
             },
           },
-          conn,
         ),
         updateBankaccountDao(
           { id: bankResponse.bank_id, company_id: company_id },
@@ -4007,19 +3996,16 @@ export const updatePayInService = async (
             today_balance: bank[0].today_balance + amountDiff,
             updated_by: user_id,
           },
-          conn,
         ),
         updateVendorDao(
           { id: vendor[0].user_id, company_id: company_id },
           { balance: vendor[0].balance + amountDiff, updated_by: user_id },
-          conn,
         ),
         updateCalculationBalances(
           vendorCurrentCalculations,
           vendorCalculations,
           amountDiff,
           calculateCommission(Math.abs(amountDiff), vendor[0].payin_commission),
-          conn,
         ),
         updateCalculationBalances(
           merchantCurrentCalculations,
@@ -4029,7 +4015,6 @@ export const updatePayInService = async (
             Math.abs(amountDiff),
             merchant[0].payin_commission,
           ),
-          conn,
         ),
       ];
       // Add parent calculation updates if sub-vendor
@@ -4040,7 +4025,6 @@ export const updatePayInService = async (
             parentCalculations,
             amountDiff, // Parent vendor amount is always 0 for adjustments
             parentCommission,
-            conn,
           ),
         );
       }
@@ -4060,7 +4044,6 @@ export const updatePayInService = async (
       bankResponseDataUtr = await updateBankResponseDao(
         { id: bankResponse.id, company_id: company_id },
         { utr: payload.utr, updated_by: user_name },
-        conn,
       );
     }
     // Handle bank account ID updates
@@ -4225,7 +4208,6 @@ export const updatePayInService = async (
             prevVendorNextCurrentCalcs,
             -bankResponse.amount,
             prevVendorCommission,
-            conn,
             -1,
           ),
           updateCalculationBalances(
@@ -4233,7 +4215,6 @@ export const updatePayInService = async (
             newVendorNextCurrentCalcs,
             bankResponse.amount,
             newVendorCommission,
-            conn,
             1,
           ),
         ];
@@ -4246,7 +4227,6 @@ export const updatePayInService = async (
               prevParentNextCalcs,
               -bankResponse.amount, // Parent vendor amount is always 0
               -prevParentCommission, // Reverse the commission
-              conn,
               -1,
             ),
           );
@@ -4259,7 +4239,6 @@ export const updatePayInService = async (
               newParentNextCalcs,
               bankResponse.amount, // Parent vendor amount is always 0
               newParentCommission, // Add the commission
-              conn,
               1,
             ),
           );
@@ -4326,7 +4305,6 @@ export const updatePayInService = async (
             payin_count: prevBank[0].payin_count - 1,
             updated_by: user_id,
           },
-          conn,
         ),
         updateBankaccountDao(
           { id: newBank[0].id, company_id: company_id },
@@ -4336,7 +4314,6 @@ export const updatePayInService = async (
             payin_count: newBank[0].payin_count + 1,
             updated_by: user_id,
           },
-          conn,
         ),
         updateBankResponseDao(
           { id: bankResponse.id, company_id: company_id },
@@ -4348,7 +4325,6 @@ export const updatePayInService = async (
               previousUpdater: bankResponse.updated_by,
             },
           },
-          conn,
         ),
       ]);
       if (!newBankData) {
@@ -4426,7 +4402,6 @@ export const updatePayInService = async (
             ? newVendorCommission
             : payIn.payin_vendor_commission,
       },
-      conn,
     );
     // await notifyAdminsAndUsers({
     //   conn,
