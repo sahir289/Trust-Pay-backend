@@ -181,6 +181,7 @@ const deleteResetHistoryService = async (id) => {
 export {
   getResetHistoryService,
   createResetHistoryService,
+  _createResetHistoryServiceInternal,
   updateResetHistoryService,
   getResetHistoryBySearchService,
   deleteResetHistoryService,

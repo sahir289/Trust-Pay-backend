@@ -108,7 +108,7 @@ const getSubVendorParentInfo = async (vendor) => {
 };
 
 // Helper function to calculate commission for parent vendor in settlement
-const updateParentVendorSettlementCalculation = async (parentUserId, amount, vendorCommissionRate, isApproved, conn) => {
+const updateParentVendorSettlementCalculation = async (parentUserId, amount, vendorCommissionRate, isApproved) => {
   try {
     logger.info(`Settlement: updateParentVendorSettlementCalculation called with: parentUserId=${parentUserId}, amount=${amount}, rate=${vendorCommissionRate}, isApproved=${isApproved}`);
     
@@ -143,9 +143,8 @@ const updateParentVendorSettlementCalculation = async (parentUserId, amount, ven
     const response = await updateCalculationBalanceDao(
       { id: parentCalculationData[0].id },
       calculationUpdate,
-      conn,
     );
-    await trackVendorsNetBalance(parentUserId, conn, response);
+    await trackVendorsNetBalance(parentUserId, response);
 
     logger.info(`Settlement: Parent vendor calculation table updated successfully for userId: ${parentUserId}`);
     
@@ -1176,7 +1175,6 @@ const deleteSettlementService = async (ids) => {
     await beginTransaction(conn);
 
     const updatedData = await deleteSettlementDao(
-      conn,
       { id: ids.id, company_id: ids.company_id },
       { is_obsolete: true, updated_by: ids.user_id },
     );

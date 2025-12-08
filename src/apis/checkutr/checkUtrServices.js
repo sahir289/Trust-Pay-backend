@@ -125,6 +125,7 @@ const deleteCheckUtrService = async (id) => {
 export {
   getCheckUtrService,
   getCheckUtrBySearchService,
+  _createCheckUtrServiceInternal,
   createCheckUtrService,
   updateCheckUtrService,
   deleteCheckUtrService,
