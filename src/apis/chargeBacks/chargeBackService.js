@@ -40,7 +40,6 @@ import {
 import { trackVendorsNetBalance } from '../../utils/trackVendorsNetBalance.js';
 
 const _createChargeBackServiceInternal = async (
-  conn,
   payload,
   PayinDetails,
   role,
@@ -93,7 +92,6 @@ const _createChargeBackServiceInternal = async (
           blocked_users: dbCompanyBlockedUsers,
         },
       },
-      conn,
     );
     const data = await createChargeBackDao(payload);
     const MerchantuserId = data.merchant_user_id;
@@ -138,7 +136,6 @@ const _createChargeBackServiceInternal = async (
           blocked_users: dbMerchantBlockedUsers,
         },
       },
-      conn,
     );
     const merchantCalculation = await getCalculationforCronDao(MerchantuserId);
     if (!merchantCalculation || !merchantCalculation[0]) {
@@ -154,7 +151,6 @@ const _createChargeBackServiceInternal = async (
         current_balance: -amount,
         net_balance: -amount,
       },
-      conn,
     );
     const VendorUserId = data.vendor_user_id;
     const vendorCalculation = await getCalculationforCronDao(VendorUserId);
@@ -171,10 +167,9 @@ const _createChargeBackServiceInternal = async (
     const response = await updateCalculationBalanceDao(
       { id: VendorId },
       updatedCalculation,
-      conn,
     );
     
-    await trackVendorsNetBalance(vendorCalculation[0].user_id, conn, response);
+    await trackVendorsNetBalance(vendorCalculation[0].user_id, response);
     // await notifyAdminsAndUsers({
     //   conn,
     //   company_id: payload.company_id,
@@ -203,7 +198,7 @@ const createChargeBackService = async (
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const data = await _createChargeBackServiceInternal(conn, payload, PayinDetails, role, company_id, user_id);
+    const data = await _createChargeBackServiceInternal(payload, PayinDetails, role, company_id, user_id);
     await commit(conn);
     return data;
   } catch (error) {

@@ -421,7 +421,7 @@ const createBeneficiaryAccountService = async (payload, company_id) => {
   }
 };
 
-const _updateBeneficiaryAccountService = async (conn, ids, payload) => {
+const _updateBeneficiaryAccountService = async (ids, payload) => {
   if (payload.acc_no) {
     let filters = {};
     filters.acc_no = payload.acc_no;
