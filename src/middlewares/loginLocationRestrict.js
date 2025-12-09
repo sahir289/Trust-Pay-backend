@@ -5,6 +5,7 @@ import { getRoleByUserNameDao } from '../apis/auth/authDao.js';
 import { setTimeout as delay } from 'node:timers/promises';
 import { checkProxyAndVpn } from '../utils/proxyCheckService.js';
 import { reverseGeocode } from '../utils/reverseGeoCodeService.js';
+import { getCoordinatesFromIp } from '../utils/ipToGeoService.js'; // Utility to fetch coordinates from IP
 
 // Helper - Promise with hard timeout (cancels after X ms)
 const withTimeout = async (promise, ms, name = 'operation') => {
@@ -60,17 +61,19 @@ const createGeoGuard = (options = {}) => {
   return async (req, res, next) => {
     try {
       const clientIp = getClientIp(req);
-      const location = req.body?.user_location;
+      let location = req.body?.user_location;
 
       if (!location || typeof location !== 'object') {
-        return next(new BadRequestError(
-          'Precise location is required. Please enable GPS.',
-        ));
+        logger.warn('Location not provided, attempting to fetch from IP', { ip: clientIp });
+        location = await withTimeout(getCoordinatesFromIp(clientIp), 3000, 'IP to Geo');
+        if (!location) {
+          return next(new BadRequestError('Unable to determine location. Please enable GPS.'));
+        }
       }
 
       const { latitude, longitude, accuracy } = location;
 
-      if (!latitude || !longitude || accuracy == null) {
+      if (!latitude || !longitude) {
         return next( new BadRequestError(
           'Invalid location data. Latitude, longitude, and accuracy are required.',
         ));
