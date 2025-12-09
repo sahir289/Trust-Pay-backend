@@ -1,8 +1,8 @@
 import axios from 'axios';
 import { logger } from './logger.js';
 
-const GEOLOCATION_API_URL = 'https://ipapi.co'; // Example API (replace with your preferred service)
-const API_KEY = process.env.GEOLOCATION_API_KEY; // Add your API key if required
+const GEOLOCATION_API_URL = 'https://ipapi.co';
+const API_KEY = process.env.GEOLOCATION_API_KEY;
 
 export const getCoordinatesFromIp = async (ip) => {
   try {
@@ -15,7 +15,7 @@ export const getCoordinatesFromIp = async (ip) => {
       return {
         latitude: response.data.latitude,
         longitude: response.data.longitude,
-        accuracy: response.data.accuracy || null, // Optional, depends on the API
+        accuracy: response.data.accuracy || null,
       };
     }
 
