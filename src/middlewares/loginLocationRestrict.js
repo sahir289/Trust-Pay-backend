@@ -5,7 +5,6 @@ import { getRoleByUserNameDao } from '../apis/auth/authDao.js';
 import { setTimeout as delay } from 'node:timers/promises';
 import { checkProxyAndVpn } from '../utils/proxyCheckService.js';
 import { reverseGeocode } from '../utils/reverseGeoCodeService.js';
-import { getCoordinatesFromIp } from '../utils/ipToGeoService.js'; // Utility to fetch coordinates from IP
 
 // Helper - Promise with hard timeout (cancels after X ms)
 const withTimeout = async (promise, ms, name = 'operation') => {
@@ -51,6 +50,7 @@ const createGeoGuard = (options = {}) => {
     roleRegionRules = {
       VENDOR: { country: 'India', blockedRegions: ['Gujarat', 'Goa'] },
     },
+    defaultLocation = { latitude: 0, longitude: 0, accuracy: 1000 }, // Default fallback location
   } = { ...config.geoGuard, ...options };
 
   const vpnRolesSet = new Set(restrictVpnForRoles.map((r) => r.toUpperCase()));
@@ -64,10 +64,17 @@ const createGeoGuard = (options = {}) => {
       let location = req.body?.user_location;
 
       if (!location || typeof location !== 'object') {
-        logger.warn('Location not provided, attempting to fetch from IP', { ip: clientIp });
-        location = await withTimeout(getCoordinatesFromIp(clientIp), 3000, 'IP to Geo');
-        if (!location) {
-          return next(new BadRequestError('Unable to determine location. Please enable GPS.'));
+        logger.warn('Location not provided, attempting to fetch from Proxy/VPN service', { ip: clientIp });
+        const proxyInfo = await withTimeout(checkProxyAndVpn(clientIp), 3000, 'Proxy/VPN check');
+        if (proxyInfo && proxyInfo.raw.latitude && proxyInfo.raw.longitude) {
+          location = {
+            latitude: proxyInfo.raw.latitude,
+            longitude: proxyInfo.raw.longitude,
+            accuracy: proxyInfo.accuracy || null,
+          };
+        } else {
+          logger.error('Failed to fetch location from Proxy/VPN service', { ip: clientIp });
+          location = defaultLocation;
         }
       }
 
