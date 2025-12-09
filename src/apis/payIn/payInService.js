@@ -562,26 +562,31 @@ export const assignedBankToPayInUrlService = async (
           id: payIn.bank_acc_id,
           company_id: payIn.company_id,
         });
-        let response;
-        if (type === BankTypes.BANK_TRANSFER) {
-          response = {
-            return: payIn.config?.urls?.return,
-            bank: {
-              nick_name: bank[0].nick_name,
-              acc_holder_name: bank[0].acc_holder_name,
-              acc_no: bank[0].acc_no,
-              ifsc: bank[0].ifsc,
-            },
-          };
-        } else {
-          response = {
-            return: payIn.config?.urls?.return,
-            bank: {
-              upi_id: bank[0].upi_id,
-              acc_holder_name: bank[0].acc_holder_name,
-              code: payIn.upi_short_code,
-            },
-          };
+        let response = {
+          return: payIn.config?.urls?.return,
+        };
+        if (
+          Number(amount) > Number(bank[0].min) &&
+          Number(amount) < Number(bank[0].max)
+        ) {
+          if (type === BankTypes.BANK_TRANSFER) {
+            response = {
+              bank: {
+                nick_name: bank[0].nick_name,
+                acc_holder_name: bank[0].acc_holder_name,
+                acc_no: bank[0].acc_no,
+                ifsc: bank[0].ifsc,
+              },
+            };
+          } else {
+            response = {
+              bank: {
+                upi_id: bank[0].upi_id,
+                acc_holder_name: bank[0].acc_holder_name,
+                code: payIn.upi_short_code,
+              },
+            };
+          }
         }
         return response;
       } else {
@@ -611,6 +616,13 @@ export const assignedBankToPayInUrlService = async (
       const isActive = bank.is_enabled && isPayInBank;
 
       if (!isActive) return false;
+      if (
+        !(
+          Number(amount) > Number(bank[0].min) &&
+          Number(amount) < Number(bank[0].max)
+        )
+      )
+        return false;
 
       const config = bank.config || {};
       const hasAnyMethod =
@@ -1072,13 +1084,10 @@ export const updateDepositStatusService = async (
       updatePayInData.payin_vendor_commission = vendorPayinCommission;
 
       // update merchant calculation table
-      await updateCalculationTable(
-        merchant.user_id,
-        {
-          amount: payInData.amount,
-          payinCommission: payinCommission,
-        },
-      );
+      await updateCalculationTable(merchant.user_id, {
+        amount: payInData.amount,
+        payinCommission: payinCommission,
+      });
 
       // update vendor caclulation table
       // await updateCalculationTable(
@@ -3053,10 +3062,10 @@ const _checkPendingPayinStatusServiceInternal = async (
             currentPayin.id,
             payInData,
           );
-          await updateBotResponseDao(
-            bankResponse.id,
-            { is_used: true, updated_by: user_name },
-          );
+          await updateBotResponseDao(bankResponse.id, {
+            is_used: true,
+            updated_by: user_name,
+          });
 
           if (updatePayInDataRes) {
             // This is async function but it's just the callback sending function there fore we are not using await
@@ -3095,10 +3104,10 @@ const _checkPendingPayinStatusServiceInternal = async (
             currentPayin.id,
             payInData,
           );
-          await updateBotResponseDao(
-            bankResponse.id,
-            { is_used: true, updated_by: user_name },
-          );
+          await updateBotResponseDao(bankResponse.id, {
+            is_used: true,
+            updated_by: user_name,
+          });
 
           if (updatePayInDataRes) {
             // This is async function but it's just the callback sending function there fore we are not using await
@@ -3137,17 +3146,14 @@ const _checkPendingPayinStatusServiceInternal = async (
             currentPayin.id,
             payInData,
           );
-          await updateBotResponseDao(
-            bankResponse.id,
-            { is_used: true, updated_by: user_name },
-          );
-          await updateCalculationTable(
-            merchantData[0].user_id,
-            {
-              amount: bankResponse.amount,
-              payinCommission: payinMerchantCommission,
-            },
-          );
+          await updateBotResponseDao(bankResponse.id, {
+            is_used: true,
+            updated_by: user_name,
+          });
+          await updateCalculationTable(merchantData[0].user_id, {
+            amount: bankResponse.amount,
+            payinCommission: payinMerchantCommission,
+          });
           // This is async function but it's just the callback sending function there fore we are not using await
           merchantPayinCallback(updatePayInDataRes.config.urls?.notify, {
             status: updatePayInDataRes.status,
@@ -4385,24 +4391,19 @@ export const updatePayInService = async (
     };
 
     // Update pay-in details
-    const updatedPayIn = await updatePayInUrlDao(
-      payIn.id,
-      {
-        ...payload,
-        updated_by: user_id,
-        user_submitted_utr: payIn.user_submitted_utr ? payload.utr : null,
-        config: payload.config || newConfig, // Use payload config if set, otherwise use newConfig
-        payin_merchant_commission:
-          amountDiff !== 0
-            ? merchantCommission
-            : payIn.payin_merchant_commission,
-        payin_vendor_commission: payload.amount
-          ? vendorCommission
-          : payload.bank_acc_id
-            ? newVendorCommission
-            : payIn.payin_vendor_commission,
-      },
-    );
+    const updatedPayIn = await updatePayInUrlDao(payIn.id, {
+      ...payload,
+      updated_by: user_id,
+      user_submitted_utr: payIn.user_submitted_utr ? payload.utr : null,
+      config: payload.config || newConfig, // Use payload config if set, otherwise use newConfig
+      payin_merchant_commission:
+        amountDiff !== 0 ? merchantCommission : payIn.payin_merchant_commission,
+      payin_vendor_commission: payload.amount
+        ? vendorCommission
+        : payload.bank_acc_id
+          ? newVendorCommission
+          : payIn.payin_vendor_commission,
+    });
     // await notifyAdminsAndUsers({
     //   conn,
     //   company_id: payIn.company_id,
