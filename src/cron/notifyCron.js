@@ -6,7 +6,7 @@ import {
 } from '../apis/payIn/payInDao.js';
 import { merchantPayinCallback } from '../callBacksAndWebHook/merchantCallBacks.js';
 import { logger } from '../utils/logger.js';
-import { calculateDuration } from '../helpers/index.js'; 
+import { calculateDuration } from '../helpers/index.js';
 import config from '../config/config.js';
 
 if (config?.env == 'production') {
@@ -96,7 +96,7 @@ async function processPayinNotifications(payins) {
       if (payin?.config?.urls?.notify) {
         // This is async function but it's just the callback sending function there fore we are not using await
         merchantPayinCallback(payin?.config?.urls?.notify, notificationData);
-        await updatePayInUrlDao(payin.id, {is_notified: 'true'});
+        await updatePayInUrlDao(payin.id, { is_notified: 'true' });
       } else {
         logger.warn('Notify URL is missing for payin', { payinId: payin?.id });
       }

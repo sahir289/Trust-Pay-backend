@@ -10,10 +10,10 @@ import { logger } from '../utils/logger.js';
 const formattedSuccessRatiosForAllCompanies = async () => {
   try {
     logger.info('Starting success ratio processing for all companies');
-    
+
     // Get all companies
     const companies = await getCompanyDao({});
-    
+
     if (!companies || companies.length === 0) {
       logger.info('No companies found');
       return;
@@ -28,7 +28,7 @@ const formattedSuccessRatiosForAllCompanies = async () => {
     //     logger.error(`Error processing success ratios for company ${company.id}: ${error}`);
     //   }
     // }
-    
+
     // Alternative: Parallel processing (uncomment if you want faster processing)
     await Promise.allSettled(
       companies.map(async (company) => {
@@ -37,11 +37,13 @@ const formattedSuccessRatiosForAllCompanies = async () => {
           await formattedSuccessRatiosByMerchant(company.id);
           // await formattedSuccessRatiosByMerchantUpdatedAt(company.id);
         } catch (error) {
-          logger.error(`Error processing success ratios for company ${company.id}: ${error}`);
+          logger.error(
+            `Error processing success ratios for company ${company.id}: ${error}`,
+          );
         }
-      })
+      }),
     );
-    
+
     logger.info('Completed success ratio processing for all companies');
   } catch (error) {
     logger.error(`Error in formattedSuccessRatiosForAllCompanies: ${error}`);
@@ -51,22 +53,27 @@ const formattedSuccessRatiosForAllCompanies = async () => {
 const formattedSuccessRatiosByMerchant = async (company_id) => {
   try {
     logger.info(`Success Ratio CRON Started for company: ${company_id}`);
-    
+
     // Get company details with config
     const companies = await getCompanyDao({ id: company_id });
     const company = companies && companies.length > 0 ? companies[0] : null;
-    
+
     if (!company) {
       logger.error(`Company not found: ${company_id}`);
       return;
     }
 
     // Get company-specific configurations or fallback to global config
-    const telegramRatioAlertsChatId = company.config?.telegramRatioAlertsChatId || config?.telegramRatioAlertsChatId;
-    const telegramBotToken = company.config?.telegramBotToken || config?.telegramBotToken;
+    const telegramRatioAlertsChatId =
+      company.config?.telegramRatioAlertsChatId ||
+      config?.telegramRatioAlertsChatId;
+    const telegramBotToken =
+      company.config?.telegramBotToken || config?.telegramBotToken;
 
     if (!telegramRatioAlertsChatId || !telegramBotToken) {
-      logger.warn(`Missing Telegram config for company ${company_id}, skipping success ratio report`);
+      logger.warn(
+        `Missing Telegram config for company ${company_id}, skipping success ratio report`,
+      );
       return;
     }
 
@@ -84,7 +91,7 @@ const formattedSuccessRatiosByMerchant = async (company_id) => {
       { label: 'Last 3h', duration: 3 * 60 * 60 * 1000, type: 'rolling' },
       { label: 'Last 6h', duration: 6 * 60 * 60 * 1000, type: 'rolling' },
       { label: 'Last 12h', duration: 12 * 60 * 60 * 1000, type: 'rolling' },
-      { label: 'Last 24h', duration: 24 * 60 * 60 * 1000, type: 'rolling' }
+      { label: 'Last 24h', duration: 24 * 60 * 60 * 1000, type: 'rolling' },
     ];
 
     // Combine intervals
@@ -95,11 +102,11 @@ const formattedSuccessRatiosByMerchant = async (company_id) => {
 
     // fetch all transactions for the company
     const allPayIns = await getPayInsForSuccessRatioDao({
-      company_id: company_id
+      company_id: company_id,
     });
-    const merchants = await getMerchantsForSuccessRatioDao(
-      { company_id: company_id }
-    );
+    const merchants = await getMerchantsForSuccessRatioDao({
+      company_id: company_id,
+    });
     // group transactions by merchant_id
     const transactionsByMerchant = allPayIns.reduce((map, payin) => {
       if (!map[payin.merchant_id]) map[payin.merchant_id] = [];
@@ -119,7 +126,7 @@ const formattedSuccessRatiosByMerchant = async (company_id) => {
     );
 
     const fullMessages = [];
-    
+
     // Sort merchants case-insensitively by code
     const sortedMerchants = merchantsWithTransactions.sort((a, b) => {
       const codeA = a.code ? a.code.toLowerCase() : '';
@@ -131,34 +138,46 @@ const formattedSuccessRatiosByMerchant = async (company_id) => {
       const merchantTransactions = transactionsByMerchant[merchant.id];
 
       // Check both PayIn and UTR ratios for last 24 hours
-      const last24HoursTransactions = merchantTransactions.filter(tx => {
+      const last24HoursTransactions = merchantTransactions.filter((tx) => {
         const txTime = new Date(tx.created_at);
         return txTime >= new Date(now - 24 * 60 * 60 * 1000);
       });
 
       // Calculate PayIn Success Ratio
       const last24HoursTotal = last24HoursTransactions.length;
-      const last24HoursSuccess = last24HoursTransactions.filter(tx => tx.status === 'SUCCESS').length;
-      const last24HoursRatio = last24HoursTotal === 0 ? 0 : (last24HoursSuccess / last24HoursTotal) * 100;
+      const last24HoursSuccess = last24HoursTransactions.filter(
+        (tx) => tx.status === 'SUCCESS',
+      ).length;
+      const last24HoursRatio =
+        last24HoursTotal === 0
+          ? 0
+          : (last24HoursSuccess / last24HoursTotal) * 100;
 
       // Calculate UTR Submission Ratio
-      const last24HoursUTR = last24HoursTransactions.filter(tx => 
-        tx.user_submitted_utr && tx.user_submitted_utr.length > 0
+      const last24HoursUTR = last24HoursTransactions.filter(
+        (tx) => tx.user_submitted_utr && tx.user_submitted_utr.length > 0,
       ).length;
-      const last24HoursUTRRatio = last24HoursTotal === 0 ? 0 : (last24HoursUTR / last24HoursTotal) * 100;
+      const last24HoursUTRRatio =
+        last24HoursTotal === 0 ? 0 : (last24HoursUTR / last24HoursTotal) * 100;
 
       // Skip if either PayIn or UTR ratio is 0%
-      if (last24HoursTotal === 0 || last24HoursRatio === 0 || last24HoursUTRRatio === 0) {
-        logger.info(`Skipping merchant ${merchant.code} - PayIn Ratio: ${last24HoursRatio}%, UTR Ratio: ${last24HoursUTRRatio}%`);
+      if (
+        last24HoursTotal === 0 ||
+        last24HoursRatio === 0 ||
+        last24HoursUTRRatio === 0
+      ) {
+        logger.info(
+          `Skipping merchant ${merchant.code} - PayIn Ratio: ${last24HoursRatio}%, UTR Ratio: ${last24HoursUTRRatio}%`,
+        );
         continue;
       }
 
       const intervalDetails = intervals
-        .map(interval => {
+        .map((interval) => {
           const currentTime = new Date();
-          const filteredTransactions = merchantTransactions.filter(tx => {
+          const filteredTransactions = merchantTransactions.filter((tx) => {
             const txTime = new Date(tx.created_at);
-            
+
             if (interval.type === 'rolling') {
               // For rolling windows (Last 5m, Last 10m, etc.)
               return txTime >= new Date(currentTime - interval.duration);
@@ -169,11 +188,15 @@ const formattedSuccessRatiosByMerchant = async (company_id) => {
           });
 
           const total = filteredTransactions.length;
-          const success = filteredTransactions.filter(tx => tx.status === 'SUCCESS').length;
+          const success = filteredTransactions.filter(
+            (tx) => tx.status === 'SUCCESS',
+          ).length;
 
-          const successRatio = total === 0 
-            ? '0.00%'
-            : Math.min(Math.max(((success / total) * 100), 0), 100).toFixed(2) + '%';
+          const successRatio =
+            total === 0
+              ? '0.00%'
+              : Math.min(Math.max((success / total) * 100, 0), 100).toFixed(2) +
+                '%';
 
           const statusIcon = success === 0 ? '⚠️' : '✅';
           return `${statusIcon} ${interval.label}: ${success}/${total} = ${successRatio}`;
@@ -184,9 +207,9 @@ const formattedSuccessRatiosByMerchant = async (company_id) => {
         .map((interval) => {
           const currentTime = new Date();
           // Filter transactions based on interval type
-          const filteredTransactions = merchantTransactions.filter(tx => {
+          const filteredTransactions = merchantTransactions.filter((tx) => {
             const txTime = new Date(tx.created_at);
-            
+
             if (interval.type === 'rolling') {
               // For rolling windows (Last 5m, Last 10m, etc.)
               return txTime >= new Date(currentTime - interval.duration);
@@ -199,13 +222,17 @@ const formattedSuccessRatiosByMerchant = async (company_id) => {
 
           const total = filteredTransactions.length;
           const utrSubmission = filteredTransactions.filter(
-            (tx) => tx.user_submitted_utr && tx.user_submitted_utr.length > 0
+            (tx) => tx.user_submitted_utr && tx.user_submitted_utr.length > 0,
           ).length;
 
           const statusIcon = utrSubmission === 0 ? '⚠️' : '✅';
-          const utrSubmissionRatio = total === 0
-            ? '0.00%'
-            : Math.min(Math.max(((utrSubmission / total) * 100), 0), 100).toFixed(2) + '%';
+          const utrSubmissionRatio =
+            total === 0
+              ? '0.00%'
+              : Math.min(
+                  Math.max((utrSubmission / total) * 100, 0),
+                  100,
+                ).toFixed(2) + '%';
 
           return `${statusIcon} ${interval.label}: ${utrSubmission}/${total} = ${utrSubmissionRatio}`;
         })
@@ -232,7 +259,9 @@ const formattedSuccessRatiosByMerchant = async (company_id) => {
 
     logger.info(`Success Ratio CRON Ended for company: ${company_id}`);
   } catch (error) {
-    logger.error(`Error in success ratio processing for company ${company_id}: ${error.message}`);
+    logger.error(
+      `Error in success ratio processing for company ${company_id}: ${error.message}`,
+    );
   }
 };
 export default formattedSuccessRatiosForAllCompanies;
@@ -240,11 +269,11 @@ export default formattedSuccessRatiosForAllCompanies;
 // const formattedSuccessRatiosByMerchantUpdatedAt = async (company_id) => {
 //   try {
 //     logger.info(`Success Ratio CRON Started For Updated At for company: ${company_id}`);
-    
+
 //     // Get company details with config
 //     const companies = await getCompanyDao({ id: company_id });
 //     const company = companies && companies.length > 0 ? companies[0] : null;
-    
+
 //     if (!company) {
 //       logger.error(`Company not found: ${company_id}`);
 //       return;
@@ -313,7 +342,7 @@ export default formattedSuccessRatiosForAllCompanies;
 //       const last24HoursRatio = last24HoursTotal === 0 ? 0 : (last24HoursSuccess / last24HoursTotal) * 100;
 
 //       // Calculate UTR Submission Ratio
-//       const last24HoursUTR = last24HoursTransactions.filter(tx => 
+//       const last24HoursUTR = last24HoursTransactions.filter(tx =>
 //         tx.user_submitted_utr && tx.user_submitted_utr.length > 0
 //       ).length;
 //       const last24HoursUTRRatio = last24HoursTotal === 0 ? 0 : (last24HoursUTR / last24HoursTotal) * 100;
@@ -399,7 +428,7 @@ export default formattedSuccessRatiosForAllCompanies;
 
 //run only on server - side /production level
 if (config?.env === 'production') {
-  cron.schedule('*/11 * * * *', () => { 
+  cron.schedule('*/11 * * * *', () => {
     formattedSuccessRatiosForAllCompanies();
   });
 } else {

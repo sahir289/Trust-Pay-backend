@@ -18,8 +18,7 @@ const collectPayoutData = async () => {
     const companies = await getCompanyDao({});
     for (const company of companies) {
       const { id: companyId, first_name, last_name, config = {} } = company;
-      const {   telegramPendingPayoutsChatId
-        , telegramBotToken } = config || {};
+      const { telegramPendingPayoutsChatId, telegramBotToken } = config || {};
       if (!(telegramPendingPayoutsChatId && telegramBotToken)) {
         logger.warn(
           `Skipping company ${first_name} ${last_name} — missing Telegram credentials.`,
@@ -41,11 +40,11 @@ const collectPayoutData = async () => {
         0,
       );
       let message = `💸 Pending Withdrawals 💸\n\n`;
-        payoutData.forEach((merchant, index) => {
-            message += `${index + 1}. ${merchant.merchant}: ₹ ${formatINR(merchant.amount)} (${merchant.count}),\n`;
-          });
-          message += `\nTotal Pending Amount : ₹ ${formatINR(totalAmount)} (${totalCount})`;  
-    await sendPayoutTelegramMessage(
+      payoutData.forEach((merchant, index) => {
+        message += `${index + 1}. ${merchant.merchant}: ₹ ${formatINR(merchant.amount)} (${merchant.count}),\n`;
+      });
+      message += `\nTotal Pending Amount : ₹ ${formatINR(totalAmount)} (${totalCount})`;
+      await sendPayoutTelegramMessage(
         telegramBotToken,
         telegramPendingPayoutsChatId,
         message,
@@ -56,22 +55,18 @@ const collectPayoutData = async () => {
   }
 };
 
-const sendPayoutTelegramMessage = async (
-  botToken,
-  chatId,
-  message,
-) => {
+const sendPayoutTelegramMessage = async (botToken, chatId, message) => {
   try {
     await telegramSender(chatId, message, null, botToken);
     logger.info('Payout Telegram message sent successfully.');
   } catch (error) {
     logger.error('Error sending payout Telegram message:', error.message);
   }
-}
+};
 
 if (config?.env === 'production') {
-    cron.schedule('0,30 * * * *', collectPayoutData);
-    logger.info('Running payout data cron job in production.');
+  cron.schedule('0,30 * * * *', collectPayoutData);
+  logger.info('Running payout data cron job in production.');
 } else {
   logger.warn('Cron jobs are disabled in non-production environments.');
 }
