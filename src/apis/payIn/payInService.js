@@ -618,8 +618,8 @@ export const assignedBankToPayInUrlService = async (
       if (!isActive) return false;
       if (
         !(
-          Number(amount) > Number(bank[0].min) &&
-          Number(amount) < Number(bank[0].max)
+          amt > Number(bank.min) &&
+          amt < Number(bank.max)
         )
       )
         return false;
