@@ -258,7 +258,7 @@ const createBankResponseService = async (
     try {
       // localConn = await getConnection();
       await beginTransaction(localConn);
-      botRes = await createBankResponseDao(localConn, updatedData);
+      botRes = await createBankResponseDao(updatedData);
       // await sendNotification(updatedData.status.replace('/', ''), {
       //   id: botRes.id,
       //   utr: botRes.utr,
@@ -948,7 +948,7 @@ const createBankResponseWebHookService = async (
     try {
       // localConn = await getConnection();
       await beginTransaction(localConn);
-      botRes = await createBankResponseDao(localConn, updatedData);
+      botRes = await createBankResponseDao(updatedData);
       // await sendNotification(updatedData.status.replace('/', ''), {
       //   id: botRes.id,
       //   utr: botRes.utr,
