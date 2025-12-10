@@ -11,6 +11,7 @@ import {
 import { getUsersForCronDao } from '../apis/users/userDao.js';
 import { logger } from '../utils/logger.js';
 import config from '../config/config.js'; 
+import { beginTransaction, commit, getConnection, rollback } from '../utils/db.js';
 // Initialize dayjs plugins
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -123,10 +124,17 @@ const collectCalculationData = async () => {
 };
 // Function to update the calculation data
 async function processUpdate(data) {
+  let conn;
   try {
+    conn = await getConnection();
+    await beginTransaction(conn);
     await createCalculationDao(data);
+    await commit(conn);
   } catch (error) {
+    if (conn) await rollback(conn);
     logger.error('Error while updating calculation data:', error?.message);
+  }finally {
+    if (conn) conn.release();
   }
 }
 
