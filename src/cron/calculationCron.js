@@ -74,8 +74,11 @@ const markExecution = () => {
 const collectCalculationData = async () => {
   const executionStartTime = dayjs().tz(IST).format('YYYY-MM-DDTHH:mm:ssZ');
   logger.info(`Starting calculation cron job at: ${executionStartTime}`);
+  let conn;
 
   try {
+    conn = await getConnection();
+    await beginTransaction(conn);
     // Check if entry for current date already exists
     const currentDate = dayjs().tz(IST).format('YYYY-MM-DD');
     const entryExists = await checkCalculationEntryForDateDao(currentDate);
@@ -117,24 +120,21 @@ const collectCalculationData = async () => {
     logger.info(
       `Cron job executed successfully for all users. Started: ${executionStartTime}, Completed: ${executionEndTime}`,
     );
+    await commit(conn);
   } catch (error) {
+    if (conn) await rollback(conn);
     logger.error('Error while collecting user data:', error?.message);
     throw error; // Re-throw to ensure fallback mechanisms can detect failures
+  } finally {
+    if (conn) conn.release();
   }
 };
 // Function to update the calculation data
 async function processUpdate(data) {
-  let conn;
   try {
-    conn = await getConnection();
-    await beginTransaction(conn);
     await createCalculationDao(data);
-    await commit(conn);
   } catch (error) {
-    if (conn) await rollback(conn);
     logger.error('Error while updating calculation data:', error?.message);
-  }finally {
-    if (conn) conn.release();
   }
 }
 
