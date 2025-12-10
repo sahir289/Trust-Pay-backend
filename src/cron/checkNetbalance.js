@@ -58,7 +58,7 @@ const processUserCalculation = async (today, yesterday) => {
       if (existingToday) {
         await updateTodayNetBalanceDao(existingToday.id, prevNetBalance);
       } else {
-        await createCalculationDao(null, {
+        await createCalculationDao({
           user_id: yCalc.user_id,
           role_id: yCalc.role_id,
           company_id: yCalc.company_id,

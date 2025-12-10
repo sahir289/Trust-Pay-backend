@@ -124,7 +124,7 @@ const collectCalculationData = async () => {
 // Function to update the calculation data
 async function processUpdate(data) {
   try {
-    await createCalculationDao(null, data);
+    await createCalculationDao(data);
   } catch (error) {
     logger.error('Error while updating calculation data:', error?.message);
   }
