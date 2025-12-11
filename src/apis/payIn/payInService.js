@@ -3406,17 +3406,18 @@ export const generateUpiUrlService = async (payload = {}) => {
     // Build canonical params used by all UPI schemes
     const canonicalParams = {
       pa, // payee VPA
-      pn: payload.payeeName ? payload.payeeName.trim() : '', // payee name (pn)
+      pn: payload.payeeName?.trim() || 'Merchant', // payee name (pn)
       am: amountStr, // amount
       cu: 'INR', // currency
       tr: transactionId, // transaction reference
       tn: (payload.transactionNote || '').trim() || transactionId, // txn note (fallback to txid)
       tid: transactionId, // terminal id / txn id
       featuretype: 'money_transfer',
+      mc: 'VKTRAD47056927653169',
     };
 
     // optional additions
-    if (payload.merchantCode) canonicalParams.mc = payload.merchantCode;
+    // if (payload.merchantCode) canonicalParams.mc = 'VKTRAD47056927653169' || payload.merchantCode;
     if (payload.businessName) canonicalParams.bn = payload.businessName.trim();
     if (payload.mode) canonicalParams.mode = payload.mode;
     if (payload.purpose) canonicalParams.purpose = payload.purpose;
@@ -3426,14 +3427,13 @@ export const generateUpiUrlService = async (payload = {}) => {
     // Compose platform-specific deep links (ap param is app package where applicable)
     const gpayUrl = `upi://pay?${encoded}&ap=com.google.android.apps.nbu.paisa.user`;
     const phonepeUrl = `upi://pay?${encoded}&ap=com.phonepe.app`;
-    // Paytm often uses a different schema; keep tid and other params
-    const paytmIntent = `paytmmp://cash_wallet?${encoded}`;
+    const paytmUrl = `upi://pay?${encoded}&ap=net.one97.paytm`;
     const genericUpiUrl = `upi://pay?${encoded}`;
 
     return {
       gpayUrl,
       phonepeUrl,
-      paytmUrl: paytmIntent,
+      paytmUrl,
       genericUpiUrl,
       transactionId,
       rawParams: canonicalParams, // useful for logging / debugging
