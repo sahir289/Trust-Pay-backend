@@ -124,7 +124,7 @@ import {
   getCompanyByIDDao,
   // getCompanyDetailsByIdDao,
 } from '../company/companyDao.js';
-import { getAllUsersDao, getUserDao } from '../users/userDao.js';
+import { getUserByCompanyCreatedAtDao, getAllUsersDao, getUserDao } from '../users/userDao.js';
 import { trackVendorsNetBalance } from '../../utils/trackVendorsNetBalance.js';
 import { createCashfreeOrder } from '../../cashfree/cashfree.js';
 import { createRazorPayOrder } from '../../razorpay/razorpay.js';
@@ -403,6 +403,11 @@ export const generatePayInUrlService = async (payload, role, userIp) => {
       .add(ot === 'y' ? 10 : 30, ot === 'y' ? 'minute' : 'day')
       .toISOString();
 
+    let admin;
+    if (role === Role.ADMIN) {
+      admin = await getUserByCompanyCreatedAtDao(merchant.company_id, role);
+    }
+
     const data = {
       upi_short_code: nanoid(5),
       amount: amount || 0,
@@ -419,7 +424,7 @@ export const generatePayInUrlService = async (payload, role, userIp) => {
           notify: notifyUrl || merchant.config?.urls?.payin_notify || '',
         },
       }),
-      created_by: merchant?.user_id,
+      created_by: role === Role.ADMIN ? admin.id : merchant?.user_id,
     };
 
     const result = await generatePayInUrlDao(data);
@@ -439,7 +444,7 @@ export const generatePayInUrlService = async (payload, role, userIp) => {
     if (merchant?.config?.allow_intent) {
       const duration = calculateDuration(result.created_at);
       await updatePayInUrlDao(result.id, {
-        amount: parseFloat(amount),
+        amount: parseFloat(amount || 0),
         status: Status.ASSIGNED,
         bank_acc_id: bankAssigned[0].id,
         duration: duration,
@@ -548,7 +553,7 @@ export const assignedBankToPayInUrlService = async (
   merchantOrderId,
   amount,
   type,
-  role,
+  isAdmin,
 ) => {
   // Validate the PayIn URL
   try {
@@ -603,27 +608,42 @@ export const assignedBankToPayInUrlService = async (
     const minPayIn = Number(merchant.min_payin);
     const amt = Number(amount);
 
-    if ((amt > maxPayIn || amt < minPayIn) && role) {
+    if ((amt > maxPayIn || amt < minPayIn) && !isAdmin) {
       //-- exact amounts should also be considered
       return { message: `Amount must be between ${minPayIn} and ${maxPayIn}` };
     }
     const banks = await getMerchantBankDao({
       config_merchants_contains: merchant.id,
     });
-    //only enabled banks assigned
-    const enabledBanks = banks.filter((bank) => {
+    
+    // First, check if any bank satisfies the amount condition
+    const banksWithValidAmount = banks.filter((bank) => {
       const isPayInBank = ['PayIn', 'payIn'].includes(bank.bank_used_for);
       const isActive = bank.is_enabled && isPayInBank;
-
       if (!isActive) return false;
-      if (
-        !(
-          amt > Number(bank.min) &&
-          amt < Number(bank.max)
-        )
-      )
-        return false;
-
+      
+      return amt >= Number(bank.min) && amt <= Number(bank.max);
+    });
+    
+    // If no bank satisfies the amount condition, check for enabled banks to provide appropriate error
+    if (banksWithValidAmount.length === 0) {
+      await updatePayInUrlDao(payIn.id, {
+        is_url_expires: true,
+        status: Status.DROPPED,
+      });
+      merchantPayinCallback(payInConfig.urls?.notify, {
+        status: Status.DROPPED,
+        merchantOrderId: payIn.merchant_order_id,
+        payinId: payIn.id,
+        amount: null,
+        req_amount: payIn.amount,
+        utr_id: payIn.utr,
+      });
+      throw new NotFoundError(`No bank found with valid amount range for ${amt}!`);
+    }
+    
+    //only enabled banks assigned with valid amount, method support, and type matching
+    const enabledBanks = banksWithValidAmount.filter((bank) => {
       const config = bank.config || {};
       const hasAnyMethod =
         bank.is_qr ||
@@ -1246,104 +1266,6 @@ const calculateStatus = (createdAt) => {
 
   return timeDifference > TEN_MINUTES_IN_MS ? Status.DROPPED : Status.ASSIGNED;
 };
-
-// export const getPayinsService = async (
-//   company_id,
-//   page,
-//   limit,
-//   filters,
-//   role,
-//   user_id,
-//   designation,
-// ) => {
-//   let conn;
-//   try {
-//     const fetchMerchantIds = async (user_ids) => {
-//       const merchants = await getMerchantByUserIdDao(user_ids);
-//       return merchants.map((merchant) => merchant.id);
-//     };
-
-//     const fetchBankIds = async (user_id) => {
-//       try {
-//         const banks = await getBankaccountDao({
-//           user_id,
-//           bank_used_for: 'PayIn',
-//         });
-//         if (!banks || banks.length === 0) {
-//           return [];
-//         }
-//         return banks.map((bank) => bank.id);
-//       } catch (error) {
-//         logger.error('Error fetching PayIn:', error);
-//         return [];
-//       }
-//     };
-
-//     let merchant_user_id = role === Role.MERCHANT ? [user_id] : [];
-
-//     if (role === Role.MERCHANT) {
-//       const userHierarchys = await getUserHierarchysDao({ user_id });
-//       const userHierarchy = userHierarchys?.[0];
-
-//       if (designation === Role.MERCHANT && userHierarchy) {
-//         const subMerchants =
-//           userHierarchy?.config?.siblings?.sub_merchants ?? [];
-//         if (Array.isArray(subMerchants) && subMerchants.length > 0) {
-//           merchant_user_id = [...merchant_user_id, ...subMerchants];
-//           filters.merchant_id = await fetchMerchantIds(merchant_user_id);
-//         } else {
-//           filters.merchant_id = await fetchMerchantIds([user_id]);
-//         }
-//       } else if (designation === Role.SUB_MERCHANT) {
-//         filters.merchant_id = await fetchMerchantIds([user_id]);
-//       } else if (designation === Role.MERCHANT_OPERATIONS && userHierarchy) {
-//         const parentID = userHierarchy?.config?.parent;
-//         if (parentID) {
-//           const parentHierarchys = await getUserHierarchysDao({
-//             user_id: parentID,
-//           });
-//           const parentHierarchy = parentHierarchys?.[0];
-//           const subMerchants =
-//             parentHierarchy?.config?.siblings?.sub_merchants ?? [];
-
-//           const userIdFilter = [...new Set([parentID, ...subMerchants])];
-//           filters.merchant_id = await fetchMerchantIds(userIdFilter);
-//         }
-//       }
-//     } else if (role === Role.VENDOR) {
-//       if (designation === Role.VENDOR) {
-//         filters.bank_acc_id = await fetchBankIds(user_id);
-//       } else if (designation === Role.VENDOR_OPERATIONS) {
-//         const userHierarchys = await getUserHierarchysDao({ user_id });
-//         const parentID = userHierarchys?.[0]?.config?.parent;
-//         if (parentID) {
-//           filters.bank_acc_id = await fetchBankIds(parentID);
-//         }
-//       }
-//     }
-
-//     if (
-//       (designation === Role.VENDOR || designation === Role.VENDOR_OPERATIONS) &&
-//       Array.isArray(filters.bank_acc_id) &&
-//       filters.bank_acc_id.length === 0
-//     ) {
-//       return [];
-//     }
-
-//     conn = await getConnection();
-//     return await getAllPayInsDao(filters, company_id, page, limit, role);
-//   } catch (error) {
-//     throw new InternalServerError(error.message);
-//   } finally {
-//     if (conn) {
-//       try {
-//         conn.release();
-//       } catch (releaseError) {
-//         logger.error('Error while releasing the connection', releaseError);
-//       }
-//     }
-//   }
-// };
 
 export const getPayinsBySearchService = async (
   filters,
