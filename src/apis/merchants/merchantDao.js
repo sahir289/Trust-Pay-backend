@@ -462,7 +462,8 @@ export const getMerchantsByCodeAndApiKeyDao = async (code, api_key) => {
           'keys', m.config->'keys',
           'urls', m.config->'urls',
           'is_h2h', (m.config->>'is_h2h')::boolean,
-          'allow_intent', (m.config->>'allow_intent')::boolean
+          'allow_intent', (m.config->>'allow_intent')::boolean,
+          'whitelist_ips', m.config->'whitelist_ips'
         ) AS config,
         m.company_id,
         (u.first_name || ' ' || u.last_name) AS full_name
