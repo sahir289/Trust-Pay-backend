@@ -28,8 +28,8 @@ import {
   Role,
   vendorColumns,
 } from '../../constants/index.js';
-import { createMerchantService } from '../merchants/merchantService.js';
-import { createVendorService } from '../vendors/vendorService.js';
+import { _createMerchantServiceInternal } from '../merchants/merchantService.js';
+import { _createVendorServiceInternal } from '../vendors/vendorService.js';
 import { BadRequestError } from '../../utils/appErrors.js';
 import { logger } from '../../utils/logger.js';
 import {
@@ -311,7 +311,7 @@ const getUsersByUserNameService = async (username, ids, role) => {
   }
 };
 
-const _createUserServiceInternal = async (payload) => {
+const _createUserServiceInternal = async (payload, conn) => {
   try {
     const { user_name } = payload;
     let company_id = payload.company_id;
@@ -351,7 +351,7 @@ const _createUserServiceInternal = async (payload) => {
     delete payload.payout_notify;
     delete payload.return;
     delete payload.site;
-    const User = await createUserDao(userPayload);
+    const User = await createUserDao(userPayload, conn);
 
     const designation = await getDesignationDao({ id: payload.designation_id });
     const userRole = await getRoleDao({ id: payload.role_id });
@@ -393,6 +393,7 @@ const _createUserServiceInternal = async (payload) => {
             child: { operations: [...currentChildren, User.id] },
           },
         },
+        conn,
       );
       if (
         userDesignation[0].designation == Role.VENDOR_OPERATIONS ||
@@ -410,6 +411,7 @@ const _createUserServiceInternal = async (payload) => {
                 : payload.created_by,
             },
           },
+          conn,
         );
       }
     }
@@ -472,7 +474,7 @@ const _createUserServiceInternal = async (payload) => {
           unblocked_countries: unblocked_countries,
         },
       };
-      merchant = await createMerchantService(merchantPayload);
+      merchant = await _createMerchantServiceInternal(merchantPayload, conn);
     }
     ///for vendor sub-vendor
     if (
@@ -516,7 +518,7 @@ const _createUserServiceInternal = async (payload) => {
         role: userRole[0].role,
         parent_id: payload?.parent_id ? payload?.parent_id : payload.created_by,
       };
-      await createVendorService(vendorPayload);
+      await _createVendorServiceInternal(vendorPayload, conn);
     }
 
     if (User) {
@@ -563,7 +565,7 @@ const createUserService = async (payload) => {
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const User = await _createUserServiceInternal(payload);
+    const User = await _createUserServiceInternal(payload, conn);
     await commit(conn);
     return User;
   } catch (error) {
@@ -575,7 +577,7 @@ const createUserService = async (payload) => {
   }
 };
 
-const _userUpdateServiceInternal = async (ids, payload) => {
+const _userUpdateServiceInternal = async (ids, payload, conn) => {
   try {
     // if (payload.email) {
     //   const verifyEmail = await getUsersDao({ email: payload.email });
@@ -583,7 +585,7 @@ const _userUpdateServiceInternal = async (ids, payload) => {
     //     throw new BadRequestError('Email already Registered');
     //   }
     // }
-    const User = await updateUserDao(ids, payload);
+    const User = await updateUserDao(ids, payload, conn);
   // await notifyAdminsAndUsers({
   //   conn,
   //   company_id: ids.company_id,
@@ -604,7 +606,7 @@ const userUpdateService = async (ids, payload) => {
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const User = await _userUpdateServiceInternal(ids, payload);
+    const User = await _userUpdateServiceInternal(ids, payload, conn);
     await commit(conn);
     return User;
   } catch (error) {

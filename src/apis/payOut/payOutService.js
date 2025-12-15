@@ -279,6 +279,7 @@ const _createPayoutServiceInternal = async (
   role,
   userIp,
   fromUI,
+  conn,
 ) => {
   try {
     // const filterColumns =
@@ -416,7 +417,7 @@ const _createPayoutServiceInternal = async (
     // }
 
     delete payload.x_api_key;
-    let data = await createPayoutDao(payload);
+    let data = await createPayoutDao(payload, conn);
 
     if (balanceRestriction) {
       const { totalNetBalance } = await getCalculationDao({ user_id });
@@ -464,7 +465,7 @@ const _createPayoutServiceInternal = async (
         // specific to clickrr max payout limit
         const updatedPayload = { config: { method: 'CLICKRR' } };
         // Use the DAO directly since we're already in a transaction
-        updatedData = await _updatePayoutServiceInternal(ids, updatedPayload);
+        updatedData = await _updatePayoutServiceInternal(ids, updatedPayload, role, conn);
         data = updatedData;
       }
     }
@@ -521,7 +522,7 @@ const createPayoutService = async (
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const data = await _createPayoutServiceInternal(headers, payload, role, userIp, fromUI);
+    const data = await _createPayoutServiceInternal(headers, payload, role, userIp, fromUI, conn);
     await commit(conn);
     return data;
   } catch (error) {
@@ -778,7 +779,7 @@ const getPayoutsBySearchService = async (
   }
 };
 
-const _updatePayoutServiceInternal = async (ids, payload, role) => {
+const _updatePayoutServiceInternal = async (ids, payload, role, conn = null) => {
   try {
     const filterColumns =
       role === Role.MERCHANT
@@ -942,7 +943,7 @@ const _updatePayoutServiceInternal = async (ids, payload, role) => {
       payload = updatedPayload;
     }
 
-    const data = await updatePayoutDao(ids, payload);
+    const data = await updatePayoutDao(ids, payload, conn);
 
     const responseObj = {
       id: data.id,
@@ -1133,6 +1134,8 @@ const _updatePayoutServiceInternal = async (ids, payload, role) => {
                 ? false
                 : true,
           },
+          false,
+          conn,
         ),
         updatePayoutDao(
           ids,
@@ -1142,6 +1145,7 @@ const _updatePayoutServiceInternal = async (ids, payload, role) => {
             vendor_id: vendor.id,
             // config: payoutConfig,
           },
+          conn,
         ),
       ]);
     } else if (data.status === Status.REVERSED && data.approved_at !== null) {
@@ -1184,6 +1188,8 @@ const _updatePayoutServiceInternal = async (ids, payload, role) => {
                 ? false
                 : true,
           },
+          false,
+          conn,
         ),
       ]);
     }
@@ -1213,7 +1219,7 @@ const updatePayoutService = async (ids, payload, role) => {
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const data = await _updatePayoutServiceInternal(ids, payload, role);
+    const data = await _updatePayoutServiceInternal(ids, payload, role, conn);
     await commit(conn);
     return data;
   } catch (error) {
@@ -1486,6 +1492,7 @@ const _assignedPayoutServiceInternal = async (
   payload,
   updated_by,
   company_id,
+  conn,
 ) => {
   try {
     const data = await assignedPayoutDao(
@@ -1493,6 +1500,7 @@ const _assignedPayoutServiceInternal = async (
       id,
       updated_by,
       company_id,
+      conn,
     );
     const responseObj = {
       id: data.id,
@@ -1529,7 +1537,7 @@ const assignedPayoutService = async (
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const data = await _assignedPayoutServiceInternal(id, payload, updated_by, company_id);
+    const data = await _assignedPayoutServiceInternal(id, payload, updated_by, company_id, conn);
     await commit(conn);
     return data;
   } catch (error) {
@@ -1545,7 +1553,7 @@ const assignedPayoutService = async (
   }
 };
 
-const _deletePayoutServiceInternal = async (id, updated_by, role) => {
+const _deletePayoutServiceInternal = async (id, updated_by, role, conn) => {
   try {
     const filterColumns =
       role === Role.MERCHANT
@@ -1555,7 +1563,7 @@ const _deletePayoutServiceInternal = async (id, updated_by, role) => {
           : columns.PAYOUT;
     const payload = { is_obsolete: true };
     payload.updated_by = updated_by;
-    const data = await deletePayoutDao(id, payload);
+    const data = await deletePayoutDao(id, payload, conn);
     const finalResult = await filterResponse(data, filterColumns);
     return finalResult;
   } catch (error) {
@@ -1569,7 +1577,7 @@ const deletePayoutService = async (id, updated_by, role) => {
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const finalResult = await _deletePayoutServiceInternal(id, updated_by, role);
+    const finalResult = await _deletePayoutServiceInternal(id, updated_by, role, conn);
     await commit(conn);
     return finalResult;
   } catch (error) {
@@ -1720,7 +1728,8 @@ const _createTataPayBulkPayoutServiceInternal = async (
     payoutIds,
     company_id,
     user_id,
-  }
+  },
+  conn,
 ) => {
   try {
     // Function to fetch payout data by IDs if needed
@@ -1756,6 +1765,7 @@ const _createTataPayBulkPayoutServiceInternal = async (
               ...payload,
               updated_at: new Date().toISOString(),
             },
+            conn,
           );
         }
         
@@ -1827,6 +1837,7 @@ const _createTataPayBulkPayoutServiceInternal = async (
                 await updatePayoutDao(
                   { id: update.payoutId }, // ids parameter
                   updatePayload, // payload parameter
+                  conn,
                 );
                 
                 logger.info(`Direct database update completed for payout ID: ${update.payoutId}`);
@@ -1876,7 +1887,7 @@ const createTataPayBulkPayoutService = async (
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const result = await _createTataPayBulkPayoutServiceInternal({ payoutEntries, payoutIds, company_id, user_id });
+    const result = await _createTataPayBulkPayoutServiceInternal({ payoutEntries, payoutIds, company_id, user_id }, conn);
     await commit(conn);
     return result;
   } catch (error) {

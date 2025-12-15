@@ -13,13 +13,13 @@ import {
 import { columns, merchantColumns, Role } from '../../constants/index.js';
 import { filterResponse } from '../../helpers/index.js';
 import { logger } from '../../utils/logger.js';
-const _createUserHierarchyServiceInternal = async (payload, role) => {
+const _createUserHierarchyServiceInternal = async (payload, role, conn) => {
   try {
     const filterColumns =
       role === Role.MERCHANT
         ? merchantColumns.USER_HIERARCHY
         : columns.USER_HIERARCHY;
-    const data = await createUserHierarchyDao(payload);
+    const data = await createUserHierarchyDao(payload, conn);
     const finalResult = filterResponse(data, filterColumns);
     return finalResult;
   } catch (error) {
@@ -33,7 +33,7 @@ const createUserHierarchyService = async (payload, role) => {
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const finalResult = await _createUserHierarchyServiceInternal(payload, role);
+    const finalResult = await _createUserHierarchyServiceInternal(payload, role, conn);
     await commit(conn);
     return finalResult;
   } catch (error) {
@@ -41,7 +41,7 @@ const createUserHierarchyService = async (payload, role) => {
       try {
         await rollback(conn); // Rollback the transaction in case of error
       } catch (rollbackError) {
-        logger.log('Error during transaction rollback', rollbackError);
+        logger.error('Error during transaction rollback', rollbackError);
       }
     }
     logger.error('Error while creating UserHierarchy', error);
@@ -51,7 +51,7 @@ const createUserHierarchyService = async (payload, role) => {
       try {
         conn.release(); // Release the connection back to the pool
       } catch (releaseError) {
-        logger.log('Error while releasing the connection', releaseError);
+        logger.error('Error while releasing the connection', releaseError);
       }
     }
   }
@@ -79,13 +79,13 @@ const getUserHierarchyService = async (filters, role, page, limit) => {
   }
 };
 
-const _updateUserHierarchyServiceInternal = async (id, payload, role) => {
+const _updateUserHierarchyServiceInternal = async (id, payload, role, conn) => {
   try {
     const filterColumns =
       role === Role.MERCHANT
         ? merchantColumns.USER_HIERARCHY
         : columns.USER_HIERARCHY;
-    const data = await updateUserHierarchyDao(id, payload);
+    const data = await updateUserHierarchyDao(id, payload, conn);
     const finalResult = await filterResponse(data, filterColumns);
     return finalResult;
   } catch (error) {
@@ -99,7 +99,7 @@ const updateUserHierarchyService = async (id, payload, role) => {
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const finalResult = await _updateUserHierarchyServiceInternal(id, payload, role);
+    const finalResult = await _updateUserHierarchyServiceInternal(id, payload, role, conn);
     await commit(conn);
     return finalResult;
   } catch (error) {
@@ -123,14 +123,14 @@ const updateUserHierarchyService = async (id, payload, role) => {
   }
 };
 
-const _deleteUserHierarchyServiceInternal = async (ids, updated_by, role) => {
+const _deleteUserHierarchyServiceInternal = async (ids, updated_by, role, conn) => {
   try {
     const filterColumns =
       role === Role.MERCHANT
         ? merchantColumns.USER_HIERARCHY
         : columns.USER_HIERARCHY;
     const payload = { is_obsolete: true, updated_by };
-    const data = await deleteUserHierarchyDao(ids, payload);
+    const data = await deleteUserHierarchyDao(ids, payload, conn);
     const finalResult = await filterResponse(data, filterColumns);
     return finalResult;
   } catch (error) {
@@ -144,7 +144,7 @@ const deleteUserHierarchyService = async (ids, updated_by, role) => {
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const finalResult = await _deleteUserHierarchyServiceInternal(ids, updated_by, role);
+    const finalResult = await _deleteUserHierarchyServiceInternal(ids, updated_by, role, conn);
     await commit(conn);
     return finalResult;
   } catch (error) {

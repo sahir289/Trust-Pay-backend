@@ -21,10 +21,12 @@ import { logger } from '../../utils/logger.js';
 // import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 // import { generateCacheKey ,setCachedData,getCachedData } from '../../utils/redishashkey.js';
 // import { newTableEntry } from '../../utils/sockets.js';
-export const generatePayInUrlDao = async (data) => {
+export const generatePayInUrlDao = async (data, conn = null) => {
   try {
     const [sql, params] = buildInsertQuery(tableName.PAYIN, data);
-    const result = await executeQuery(sql, params);
+    const result = conn 
+      ? await conn.query(sql, params)
+      : await executeQuery(sql, params);
     const insertedEntry = result.rows[0];
     // if (insertedEntry.merchant_id) {
     //   const code = await getMerchantForEsDao(insertedEntry.merchant_id);
@@ -2026,10 +2028,12 @@ export const getPayInForDuplicate = async (filters = {}) => {
   }
 };
 
-export const updatePayInUrlDao = async (id, data) => {
+export const updatePayInUrlDao = async (id, data, conn = null) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.PAYIN, data, { id });
-    const result = await executeQuery(sql, params);
+    const result = conn 
+      ? await conn.query(sql, params)
+      : await executeQuery(sql, params);
     // if (data.status === Status.SUCCESS) {
     //   await newTableEntry('SUM');
     // }
