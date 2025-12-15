@@ -443,8 +443,6 @@ const _createPayoutServiceInternal = async (
       clickrr_auto_approval_limit,
     } = details[0]?.config || {};
 
-    console.log(allow_clickrr)
-
     if (allow_clickrr) {
       const ids = { id: data.id, company_id: payload.company_id };
       const clickrrWalletBalance = await getClickrrWalletBalance({
@@ -480,7 +478,31 @@ const _createPayoutServiceInternal = async (
     }
 
     // const finalResult = filterResponse(data, filterColumns);
-    await newTableEntry(tableName.PAYOUT);
+    const responseObj = {
+      id: data.id,
+      merchant_order_id: data.merchant_order_id,
+      amount: data.amount,
+      status: data.status,
+      merchant_id: data.merchant_id,
+      created_at: data.created_at,
+      updated_at: data.updated_at,
+      config: data.config,
+      utr_id: data.utr_id || null,
+      merchant_details: {
+        merchant_code: code || null,
+      },
+      user_bank_details: {
+        account_holder_name: data.acc_holder_name || null,
+        account_no: data.ac_no || null,
+        ifsc_code: data.ifsc_code || null,
+        bank_name: data.bank_name || null,
+      },
+    };
+    setImmediate(() => {
+      newTableEntry(tableName.PAYOUT, responseObj).catch((err) =>
+        logger.error('Socket emit failed for payout:', err),
+      );
+    });
     return data;
   } catch (error) {
     logger.error('error in _createPayoutServiceInternal', error);
@@ -922,7 +944,37 @@ const _updatePayoutServiceInternal = async (ids, payload, role) => {
 
     const data = await updatePayoutDao(ids, payload);
 
-    await newTableEntry(tableName.PAYOUT);
+    const responseObj = {
+      id: data.id,
+      merchant_order_id: data.merchant_order_id,
+      amount: data.amount,
+      status: data.status,
+      merchant_id: data.merchant_id,
+      vendor_id: data.vendor_id,
+      bank_acc_id: data.bank_acc_id,
+      created_at: data.created_at,
+      updated_at: data.updated_at,
+      approved_at: data.approved_at,
+      rejected_at: data.rejected_at,
+      config: data.config,
+      utr_id: data.utr_id || null,
+      payout_merchant_commission: data.payout_merchant_commission || 0,
+      payout_vendor_commission: data.payout_vendor_commission || 0,
+      merchant_details: {
+        merchant_code: merchant?.code || null,
+      },
+      user_bank_details: {
+        account_holder_name: data.acc_holder_name || null,
+        account_no: data.ac_no || null,
+        ifsc_code: data.ifsc_code || null,
+        bank_name: data.bank_name || null,
+      },
+    };
+    setImmediate(() => {
+      newTableEntry(tableName.PAYOUT, responseObj).catch((err) =>
+        logger.error('Socket emit failed for payout:', err),
+      );
+    });
     if (data.status == Status.INITIATED) {
       return data;
     }
@@ -1442,7 +1494,24 @@ const _assignedPayoutServiceInternal = async (
       updated_by,
       company_id,
     );
-    await newTableEntry(tableName.PAYOUT);
+    const responseObj = {
+      id: data.id,
+      merchant_order_id: data.merchant_order_id,
+      amount: data.amount,
+      status: data.status,
+      merchant_id: data.merchant_id,
+      vendor_id: data.vendor_id,
+      bank_acc_id: data.bank_acc_id,
+      created_at: data.created_at,
+      updated_at: data.updated_at,
+      config: data.config,
+      utr_id: data.utr_id || null,
+    };
+    setImmediate(() => {
+      newTableEntry(tableName.PAYOUT, responseObj).catch((err) =>
+        logger.error('Socket emit failed for payout:', err),
+      );
+    });
     return data;
   } catch (error) {
     logger.error('error in _assignedPayoutServiceInternal', error);
