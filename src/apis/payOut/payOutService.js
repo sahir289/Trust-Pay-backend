@@ -548,7 +548,6 @@ const getPayoutsService = async (
   user_id,
   designation,
 ) => {
-  let conn;
   try {
     const fetchMerchantIds = async (user_ids) => {
       const merchants = await getMerchantByUserIdDao(user_ids);
@@ -625,8 +624,6 @@ const getPayoutsService = async (
       }
     }
 
-    conn = await getConnection('reader');
-    await beginTransaction(conn);
     const data = await getAllPayoutsDao(
       filters,
       company_id,
@@ -635,15 +632,11 @@ const getPayoutsService = async (
       sortOrder,
       role,
     );
-    await commit(conn);
+
     return { totalCount: data[0]?.total, payout: data };
   } catch (error) {
     logger.error('Error in getPayoutsService:', error);
     throw error;
-  } finally {
-    if (conn) {
-      conn.release();
-    }
   }
 };
 

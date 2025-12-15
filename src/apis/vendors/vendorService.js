@@ -119,7 +119,11 @@ const createVendorService = async (payload) => {
     return data;
   } catch (error) {
     if (conn) {
-      await rollback(conn);
+      try {
+        await rollback(conn);
+      } catch (rollbackError) {
+        logger.error('Error during rollback in createVendorService:', rollbackError);
+      }
     }
     logger.error('Error while creating Vendor', error);
     throw error;

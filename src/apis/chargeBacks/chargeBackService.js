@@ -212,7 +212,6 @@ const createChargeBackService = async (
       } catch (rollbackError) {
         logger.error('Error during transaction rollback', rollbackError);
       }
-      throw error;
     }
     logger.error('Error in createChargebackService', error);
     throw error;
