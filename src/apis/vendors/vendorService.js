@@ -801,6 +801,7 @@ const transferVendorService = async (
 };
 
 export {
+  _createVendorServiceInternal,
   createVendorService,
   getVendorsService,
   updateVendorService,

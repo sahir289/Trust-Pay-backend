@@ -655,6 +655,7 @@ const getMerchantsByCodeService = async (code) => {
 };
 
 export {
+  _createMerchantServiceInternal,
   createMerchantService,
   getMerchantsService,
   getMerchantsBySearchService,

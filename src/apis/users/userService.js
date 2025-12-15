@@ -28,8 +28,8 @@ import {
   Role,
   vendorColumns,
 } from '../../constants/index.js';
-import { createMerchantService } from '../merchants/merchantService.js';
-import { createVendorService } from '../vendors/vendorService.js';
+import { _createMerchantServiceInternal } from '../merchants/merchantService.js';
+import { _createVendorServiceInternal } from '../vendors/vendorService.js';
 import { BadRequestError } from '../../utils/appErrors.js';
 import { logger } from '../../utils/logger.js';
 import {
@@ -351,7 +351,7 @@ const _createUserServiceInternal = async (payload, conn) => {
     delete payload.payout_notify;
     delete payload.return;
     delete payload.site;
-    const User = await createUserDao(userPayload);
+    const User = await createUserDao(userPayload, conn);
 
     const designation = await getDesignationDao({ id: payload.designation_id });
     const userRole = await getRoleDao({ id: payload.role_id });
@@ -393,6 +393,7 @@ const _createUserServiceInternal = async (payload, conn) => {
             child: { operations: [...currentChildren, User.id] },
           },
         },
+        conn,
       );
       if (
         userDesignation[0].designation == Role.VENDOR_OPERATIONS ||
@@ -410,6 +411,7 @@ const _createUserServiceInternal = async (payload, conn) => {
                 : payload.created_by,
             },
           },
+          conn,
         );
       }
     }
@@ -472,7 +474,7 @@ const _createUserServiceInternal = async (payload, conn) => {
           unblocked_countries: unblocked_countries,
         },
       };
-      merchant = await createMerchantService(merchantPayload);
+      merchant = await _createMerchantServiceInternal(merchantPayload, conn);
     }
     ///for vendor sub-vendor
     if (
@@ -516,7 +518,7 @@ const _createUserServiceInternal = async (payload, conn) => {
         role: userRole[0].role,
         parent_id: payload?.parent_id ? payload?.parent_id : payload.created_by,
       };
-      await createVendorService(vendorPayload);
+      await _createVendorServiceInternal(vendorPayload, conn);
     }
 
     if (User) {
