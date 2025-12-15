@@ -226,11 +226,13 @@ const getResetHistoryBySearchDao = async (
     throw error;
   }
 };
-const createResetHistoryDao = async (payload) => {
+const createResetHistoryDao = async (payload, conn = null) => {
   try {
     const tableName = 'ResetDataHistory';
     const [sql, params] = buildInsertQuery(tableName, payload);
-    const result = await executeQuery(sql, params);
+    const result = conn 
+      ? await conn.query(sql, params)
+      : await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in createResetHistoryDao:', error);
@@ -238,11 +240,13 @@ const createResetHistoryDao = async (payload) => {
   }
 };
 
-const updateResetHistoryDao = async (id, data) => {
+const updateResetHistoryDao = async (id, data, conn = null) => {
   try {
     const tableName = 'ResetHistory';
     const [sql, params] = buildUpdateQuery(tableName, data, { id });
-    const result = await executeQuery(sql, params);
+    const result = conn 
+      ? await conn.query(sql, params)
+      : await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in updateResetHistoryDao:', error);

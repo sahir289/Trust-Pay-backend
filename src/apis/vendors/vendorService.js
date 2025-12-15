@@ -38,7 +38,7 @@ import { updateUserDao, getUsersNameDao } from '../users/userDao.js';
 import { deleteBeneficiaryDao } from '../beneficiaryAccounts/beneficiaryAccountDao.js';
 import { notifyBankResponseAccessUpdate } from '../../utils/sockets.js';
 import { BadRequestError, NotFoundError } from '../../utils/appErrors.js';
-const _createVendorServiceInternal = async (payload) => {
+const _createVendorServiceInternal = async (payload, conn) => {
   try {
     const parentId = payload.parent_id;
     const userDesignation = payload.designation;
@@ -47,13 +47,13 @@ const _createVendorServiceInternal = async (payload) => {
     delete payload.role;
     let role_id = payload.role_id;
     delete payload.role_id;
-    const data = await createVendorDao(payload);
+    const data = await createVendorDao(payload, conn);
     const calculationPayload = {
       user_id: data.user_id,
       role_id: role_id,
       company_id: data.company_id,
     };
-    await createCalculationDao(calculationPayload);
+    await createCalculationDao(calculationPayload, conn);
 
     // Handle SUB_VENDOR hierarchy creation
     if (userDesignation === Role.SUB_VENDOR && parentId) {
@@ -78,6 +78,7 @@ const _createVendorServiceInternal = async (payload) => {
               },
             },
           },
+          conn,
         );
       } catch (error) {
         logger.error('Error updating vendor hierarchy:', error);
@@ -91,7 +92,7 @@ const _createVendorServiceInternal = async (payload) => {
       updated_by: data.updated_by,
       company_id: data.company_id,
       ...(parentId && { config: { parent: parentId } }),
-    });
+    }, conn);
     // await notifyAdminsAndUsers({
     //   conn,
     //   company_id: data.company_id,
@@ -113,7 +114,7 @@ const createVendorService = async (payload) => {
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const data = await _createVendorServiceInternal(payload);
+    const data = await _createVendorServiceInternal(payload, conn);
     await commit(conn);
     return data;
   } catch (error) {
@@ -363,9 +364,9 @@ const getVendorsBySearchService = async (
   }
 };
 
-const _updateVendorServiceInternal = async (ids, payload) => {
+const _updateVendorServiceInternal = async (ids, payload, conn) => {
   try {
-    const data = await updateVendorDao(ids, payload); // Adjust DAO call for update
+    const data = await updateVendorDao(ids, payload, conn); // Adjust DAO call for update
     if (
       data?.config?.bank_response_access === 'false' ||
       data?.config?.bank_response_access === false ||
@@ -411,7 +412,7 @@ const updateVendorService = async (ids, payload) => {
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const data = await _updateVendorServiceInternal(ids, payload);
+    const data = await _updateVendorServiceInternal(ids, payload, conn);
     await commit(conn); // Commit the transaction
     return data;
   } catch (error) {
@@ -435,10 +436,10 @@ const updateVendorService = async (ids, payload) => {
   }
 };
 
-const _deleteVendorServiceInternal = async (ids, updated_by) => {
+const _deleteVendorServiceInternal = async (ids, updated_by, conn) => {
   try {
     const payload = { is_obsolete: true, updated_by };
-    const data = await deleteVendorDao(ids, payload); // Adjust DAO call for delete
+    const data = await deleteVendorDao(ids, payload, conn); // Adjust DAO call for delete
     //delete banks and childs for particular user
     if (data) {
       const payloadBank = {
@@ -448,15 +449,17 @@ const _deleteVendorServiceInternal = async (ids, updated_by) => {
         is_enabled: false,
         updated_by,
       };
-      await updateUserDao({ id: ids.user_id || ids.id }, payload);
+      await updateUserDao({ id: ids.user_id || ids.id }, payload, conn);
       await deleteBeneficiaryDao(
         { user_id: ids.user_id || ids.id },
         { is_obsolete: true },
+        conn,
       );
       await updateBankaccountDao(
         { user_id: ids.user_id || ids.id },
         payloadBank,
         true,
+        conn,
       );
       //for childs user hierachys
       const UserHierarchy = await getUserHierarchysDao({
@@ -465,7 +468,7 @@ const _deleteVendorServiceInternal = async (ids, updated_by) => {
       if (UserHierarchy[0]?.config?.child?.operations) {
         const userIds = UserHierarchy[0].config.child.operations;
         for (const userId of userIds) {
-          await updateUserDao({ id: userId }, payload);
+          await updateUserDao({ id: userId }, payload, conn);
         }
       }
       if (UserHierarchy[0]?.config?.siblings?.sub_vendors) {
@@ -475,6 +478,7 @@ const _deleteVendorServiceInternal = async (ids, updated_by) => {
           await updateUserDao(
             { id: userId },
             { designation_id: vendorDesignationId, updated_by: updated_by },
+            conn,
           );
         }
       }
@@ -500,7 +504,7 @@ const deleteVendorService = async (ids, updated_by) => {
   try {
     conn = await getConnection();
     await beginTransaction(conn); // Start a transaction
-    const data = await _deleteVendorServiceInternal(ids, updated_by);
+    const data = await _deleteVendorServiceInternal(ids, updated_by, conn);
     await commit(conn); // Commit the transaction
     return data;
   } catch (error) {
@@ -569,6 +573,7 @@ const _linkVendorServiceInternal = async (
   user_id,
   mediator_payin_commission,
   mediator_payout_commission,
+  conn,
 ) => {
   try {
     if (!(await isNetBalanceZeroForTwoHours(subVendorUserId))) {
@@ -592,6 +597,7 @@ const _linkVendorServiceInternal = async (
       user_id,
       mediator_payin_commission,
       mediator_payout_commission,
+      conn,
     );
     // Change designation to SUB_VENDOR in user table using DAO
     const subVendorDesignationId = await getDesignationIdDao(Role.SUB_VENDOR);
@@ -599,6 +605,7 @@ const _linkVendorServiceInternal = async (
       await updateUserDao(
         { id: subVendorUserId },
         { designation_id: subVendorDesignationId, updated_by: user_id },
+        conn,
       );
     }
     return result;
@@ -625,6 +632,7 @@ const linkVendorService = async (
       user_id,
       mediator_payin_commission,
       mediator_payout_commission,
+      conn,
     );
     await commit(conn);
     return result;
@@ -653,6 +661,7 @@ const _unlinkVendorServiceInternal = async (
   vendorUserId,
   subVendorUserId,
   user_id,
+  conn,
 ) => {
   try {
     if (!(await isNetBalanceZeroForTwoHours(subVendorUserId))) {
@@ -662,6 +671,7 @@ const _unlinkVendorServiceInternal = async (
       vendorUserId,
       subVendorUserId,
       user_id,
+      conn,
     );
     // Change designation to VENDOR in user table using DAO
     const vendorDesignationId = await getDesignationIdDao(Role.VENDOR);
@@ -669,6 +679,7 @@ const _unlinkVendorServiceInternal = async (
       await updateUserDao(
         { id: subVendorUserId },
         { designation_id: vendorDesignationId, updated_by: user_id },
+        conn,
       );
     }
     return result;
@@ -687,6 +698,7 @@ const unlinkVendorService = async (vendorUserId, subVendorUserId, user_id) => {
       vendorUserId,
       subVendorUserId,
       user_id,
+      conn,
     );
     await commit(conn);
     return result;
@@ -716,6 +728,7 @@ const _transferVendorServiceInternal = async (
   newVendorUserId,
   currentVendorUserId,
   user_id,
+  conn,
 ) => {
   try {
     if (!(await isNetBalanceZeroForTwoHours(subVendorUserId))) {
@@ -738,6 +751,7 @@ const _transferVendorServiceInternal = async (
       newVendorUserId,
       currentVendorUserId,
       user_id,
+      conn,
     );
     return result;
   } catch (error) {
@@ -761,6 +775,7 @@ const transferVendorService = async (
       newVendorUserId,
       currentVendorUserId,
       user_id,
+      conn,
     );
     await commit(conn);
     return result;

@@ -211,13 +211,13 @@ const getCheckUtrBySearchDao = async (
   }
 };
 
-const createCheckUtrDao = async (payload) => {
+const createCheckUtrDao = async (payload, conn = null) => {
   try {
     const [sql, params] = buildInsertQuery(
       tableName.CHECK_UTR_HISTORY,
       payload,
     );
-    const result = await executeQuery(sql, params);
+    const result = conn ? await conn.query(sql, params) : await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
     logger.error('Error creating CheckUtr:', error);

@@ -8,11 +8,11 @@ import {
 } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
 import { enhanceMerchantsWithSubMerchants } from '../../utils/enhanceSubMerchant.js';
-export const createMerchantDao = async (data) => {
+export const createMerchantDao = async (data, conn = null) => {
   try {
     delete data.parent_id;
     const [sql, params] = buildInsertQuery(tableName.MERCHANT, data);
-    const result = await executeQuery(sql, params);
+    const result = conn ? await conn.query(sql, params) : await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in createMerchantDao:', error);
@@ -297,6 +297,7 @@ export const getMerchantsDao = async (
   sortBy = 'created_at',
   sortOrder = 'ASC',
   role,
+  conn = null,
 ) => {
   try {
     let baseQuery = `
@@ -357,7 +358,7 @@ export const getMerchantsDao = async (
       sortOrder,
       tableName.MERCHANT,
     );
-    const result = await executeQuery(sql, queryParams);
+    const result = await executeQuery(sql, queryParams, conn);
     const data = await enhanceMerchantsWithSubMerchants(result.rows);
     return data;
   } catch (error) {
@@ -542,6 +543,7 @@ export const getAllMerchantsDao = async (
   sortBy = 'created_at',
   sortOrder = 'ASC',
   role,
+  conn = null,
 ) => {
   try {
     let baseQuery = `
@@ -602,7 +604,7 @@ export const getAllMerchantsDao = async (
       sortOrder,
       tableName.MERCHANT,
     );
-    const result = await executeQuery(sql, queryParams);
+    const result = conn ? await conn.query(sql, queryParams) : await executeQuery(sql, queryParams);
     const data = await enhanceMerchantsWithSubMerchants(result.rows);
     return data;
   } catch (error) {
@@ -828,20 +830,21 @@ export const getMerchantsForValidatePayinDao = async (filters) => {
   }
 };
 
-export const updateMerchantDao = async (ids, data) => {
+export const updateMerchantDao = async (ids, data, conn = null) => {
   return await buildAndExecuteUpdateQuery(
     'Merchant',
     data,
     ids,
     {},
     { returnUpdated: true },
+    conn,
   );
 };
 
 export const deleteMerchantDao = async (
-  conn,
   ids,
   data,
+  conn = null,
   options = { returnUpdated: true },
 ) => {
   try {
@@ -864,7 +867,7 @@ export const deleteMerchantDao = async (
       ${returningClause}
     `;
 
-    const result = await conn.query(sql, values);
+    const result = conn ? await conn.query(sql, values) : await executeQuery(sql, values);
 
     return result.rows;
   } catch (error) {

@@ -1082,11 +1082,13 @@ const getInternalBankResponseByUTR = async (utr) => {
   }
 };
 
-const createBankResponseDao = async (data) => {
+const createBankResponseDao = async (data, conn = null) => {
   try {
     // data.id = generateUUID();
     const [sql, params] = buildInsertQuery(tableName.BANK_RESPONSE, data);
-    const result = await executeQuery(sql, params);
+    const result = conn
+      ? await conn.query(sql, params)
+      : await executeQuery(sql, params);
     const insertedEntry = result.rows[0];
     // const nickName = await getBankAccountNickNameForEsDao(
     //   insertedEntry.bank_id,
@@ -1100,10 +1102,12 @@ const createBankResponseDao = async (data) => {
   }
 };
 
-export const updateBankResponseDao = async (id, data) => {
+export const updateBankResponseDao = async (id, data, conn = null) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.BANK_RESPONSE, data, id);
-    const result = await executeQuery(sql, params);
+    const result = conn 
+      ? await conn.query(sql, params)
+      : await executeQuery(sql, params);
     // let insertedEntry = {
     //   ...data,
     //   updated_at: result.rows[0].updated_at,
@@ -1152,12 +1156,14 @@ const getBankMessageDao = async (
   }
 };
 
-const resetBankResponseDao = async (id, data) => {
+const resetBankResponseDao = async (id, data, conn = null) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.BANK_RESPONSE, data, {
       id,
     });
-    const result = await executeQuery(sql, params);
+    const result = conn
+      ? await conn.query(sql, params)
+      : await executeQuery(sql, params);
     // let insertedEntry = {
     //   ...data,
     //   updated_at: result.rows[0].updated_at,
@@ -1179,12 +1185,14 @@ const resetBankResponseDao = async (id, data) => {
   }
 };
 
-const updateBotResponseDao = async (id, data) => {
+const updateBotResponseDao = async (id, data, conn = null) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.BANK_RESPONSE, data, {
       id,
     });
-    const result = await executeQuery(sql, params);
+    const result = conn
+      ? await conn.query(sql, params)
+      : await executeQuery(sql, params);
     // await newTableEntry(tableName.BANK_RESPONSE);
     // let insertedEntry = {
     //   ...data,

@@ -41,7 +41,7 @@ import { updateUserDao } from '../users/userDao.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 // Create Merchant Service
 
-const _createMerchantServiceInternal = async (payload) => {
+const _createMerchantServiceInternal = async (payload, conn) => {
   try {
     const parentId = payload.parent_id;
     delete payload.parentId;
@@ -51,13 +51,13 @@ const _createMerchantServiceInternal = async (payload) => {
     delete payload.role_id;
     delete payload.role;
     delete payload.designation;
-    const data = await createMerchantDao(payload);
+    const data = await createMerchantDao(payload, conn);
     const calculationPayload = {
       role_id: Role_id,
       user_id: data.user_id,
       company_id: data.company_id,
     };
-    await createCalculationDao(calculationPayload);
+    await createCalculationDao(calculationPayload, conn);
     if (userRole === Role.MERCHANT) {
       await createUserHierarchyDao({
         user_id: data.user_id,
@@ -65,7 +65,7 @@ const _createMerchantServiceInternal = async (payload) => {
         created_by: data.created_by,
         updated_by: data.updated_by,
         company_id: data.company_id,
-      });
+      }, conn);
     }
     if (
       // userDesignation === Role.MERCHANT ||
@@ -89,6 +89,7 @@ const _createMerchantServiceInternal = async (payload) => {
               siblings: { sub_merchants: [...currentChildren, data.user_id] },
             },
           },
+          conn,
         );
       } catch (error) {
         logger.error('Error updating hierarchy:', error);
@@ -117,15 +118,27 @@ const createMerchantService = async (payload) => {
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const data = await _createMerchantServiceInternal(payload);
+    const data = await _createMerchantServiceInternal(payload, conn);
     await commit(conn);
     return data;
   } catch (error) {
-    if (conn) await rollback(conn);
+    if (conn) {
+      try {
+        await rollback(conn);
+      } catch (rollbackError) {
+        logger.error('Error during transaction rollback', rollbackError);
+      }
+    }
     logger.error('Error while creating merchant', error);
     throw error;
   } finally {
-    if (conn) conn.release();
+    if (conn) {
+      try {
+        conn.release();
+      } catch (releaseError) {
+        logger.error('Error while releasing the connection', releaseError);
+      }
+    }
   }
 };
 
@@ -377,7 +390,7 @@ const getMerchantsServiceCode = async (
 };
 
 // Update Merchant Service
-const _updateMerchantServiceInternal = async (ids, payload) => {
+const _updateMerchantServiceInternal = async (ids, payload, conn) => {
   try {
     // const filterColumns =
     //   role === Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
@@ -388,7 +401,7 @@ const _updateMerchantServiceInternal = async (ids, payload) => {
       };
     }
     delete payload.whitelist_ips;
-    const data = await updateMerchantDao(ids, payload); // Adjust DAO call for update
+    const data = await updateMerchantDao(ids, payload, conn); // Adjust DAO call for update
     logger.log('Merchant updated successfully');
     // const finalResult = filterResponse(data, filterColumns);
     // await notifyAdminsAndUsers({
@@ -412,20 +425,32 @@ const updateMerchantService = async (ids, payload) => {
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const data = await _updateMerchantServiceInternal(ids, payload);
+    const data = await _updateMerchantServiceInternal(ids, payload, conn);
     await commit(conn);
     return data;
   } catch (error) {
-    if (conn) await rollback(conn);
+    if (conn) {
+      try {
+        await rollback(conn);
+      } catch (rollbackError) {
+        logger.error('Error during transaction rollback', rollbackError);
+      }
+    }
     logger.error('Error while updating merchant', error);
     throw error;
   } finally {
-    if (conn) conn.release();
+    if (conn) {
+      try {
+        conn.release();
+      } catch (releaseError) {
+        logger.error('Error while releasing the connection', releaseError);
+      }
+    }
   }
 };
 
 // Delete Merchant Service (with Transaction Handling)
-const _deleteMerchantServiceInternal = async (ids, updated_by, roleIs) => {
+const _deleteMerchantServiceInternal = async (ids, updated_by, roleIs, conn) => {
   try {
     const id = ids.id;
     const merchantDetails = await getMerchantsDao(
@@ -487,6 +512,7 @@ const _deleteMerchantServiceInternal = async (ids, updated_by, roleIs) => {
       await updateBankaccountDao(
         { id: bankId, company_id: ids.company_id },
         { config: { merchants: filteredMerchants } },
+        conn,
       );
     }
     //delete user of merchant also
@@ -495,9 +521,9 @@ const _deleteMerchantServiceInternal = async (ids, updated_by, roleIs) => {
       ...subMerchantIds,
       ...operationIds,
     ];
-    await updateUserDao({ id: userIds }, { is_obsolete: true });
+    await updateUserDao({ id: userIds }, { is_obsolete: true }, conn);
     const payload = { is_obsolete: true, updated_by };
-    const data = await deleteMerchantDao(ids, payload); // Adjust DAO call for delete
+    const data = await deleteMerchantDao(ids, payload, conn); // Adjust DAO call for delete
     logger.log('Merchant deleted successfully');
     // const userArr = await getUserByIdDao(conn, {
     //   id: userIds,
@@ -525,7 +551,7 @@ const deleteMerchantService = async (ids, updated_by, roleIs) => {
   try {
     conn = await getConnection();
     await beginTransaction(conn); // Start a transaction
-    const data = await _deleteMerchantServiceInternal(ids, updated_by, roleIs);
+    const data = await _deleteMerchantServiceInternal(ids, updated_by, roleIs, conn);
     await commit(conn); // Commit the transaction
     return data;
   } catch (error) {

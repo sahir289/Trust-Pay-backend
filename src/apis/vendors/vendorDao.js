@@ -13,10 +13,10 @@ import {
 import { logger } from '../../utils/logger.js';
 import { enhanceVendorsWithSubVendors } from '../../utils/enhanceSubVendor.js';
 
-export const createVendorDao = async (data) => {
+export const createVendorDao = async (data, conn = null) => {
   try {
     const [sql, params] = buildInsertQuery(tableName.VENDOR, data);
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in create Vendor Dao:', error);
@@ -682,10 +682,10 @@ export const getVendorsBySearchDao = async (
     throw error;
   }
 };
-export const updateVendorDao = async (id, data) => {
+export const updateVendorDao = async (id, data, conn = null) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.VENDOR, data, id);
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in updateVendorDao:', error);
@@ -693,10 +693,10 @@ export const updateVendorDao = async (id, data) => {
   }
 };
 
-export const deleteVendorDao = async (id, data) => {
+export const deleteVendorDao = async (id, data, conn = null) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.VENDOR, data, id);
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in deleteVendorDao:', error);
@@ -912,13 +912,13 @@ const getVendorConfig = async (userId) => {
   }
 };
 
-const updateVendorConfig = async (userId, newConfig, updatedBy) => {
+const updateVendorConfig = async (userId, newConfig, updatedBy, conn = null) => {
   try {
     const sql = `UPDATE "${tableName.VENDOR}"
                SET config = $1, updated_by = $2
                WHERE user_id = $3
                RETURNING *;`;
-    const { rows } = await executeQuery(sql, [newConfig, updatedBy, userId]);
+    const { rows } = await executeQuery(sql, [newConfig, updatedBy, userId], conn);
     return rows[0];
   } catch (error) {
     logger.error('Error in updateVendorConfig:', error);
@@ -990,6 +990,7 @@ export const linkVendorDao = async (
   user_id,
   mediator_payin_commission,
   mediator_payout_commission,
+  conn = null,
 ) => {
   try {
     const parentConfig = await getUserHierarchyVendor(vendorUserId);
@@ -1000,10 +1001,11 @@ export const linkVendorDao = async (
       vendorUserId,
       newParentConfig,
       user_id,
+      conn,
     );
 
     const newChildConfig = setParentInChild(childConfig, vendorUserId);
-    await updateUserHierarchyVendor(subVendorUserId, newChildConfig, user_id);
+    await updateUserHierarchyVendor(subVendorUserId, newChildConfig, user_id, conn);
 
     const parentCode = await getVendorCode(vendorUserId);
     if (parentCode) {
@@ -1017,7 +1019,7 @@ export const linkVendorDao = async (
         mediator_payin_commission: mediator_payin_commission,
         mediator_payout_commission: mediator_payout_commission,
       };
-      await updateVendorConfig(subVendorUserId, updatedVendorConfig, user_id);
+      await updateVendorConfig(subVendorUserId, updatedVendorConfig, user_id, conn);
     }
 
     return updatedParent;
@@ -1033,6 +1035,7 @@ export const unlinkVendorDao = async (
   vendorUserId,
   subVendorUserId,
   user_id,
+  conn = null,
 ) => {
   try {
     const parentConfig = await getUserHierarchyVendor(vendorUserId);
@@ -1045,13 +1048,14 @@ export const unlinkVendorDao = async (
       vendorUserId,
       newParentConfig,
       user_id,
+      conn,
     );
     const newChildConfig = clearParentInChild(childConfig);
-    await updateUserHierarchyVendor(subVendorUserId, newChildConfig, user_id);
+    await updateUserHierarchyVendor(subVendorUserId, newChildConfig, user_id, conn);
     const { config: vendorConfig } = await getVendorConfig(subVendorUserId);
     const cleanedVendorConfig = removeSubCodeFromVendor(vendorConfig);
     if (cleanedVendorConfig !== vendorConfig) {
-      await updateVendorConfig(subVendorUserId, cleanedVendorConfig, user_id);
+      await updateVendorConfig(subVendorUserId, cleanedVendorConfig, user_id, conn);
     }
     return updatedParent;
   } catch (error) {
@@ -1066,6 +1070,7 @@ export const transferVendorDao = async (
   newVendorUserId,
   currentVendorUserId,
   user_id,
+  conn = null,
 ) => {
   try {
     const currentParentConfig =
@@ -1080,6 +1085,7 @@ export const transferVendorDao = async (
       currentVendorUserId,
       updatedCurrentConfig,
       user_id,
+      conn,
     );
     const updatedNewConfig = addSubVendorToParent(
       newParentConfig,
@@ -1089,9 +1095,10 @@ export const transferVendorDao = async (
       newVendorUserId,
       updatedNewConfig,
       user_id,
+      conn,
     );
     const updatedChildConfig = setParentInChild(childConfig, newVendorUserId);
-    await updateUserHierarchyVendor(vendorUserId, updatedChildConfig, user_id);
+    await updateUserHierarchyVendor(vendorUserId, updatedChildConfig, user_id, conn);
     const newParentCode = await getVendorCode(newVendorUserId);
     if (newParentCode) {
       const { code: childCode, config: vendorConfig } =
@@ -1101,7 +1108,7 @@ export const transferVendorDao = async (
         vendorConfig,
         newSubCode,
       );
-      await updateVendorConfig(vendorUserId, finalVendorConfig, user_id);
+      await updateVendorConfig(vendorUserId, finalVendorConfig, user_id, conn);
     }
     return result;
   } catch (error) {

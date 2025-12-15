@@ -7,10 +7,10 @@ import {
 } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
 import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
-export const createUserHierarchyDao = async (data) => {
+export const createUserHierarchyDao = async (data, conn = null) => {
   try {
     const [sql, params] = buildInsertQuery(tableName.USER_HIERARCHY, data);
-    const result = await executeQuery(sql, params);
+    const result = conn ? await conn.query(sql, params) : await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in create UserHierarchy Dao:', error);
@@ -65,10 +65,10 @@ export const getUserHierarchysDao = async (
   }
 };
 
-export const updateUserHierarchyDao = async (id, data) => {
+export const updateUserHierarchyDao = async (id, data, conn = null) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.USER_HIERARCHY, data, id);
-    const result = await executeQuery(sql, params);
+    const result = conn ? await conn.query(sql, params) : await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in updateUserHierarchyDao:', error);
@@ -76,10 +76,10 @@ export const updateUserHierarchyDao = async (id, data) => {
   }
 };
 
-export const deleteUserHierarchyDao = async (id, data) => {
+export const deleteUserHierarchyDao = async (id, data, conn = null) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.USER_HIERARCHY, data, id);
-    const result = await executeQuery(sql, params);
+    const result = conn ? await conn.query(sql, params) : await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in deleteUserHierarchyDao:', error);

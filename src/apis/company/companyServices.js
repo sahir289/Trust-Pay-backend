@@ -11,12 +11,6 @@ import { getRoleDao } from '../roles/rolesDao.js';
 import { RoleIs, DesignationIs } from '../../constants/index.js';
 import { getDesignationDao } from '../designation/designationDao.js';
 import { logger } from '../../utils/logger.js';
-import {
-  getConnection,
-  beginTransaction,
-  commit,
-  rollback,
-} from '../../utils/db.js';
 
 const getCompanyService = async (id) => {
   try {
@@ -131,23 +125,12 @@ const _createCompanyServiceInternal = async (payload) => {
 };
 
 const createCompanyService = async (payload) => {
-  let conn;
   try {
-    conn = await getConnection();
-    await beginTransaction(conn);
     const result = await _createCompanyServiceInternal(payload);
-    await commit(conn);
     return result;
   } catch (error) {
-    if (conn) {
-      await rollback(conn);
-    }
     logger.error('Error while creating company:', error);
     throw error;
-  } finally {
-    if (conn) {
-      conn.release();
-    }
   }
 };
 

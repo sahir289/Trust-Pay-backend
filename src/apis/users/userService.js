@@ -311,7 +311,7 @@ const getUsersByUserNameService = async (username, ids, role) => {
   }
 };
 
-const _createUserServiceInternal = async (payload) => {
+const _createUserServiceInternal = async (payload, conn) => {
   try {
     const { user_name } = payload;
     let company_id = payload.company_id;
@@ -563,7 +563,7 @@ const createUserService = async (payload) => {
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const User = await _createUserServiceInternal(payload);
+    const User = await _createUserServiceInternal(payload, conn);
     await commit(conn);
     return User;
   } catch (error) {
@@ -575,7 +575,7 @@ const createUserService = async (payload) => {
   }
 };
 
-const _userUpdateServiceInternal = async (ids, payload) => {
+const _userUpdateServiceInternal = async (ids, payload, conn) => {
   try {
     // if (payload.email) {
     //   const verifyEmail = await getUsersDao({ email: payload.email });
@@ -583,7 +583,7 @@ const _userUpdateServiceInternal = async (ids, payload) => {
     //     throw new BadRequestError('Email already Registered');
     //   }
     // }
-    const User = await updateUserDao(ids, payload);
+    const User = await updateUserDao(ids, payload, conn);
   // await notifyAdminsAndUsers({
   //   conn,
   //   company_id: ids.company_id,
@@ -604,7 +604,7 @@ const userUpdateService = async (ids, payload) => {
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const User = await _userUpdateServiceInternal(ids, payload);
+    const User = await _userUpdateServiceInternal(ids, payload, conn);
     await commit(conn);
     return User;
   } catch (error) {

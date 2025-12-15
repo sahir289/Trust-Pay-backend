@@ -7,6 +7,7 @@ import {
   commit,
   getConnection,
   rollback,
+  buildAndExecuteUpdateQuery,
 } from '../../utils/db.js';
 import {
   createSettlementDao,
@@ -386,14 +387,14 @@ const getSettlementsBySearchService = async (
   }
 };
 
-const _createSettlementServiceInternal = async (payload, role) => {
+const _createSettlementServiceInternal = async (payload, role, conn) => {
   const isInternalTransfer =
     payload.method === 'INTERNAL_QR_TRANSFER' ||
     payload.method === 'INTERNAL_BANK_TRANSFER';
 
   // Early return for non-internal transfers without reference_id
   if (!isInternalTransfer || !payload.config?.reference_id) {
-    const result = await createSettlementDao(payload);
+    const result = await createSettlementDao(payload, conn);
     return result;
   }
 
@@ -423,12 +424,13 @@ const _createSettlementServiceInternal = async (payload, role) => {
     const result = await handleVendorInternalTransferByAdmin(
       payload,
       bankResponses,
+      conn,
     );
     return result;
   }
 
   // Handle other roles internal transfers
-  const result = await handleVendorInternalTransfer(payload);
+  const result = await handleVendorInternalTransfer(payload, conn);
   return result;
 };
 
@@ -437,7 +439,7 @@ const createSettlementService = async (payload, role) => {
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const result = await _createSettlementServiceInternal(payload, role);
+    const result = await _createSettlementServiceInternal(payload, role, conn);
     await commit(conn);
     return result;
   } catch (error) {
@@ -453,6 +455,7 @@ const createSettlementService = async (payload, role) => {
 const handleVendorInternalTransferByAdmin = async (
   payload,
   bankResponses,
+  conn,
 ) => {
   // Get vendor and calculation data
   const [vendorData, calculationData] = await Promise.all([
@@ -474,6 +477,7 @@ const handleVendorInternalTransferByAdmin = async (
   const response = await updateBankResponseDao(
     { id: bankResponses.id },
     { status: '/internalTransfer' },
+    conn,
   );
   const responseObj = {
     id: response.id,
@@ -506,6 +510,7 @@ const handleVendorInternalTransferByAdmin = async (
   const calculationResponse = await updateCalculationBalanceDao(
     { id: calculationData[0].id },
     updatedCalculation,
+    conn,
   );
   
   await trackVendorsNetBalance(calculationData[0].user_id, calculationResponse);
@@ -519,6 +524,7 @@ const handleVendorInternalTransferByAdmin = async (
   await updateCalculationConfigDao(
     { id: calculationData[0].id },
     { config },
+    conn,
   );
 
   // Set final payload properties
@@ -533,11 +539,11 @@ const handleVendorInternalTransferByAdmin = async (
       true,
     );
   }
-  return await createSettlementDao(payload);
+  return await createSettlementDao(payload, conn);
 };
 
 // Helper function for internal transfers from vendors
-const handleVendorInternalTransfer = async (payload) => {
+const handleVendorInternalTransfer = async (payload, conn) => {
   // Adjust amount based on debit_credit type
   const isReceived = payload.config.debit_credit === 'RECEIVED';
   const amount = Number(payload.amount);
@@ -552,7 +558,7 @@ const handleVendorInternalTransfer = async (payload) => {
       : Math.abs(amount);
   }
 
-  return await createSettlementDao(payload);
+  return await createSettlementDao(payload, conn);
 };
 
 // Helper function to get config based on method
@@ -609,6 +615,7 @@ const handleInternalTransferUTR = async (
   payload,
   settlementData,
   changeUTRStatus,
+  conn,
 ) => {
   const isInternalMethod = INTERNAL_METHODS.includes(settlementData.method);
 
@@ -632,6 +639,7 @@ const handleInternalTransferUTR = async (
         const response = await updateBankResponseDao(
           { id: bankResponses.id },
           { status: '/internalTransfer' },
+          conn,
         );
 
         const responseObj = createBankResponseObject(
@@ -720,6 +728,7 @@ const updateBeneficiaryAccount = async (
   settlementData,
   payload,
   isReversed = false,
+  conn = null,
 ) => {
   if (settlementData.role !== Role.VENDOR || settlementData.method !== 'BANK') {
     return;
@@ -754,10 +763,13 @@ const updateBeneficiaryAccount = async (
     closing_balance: beneficiaryClosingBalance,
   };
 
-  await updateBeneficiaryAccountDao(
-    { id: beneficiaryAcc.id, company_id: settlementData.company_id },
+  await buildAndExecuteUpdateQuery(
+    tableName.BENEFICIARY_ACCOUNTS,
     { config: beneficiaryUpdatedConfig },
-    false,
+    { id: beneficiaryAcc.id, company_id: settlementData.company_id },
+    {},
+    { returnUpdated: true },
+    conn,
   );
 
   // Update payload config
@@ -942,7 +954,7 @@ const calculateTransferMethodConfig = (
   return { [keyName]: totalSettlementAmount };
 };
 
-const _updateSettlementServiceInternal = async (ids, payload) => {
+const _updateSettlementServiceInternal = async (ids, payload, conn) => {
   await checkLockEdit(ids.id);
   payload.config = payload.config || {};
 
@@ -972,6 +984,7 @@ const _updateSettlementServiceInternal = async (ids, payload) => {
       payload,
       settlementData,
       changeUTRStatus,
+      conn,
     );
 
     // Get calculation data
@@ -1036,7 +1049,7 @@ const _updateSettlementServiceInternal = async (ids, payload) => {
 
         // Update calculation balance
         const { id } = calculationData[0];
-        const updatedCalculationData = await updateCalculationBalanceDao({ id }, updatedCalculation);
+        const updatedCalculationData = await updateCalculationBalanceDao({ id }, updatedCalculation, conn);
         
         await trackVendorsNetBalance(calculationData[0].user_id, updatedCalculationData);
       }
@@ -1045,7 +1058,7 @@ const _updateSettlementServiceInternal = async (ids, payload) => {
       delete payload.config.brokerage_commission;
 
       // Update beneficiary account for vendor bank transactions
-      await updateBeneficiaryAccount(settlementData, payload);
+      await updateBeneficiaryAccount(settlementData, payload, false, conn);
     }
 
     // Handle reversal (status INITIATED)
@@ -1087,14 +1100,14 @@ const _updateSettlementServiceInternal = async (ids, payload) => {
             true,
           );
           // Update beneficiary account for vendor bank transactions
-          await updateBeneficiaryAccount(settlementData, payload, true);
+          await updateBeneficiaryAccount(settlementData, payload, true, conn);
         }
       }
 
       // Update calculation balance
       if (calculationData.length > 0) {
         const { id } = calculationData[0];
-        const updatedCalculationResponse = await updateCalculationBalanceDao({ id }, updatedCalculation);
+        const updatedCalculationResponse = await updateCalculationBalanceDao({ id }, updatedCalculation, conn);
         
         await trackVendorsNetBalance(calculationData[0].user_id, updatedCalculationResponse);
       }
@@ -1109,6 +1122,7 @@ const _updateSettlementServiceInternal = async (ids, payload) => {
     const updateData = await updateSettlementDao(
       { id: ids.id, company_id: ids.company_id },
       payload,
+      conn,
     );
 
     // Update calculation config for success/reversed status
@@ -1144,6 +1158,7 @@ const _updateSettlementServiceInternal = async (ids, payload) => {
         await updateCalculationConfigDao(
           { id: calculationData[0].id },
           { config },
+          conn,
         );
       }
     }
@@ -1156,7 +1171,7 @@ const updateSettlementService = async (ids, payload) => {
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const updateData = await _updateSettlementServiceInternal(ids, payload);
+    const updateData = await _updateSettlementServiceInternal(ids, payload, conn);
     await commit(conn);
     return updateData;
   } catch (error) {
@@ -1177,6 +1192,7 @@ const deleteSettlementService = async (ids) => {
     const updatedData = await deleteSettlementDao(
       { id: ids.id, company_id: ids.company_id },
       { is_obsolete: true, updated_by: ids.user_id },
+      conn,
     );
 
     await commit(conn);

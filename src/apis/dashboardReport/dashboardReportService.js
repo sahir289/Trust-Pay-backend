@@ -22,7 +22,6 @@ const gatherDataForCompany = async (
     date,
     timezone = 'Asia/Kolkata',
   ) => {
-    let conn;
     try {
       logger.info(
         `Starting gather data for company ${company_id} on date ${date}`,
@@ -37,7 +36,6 @@ const gatherDataForCompany = async (
       const today = dayjs().tz(timezone).startOf('day');
       const isToday = inputDate.startOf('day').isSame(today);
       const finalType = isToday ? 'H' : 'N';
-      conn = await getConnection();
       let sDate, eDate;
       if (finalType === 'H') {
         sDate = inputDate.startOf('day').toDate();
@@ -269,10 +267,6 @@ const gatherDataForCompany = async (
         `Error in gatherDataForCompany for company ${company_id}: ${error.message}`,
       );
       throw error;
-    } finally {
-      if (conn) {
-        conn.release();
-      }
     }
   };
   

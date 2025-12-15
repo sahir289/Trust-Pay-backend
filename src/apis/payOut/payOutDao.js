@@ -18,7 +18,7 @@ import { logger } from '../../utils/logger.js';
 import dayjs from 'dayjs';
 const IST = 'Asia/Kolkata';
 
-export const createPayoutDao = async (data) => {
+export const createPayoutDao = async (data, conn = null) => {
   try {
     // Ensure `config` is initialized if not provided
     if (!data.config) {
@@ -26,7 +26,7 @@ export const createPayoutDao = async (data) => {
     }
 
     const [sql, params] = buildInsertQuery(tableName.PAYOUT, data);
-    const result = await executeQuery(sql, params);
+    const result = conn ? await conn.query(sql, params) : await executeQuery(sql, params);
     // const insertedEntry = result.rows[0];
     // const merchant = await getMerchantForEsDao(insertedEntry.merchant_id);
     // insertedEntry.merchant_details = {
@@ -1107,17 +1107,17 @@ export const getPayoutsCronDao = async (payload) => {
   }
 };
 
-export const updatePayoutDao = async (ids, data) => {
+export const updatePayoutDao = async (ids, data, conn = null) => {
   try {
     // Clone the data object to avoid modifying the original
     const updateData = { ...data };
     // If config is present, ensure it's properly formatted
     if (updateData.config && typeof updateData.config === 'object') {
       // Get existing config first to merge with new config
-      const existingData = await executeQuery(
-        `SELECT config FROM "${tableName.PAYOUT}" WHERE id = $1`,
-        [ids.id],
-      );
+      const existingQuery = `SELECT config FROM "${tableName.PAYOUT}" WHERE id = $1`;
+      const existingData = conn
+        ? await conn.query(existingQuery, [ids.id])
+        : await executeQuery(existingQuery, [ids.id]);
       if (existingData.rows.length > 0) {
         const existingConfig = existingData.rows[0].config || {};
         // Merge existing config with new config
@@ -1133,6 +1133,7 @@ export const updatePayoutDao = async (ids, data) => {
     ids,
     {}, // No special fields
     { returnUpdated: true },
+    conn,
   );
    
 //     let esResult = result;
@@ -1189,10 +1190,10 @@ export const getPayoutByTxnId = async (txnId) => {
   }
 }
 
-export const deletePayoutDao = async (ids, data) => {
+export const deletePayoutDao = async (ids, data, conn = null) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.PAYOUT, data, ids);
-    const result = await executeQuery(sql, params);
+    const result = conn ? await conn.query(sql, params) : await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
     logger.error('Error occurred while deleting payout:', error);
