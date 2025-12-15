@@ -441,9 +441,9 @@ const _createPayoutServiceInternal = async (
     const {
       allow_clickrr,
       clickrr_auto_approval_limit,
-      allow_tatapay,
-      allow_payassist,
     } = details[0]?.config || {};
+
+    console.log(allow_clickrr)
 
     if (allow_clickrr) {
       const ids = { id: data.id, company_id: payload.company_id };
@@ -466,7 +466,7 @@ const _createPayoutServiceInternal = async (
         // specific to clickrr max payout limit
         const updatedPayload = { config: { method: 'CLICKRR' } };
         // Use the DAO directly since we're already in a transaction
-        updatedData = await updatePayoutDao(ids, updatedPayload);
+        updatedData = await _updatePayoutServiceInternal(ids, updatedPayload);
         data = updatedData;
       }
     }
