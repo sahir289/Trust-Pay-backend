@@ -82,7 +82,7 @@ const getBeneficiaryAccountDao = async (filters, page, limit, role, conn = null)
           bea.updated_at DESC  
       ${limitcondition};
       `;
-    const result = conn ? await conn.query(baseQuery, queryParams) : await executeQuery(baseQuery, queryParams);
+    const result = await executeQuery(baseQuery, queryParams, conn);
     return result.rows;
   } catch (error) {
     logger.error('Error in get BeneficiaryAccount Dao:', error);
@@ -106,7 +106,7 @@ const checkBeneficiaryAccountExistsDao = async (filters, conn = null) => {
     `;
 
     const params = [acc_no, company_id];
-    const result = conn ? await conn.query(query, params) : await executeQuery(query, params);
+    const result = await executeQuery(query, params, conn);
 
     return result.rows.length > 0;
   } catch (error) {
@@ -196,7 +196,7 @@ const getBeneficiaryAccountDaoAll = async (filters, page, limit, role, conn = nu
     ORDER BY bea.updated_at DESC
     ${limitCondition};`;
 
-    const result = conn ? await conn.query(baseQuery, queryParams) : await executeQuery(baseQuery, queryParams, conn);
+    const result = await executeQuery(baseQuery, queryParams, conn);
     return result.rows;
   } catch (error) {
     logger.error('Error in get BeneficiaryAccount Dao:', error);
@@ -330,12 +330,12 @@ const getBeneficiaryAccountBySearchDao = async (
       WHERE ${conditions.join(' AND ')}
       ${searchConditions.length > 0 ? ` AND (${searchConditions.join(' OR ')})` : ''}`;
 
-    const countResult = conn ? await conn.query(countQuery, queryParams.slice(0, -2)) : await executeQuery(
+    const countResult = await executeQuery(
       countQuery,
       queryParams.slice(0, -2),
       conn,
     );
-    let searchResult = conn ? await conn.query(baseQuery, queryParams) : await executeQuery(baseQuery, queryParams, conn);
+    let searchResult = await executeQuery(baseQuery, queryParams, conn);
 
     const totalItems = parseInt(countResult.rows[0].total);
     const totalPages = totalItems > 0 ? Math.ceil(totalItems / limit) : 0;
@@ -345,7 +345,7 @@ const getBeneficiaryAccountBySearchDao = async (
       (page - 1) * limit > 0
     ) {
       queryParams[queryParams.length - 1] = 0;
-      searchResult = conn ? await conn.query(baseQuery, queryParams) : await executeQuery(baseQuery, queryParams, conn);
+      searchResult = await executeQuery(baseQuery, queryParams, conn);
     }
     return {
       totalCount: totalItems,
@@ -364,7 +364,7 @@ const createBeneficiaryAccountDao = async (payload, conn = null) => {
       tableName.BENEFICIARY_ACCOUNTS,
       payload,
     );
-    const result = conn ? await conn.query(sql, params) : await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error(error);
@@ -408,7 +408,7 @@ const getBeneficiaryAccountDaoByBankName = async (
     `;
 
     // Execute query
-    const result = conn ? await conn.query(baseQuery, queryParams) : await executeQuery(baseQuery, queryParams);
+    const result = await executeQuery(baseQuery, queryParams, conn);
 
     return {
       totalCount: result.rowCount,
@@ -449,7 +449,7 @@ const deleteBeneficiaryDao = async (id, data, conn = null) => {
       data,
       id,
     );
-    const result = conn ? await conn.query(sql, params) : await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in deleteBeneficiaryDao:', error);
@@ -470,7 +470,7 @@ export const updateBanktBalanceDao = async (
       filters,
       { balance: '+', today_balance: '+' },
     );
-    const result = conn ? await conn.query(sql, params) : await executeQuery(sql, params, conn);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error(error);

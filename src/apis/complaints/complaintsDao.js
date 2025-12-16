@@ -20,7 +20,7 @@ const getComplaintsDao = async (filters, page, pageSize, sortBy, sortOrder, conn
       sortOrder,
     );
     // Execute query
-    const result = conn ? await conn.query(sql, queryParams) : await executeQuery(sql, queryParams);
+    const result = await executeQuery(sql, queryParams, conn);
     return result.rows;
   } catch (error) {
     logger.error('Error fetching complaints:', error);
@@ -34,7 +34,7 @@ const createComplaintsDao = async (data, conn = null) => {
     // If you want to generate UUID or modify data before insertion, do it here.
     // data.id = generateUUID(); // Uncomment if UUID generation is needed
     const [sql, params] = buildInsertQuery(tableName.COMPLAINTS, data);
-    const result = conn ? await conn.query(sql, params) : await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error creating complaint:', error);
@@ -46,7 +46,7 @@ const createComplaintsDao = async (data, conn = null) => {
 const updateComplaintsDao = async (id, data, conn = null) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.COMPLAINTS, data, id);
-    const result = conn ? await conn.query(sql, params) : await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error updating complaint:', error);
@@ -58,7 +58,7 @@ const updateComplaintsDao = async (id, data, conn = null) => {
 const deleteComplaintsDao = async (id, data, conn = null) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.COMPLAINTS, data, id);
-    const result = conn ? await conn.query(sql, params) : await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error deleting complaint:', error);

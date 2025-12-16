@@ -588,7 +588,7 @@ const _updateChargeBackServiceInternal = async (ids, payload, chargeBack, conn) 
   try {
     const data = await updateChargeBackDao(ids, payload, conn);
     let MerchantuserId = data.merchant_user_id;
-  const merchantCalculation = await getCalculationforCronDao(MerchantuserId);
+  const merchantCalculation = await getCalculationforCronDao(MerchantuserId, conn);
   let amount = Number(data.amount - chargeBack.amount);
   if (data.amount > chargeBack.amount) {
     amount = Math.abs(amount);
@@ -608,7 +608,7 @@ const _updateChargeBackServiceInternal = async (ids, payload, chargeBack, conn) 
   );
   // update vendor calculations
   let VendorUserId = data.vendor_user_id;
-  const vendorCalculation = await getCalculationforCronDao(VendorUserId);
+  const vendorCalculation = await getCalculationforCronDao(VendorUserId, conn);
   let VendorId = vendorCalculation[0].id;
   const updatedCalculation = {
     total_chargeback_count: 1,

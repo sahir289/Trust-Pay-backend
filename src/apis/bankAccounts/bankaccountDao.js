@@ -9,7 +9,7 @@ import {
 } from '../../utils/db.js';
 
 import { logger } from '../../utils/logger.js';
-export const getBankaccountPayinDao = async (filters) => {
+export const getBankaccountPayinDao = async (filters, conn = null) => {
   try {
     let query = `
     SELECT id, nick_name, user_id
@@ -18,7 +18,7 @@ export const getBankaccountPayinDao = async (filters) => {
     AND is_obsolete = false
 
   `;
-    const result = await executeQuery(query, [filters.id]);
+    const result = await executeQuery(query, [filters.id], conn);
     return result.rows;
   } catch (error) {
     logger.error('Error in get BankAccountPayin Dao:', error.message);
@@ -151,7 +151,7 @@ const getBankaccountDao = async (filters, page, limit, role, designation, conn =
           ba.updated_at DESC  
       ${limitcondition};
       `;
-    const result = conn ? await conn.query(baseQuery, queryParams) : await executeQuery(baseQuery, queryParams);
+    const result = await executeQuery(baseQuery, queryParams, conn);
     return result.rows;
   } catch (error) {
     logger.error('Error in get BankAccount Dao:', error);
@@ -165,6 +165,7 @@ const getAllBankaccountDao = async (
   limit,
   role,
   designation,
+  conn = null,
 ) => {
   try {
     let queryParams = [];
@@ -287,7 +288,7 @@ const getAllBankaccountDao = async (
           ba.updated_at DESC  
       ${limitcondition};
       `;
-    const result = await executeQuery(baseQuery, queryParams);
+    const result = await executeQuery(baseQuery, queryParams, conn);
     return result.rows;
   } catch (error) {
     logger.error('Error in get BankAccount Dao:', error);
@@ -302,6 +303,7 @@ const getBankAccountsBySearchDao = async (
   role,
   designation,
   searchTerms = [],
+  conn = null,
 ) => {
   try {
     let queryParams = [];
@@ -519,8 +521,9 @@ const getBankAccountsBySearchDao = async (
       executeQuery(
         countQuery,
         queryParams.slice(0, page && limit ? -2 : queryParams.length),
+        conn,
       ),
-      executeQuery(mainQuery, queryParams),
+      executeQuery(mainQuery, queryParams, conn),
     ]);
 
     const totalCount = parseInt(countResult.rows[0].total);
@@ -534,7 +537,7 @@ const getBankAccountsBySearchDao = async (
       (page - 1) * limit > 0
     ) {
       queryParams[queryParams.length - 1] = 0;
-      const newSearchResult = await executeQuery(mainQuery, queryParams);
+      const newSearchResult = await executeQuery(mainQuery, queryParams, conn);
       totalPages = limit ? Math.ceil(totalCount / limit) : 1;
       return {
         totalCount,
@@ -565,7 +568,7 @@ export const getBankaccountCheckDao = async (filters = {}, conn = null) => {
       `SELECT ${selectColumns} FROM "${tableName.BANK_ACCOUNT}" WHERE 1=1`,
       filters,
     );
-    const result = conn ? await conn.query(sql, params) : await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows && result.rows.length > 0;
   } catch (error) {
     logger.error('Error checking bank account existence:', error);
@@ -589,7 +592,7 @@ export const getBankaccountDashBoardReportDao = async (filters = {}, conn = null
       `SELECT ${selectColumns} FROM "${tableName.BANK_ACCOUNT}" WHERE 1=1`,
       filters,
     );
-    const result = conn ? await conn.query(sql, params) : await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows || [];
   } catch (error) {
     logger.error('Error getting bank account data:', error);
@@ -597,7 +600,7 @@ export const getBankaccountDashBoardReportDao = async (filters = {}, conn = null
   }
 };
 
-const getBankAccountNickNameForPayinEsDao = async (bankId) => {
+const getBankAccountNickNameForPayinEsDao = async (bankId, conn = null) => {
   try {
     const sql = `
       SELECT 
@@ -609,7 +612,7 @@ const getBankAccountNickNameForPayinEsDao = async (bankId) => {
         ON ba.user_id = v.user_id
       WHERE ba.id = $1
     `;
-    const result = await executeQuery(sql, [bankId]);
+    const result = await executeQuery(sql, [bankId], conn);
     return result.rows[0] || null;
   } catch (error) {
     logger.error('Error getting bank account nickname:', error);
@@ -618,7 +621,7 @@ const getBankAccountNickNameForPayinEsDao = async (bankId) => {
 };
 
 
- const getBankAccountNickNameForEsDao = async (bankId) => {
+ const getBankAccountNickNameForEsDao = async (bankId, conn = null) => {
   try {
     const sql = `
       SELECT 
@@ -626,25 +629,25 @@ const getBankAccountNickNameForPayinEsDao = async (bankId) => {
       FROM "${tableName.BANK_ACCOUNT}"
       WHERE id = $1
     `;
-    const result = await executeQuery(sql, [bankId]);
+    const result = await executeQuery(sql, [bankId], conn);
     return result.rows[0] || null;
   } catch (error) {
     logger.error('Error getting bank account nickname:', error);
     throw error;
   }
 };
-const getMerchantBankDao = async (filters) => {
+const getMerchantBankDao = async (filters, conn = null) => {
   try {
     const query = `SELECT * FROM  "${tableName.BANK_ACCOUNT}" WHERE 1=1`;
     const [sql, parameters] = buildSelectQuery(query, filters);
-    const result = await executeQuery(sql, parameters);
+    const result = await executeQuery(sql, parameters, conn);
     return result.rows || [];
   } catch (error) {
     logger.error(error);
     throw error;
   }
 };
-export const getMerchantLinkBankDao = async (filters) => {
+export const getMerchantLinkBankDao = async (filters, conn = null) => {
   try {
     let query = `
     SELECT 
@@ -657,7 +660,7 @@ export const getMerchantLinkBankDao = async (filters) => {
     WHERE is_obsolete = false
   `;
     const [sql, parameters] = buildSelectQuery(query, filters);
-    const result = await executeQuery(sql, parameters);
+    const result = await executeQuery(sql, parameters, conn);
     return result.rows;
   } catch (error) {
     logger.error('Error getting bank account payin:', error.message);
@@ -673,7 +676,7 @@ const getBankByIdDao = async (filters, conn = null) => {
   config,
   balance,today_balance, user_id ,id FROM  "${tableName.BANK_ACCOUNT}" WHERE 1=1`;
     const [sql, parameters] = buildSelectQuery(query, filters);
-    const result = conn ? await conn.query(sql, parameters) : await executeQuery(sql, parameters);
+    const result = await executeQuery(sql, parameters, conn);
     return result.rows;
   } catch (error) {
     logger.error(error);
@@ -684,9 +687,7 @@ const getBankByIdDao = async (filters, conn = null) => {
 const createBankaccountDao = async (payload, conn = null) => {
   try {
     const [sql, params] = buildInsertQuery(tableName.BANK_ACCOUNT, payload);
-    const result = conn 
-      ? await conn.query(sql, params)
-      : await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error(error);
@@ -744,7 +745,7 @@ const getBankAccountDaoNickName = async (
       ORDER BY nick_name ASC
     `;
     // Execute query
-    const result = conn ? await conn.query(baseQuery, queryParams) : await executeQuery(baseQuery, queryParams);
+    const result = await executeQuery(baseQuery, queryParams, conn);
     return {
       totalCount: result.rowCount,
       bankNames: result.rows,
@@ -804,7 +805,7 @@ const updateBankaccountDao = async (id, payload, isParentDeleted, conn = null) =
         payload,
         id,
       );
-      const result = conn ? await conn.query(sql, params) : await executeQuery(sql, params);
+      const result = await executeQuery(sql, params, conn);
       return result.rows[0];
     }
     
@@ -829,7 +830,7 @@ const updateBankaccountDao = async (id, payload, isParentDeleted, conn = null) =
 const deleteBankaccountDao = async (id, data, conn = null) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.BANK_ACCOUNT, data, id);
-    const result = conn ? await conn.query(sql, params) : await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0];
   } catch (error)  {
     logger.error('Error in deleteBankaccountDao:', error);
@@ -851,7 +852,7 @@ const updateBanktBalanceDao = async (
       { balance: '+', today_balance: '+' },
     );
     
-    const result = conn ? await conn.query(sql, params) : await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     
     return result.rows[0];
   } catch (error) {

@@ -91,7 +91,7 @@ const getSubVendorParentInfo = async (vendor) => {
     // Get user hierarchy to find parent
     const userHierarchys = await getUserHierarchysDao({
       user_id: vendor.user_id,
-    });
+    }, null, null, null, null, null, null);
 
     // logger.info(`User hierarchy result: ${JSON.stringify(userHierarchys)}`);
 
@@ -448,7 +448,7 @@ const getPayoutsService = async (
     let merchant_user_id = role === Role.MERCHANT ? [user_id] : [];
 
     if (role === Role.MERCHANT) {
-      const userHierarchys = await getUserHierarchysDao({ user_id });
+      const userHierarchys = await getUserHierarchysDao({ user_id }, null, null, null, null, null, null);
       const userHierarchy = userHierarchys?.[0];
 
       if (designation === Role.MERCHANT && userHierarchy) {
@@ -467,7 +467,7 @@ const getPayoutsService = async (
         if (parentID) {
           const parentHierarchys = await getUserHierarchysDao({
             user_id: parentID,
-          });
+          }, null, null, null, null, null, null);
           const parentHierarchy = parentHierarchys?.[0];
           const subMerchants =
             parentHierarchy?.config?.siblings?.sub_merchants ?? [];
@@ -478,7 +478,7 @@ const getPayoutsService = async (
       }
     } else if (role === Role.VENDOR || role === Role.SUB_VENDOR) {
       if (designation === Role.VENDOR || designation === Role.VENDOR_ADMIN) {
-        const userHierarchys = await getUserHierarchysDao({ user_id });
+        const userHierarchys = await getUserHierarchysDao({ user_id }, null, null, null, null, null, null);
         const userHierarchy = userHierarchys?.[0];
         const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
         if (Array.isArray(subVendors) && subVendors.length > 0) {
@@ -494,13 +494,13 @@ const getPayoutsService = async (
       } else if (designation === Role.SUB_VENDOR) {
         filters.vendor_id = await fetchVendorIds([user_id]);
       } else if (designation === Role.VENDOR_OPERATIONS) {
-        const userHierarchys = await getUserHierarchysDao({ user_id });
+        const userHierarchys = await getUserHierarchysDao({ user_id }, null, null, null, null, null, null);
         const userHierarchy = userHierarchys?.[0];
         const parentID = userHierarchy?.config?.parent;
         if (parentID) {
           const parentHierarchys = await getUserHierarchysDao({
             user_id: parentID,
-          });
+          }, null, null, null, null, null, null);
           const parentHierarchy = parentHierarchys?.[0];
           const subVendors =
             parentHierarchy?.config?.siblings?.sub_vendors ?? [];
@@ -548,7 +548,7 @@ const getPayoutsBySearchService = async (
     let merchant_user_id = role === Role.MERCHANT ? [user_id] : [];
 
     if (role === Role.MERCHANT) {
-      const userHierarchys = await getUserHierarchysDao({ user_id });
+      const userHierarchys = await getUserHierarchysDao({ user_id }, null, null, null, null, null, null);
       const userHierarchy = userHierarchys?.[0];
 
       if (designation === Role.MERCHANT && userHierarchy) {
@@ -567,7 +567,7 @@ const getPayoutsBySearchService = async (
         if (parentID) {
           const parentHierarchys = await getUserHierarchysDao({
             user_id: parentID,
-          });
+          }, null, null, null, null, null, null);
           const parentHierarchy = parentHierarchys?.[0];
           const subMerchants =
             parentHierarchy?.config?.siblings?.sub_merchants ?? [];
@@ -578,7 +578,7 @@ const getPayoutsBySearchService = async (
       }
     } else if (role === Role.VENDOR) {
       if (designation === Role.VENDOR || designation === Role.VENDOR_ADMIN) {
-        const userHierarchys = await getUserHierarchysDao({ user_id });
+        const userHierarchys = await getUserHierarchysDao({ user_id }, null, null, null, null, null, null);
         const userHierarchy = userHierarchys?.[0];
 
         const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
@@ -591,13 +591,13 @@ const getPayoutsBySearchService = async (
       } else if (designation === Role.SUB_VENDOR) {
         filters.vendor_id = await fetchVendorIds([user_id]);
       } else if (designation === Role.VENDOR_OPERATIONS) {
-        const userHierarchys = await getUserHierarchysDao({ user_id });
+        const userHierarchys = await getUserHierarchysDao({ user_id }, null, null, null, null, null, null);
         const userHierarchy = userHierarchys?.[0];
         const parentID = userHierarchy?.config?.parent;
         if (parentID) {
           const parentHierarchys = await getUserHierarchysDao({
             user_id: parentID,
-          });
+          }, null, null, null, null, null, null);
           const parentHierarchy = parentHierarchys?.[0];
           const subVendors =
             parentHierarchy?.config?.siblings?.sub_vendors ?? [];
@@ -616,7 +616,7 @@ const getPayoutsBySearchService = async (
       }
       const parentHierarchys = await getUserHierarchysDao({
         user_id: vendorDetails[0].user_id,
-      });
+      }, null, null, null, null, null, null);
       const subVendors =
         parentHierarchys[0]?.config?.siblings?.sub_vendors ?? [];
       const userIdFilter = [
@@ -669,7 +669,7 @@ const _updatePayoutServiceInternal = async (ids, payload, role, conn = null) => 
           : columns.PAYOUT;
 
     if (!payload?.config?.method === Method.CLICKRR && !payload?.config?.method === Method.PAYASSIST && !payload?.config?.method === Method.TATAPAY)
-      await checkLockEdit(ids.id);
+      await checkLockEdit(ids.id, false, conn);
 
     // Early validation for UTR uniqueness
     if (payload?.utr_id) {

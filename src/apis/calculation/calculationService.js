@@ -46,14 +46,20 @@ dayjs.extend(timezone);
 
 // Service to fetch calculation data
 const getCalculationService = async (filters, role) => {
+  let conn;
   try {
+    // Get connection without transaction for read-only operation
+    conn = await getConnection();
+    
     // Validate required fields
     if (!filters || !role) {
       throw new BadRequestError('Missing required parameters');
     }
+    
     const result = await getCalculationsSumDao({
       ...filters,
       role,
+      conn,
     });
 
     return (
@@ -71,6 +77,8 @@ const getCalculationService = async (filters, role) => {
   } catch (error) {
     logger.error('Error while fetching calculation data:', 'error', error);
     throw error;
+  } finally {
+    if (conn) conn.release();
   }
 };
 

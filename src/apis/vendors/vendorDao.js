@@ -81,7 +81,7 @@ export const getVendorsBankReponseDao = async (filters = {}, conn = null) => {
 
     sql += ` ORDER BY v.created_at DESC`;
 
-    const result = conn ? await conn.query(sql, params) : await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows || [];
   } catch (error) {
     logger.error('Error fetching vendor data:', error);
@@ -420,7 +420,7 @@ export const getVendorIdsByUserIds = async (user_ids, conn = null) => {
       WHERE user_id IN (${placeholders})
         AND is_obsolete = false
     `;
-    const result = conn ? await conn.query(query, ids) : await executeQuery(query, ids, conn);
+    const result = await executeQuery(query, ids, conn);
     return result.rows.map((row) => row.id);
   } catch (error) {
     logger.error('Error in getVendorIdsByUserIds:', error);
@@ -517,7 +517,7 @@ export const getAllVendorsDao = async (
       sortOrder,
       'Vendor',
     );
-    const result = conn ? await conn.query(query, values) : await executeQuery(query, values);
+    const result = await executeQuery(query, values, conn);
 
     // Enhance with sub-vendor data
     const enhancedVendors = await enhanceVendorsWithSubVendors(
@@ -648,7 +648,7 @@ export const getVendorsBySearchDao = async (
     }
 
     const countQuery = `SELECT COUNT(*) as total FROM (${queryText}) as count_table`;
-    const countResult = conn ? await conn.query(countQuery, values) : await executeQuery(countQuery, values, conn);
+    const countResult = await executeQuery(countQuery, values, conn);
 
     // Calculate offset - pageNumber is 1-based
     const offset = (pageNumber - 1) * pageSize;
@@ -659,13 +659,13 @@ export const getVendorsBySearchDao = async (
       OFFSET $${paramIndex + 1}
     `;
     values.push(pageSize, offset);
-    let searchResult = conn ? await conn.query(queryText, values) : await executeQuery(queryText, values, conn);
+    let searchResult = await executeQuery(queryText, values, conn);
     // Calculate pagination metadata
     const totalItems = parseInt(countResult.rows[0].total);
     let totalPages = Math.ceil(totalItems / pageSize);
     if (totalItems > 0 && searchResult.rows.length === 0 && offset > 0) {
       values[values.length - 1] = 0;
-      searchResult = conn ? await conn.query(queryText, values) : await executeQuery(queryText, values, conn);
+      searchResult = await executeQuery(queryText, values, conn);
       totalPages = Math.ceil(totalItems / pageSize);
     }
 
@@ -692,7 +692,7 @@ export const getVendorsBySearchDao = async (
 export const updateVendorDao = async (id, data, conn = null) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.VENDOR, data, id);
-    const result = conn ? await conn.query(sql, params) : await executeQuery(sql, params, conn);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in updateVendorDao:', error);
@@ -703,7 +703,7 @@ export const updateVendorDao = async (id, data, conn = null) => {
 export const deleteVendorDao = async (id, data, conn = null) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.VENDOR, data, id);
-    const result = conn ? await conn.query(sql, params) : await executeQuery(sql, params, conn);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in deleteVendorDao:', error);
@@ -771,7 +771,7 @@ export const getVendorsDaoArray = async (company_id, code, conn = null) => {
     `;
 
     let queryParams = [company_id, code];
-    const result = conn ? await conn.query(baseQuery, queryParams) : await executeQuery(baseQuery, queryParams, conn);
+    const result = await executeQuery(baseQuery, queryParams, conn);
     return result.rows;
   } catch (error) {
     logger.error('Error fetching merchant by code and API key:', error);
@@ -785,7 +785,7 @@ export const getBankResponseAccessByIDDao = async (id, conn = null) => {
       SELECT "Vendor".config->>'bank_response_access' as bank_response_access FROM "Vendor"
       WHERE "Vendor".user_id = $1
     `;
-    const result = conn ? await conn.query(query, [id]) : await executeQuery(query, [id], conn);
+    const result = await executeQuery(query, [id], conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error fetching bank response access by ID:', error);
@@ -810,7 +810,7 @@ export const getVendorByCodeDao = async (code, conn = null) => {
       ORDER BY "Vendor"."created_at" ASC;
     `;
 
-    const result = conn ? await conn.query(sql, [code]) : await executeQuery(sql, [code], conn);
+    const result = await executeQuery(sql, [code], conn);
     return result.rows;
   } catch (error) {
     logger.error('Error fetching vendor by code:', error);
@@ -851,7 +851,7 @@ export const getVendorByUserDao = async (userId, conn = null) => {
     const queryParams = [userId];
 
     // Execute query
-    const result = conn ? await conn.query(sql, queryParams) : await executeQuery(sql, queryParams, conn);
+    const result = await executeQuery(sql, queryParams, conn);
 
     // Return the rows (vendor data)
     return result.rows;
@@ -867,7 +867,7 @@ export const getVendorByUserDao = async (userId, conn = null) => {
 export const getDesignationIdDao = async (designation, conn = null) => {
   try  {
   const sql = `SELECT id FROM "${tableName.DESIGNATION}" WHERE designation = $1 LIMIT 1;`;
-  const result = conn ? await conn.query(sql, [designation]) : await executeQuery(sql, [designation], conn);
+  const result = await executeQuery(sql, [designation], conn);
   return result.rows[0]?.id || null;
   } catch (error) {
     logger.error('Error in getDesignationIdDao:', error);
@@ -886,7 +886,7 @@ export const isNetBalanceZeroForTwoHours = async (vendorUserId, conn = null) => 
       ORDER BY updated_at DESC
       LIMIT 1;
     `;
-    const result = conn ? await conn.query(sql, [vendorUserId]) : await executeQuery(sql, [vendorUserId], conn);
+    const result = await executeQuery(sql, [vendorUserId], conn);
     if (!result.rows.length) {
       return false;
     } else {
@@ -905,7 +905,7 @@ export const isNetBalanceZeroForTwoHours = async (vendorUserId, conn = null) => 
 const getVendorCode = async (userId, conn = null) => {
   try {
     const sql = `SELECT code FROM "${tableName.VENDOR}" WHERE user_id = $1 LIMIT 1;`;
-    const { rows } = conn ? await conn.query(sql, [userId]) : await executeQuery(sql, [userId], conn);
+    const { rows } = await executeQuery(sql, [userId], conn);
     return rows[0]?.code;
   } catch (error) {
     logger.error('Error in getVendorCode:', error);
@@ -916,7 +916,7 @@ const getVendorCode = async (userId, conn = null) => {
 const getVendorConfig = async (userId, conn = null) => {
   try {
     const sql = `SELECT code, config FROM "${tableName.VENDOR}" WHERE user_id = $1 LIMIT 1;`;
-    const { rows } = conn ? await conn.query(sql, [userId]) : await executeQuery(sql, [userId]);
+    const { rows } = await executeQuery(sql, [userId], conn);
     return { code: rows[0]?.code, config: rows[0]?.config || {} };
   } catch (error) {
     logger.error('Error in getVendorConfig:', error);
@@ -1132,7 +1132,7 @@ export const transferVendorDao = async (
 export const getVendorByUserId = async (user_id, conn = null) => {
   try {
     const sql = `SELECT * FROM "${tableName.VENDOR}" WHERE user_id = $1 AND is_obsolete = false LIMIT 1;`;
-    const result = conn ? await conn.query(sql, [user_id]) :  await executeQuery(sql, [user_id]);
+    const result = await executeQuery(sql, [user_id], conn);
     return result.rows[0] || null;
   } catch (error) {
     logger.error('Error fetching vendor by user_id:', error);

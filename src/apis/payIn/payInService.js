@@ -1317,7 +1317,7 @@ export const getPayinsBySearchService = async (
     let merchant_user_id = role === Role.MERCHANT ? [user_id] : [];
 
     if (role === Role.MERCHANT) {
-      const userHierarchys = await getUserHierarchysDao({ user_id });
+      const userHierarchys = await getUserHierarchysDao({ user_id }, null, null, null, null, null, null);
       const userHierarchy = userHierarchys?.[0];
 
       if (designation === Role.MERCHANT && userHierarchy) {
@@ -1336,7 +1336,7 @@ export const getPayinsBySearchService = async (
         if (parentID) {
           const parentHierarchys = await getUserHierarchysDao({
             user_id: parentID,
-          });
+          }, null, null, null, null, null, null);
           const parentHierarchy = parentHierarchys?.[0];
           const subMerchants =
             parentHierarchy?.config?.siblings?.sub_merchants ?? [];
@@ -1347,7 +1347,7 @@ export const getPayinsBySearchService = async (
       }
     } else if (role === Role.VENDOR || role === Role.SUB_VENDOR) {
       if (designation === Role.VENDOR_ADMIN || designation === Role.VENDOR) {
-        const userHierarchys = await getUserHierarchysDao({ user_id });
+        const userHierarchys = await getUserHierarchysDao({ user_id }, null, null, null, null, null, null);
         const userHierarchy = userHierarchys?.[0];
 
         const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
@@ -1360,13 +1360,13 @@ export const getPayinsBySearchService = async (
       } else if (designation === Role.SUB_VENDOR) {
         filters.bank_acc_id = await fetchBankIds(user_id);
       } else if (designation === Role.VENDOR_OPERATIONS) {
-        const userHierarchys = await getUserHierarchysDao({ user_id });
+        const userHierarchys = await getUserHierarchysDao({ user_id }, null, null, null, null, null, null);
         const userHierarchy = userHierarchys?.[0];
         const parentID = userHierarchy?.config?.parent;
         if (parentID) {
           const parentHierarchys = await getUserHierarchysDao({
             user_id: parentID,
-          });
+          }, null, null, null, null, null, null);
           const parentHierarchy = parentHierarchys?.[0];
           const subVendors =
             parentHierarchy?.config?.siblings?.sub_vendors ?? [];
@@ -1463,7 +1463,7 @@ export const _processPayInServiceInternal = async (
   // validate payIn
   // throw error if not exist or expires
   const orderid = merchantOrderId;
-  await checkLockEdit(orderid);
+  await checkLockEdit(orderid, false, conn);
   if (h2h) {
     const payin = await getPayInsForCronDao({
       merchant_order_id: merchantOrderId,
@@ -1501,7 +1501,7 @@ export const _processPayInServiceInternal = async (
     throw new BadRequestError('Missing bank_acc_id or userSubmittedUtr for transaction lock');
   }
   const lockKey = `${payIn.bank_acc_id}${userSubmittedUtr}`;
-  await checkLockEdit(lockKey, true);
+  await checkLockEdit(lockKey, true, conn);
   const banks = await getBankaccountDao({
     id: payIn?.bank_acc_id,
     company_id: payIn.company_id,
@@ -3481,7 +3481,7 @@ export const updateCalculationTable = async (user_id, data, conn = null) => {
       throw new BadRequestError('Invalid amount or commission');
     }
     if (user_id) {
-      const calculationData = await getCalculationforCronDao(user_id);
+      const calculationData = await getCalculationforCronDao(user_id, conn);
       if (!calculationData[0]) {
         throw new NotFoundError('Calculation not found!');
       }

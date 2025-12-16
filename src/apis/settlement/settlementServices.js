@@ -49,7 +49,7 @@ import { newTableEntry } from '../../utils/sockets.js';
 import { trackVendorsNetBalance } from '../../utils/trackVendorsNetBalance.js';
 
 // Helper function to check if vendor is sub-vendor and get parent info
-const getSubVendorParentInfo = async (vendor) => {
+const getSubVendorParentInfo = async (vendor, conn = null) => {
   try {
     logger.info(
       `Settlement: Checking sub-vendor status for vendor: userId=${vendor.user_id}, designation=${vendor.designation || vendor.designation_name}, config=${JSON.stringify(vendor.config)}`,
@@ -80,7 +80,7 @@ const getSubVendorParentInfo = async (vendor) => {
     // Get user hierarchy to find parent
     const userHierarchys = await getUserHierarchysDao({
       user_id: vendor.user_id,
-    });
+    }, null, null, null, null, null, conn);
 
     logger.info(
       `Settlement: User hierarchy result: ${JSON.stringify(userHierarchys)}`,
@@ -101,7 +101,7 @@ const getSubVendorParentInfo = async (vendor) => {
     );
 
     // Get parent vendor details
-    const parentVendors = await getVendorsDao({ user_id: parentId });
+    const parentVendors = await getVendorsDao({ user_id: parentId }, null, null, null, null, null, null, conn);
     if (!parentVendors || !parentVendors[0]) {
       logger.warn(
         `Settlement: Parent vendor not found for user_id: ${parentId}`,
@@ -129,6 +129,7 @@ const updateParentVendorSettlementCalculation = async (
   amount,
   vendorCommissionRate,
   isApproved,
+  conn = null,
 ) => {
   try {
     logger.info(
@@ -142,7 +143,7 @@ const updateParentVendorSettlementCalculation = async (
     );
 
     // Get parent calculation data
-    const parentCalculationData = await getCalculationforCronDao(parentUserId);
+    const parentCalculationData = await getCalculationforCronDao(parentUserId, conn);
     if (!parentCalculationData[0]) {
       throw new NotFoundError(
         `Settlement: Parent calculation not found for user_id: ${parentUserId}`,
@@ -172,6 +173,7 @@ const updateParentVendorSettlementCalculation = async (
     const response = await updateCalculationBalanceDao(
       { id: parentCalculationData[0].id },
       calculationUpdate,
+      conn,
     );
     await trackVendorsNetBalance(parentUserId, response);
 
@@ -259,7 +261,7 @@ const getSettlementService = async (
       //   }
       // }
       if (designation === Role.MERCHANT_OPERATIONS) {
-        const userHierarchys = await getUserHierarchysDao({ user_id });
+        const userHierarchys = await getUserHierarchysDao({ user_id }, null, null, null, null, null, null);
         if (userHierarchys || userHierarchys.length > 0) {
           const userHierarchy = userHierarchys[0];
           if (userHierarchy?.config?.parent) {
@@ -269,7 +271,7 @@ const getSettlementService = async (
       }
     } else if (role === Role.VENDOR) {
       if (designation === Role.VENDOR_OPERATIONS) {
-        const userHierarchys = await getUserHierarchysDao({ user_id });
+        const userHierarchys = await getUserHierarchysDao({ user_id }, null, null, null, null, null, null);
         if (userHierarchys || userHierarchys.length > 0) {
           const userHierarchy = userHierarchys[0];
           if (userHierarchy?.config?.parent) {
@@ -345,7 +347,7 @@ const getSettlementsBySearchService = async (
     // Handle MERCHANT role hierarchy
     if (role === Role.MERCHANT) {
       if (designation === Role.MERCHANT_OPERATIONS) {
-        const userHierarchys = await getUserHierarchysDao({ user_id });
+        const userHierarchys = await getUserHierarchysDao({ user_id }, null, null, null, null, null, null);
         if (userHierarchys && userHierarchys.length > 0) {
           const userHierarchy = userHierarchys[0];
           if (userHierarchy?.config?.parent) {
@@ -356,7 +358,7 @@ const getSettlementsBySearchService = async (
     }
     // Handle VENDOR role hierarchy
     else if (role == Role.VENDOR) {
-      const userHierarchys = await getUserHierarchysDao({ user_id });
+      const userHierarchys = await getUserHierarchysDao({ user_id }, null, null, null, null, null, null);
       const userHierarchy = userHierarchys?.[0];
 
       const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
@@ -370,7 +372,7 @@ const getSettlementsBySearchService = async (
       filters.user_id = [user_id];
     }
 
-    const userHierarchys = await getUserHierarchysDao({ user_id });
+    const userHierarchys = await getUserHierarchysDao({ user_id }, null, null, null, null, null, null);
     if (designation == Role.VENDOR_OPERATIONS) {
       const userHierarchy = userHierarchys?.[0];
       const parentID = userHierarchy?.config?.parent;
@@ -490,8 +492,8 @@ const handleVendorInternalTransferByAdmin = async (
 ) => {
   // Get vendor and calculation data
   const [vendorData, calculationData] = await Promise.all([
-    getVendorsDao({ user_id: payload.user_id }),
-    getCalculationforCronDao(payload.user_id),
+    getVendorsDao({ user_id: payload.user_id }, null, null, null, null, null, null, conn),
+    getCalculationforCronDao(payload.user_id, conn),
   ]);
 
   if (!vendorData?.length) {
@@ -838,10 +840,10 @@ const updateBeneficiaryAccount = async (
 };
 
 // Helper function to handle internal transfer reversal
-const handleInternalTransferReversal = async (settlementData, payload) => {
+const handleInternalTransferReversal = async (settlementData, payload, conn = null) => {
   const [vendorData, calculationData] = await Promise.all([
-    getVendorsDao({ user_id: settlementData.user_id }),
-    getCalculationforCronDao(settlementData.user_id),
+    getVendorsDao({ user_id: settlementData.user_id }, null, null, null, null, null, null, conn),
+    getCalculationforCronDao(settlementData.user_id, conn),
   ]);
 
   if (!vendorData?.length) {
@@ -868,13 +870,14 @@ const handleInternalTransferReversal = async (settlementData, payload) => {
   const response = await updateBankResponseDao(
     { id: bankResponses.id },
     { status: '/success' },
+    conn,
   );
 
   const responseObj = createBankResponseObject(
     response,
     settlementData.company_id,
   );
-  await newTableEntry(tableName.BANK_RESPONSE, responseObj);
+  await newTableEntry(tableName.BANK_RESPONSE, responseObj, conn);
 
   const commission = calculateCommission(
     payload.amount,
@@ -882,13 +885,14 @@ const handleInternalTransferReversal = async (settlementData, payload) => {
   );
 
   // Handle sub-vendor parent calculation for reversal
-  const subVendorParentInfo = await getSubVendorParentInfo(vendorData[0]);
+  const subVendorParentInfo = await getSubVendorParentInfo(vendorData[0], conn);
   if (subVendorParentInfo) {
     await updateParentVendorSettlementCalculation(
       subVendorParentInfo.parentUserId,
       payload.amount,
       Number(vendorData[0].config?.mediator_payin_commission) || 0,
       false, // isApproved = false (add commission back to parent)
+      conn,
     );
 
     logger.info(
@@ -993,7 +997,7 @@ const calculateTransferMethodConfig = (
 };
 
 const _updateSettlementServiceInternal = async (ids, payload, conn) => {
-  await checkLockEdit(ids.id);
+  await checkLockEdit(ids.id, false, conn);
   payload.config = payload.config || {};
 
   // Get settlement data
@@ -1028,6 +1032,7 @@ const _updateSettlementServiceInternal = async (ids, payload, conn) => {
   // Get calculation data
   const calculationData = await getCalculationforCronDao(
     settlementData.user_id,
+    conn,
   );
 
   // Handle rejection
@@ -1045,7 +1050,7 @@ const _updateSettlementServiceInternal = async (ids, payload, conn) => {
     // Get merchant data to determine role
     const merchantData = await getMerchantsDao({
       user_id: settlementData.user_id,
-    });
+    }, null, null, null, null, 'ADMIN', conn);
     const isMerchant = merchantData.length > 0;
 
     let updatedCalculation;
@@ -1075,6 +1080,7 @@ const _updateSettlementServiceInternal = async (ids, payload, conn) => {
                 payload._subVendorParentInfo.parentVendor.payin_commission,
               ),
               true, // isApproved = true (remove commission from parent)
+              conn,
             );
 
             logger.info(
