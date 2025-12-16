@@ -437,9 +437,7 @@ export const buildAndExecuteUpdateQuery = async (
     const query = `UPDATE "${tableName}" SET ${setClause.join(', ')} WHERE ${whereClause.join(' AND ')} ${returningClause}`;
 
     // Execute the query
-    const result = conn
-      ? await conn.query(query, values) // Use provided connection
-      : await executeQuery(query, values); // Use default pool connection
+    const result = await executeQuery(query, values, conn);
 
     if (!result || !result.rows || result.rows.length === 0) {
       logger.warn(

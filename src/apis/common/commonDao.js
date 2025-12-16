@@ -148,7 +148,7 @@ export const getTotalCountDao = async (
       });
     }
 
-    const result = conn ? await conn.query(query, params) : await executeQuery(query, params, conn);
+    const result = await executeQuery(query, params, conn);
     return parseInt(result.rows[0].count, 10); // Ensure the count is returned as an integer
   } catch (error) {
     if (error.code === '42P01') {

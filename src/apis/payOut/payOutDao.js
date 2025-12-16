@@ -26,7 +26,7 @@ export const createPayoutDao = async (data, conn = null) => {
     }
 
     const [sql, params] = buildInsertQuery(tableName.PAYOUT, data);
-    const result = conn ? await conn.query(sql, params) : await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     // const insertedEntry = result.rows[0];
     // const merchant = await getMerchantForEsDao(insertedEntry.merchant_id);
     // insertedEntry.merchant_details = {
@@ -76,7 +76,7 @@ export const assignedPayoutDao = async (
       });
       const result = conn
         ? await conn.query(sql, params)
-        : await executeQuery(sql, params);
+        : await executeQuery(sql, params, conn);
       // const vendor_code = await getVendorCodeDao(vendorId.id);
       // const user = await getUsersNameDao(updated_by);
       // const esResult = {
@@ -269,7 +269,7 @@ export const getPayoutsDao = async (
     if (conn && conn.query) {
       result = await conn.query(baseQuery, queryParams);
     } else {
-      result = await executeQuery(baseQuery, queryParams);
+      result = await executeQuery(baseQuery, queryParams, conn);
     }
     return result.rows;
   } catch (error) {
@@ -282,7 +282,7 @@ export const getPayoutByIdDao = async (id, company_id, conn = null) => {
   try {
     const sql = `SELECT id, status, config FROM "${tableName.PAYOUT}" WHERE id = $1 AND company_id = $2 AND is_obsolete = false`;
     const queryParams = [id, company_id];
-    const result = conn ? await conn.query(sql, queryParams) : await executeQuery(sql, queryParams);
+    const result = await executeQuery(sql, queryParams, conn);
     return result.rows.length > 0 ? result.rows[0] : null;
   } catch (error) {
     logger.error('Error fetching payout by utr id:', error.message);
@@ -294,7 +294,7 @@ export const getPayoutByMerchantOrderIdDao = async (merchant_order_id, company_i
   try {
     const sql = `SELECT id, merchant_order_id FROM "${tableName.PAYOUT}" WHERE merchant_order_id = $1 AND company_id = $2 AND is_obsolete = false`;
     const queryParams = [merchant_order_id, company_id];
-    const result = conn ? await conn.query(sql, queryParams) : await executeQuery(sql, queryParams);
+    const result = await executeQuery(sql, queryParams, conn);
     return result.rows.length > 0 ? result.rows[0] : null;
   } catch (error) {
     logger.error('Error fetching payout by merchant order id:', error.message);
@@ -306,7 +306,7 @@ export const getPayoutByUtrIdDao = async (utr_id, company_id, conn = null) => {
   try {
     const sql = `SELECT id, utr_id FROM "${tableName.PAYOUT}" WHERE utr_id = $1 AND company_id = $2 AND is_obsolete = false`;
     const queryParams = [utr_id, company_id];
-    const result = conn ? await conn.query(sql, queryParams) : await executeQuery(sql, queryParams);
+    const result = await executeQuery(sql, queryParams, conn);
     return result.rows.length > 0 ? result.rows[0] : null;
   } catch (error) {
     logger.error('Error fetching payout by utr id:', error.message);
@@ -349,7 +349,7 @@ export const getPayoutBankDetailsDao = async (filters, company_id, conn = null) 
       ORDER BY u.sno DESC
     `;
 
-    const result = conn ? await conn.query(baseQuery, queryParams) : await executeQuery(baseQuery, queryParams, conn);
+    const result = await executeQuery(baseQuery, queryParams, conn);
     return result.rows;
 
   } catch (error) {
@@ -538,7 +538,7 @@ export const getAllPayoutsDao = async (
     if (conn && conn.query) {
       result = await conn.query(baseQuery, queryParams);
     } else {
-      result = await executeQuery(baseQuery, queryParams);
+      result = await executeQuery(baseQuery, queryParams, conn);
     }
     return result.rows;
   } catch (error) {
@@ -551,7 +551,7 @@ export const getCompanyIdByMerchantOrderIdDao = async (id, conn = null) => {
   try {
     const sql = `SELECT id, merchant_order_id, company_id FROM "${tableName.PAYOUT}" WHERE merchant_order_id = $1 AND is_obsolete = false`;
     const queryParams = [id];
-    const result = conn ? await conn.query(sql, queryParams) : await executeQuery(sql, queryParams);
+    const result = await executeQuery(sql, queryParams, conn);
     return result.rows.length > 0 ? result.rows[0] : result.rows;
   } catch (error) {
     logger.error('Error fetching company:', error);
@@ -1025,7 +1025,7 @@ export const getPayoutsBySearchDao = async (
       `;
 
       // Execute amount query
-      const amountResult = conn ? await conn.query(amountQuery, amountParams) : await executeQuery(amountQuery, amountParams, conn);
+      const amountResult = await executeQuery(amountQuery, amountParams, conn);
       totalAmount = parseFloat(amountResult.rows[0]?.total_amount || 0);
     }
 
@@ -1038,12 +1038,12 @@ export const getPayoutsBySearchDao = async (
     queryParams.push(limitNum, offset);
 
     // Execute main queries
-    const countResult = conn ? await conn.query(countQuery, queryParams.slice(0, -2)) : await executeQuery(
+    const countResult = await executeQuery(
       countQuery,
       queryParams.slice(0, -2),
       conn,
     );
-    const searchResult = conn ? await conn.query(queryText, queryParams) : await executeQuery(queryText, queryParams, conn);
+    const searchResult = await executeQuery(queryText, queryParams, conn);
     let finalResult = searchResult;
     if (
       parseInt(countResult.rows[0].total) > 0 &&
@@ -1051,7 +1051,7 @@ export const getPayoutsBySearchDao = async (
       offset > 0
     ) {
       queryParams[queryParams.length - 1] = 0; 
-      finalResult = conn ? await conn.query(queryText, queryParams) : await executeQuery(queryText, queryParams, conn);
+      finalResult = await executeQuery(queryText, queryParams, conn);
     }
     const data = {
       ...(ifamount && { totalAmount: totalAmount }),
@@ -1066,7 +1066,7 @@ export const getPayoutsBySearchDao = async (
     throw error;
   }
 };
-export const getInitiatedAndPendingSummaryByMerchant = async (company_id) => { 
+export const getInitiatedAndPendingSummaryByMerchant = async (company_id, conn = null) => { 
   try {
     const queryText = `
       SELECT 
@@ -1082,7 +1082,7 @@ export const getInitiatedAndPendingSummaryByMerchant = async (company_id) => {
       GROUP BY m.code
       ORDER BY total_amount DESC, merchant_code;
     `;
-    const result = await executeQuery(queryText, [company_id]); 
+    const result = await executeQuery(queryText, [company_id], conn); 
     return result?.rows?.map(row => ({
       merchant: row?.merchant_code,
       count: parseInt(row?.total_count, 10) || 0,
@@ -1101,7 +1101,7 @@ export const getPayoutsCronDao = async (payload, conn = null) => {
     `;
     const queryParams = [payload];
 
-    const result = conn ? await conn.query(baseQuery, queryParams) : await executeQuery(baseQuery, queryParams);
+    const result = await executeQuery(baseQuery, queryParams, conn);
     return result.rows;
   } catch (error) {
     logger.error('Error in createPayoutDao:', error);
@@ -1119,7 +1119,7 @@ export const updatePayoutDao = async (ids, data, conn = null) => {
       const existingQuery = `SELECT config FROM "${tableName.PAYOUT}" WHERE id = $1`;
       const existingData = conn
         ? await conn.query(existingQuery, [ids.id])
-        : await executeQuery(existingQuery, [ids.id]);
+        : await executeQuery(existingQuery, [ids.id], conn);
       if (existingData.rows.length > 0) {
         const existingConfig = existingData.rows[0].config || {};
         // Merge existing config with new config
@@ -1184,7 +1184,7 @@ export const getPayoutByTxnId = async (txnId, conn = null) => {
       WHERE config->>'txnid' = $1
     `;
     const params = [txnId];
-    const result = conn ? await conn.query(query, params) : await executeQuery(query, params, conn);
+    const result = await executeQuery(query, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error occurred while fetching payout by txnId:', error);
@@ -1195,7 +1195,7 @@ export const getPayoutByTxnId = async (txnId, conn = null) => {
 export const deletePayoutDao = async (ids, data, conn = null) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.PAYOUT, data, ids);
-    const result = conn ? await conn.query(sql, params) : await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error occurred while deleting payout:', error);

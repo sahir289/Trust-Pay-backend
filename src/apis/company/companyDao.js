@@ -90,7 +90,7 @@ const getCompanyByIDDao = async (filters, conn = null) => {
   try {
     const baseQuery = `SELECT id,config FROM "${tableName.COMPANY}" WHERE 1=1`;
     const [sql, queryParams] = buildSelectQuery(baseQuery, filters);
-    const result = conn ? await conn.query(sql, queryParams) : await executeQuery(sql, queryParams, conn);
+    const result = await executeQuery(sql, queryParams, conn);
     return result.rows.length > 0 ? result.rows : result.rows[0];
   } catch (error) {
     logger.error('Error fetching company:', error);

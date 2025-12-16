@@ -138,7 +138,7 @@ async function getSubVendorsWithCompleteData(userIds, role, company_id, conn = n
 
     queryText += ` ORDER BY "Vendor"."updated_at" DESC`;
 
-    const result = conn ? await conn.query(queryText, values) : await executeQuery(queryText, values, conn);
+    const result = await executeQuery(queryText, values, conn);
     return result.rows;
   } catch (error) {
     logger.error(

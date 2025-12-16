@@ -58,7 +58,7 @@ const getBankResponseDao = async (
       queryParams[`created_at_start`] = startDate;
       queryParams[`created_at_end`] = endDate;
     }
-    const result = conn ? await conn.query(sql, queryParams) : await executeQuery(sql, queryParams);
+    const result = await executeQuery(sql, queryParams, conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in getBankResponseDao:', error);
@@ -80,7 +80,7 @@ const getBankResponseByJustUTRDao = async (utr, conn = null) => {
       WHERE utr = $1
         AND is_obsolete = false
     `;
-    const result = conn ? await conn.query(sql, [utr]) : await executeQuery(sql, [utr]);
+    const result = await executeQuery(sql, [utr], conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in getBankResponseByJustUTRDao:', error);
@@ -129,7 +129,7 @@ export const getBankResponsePayinDao = async (filters, conn = null) => {
     if (conditions.length > 0) {
       query += ` AND ${conditions.join(' AND ')}`;
     }
-    const result = conn ? await conn.query(query, params) : await executeQuery(query, params);
+    const result = await executeQuery(query, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in getBankResponseDao:', error);
@@ -148,7 +148,7 @@ export const getBankResponseDaoById = async (filters, conn = null) => {
   LEFT JOIN "${tableName.BANK_ACCOUNT}" ba ON ba.id = br.bank_id
   WHERE br.id = $1 AND ba.company_id = $2`;
 
-    const result = conn ? await conn.query(base, [filters.id, filters.company_id]) : await executeQuery(base, [filters.id, filters.company_id]);
+    const result = await executeQuery(base, [filters.id, filters.company_id], conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in getBankResponseDaoById:', error);
@@ -168,7 +168,7 @@ export const getCheckBankResponseDao = async (
       `SELECT ${filterColumns} FROM "${tableName.BANK_RESPONSE}" WHERE 1=1`,
       filters,
     );
-    const result = conn ? await conn.query(sql, params) : await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows && result.rows.length > 0;
   } catch (error) {
     logger.error('Error fetching bank response data:', error);
@@ -198,7 +198,7 @@ export const getForCreateBankResponseDao = async (
       `SELECT ${filterColumns} FROM "${tableName.BANK_RESPONSE}" WHERE 1=1`,
       filters,
     );
-    const result = conn ? await conn.query(sql, params) : await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows || [];
   } catch (error) {
     logger.error('Error fetching bank response data:', error);
@@ -467,14 +467,14 @@ const getBankResponseBySearchDao = async (
     const offset = (page - 1) * pageSize;
     queryText += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
     values.push(Number(pageSize), offset);
-    const countResult = conn ? await conn.query(countQuery, values.slice(0, -2)) : await executeQuery(countQuery, values.slice(0, -2), conn);
-    let searchResult = conn ? await conn.query(queryText, values) : await executeQuery(queryText, values, conn);
+    const countResult = await executeQuery(countQuery, values.slice(0, -2), conn);
+    let searchResult = await executeQuery(queryText, values, conn);
 
     const totalCount = parseInt(countResult.rows[0].total);
     let totalPages = Math.ceil(totalCount / Number(pageSize));
     if (totalCount > 0 && searchResult.rows.length === 0 && offset > 0) {
       values[values.length - 1] = 0;
-      searchResult = conn ? await conn.query(queryText, values) : await executeQuery(queryText, values, conn);
+      searchResult = await executeQuery(queryText, values, conn);
       totalPages = Math.ceil(totalCount / pageSize);
     }
     data = {
@@ -608,7 +608,7 @@ const getClaimResponseDao = async (filters, conn = null) => {
       LEFT JOIN banks_unclaims_amount bua ON TRUE;
     `;
 
-    const result = conn ? await conn.query(query, params) : await executeQuery(query, params);
+    const result = await executeQuery(query, params, conn);
 
     if (!result || result.rows.length === 0) {
       return {
@@ -659,7 +659,7 @@ const getBankResponseForEsDao = async (bankId, conn = null) => {
       FROM "${tableName.BANK_RESPONSE}"
       WHERE id = $1
     `;
-    const result = conn ? await conn.query(sql, [bankId]) : await executeQuery(sql, [bankId]);
+    const result = await executeQuery(sql, [bankId], conn);
     return result.rows[0] || null;
   } catch (error) {
     logger.error('Error getting bank account nickname:', error);
@@ -696,7 +696,7 @@ const getBankResponsesforFreeze = async (filters, conn = null) => {
 
     query += ` ORDER BY created_at ASC`;
 
-    const result = conn ? await conn.query(query, params) : await executeQuery(query, params);
+    const result = await executeQuery(query, params, conn);
     return result.rows;
   } catch (error) {
     logger.error('Error in getBankResponsesDao:', error);
@@ -739,7 +739,7 @@ export const getBankResponsePendingDao = async (filters, conn = null) => {
       filters.company_id,
     ];
 
-    const result = conn ? await conn.query(sql, params) : await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error getting BankResponse:', error);
@@ -757,6 +757,7 @@ const getBankResponseDaoAll = async (
   sortOrder = 'DESC',
   start_date,
   end_date,
+  conn = null,
 ) => {
   try {
     let values = [];
@@ -978,7 +979,7 @@ const getBankResponseDaoAll = async (
 
     let result;
     if (filters.userId && filters.userId.length > 0) {
-      result = await executeQuery(baseQueryVendor, values);
+      result = await executeQuery(baseQueryVendor, values, conn);
     } else {
       let [query, finalQueryValues] = buildSelectQuery(
         queryIs,
@@ -994,7 +995,7 @@ const getBankResponseDaoAll = async (
         /ORDER BY[\s\S]+?(?=LIMIT|OFFSET|$)/i,
         `ORDER BY "BankResponse"."sno" DESC`,
       );
-      result = await executeQuery(query, finalQueryValues);
+      result = await executeQuery(query, finalQueryValues, conn);
     }
     return { totalCount: result.rows.length, rows: result.rows };
   } catch (error) {
@@ -1003,7 +1004,7 @@ const getBankResponseDaoAll = async (
   }
 };
 
-const getBankResponseByUTR = async (utr) => {
+const getBankResponseByUTR = async (utr, conn = null) => {
   try {
     const baseQuery = `SELECT 
         br.id, 
@@ -1037,7 +1038,7 @@ const getBankResponseByUTR = async (utr) => {
     ORDER BY 
         br.created_at DESC`;
     const queryParams = [utr];
-    const result = await executeQuery(baseQuery, queryParams);
+    const result = await executeQuery(baseQuery, queryParams, conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error getting Bank Response by utr', error);
@@ -1045,7 +1046,7 @@ const getBankResponseByUTR = async (utr) => {
   }
 };
 
-const getInternalBankResponseByUTR = async (utr) => {
+const getInternalBankResponseByUTR = async (utr, conn = null) => {
   try {
     const baseQuery = `SELECT 
         br.id, 
@@ -1079,7 +1080,7 @@ const getInternalBankResponseByUTR = async (utr) => {
     ORDER BY 
         br.created_at DESC`;
     const queryParams = [utr];
-    const result = await executeQuery(baseQuery, queryParams);
+    const result = await executeQuery(baseQuery, queryParams, conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error getting Bank Response by utr', error);
@@ -1091,7 +1092,7 @@ const createBankResponseDao = async (data, conn) => {
   try {
     // data.id = generateUUID();
     const [sql, params] = buildInsertQuery(tableName.BANK_RESPONSE, data);
-    const result = await conn.query(sql, params);
+    const result = await executeQuery(sql, params, conn);
     const insertedEntry = result.rows[0];
     // const nickName = await getBankAccountNickNameForEsDao(
     //   insertedEntry.bank_id,
@@ -1108,9 +1109,7 @@ const createBankResponseDao = async (data, conn) => {
 export const updateBankResponseDao = async (id, data, conn = null) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.BANK_RESPONSE, data, id);
-    const result = conn 
-      ? await conn.query(sql, params)
-      : await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     // let insertedEntry = {
     //   ...data,
     //   updated_at: result.rows[0].updated_at,
@@ -1152,7 +1151,7 @@ const getBankMessageDao = async (
       ORDER BY "created_at" DESC 
       LIMIT $4 OFFSET $5`;
     const values = [bank_id, startDate, endDate, 10, 0, company_id];
-    const result = conn ? await conn.query(query, values) : await executeQuery(query, values, conn);
+    const result = await executeQuery(query, values, conn);
     return result.rows;
   } catch (error) {
     logger.error('Error in getBankMessageDao:', error);
@@ -1165,9 +1164,7 @@ const resetBankResponseDao = async (id, data, conn = null) => {
     const [sql, params] = buildUpdateQuery(tableName.BANK_RESPONSE, data, {
       id,
     });
-    const result = conn
-      ? await conn.query(sql, params)
-      : await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     // let insertedEntry = {
     //   ...data,
     //   updated_at: result.rows[0].updated_at,
@@ -1194,9 +1191,7 @@ const updateBotResponseDao = async (id, data, conn = null) => {
     const [sql, params] = buildUpdateQuery(tableName.BANK_RESPONSE, data, {
       id,
     });
-    const result = conn
-      ? await conn.query(sql, params)
-      : await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     // await newTableEntry(tableName.BANK_RESPONSE);
     // let insertedEntry = {
     //   ...data,

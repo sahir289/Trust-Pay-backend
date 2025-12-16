@@ -20,7 +20,7 @@ export const getUsersContactDao = async (company_id, contact_no, conn = null) =>
         AND company_id = $1
         AND contact_no = $2
     `;
-    const result = conn ? await conn.query(sql, [company_id, contact_no]) : await executeQuery(sql, [company_id, contact_no]);
+    const result = await executeQuery(sql, [company_id, contact_no], conn);
     return result.rows.length > 0;
   } catch (error) {
     logger.error('Error executing user contact query:', error);
@@ -38,7 +38,7 @@ export const getUsersNameDao = async (user_id, conn = null) => {
       WHERE u.is_obsolete = FALSE
         AND u.id = $1
     `;
-    const result = conn ? await conn.query(sql, [user_id]) : await executeQuery(sql, [user_id]);
+    const result = await executeQuery(sql, [user_id], conn);
     return result.rows[0] || null;
   } catch (error) {
     logger.error('Error executing user query:', error);
@@ -97,7 +97,7 @@ const getUsersDao = async (
       USER,
     );
 
-    const result = conn ? await conn.query(sql, queryParams) : await executeQuery(sql, queryParams);
+    const result = await executeQuery(sql, queryParams, conn);
     return result.rows;
   } catch (error) {
     logger.error('Error in get Users Dao:', error);
@@ -156,7 +156,7 @@ const getAllUsersDao = async (
       USER,
     );
 
-    const result = conn ? await conn.query(sql, queryParams) : await executeQuery(sql, queryParams);
+    const result = await executeQuery(sql, queryParams, conn);
     return result.rows;
   } catch (error) {
     logger.error('Error in get Users Dao:', error);
@@ -312,7 +312,7 @@ export const getUsersBySearchDao = async (
     }
 
     const countQuery = `SELECT COUNT(*) as total FROM (${queryText}) as count_table`;
-    const countResult = conn ? await conn.query(countQuery, values) : await executeQuery(countQuery, values);
+    const countResult = await executeQuery(countQuery, values, conn);
 
     queryText += `
       ORDER BY "User"."updated_at" DESC
@@ -321,12 +321,12 @@ export const getUsersBySearchDao = async (
     `;
     values.push(validatedPageSize, offset);
 
-    let searchResult = conn ? await conn.query(queryText, values) : await executeQuery(queryText, values);
+    let searchResult = await executeQuery(queryText, values, conn);
     const totalItems = parseInt(countResult.rows[0].total);
     let totalPages = Math.ceil(totalItems / validatedPageSize);
     if (totalItems > 0 && searchResult.rows.length === 0 && offset > 0) {
       values[values.length - 1] = 0; 
-      searchResult = conn ? await conn.query(queryText, values) : await executeQuery(queryText, values);
+      searchResult = await executeQuery(queryText, values, conn);
       totalPages = Math.ceil(totalItems / validatedPageSize);
     }
 
@@ -394,7 +394,7 @@ const getUserByIdDao = async (ids, conn = null) => {
       baseQuery += ` AND u.company_id = $${queryParams.length + 1}`;
       queryParams.push(ids.company_id);
     }
-    const result = conn ? await conn.query(baseQuery, queryParams) : await executeQuery(baseQuery, queryParams);
+    const result = await executeQuery(baseQuery, queryParams, conn);
     if (result.rowCount === 0) {
       logger.error('No user found with the provided id and filters');
       return [];
@@ -413,7 +413,7 @@ const getUserDao = async (id, conn = null) => {
     LEFT JOIN public."Role" r ON u.role_id = r.id
     WHERE u.is_obsolete = false AND u.id = $1
   `;
-    const result = conn ? await conn.query(sql, [id.id]) : await executeQuery(sql, [id.id]);
+    const result = await executeQuery(sql, [id.id], conn);
     if (result.rowCount === 0) {
       logger.error('No user found with the provided id and filters');
       return [];
@@ -469,7 +469,7 @@ const getUsersByUserNameDao = async (ids, username, conn = null) => {
       queryParams.push(ids.company_id);
     }
 
-    const result = conn ? await conn.query(baseQuery, queryParams) : await executeQuery(baseQuery, queryParams);
+    const result = await executeQuery(baseQuery, queryParams, conn);
     if (result.rowCount === 0) {
       logger.info(`No user found with username: ${username}`);
       return null;
@@ -485,7 +485,7 @@ const createUserDao = async (payload, conn = null) => {
   try {
     const [sql, params] = buildInsertQuery(tableName.USER, payload);
 
-    const result = conn ? await conn.query(sql, params) : await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     logger.info(
       `User with username: ${payload.user_name} created successfully`,
     );
@@ -505,7 +505,7 @@ const createUserDao = async (payload, conn = null) => {
 const getUsersForCronDao = async (conn = null) => {
   try {
     const sql = `SELECT id  FROM public."User" where is_obsolete = false`;
-    const result = conn ? await conn.query(sql) : await executeQuery(sql);
+    const result = await executeQuery(sql, [], conn);
     if (result.rows.length === 0) {
       logger.info('No users Found');
       return [];
@@ -521,7 +521,7 @@ const updateUserDao = async (ids, data, conn = null) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.USER, data, ids);
 
-    const result = conn ? await conn.query(sql, params) : await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in updateUserDao:', error);
@@ -538,7 +538,7 @@ const getAdminUserIdsDao = async (company_id, conn = null) => {
         AND company_id = $1
         AND role_id = (SELECT id FROM "${tableName.ROLE}" WHERE role = 'ADMIN')
     `;
-    const result = conn ? await conn.query(sql, [company_id]) : await executeQuery(sql, [company_id]);
+    const result = await executeQuery(sql, [company_id], conn);
     return result.rows;
   } catch (error) {
     logger.error('Error executing getAdminUsersDao query:', error);
@@ -559,7 +559,7 @@ const getUserByCompanyCreatedAtDao = async (company_id, role, conn = null) => {
         AND (u.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')::date = 
             (c.created_at AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Kolkata')::date;
     `;
-    const result = conn ? await conn.query(sql, [company_id, role]) : await executeQuery(sql, [company_id, role]);
+    const result = await executeQuery(sql, [company_id, role], conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error executing getUserByCompanyCreatedAtDao query:', error);
@@ -577,7 +577,7 @@ const getUserByRoleDao = async (company_id, role, conn = null) => {
         AND u.company_id = $1
         AND r.role = $2
     `;
-    const result = conn ? await conn.query(sql, [company_id, role]) : await executeQuery(sql, [company_id, role]);
+    const result = await executeQuery(sql, [company_id, role], conn);
     return result.rows;
   } catch (error) {
     logger.error('Error executing getUserByCompanyCreatedAtDao query:', error);

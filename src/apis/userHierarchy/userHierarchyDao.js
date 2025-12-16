@@ -10,7 +10,7 @@ import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 export const createUserHierarchyDao = async (data, conn = null) => {
   try {
     const [sql, params] = buildInsertQuery(tableName.USER_HIERARCHY, data);
-    const result = conn ? await conn.query(sql, params) : await executeQuery(sql, params, conn);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in create UserHierarchy Dao:', error);
@@ -58,7 +58,7 @@ export const getUserHierarchysDao = async (
       sortOrder,
     );
     // Execute query
-    const result = conn ? await conn.query(sql, queryParams) : await executeQuery(sql, queryParams, conn);
+    const result = await executeQuery(sql, queryParams, conn);
     return result.rows;
   } catch (error) {
     logger.error('Error in get UserHierarchy Dao:', error);
@@ -69,7 +69,7 @@ export const getUserHierarchysDao = async (
 export const updateUserHierarchyDao = async (id, data, conn = null) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.USER_HIERARCHY, data, id);
-    const result = conn ? await conn.query(sql, params) : await executeQuery(sql, params, conn);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in updateUserHierarchyDao:', error);
@@ -80,7 +80,7 @@ export const updateUserHierarchyDao = async (id, data, conn = null) => {
 export const deleteUserHierarchyDao = async (id, data, conn = null) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.USER_HIERARCHY, data, id);
-    const result = conn ? await conn.query(sql, params) : await executeQuery(sql, params, conn);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in deleteUserHierarchyDao:', error);

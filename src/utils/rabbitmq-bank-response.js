@@ -45,6 +45,47 @@ export const publishBankResponse = async (responseData) => {
   }
 };
 
+export const publishBankResponseBulk = async (responseData) => {
+  const queue = config.rabbitmq.bankResponseQueue;
+  const message = Buffer.from(JSON.stringify(responseData));
+
+  try {
+    let channel = await getRabbitChannel();
+
+    if (!channel || channel.connection.closed) {
+      logger.warn('RabbitMQ channel closed, reconnecting...');
+      channel = await connectRabbitMQ();
+    }
+
+    await channel.assertQueue(queue, { durable: true });
+    const published = await publishWithRetry(channel, queue, message, config.rabbitmq.retryAttempts);
+
+    if (!published) {
+      logger.error('[RabbitMQ] Failed to publish after retries, saving to DB fallback');
+      await createBankResponseService(
+        responseData.payload,
+        responseData.x_auth_token,
+        responseData.role,
+        responseData.name,
+      );
+    } else {
+      logger.info('[RabbitMQ] Published to bankResponseQueue:', responseData);
+    }
+
+    return published;
+
+  } catch (err) {
+    await createBankResponseService(
+      responseData.payload,
+      responseData.x_auth_token,
+      responseData.role,
+      responseData.name,
+    );
+    logger.error('[RabbitMQ] Publish failed:', err.message);
+    throw err;
+  }
+};
+
 
 // Consume bank responses from the queue
 export const consumeBankResponses = async (callback) => {
