@@ -620,7 +620,7 @@ const createBankResponseService = async (
           await updateBotResponseDao(botRes.id, { is_used: true }, localConn);
 
           const obj = {
-            id: updatePayin.id,
+            id: updatePayin.id, 
             status: updatePayin.status,
             company_id: updatePayin.company_id,
             merchant_order_id: updatePayin.merchant_order_id,
