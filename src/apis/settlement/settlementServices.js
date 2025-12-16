@@ -1109,6 +1109,11 @@ const _updateSettlementServiceInternal = async (ids, payload, conn) => {
 
   // Handle reversal (status INITIATED)
   if (payload.status === Status.INITIATED) {
+    // Skip if already reversed
+    if (settlementData.status === Status.REVERSED) {
+      throw new BadRequestError('Settlement is already reversed');
+    }
+    
     const merchantData = await getMerchantsDao({
       user_id: settlementData.user_id,
     });

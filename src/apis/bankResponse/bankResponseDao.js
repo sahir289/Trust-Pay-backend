@@ -38,7 +38,8 @@ const getBankResponseDao = async (
   conn = null,
 ) => {
   try {
-    let baseQuery = `SELECT ${columns.length ? columns.join(', ') : '*'} FROM "${tableName.BANK_RESPONSE}" WHERE 1=1`;
+    const columnList = columns || [];
+    let baseQuery = `SELECT ${columnList.length ? columnList.join(', ') : '*'} FROM "${tableName.BANK_RESPONSE}" WHERE 1=1`;
     if (filters.search) {
       filters.or = buildSearchFilterObj(
         filters.search,
