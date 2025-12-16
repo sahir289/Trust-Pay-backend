@@ -614,7 +614,7 @@ const createBankResponseService = async (
           const updatePayin = await updatePayInUrlDao(
             payInUtr.id,
             payInData,
-            { utr: botRes.utr, amount: botRes.amount }, //temperary
+            // { utr: botRes.utr, amount: botRes.amount }, //temperary
             localConn,
           );
           await updateBotResponseDao(botRes.id, { is_used: true }, localConn);
