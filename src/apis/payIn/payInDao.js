@@ -9,7 +9,6 @@ import {
   executeQuery,
 } from '../../utils/db.js';
 import dayjs from 'dayjs';
-import { getConnection } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
 // import {
 //   createPayinInES,
@@ -406,6 +405,36 @@ export const getPayInsForCronDao = async (filters = {}) => {
     return result.rows || [];
   } catch (error) {
     logger.error('Error getting PayIns for cron:', error);
+    throw error;
+  }
+};
+
+export const getExpiredPayInsDao = async (expireTime, status, dateField = 'created_at') => {
+  try {
+    const selectColumns = `
+      id,
+      merchant_order_id,
+      status,
+      is_notified,
+      amount,
+      user_submitted_utr,
+      config,
+      created_at,
+      updated_at
+    `;
+
+    const sql = `
+      SELECT ${selectColumns} 
+      FROM "${tableName.PAYIN}" 
+      WHERE is_obsolete = false 
+        AND status = $1 
+        AND ${dateField} <= $2
+    `;
+    
+    const result = await executeQuery(sql, [status, expireTime]);
+    return result.rows || [];
+  } catch (error) {
+    logger.error('Error getting expired PayIns:', error);
     throw error;
   }
 };
@@ -2057,7 +2086,6 @@ export const getPayinDetailsByMerchantOrderId = async (merchantOrderId) => {
     throw new BadRequestError('Valid merchantOrderId is required');
   }
 
-  let conn;
   const baseQuery = `
     SELECT 
       p.id AS payin_id,
@@ -2080,21 +2108,12 @@ export const getPayinDetailsByMerchantOrderId = async (merchantOrderId) => {
   `;
 
   try {
-    conn = await getConnection('reader');
-    const result = await conn.query(baseQuery, [merchantOrderId]);
+    const result = await executeQuery(baseQuery, [merchantOrderId]);
 
     return result.rows;
   } catch (error) {
     const errorMessage = `Error fetching payin details for merchantOrderId ${merchantOrderId}: ${error.message}`;
     logger.error(errorMessage);
     throw error;
-  } finally {
-    if (conn) {
-      try {
-        conn.release();
-      } catch (releaseError) {
-        logger.error('Error releasing connection:', releaseError);
-      }
-    }
   }
 };

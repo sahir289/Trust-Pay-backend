@@ -1494,6 +1494,10 @@ export const _processPayInServiceInternal = async (
     return { error: `This payin url is already used`, result };
   }
   //lock payin transaction
+  // Validate that we have valid values for lock key
+  if (!payIn.bank_acc_id || !userSubmittedUtr) {
+    throw new BadRequestError('Missing bank_acc_id or userSubmittedUtr for transaction lock');
+  }
   const lockKey = `${payIn.bank_acc_id}${userSubmittedUtr}`;
   await checkLockEdit(lockKey, true);
   const banks = await getBankaccountDao({

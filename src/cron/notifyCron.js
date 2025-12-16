@@ -2,6 +2,7 @@ import cron from 'node-cron';
 import moment from 'moment-timezone';
 import {
   getPayInsForCronDao,
+  getExpiredPayInsDao,
   updatePayInUrlDao,
 } from '../apis/payIn/payInDao.js';
 import { merchantPayinCallback } from '../callBacksAndWebHook/merchantCallBacks.js';
@@ -27,51 +28,81 @@ const collectPayinData = async (timezone = 'Asia/Kolkata') => {
       status: ['FAILED', 'DROPPED'],
       is_notified: 'false',
     });
-    // Update INITIATED payins older than 10 minutes
-    const payinsInitiated = await getPayInsForCronDao({ status: 'INITIATED' });
-    for (const payin of payinsInitiated) {
-      if (new Date(payin?.created_at) <= new Date(expireTime)) {
+    
+    // Update INITIATED payins older than 10 minutes - fetch only expired ones
+    const payinsInitiatedExpired = await getExpiredPayInsDao(expireTime, 'INITIATED', 'created_at');
+    const payinsInitiatedAll = await getPayInsForCronDao({ status: 'INITIATED' });
+    
+    // Process expired payins (batch update not possible due to different durations per record)
+    const expiredUpdates = payinsInitiatedExpired.map(async (payin) => {
+      const duration = calculateDuration(payin.created_at);
+      return updatePayInUrlDao(payin.id, {
+        status: 'FAILED',
+        is_url_expires: true,
+        duration,
+      });
+    });
+    
+    // Process page_reload payins
+    const reloadUpdates = payinsInitiatedAll
+      .filter(payin => payin.config?.page_reload && !payinsInitiatedExpired.find(p => p.id === payin.id))
+      .map(async (payin) => {
         const duration = calculateDuration(payin.created_at);
-        await updatePayInUrlDao(payin.id, {
+        return updatePayInUrlDao(payin.id, {
           status: 'FAILED',
           is_url_expires: true,
           duration,
         });
-        logger.info(`INITIATED PayIn ${payin.id} FAILED due to timeout`);
-      } else if (payin.config.page_reload) {
-        const duration = calculateDuration(payin.created_at);
-        const updatedData = {
-          status: 'FAILED',
-          is_url_expires: true,
-          duration,
-        };
-        await updatePayInUrlDao(payin.id, updatedData);
-        logger.info(`INITIATED PayIn ${payin.id} FAILED due to page_reload`);
-      }
+      });
+    
+    // Execute all updates in parallel
+    await Promise.all([...expiredUpdates, ...reloadUpdates]);
+    
+    // Log summary
+    if (expiredUpdates.length > 0) {
+      logger.info(`${expiredUpdates.length} INITIATED PayIn(s) FAILED due to timeout`);
     }
-    // Update ASSIGNED payins older than 10 minutes
-    const payinsAssigned = await getPayInsForCronDao({ status: 'ASSIGNED' });
-    for (const payin of payinsAssigned) {
-      if (new Date(payin?.updated_at) <= new Date(expireTime)) {
+    if (reloadUpdates.length > 0) {
+      logger.info(`${reloadUpdates.length} INITIATED PayIn(s) FAILED due to page_reload`);
+    }
+    
+    // Update ASSIGNED payins older than 10 minutes - fetch only expired ones
+    const payinsAssignedExpired = await getExpiredPayInsDao(expireTime, 'ASSIGNED', 'updated_at');
+    const payinsAssignedAll = await getPayInsForCronDao({ status: 'ASSIGNED' });
+    
+    // Process expired payins
+    const assignedExpiredUpdates = payinsAssignedExpired.map(async (payin) => {
+      const duration = calculateDuration(payin.created_at);
+      return updatePayInUrlDao(payin.id, {
+        status: 'DROPPED',
+        is_url_expires: true,
+        duration,
+      });
+    });
+    
+    // Process page_reload payins
+    const assignedReloadUpdates = payinsAssignedAll
+      .filter(payin => payin.config?.page_reload && !payinsAssignedExpired.find(p => p.id === payin.id))
+      .map(async (payin) => {
         const duration = calculateDuration(payin.created_at);
-        const updatedData = {
+        return updatePayInUrlDao(payin.id, {
           status: 'DROPPED',
           is_url_expires: true,
           duration,
-        };
-        await updatePayInUrlDao(payin.id, updatedData);
-        logger.info(`ASSIGNED PayIn ${payin.id} dropped due to timeout`);
-      } else if (payin.config.page_reload) {
-        const duration = calculateDuration(payin.created_at);
-        const updatedData = {
-          status: 'DROPPED',
-          is_url_expires: true,
-          duration,
-        };
-        await updatePayInUrlDao(payin.id, updatedData);
-        logger.info(`ASSIGNED PayIn ${payin.id} dropped due to page_reload`);
-      }
+        });
+      });
+    
+    // Execute all updates in parallel
+    await Promise.all([...assignedExpiredUpdates, ...assignedReloadUpdates]);
+    
+    // Log summary
+    if (assignedExpiredUpdates.length > 0) {
+      logger.info(`${assignedExpiredUpdates.length} ASSIGNED PayIn(s) DROPPED due to timeout`);
     }
+    if (assignedReloadUpdates.length > 0) {
+      logger.info(`${assignedReloadUpdates.length} ASSIGNED PayIn(s) DROPPED due to page_reload`);
+    }
+    
     // Process notifications for dropped but unnotified payins
     if (payinsDropped?.length) {
       await processPayinNotifications(payinsDropped);
