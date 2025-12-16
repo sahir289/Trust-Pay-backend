@@ -363,12 +363,12 @@ const createBankResponseService = async (
         checkPayInUtr = await getPayInsBankResDao({
           upi_short_code: upi_short_code,
           company_id: companyId,
-        });
+        }, localConn);
       } else {
         checkPayInUtr = await getPayInsBankResDao({
           user_submitted_utr: utr,
           company_id: companyId,
-        });
+        }, localConn);
       }
       if (checkPayInUtr?.length > 0) {
         const payInUtr =
@@ -379,7 +379,7 @@ const createBankResponseService = async (
           const getDataByUtr = await getForCreateBankResponseDao({
             utr: payInUtr.user_submitted_utr,
             company_id,
-          });
+          }, null, localConn);
           const botUtrIsUsed =
             getDataByUtr.rows.length > 1 &&
             getDataByUtr.some((item) => item.is_used);
@@ -394,7 +394,7 @@ const createBankResponseService = async (
         const isBankExist = await getBankaccountDashBoardReportDao({
           id: bank_id,
           company_id,
-        });
+        }, localConn);
 
         if (
           isBankExist &&
@@ -447,13 +447,13 @@ const createBankResponseService = async (
 
           const merchantData = await getMerchantsBankResponseDao({
             id: payInUtr.merchant_id,
-          });
+          }, localConn);
 
           await updateBotResponseDao(botRes.id, { is_used: true }, localConn);
           const currentPayinBank = await getBankaccountDashBoardReportDao({
             id: payInUtr.bank_acc_id,
             company_id: companyId,
-          });
+          }, localConn);
           if (updatePayInDataRes) {
             const obj = {
               id: updatePayInDataRes.id,
@@ -516,7 +516,7 @@ const createBankResponseService = async (
           utr,
           is_used: true,
           company_id,
-        });
+        },null, localConn);
         if (existingResponse?.length > 0) {
           await commit(localConn);
           // if (shouldRelease) localConn.release();
@@ -524,7 +524,7 @@ const createBankResponseService = async (
         }
         const merchantData = await getMerchantsBankResponseDao({
           id: payInUtr.merchant_id,
-        });
+        }, localConn);
         const payinMerchantCommission = calculateCommission(
           botRes.amount,
           merchantData[0].payin_commission,
@@ -532,10 +532,10 @@ const createBankResponseService = async (
         const bankAccountDetails = await getBankaccountDashBoardReportDao({
           id: payInUtr.bank_acc_id,
           company_id,
-        });
+        }, localConn);
         const vendorData = await getVendorsBankReponseDao({
           user_id: bankAccountDetails[0].user_id,
-        });
+        }, localConn);
         const payinVendorCommission = calculateCommission(
           botRes.amount,
           vendorData[0].payin_commission,
@@ -573,7 +573,7 @@ const createBankResponseService = async (
           let parentCommission = 0;
           let payinConfig = {};
 
-          const subVendorParentInfo = await getSubVendorParentInfo(vendorData[0]);
+          const subVendorParentInfo = await getSubVendorParentInfo(vendorData[0], localConn);
           if (subVendorParentInfo) {
             // Calculate parent commission
             // parentCommission = await updateParentVendorCalculation(
