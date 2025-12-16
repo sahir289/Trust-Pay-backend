@@ -10,10 +10,10 @@ import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 import dayjs from 'dayjs';
 
 // Create ChargeBack entry
-export const createChargeBackDao = async (data) => {
+export const createChargeBackDao = async (data, conn = null) => {
   try {
     const [sql, params] = buildInsertQuery(tableName.CHARGE_BACK, data);
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error creating ChargeBack entry:', error);
@@ -708,10 +708,10 @@ export const getChargeBacksBySearchDao = async (
 
 
 // Update ChargeBack entry
-export const updateChargeBackDao = async (id, data) => {
+export const updateChargeBackDao = async (id, data, conn = null) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.CHARGE_BACK, data, id);
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error updating ChargeBack entry:', error);
@@ -720,10 +720,10 @@ export const updateChargeBackDao = async (id, data) => {
 };
 
 // Delete ChargeBack entry
-export const deleteChargeBackDao = async (id, data) => {
+export const deleteChargeBackDao = async (id, data, conn = null) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.CHARGE_BACK, data, id);
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error deleting ChargeBack entry:', error);

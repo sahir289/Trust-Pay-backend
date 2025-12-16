@@ -681,10 +681,12 @@ const getBankByIdDao = async (filters) => {
   }
 };
 
-const createBankaccountDao = async (payload) => {
+const createBankaccountDao = async (payload, conn = null) => {
   try {
     const [sql, params] = buildInsertQuery(tableName.BANK_ACCOUNT, payload);
-    const result = await executeQuery(sql, params);
+    const result = conn 
+      ? await conn.query(sql, params)
+      : await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
     logger.error(error);
@@ -752,7 +754,7 @@ const getBankAccountDaoNickName = async (
   }
 };
 
-const updateBankaccountDao = async (id, payload, isParentDeleted) => {
+const updateBankaccountDao = async (id, payload, isParentDeleted, conn = null) => {
   try {
     // Fetch existing bank config to merge with added_at
     const existingBankArr = await getBankaccountDao({
@@ -812,6 +814,7 @@ const updateBankaccountDao = async (id, payload, isParentDeleted) => {
       id,
       {}, // No special fields
       { returnUpdated: true }, // Return the updated row
+      conn, // Pass connection for transaction support
     );
     
     return result;

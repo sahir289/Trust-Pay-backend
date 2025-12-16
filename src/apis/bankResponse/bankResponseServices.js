@@ -258,7 +258,7 @@ const createBankResponseService = async (
     try {
       // localConn = await getConnection();
       await beginTransaction(localConn);
-      botRes = await createBankResponseDao(updatedData);
+      botRes = await createBankResponseDao(updatedData, localConn);
       // await sendNotification(updatedData.status.replace('/', ''), {
       //   id: botRes.id,
       //   utr: botRes.utr,
@@ -302,11 +302,13 @@ const createBankResponseService = async (
               parseFloat(botRes.amount),
             payin_count: parseFloat(bankDetails[0].payin_count + 1),
           },
+          localConn,
         );
         await _updateBankaccountInternal(
           { id: botRes?.bank_id, company_id: companyId },
           { latest_balance: res.today_balance },
           role,
+          localConn,
         );
         vendor = await getVendorsBankReponseDao({
           user_id: bankDetails[0].user_id,
@@ -319,6 +321,7 @@ const createBankResponseService = async (
           {
             balance: parseFloat(vendor[0].balance) + parseFloat(botRes.amount),
           },
+          localConn,
         );
         const payinVendorCommission = calculateCommission(
           botRes.amount,
@@ -336,6 +339,7 @@ const createBankResponseService = async (
             subVendorParentInfo.parentUserId,
             Number(botRes.amount),
             Number(vendor[0].config?.mediator_payin_commission) || 0,
+            localConn,
           );
           totalVendorCommission = payinVendorCommission + parentCommission;
           logger.info(`Sub-vendor commission calculated immediately on bankResponse creation: sub=${payinVendorCommission}, parent=${parentCommission}, total=${totalVendorCommission}`);
@@ -347,6 +351,7 @@ const createBankResponseService = async (
             payinCommission: payinVendorCommission,
             amount: botRes.amount,
           },
+          localConn,
         );
       }
       let duration;
@@ -433,14 +438,15 @@ const createBankResponseService = async (
           const updatePayInDataRes = await updatePayInUrlDao(
             payInUtr.id,
             payInData,
-            {utr:botRes.utr ,amount :botRes.amount}  //temperary
+            {utr:botRes.utr ,amount :botRes.amount},  //temperary
+            localConn,
           );
 
           const merchantData = await getMerchantsBankResponseDao({
             id: payInUtr.merchant_id,
           });
 
-          await updateBotResponseDao(botRes.id, { is_used: true });
+          await updateBotResponseDao(botRes.id, { is_used: true }, localConn);
           const currentPayinBank = await getBankaccountDashBoardReportDao({
             id: payInUtr.bank_acc_id,
             company_id: companyId,
@@ -607,8 +613,9 @@ const createBankResponseService = async (
             payInUtr.id,
             payInData,
             { utr: botRes.utr, amount: botRes.amount }, //temperary
+            localConn,
           );
-          await updateBotResponseDao(botRes.id, { is_used: true });
+          await updateBotResponseDao(botRes.id, { is_used: true }, localConn);
 
           const obj = {
             id: updatePayin.id,
@@ -661,6 +668,7 @@ const createBankResponseService = async (
               payinCommission: payinMerchantCommission,
               amount: botRes.amount,
             },
+            localConn,
           );
           await commit(localConn);
           // if (shouldRelease) localConn.release();
@@ -702,8 +710,9 @@ const createBankResponseService = async (
             payInUtr.id,
             payInData,
             { utr: botRes.utr, amount: botRes.amount }, //temperary
+            localConn,
           );
-          await updateBotResponseDao(botRes.id, { is_used: true });
+          await updateBotResponseDao(botRes.id, { is_used: true }, localConn);
           if (updatePayInDataRes) {
             const obj = {
               id: updatePayInDataRes.id,
@@ -948,7 +957,7 @@ const createBankResponseWebHookService = async (
     try {
       // localConn = await getConnection();
       await beginTransaction(localConn);
-      botRes = await createBankResponseDao(updatedData);
+      botRes = await createBankResponseDao(updatedData, localConn);
       // await sendNotification(updatedData.status.replace('/', ''), {
       //   id: botRes.id,
       //   utr: botRes.utr,
@@ -992,11 +1001,13 @@ const createBankResponseWebHookService = async (
               parseFloat(botRes.amount),
             payin_count: parseFloat(bankDetails[0].payin_count + 1),
           },
+          localConn,
         );
         await _updateBankaccountInternal(
           { id: botRes?.bank_id, company_id: companyId },
           { latest_balance: res.today_balance },
           role,
+          localConn,
         );
         vendor = await getVendorsBankReponseDao({
           user_id: bankDetails[0].user_id,
@@ -1009,6 +1020,7 @@ const createBankResponseWebHookService = async (
           {
             balance: parseFloat(vendor[0].balance) + parseFloat(botRes.amount),
           },
+          localConn,
         );
         const payinVendorCommission = calculateCommission(
           botRes.amount,
@@ -1040,6 +1052,7 @@ const createBankResponseWebHookService = async (
             payinCommission: payinVendorCommission,
             amount: botRes.amount,
           },
+          localConn,
         );
       }
 
@@ -1376,7 +1389,7 @@ const getBankResponseBySearchService = async (
     throw error;
   }
 };
-const _updateBankResponseServiceInternal = async (id, payload, role) => {
+const _updateBankResponseServiceInternal = async (id, payload, role, conn = null) => {
   try {
     const filterColumns =
       role === Role.MERCHANT
@@ -1384,7 +1397,7 @@ const _updateBankResponseServiceInternal = async (id, payload, role) => {
         : role === Role.VENDOR || role === Role.SUB_VENDOR
           ? vendorColumns.BANK_RESPONSE
           : columns.BANK_RESPONSE;
-    const data = await updateBankResponseDao(id, payload);
+    const data = await updateBankResponseDao(id, payload, conn);
     const finalResult = filterResponse(data, filterColumns);
     return finalResult;
   } catch (error) {
@@ -1398,7 +1411,7 @@ const updateBankResponseService = async (id, payload, role) => {
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const finalResult = await _updateBankResponseServiceInternal(id, payload, role);
+    const finalResult = await _updateBankResponseServiceInternal(id, payload, role, conn);
     await commit(conn);
     return finalResult;
   } catch (error) {
@@ -1460,7 +1473,7 @@ const getBankMessageServices = async (
   }
 };
 
-const _resetBankResponseServiceInternal = async (id, userData) => {
+const _resetBankResponseServiceInternal = async (id, userData, conn = null) => {
   try {
     const { company_id, user_name, user_id, role, amount, utr, bank_id } =
       userData;
@@ -1526,6 +1539,7 @@ const _resetBankResponseServiceInternal = async (id, userData) => {
       company_id,
       role,
       payInData,
+      conn,
     });
     updateData = result.updateData;
     changes.config.previousAmount = botRes.amount;
@@ -1547,6 +1561,7 @@ const _resetBankResponseServiceInternal = async (id, userData) => {
       user_id,
       user_name,
       company_id,
+      conn,
     });
     updateData = utrResult;
     changes.utr = utr;
@@ -1561,6 +1576,7 @@ const _resetBankResponseServiceInternal = async (id, userData) => {
       company_id,
       user_id,
       user_name,
+      conn,
     });
     updateData = bankResult;
     changes.bank_id = bank_id;
@@ -1572,7 +1588,7 @@ const _resetBankResponseServiceInternal = async (id, userData) => {
 
   if (!amount && !utr && !bank_id) {
     await updatePayInData({ payInData, user_name, botRes });
-    await resetBankResponseDao(id, updateData);
+    await resetBankResponseDao(id, updateData, conn);
   }
 
   // logger.info(`Bank response reset successful for ID: ${id}`, 'info');
@@ -1607,7 +1623,7 @@ const resetBankResponseService = async (id, userData) => {
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const results = await _resetBankResponseServiceInternal(id, userData);
+    const results = await _resetBankResponseServiceInternal(id, userData, conn);
     await commit(conn);
     return results;
   } catch (error) {
@@ -1626,7 +1642,7 @@ const handleAmountUpdate = async ({
   user_name,
   role,
   payInData,
-  user_id,
+  conn,
 }) => {
   try {
     const previousAmount = botRes.amount;
@@ -1750,19 +1766,19 @@ const handleAmountUpdate = async ({
             today_balance:
               parseFloat(bank.today_balance) + parseFloat(updatedAmount),
           },
+          conn,
         ).then((res) => {
           if (res.is_enabled) {
             _updateBankaccountInternal(
               { id: bank.id, company_id: res.company_id },
               { latest_balance: res.today_balance },
               role,
-              res.company_id,
-              user_id,
+              conn,
             );
           }
         }),
         updatePayInData({ payInData, user_name, botRes }),
-        updateBotResponseDao(botRes.id, updateData),
+        updateBotResponseDao(botRes.id, updateData, conn),
       );
 
       // Execute all updates
@@ -1786,6 +1802,7 @@ const handleUtrUpdate = async ({
   user_id,
   user_name,
   company_id,
+  conn,
 }) => {
   try {
     const previousUTR = botRes.utr;
@@ -1807,10 +1824,10 @@ const handleUtrUpdate = async ({
       await updatePayInUrlDao(payIn[0].id, {
         user_submitted_utr: utr,
         updated_by: user_id,
-      });
+      }, conn);
       await newTableEntry(tableName.PAYIN);
     }
-    await updateBotResponseDao(botRes.id, updateData);
+    await updateBotResponseDao(botRes.id, updateData, conn);
   } catch (error) {
     logger.error('Error in handle bank utr update:', error.message);
     throw error;
@@ -1824,6 +1841,7 @@ const handleBankIdUpdate = async ({
   company_id,
   user_id,
   user_name,
+  conn,
 }) => {
   try {
     const [prevBank, newBank] = await Promise.all([
@@ -2002,6 +2020,7 @@ const handleBankIdUpdate = async ({
           today_balance: prevBank[0].today_balance - botRes.amount,
           updated_by: user_id,
         },
+        conn,
       ),
       updateBankaccountDao(
         { id: newBank[0].id, company_id },
@@ -2011,8 +2030,9 @@ const handleBankIdUpdate = async ({
           today_balance: newBank[0].today_balance + botRes.amount,
           updated_by: user_id,
         },
+        conn,
       ),
-      updateBotResponseDao(botRes.id, updateData),
+      updateBotResponseDao(botRes.id, updateData, conn),
     ];
 
     // Execute all updates
@@ -2404,6 +2424,7 @@ const _importBankResponseServiceInternal = async (
     payload.bank_id,
   );
 
+  // Note: Each createBankResponseService manages its own transaction
   for (const transaction of creditedTransactions) {
     await createBankResponseService(transaction, companyId, role, name);
   }
@@ -2423,19 +2444,13 @@ const importBankResponseService = async (
   role,
   name,
 ) => {
-  let conn;
   try {
-    conn = await getConnection();
-    await beginTransaction(conn);
+    // Note: Transaction management happens within each createBankResponseService call
     const result = await _importBankResponseServiceInternal(payload, companyId, role, name);
-    await commit(conn);
     return result;
   } catch (error) {
-    if (conn) await rollback(conn);
     logger.error('Error in importBankResponseService:', error);
     throw error;
-  } finally {
-    if (conn) conn.release();
   }
 };
 

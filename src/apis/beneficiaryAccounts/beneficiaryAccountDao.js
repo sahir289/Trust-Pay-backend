@@ -8,7 +8,7 @@ import {
 } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
 
-const getBeneficiaryAccountDao = async (filters, page, limit, role) => {
+const getBeneficiaryAccountDao = async (filters, page, limit, role, conn = null) => {
   try {
     let queryParams = [];
     let conditions = [`bea.is_obsolete = false`];
@@ -82,14 +82,14 @@ const getBeneficiaryAccountDao = async (filters, page, limit, role) => {
           bea.updated_at DESC  
       ${limitcondition};
       `;
-    const result = await executeQuery(baseQuery, queryParams);
+    const result = await executeQuery(baseQuery, queryParams, conn);
     return result.rows;
   } catch (error) {
     logger.error('Error in get BeneficiaryAccount Dao:', error);
     throw error;
   }
 };
-const checkBeneficiaryAccountExistsDao = async (filters) => {
+const checkBeneficiaryAccountExistsDao = async (filters, conn = null) => {
   try {
     const { acc_no, company_id } = filters;
     if (!acc_no || !company_id) {
@@ -106,7 +106,7 @@ const checkBeneficiaryAccountExistsDao = async (filters) => {
     `;
 
     const params = [acc_no, company_id];
-    const result = await executeQuery(query, params);
+    const result = await executeQuery(query, params, conn);
 
     return result.rows.length > 0;
   } catch (error) {
@@ -356,13 +356,13 @@ const getBeneficiaryAccountBySearchDao = async (
   }
 };
 
-const createBeneficiaryAccountDao = async (payload) => {
+const createBeneficiaryAccountDao = async (payload, conn = null) => {
   try {
     const [sql, params] = buildInsertQuery(
       tableName.BENEFICIARY_ACCOUNTS,
       payload,
     );
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error(error);
@@ -374,6 +374,7 @@ const getBeneficiaryAccountDaoByBankName = async (
   company_id,
   type,
   filters = {},
+  conn = null,
 ) => {
   try {
     // Initialize query components
@@ -405,7 +406,7 @@ const getBeneficiaryAccountDaoByBankName = async (
     `;
 
     // Execute query
-    const result = await executeQuery(baseQuery, queryParams);
+    const result = await executeQuery(baseQuery, queryParams, conn);
 
     return {
       totalCount: result.rowCount,
@@ -421,6 +422,7 @@ const updateBeneficiaryAccountDao = async (
   id,
   payload,
   // isParentDeleted,
+  conn = null,
 ) => {
   try {
     // Use buildAndExecuteUpdateQuery to update the bank account
@@ -430,6 +432,7 @@ const updateBeneficiaryAccountDao = async (
       id,
       {}, // No special fields
       { returnUpdated: true }, // Return the updated row
+      conn,
     );
   } catch (error) {
     logger.error('Error in updateBeneficiaryAccountDao:', error);
@@ -437,14 +440,14 @@ const updateBeneficiaryAccountDao = async (
   }
 };
 
-const deleteBeneficiaryDao = async (id, data) => {
+const deleteBeneficiaryDao = async (id, data, conn = null) => {
   try {
     const [sql, params] = buildUpdateQuery(
       tableName.BENEFICIARY_ACCOUNTS,
       data,
       id,
     );
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in deleteBeneficiaryDao:', error);

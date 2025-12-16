@@ -159,11 +159,7 @@ const getBankaccountServiceNickName = async (
   user,
   // check_enabled
 ) => {
-  let conn;
   try {
-    conn = await getConnection();
-    await beginTransaction(conn);
-
     let filters = {};
     if (role == Role.VENDOR) {
       const userHierarchys = await getUserHierarchysDao({ user_id });
@@ -207,25 +203,10 @@ const getBankaccountServiceNickName = async (
       filters,
       // check_enabled
     );
-    await commit(conn);
     return result;
   } catch (error) {
-    if (conn) {
-      try {
-        await rollback(conn);
-      } catch (rollbackError) {
-        logger.error('Error during transaction rollback', rollbackError);
-      }
-    }
+    logger.error('Error in getBankaccountServiceNickName', error);
     throw error;
-  } finally {
-    if (conn) {
-      try {
-        conn.release();
-      } catch (releaseError) {
-        logger.error('Error while releasing the connection', releaseError);
-      }
-    }
   }
 };
 
@@ -233,6 +214,7 @@ const _createBankaccountServiceInternal = async (
   payload,
   designation,
   user_id,
+  conn = null,
   // company_id,
 ) => {
   try {
@@ -245,7 +227,7 @@ const _createBankaccountServiceInternal = async (
     if (designation === Role.VENDOR_ADMIN && !payload.user_id) {
         throw new BadRequestError('Vendor Admins are not allowed to create own bank accounts.');
     }
-    const result = await createBankaccountDao(payload);
+    const result = await createBankaccountDao(payload, conn);
     // await notifyAdminsAndUsers({
     //   conn,
     //   company_id: company_id,
@@ -275,6 +257,7 @@ const createBankaccountService = async (
       payload,
       designation,
       user_id,
+      conn,
       // company_id,
     );
     await commit(conn);
@@ -293,6 +276,7 @@ const _updateBankaccountInternal = async (
   ids,
   payload,
   role,
+  conn = null,
   // company_id,
   // user_id,
 ) => {
@@ -396,6 +380,8 @@ const _updateBankaccountInternal = async (
     result = await updateBankaccountDao(
       { id: ids.id, company_id: ids.company_id },
       payload,
+      false, // isParentDeleted
+      conn,  // Pass connection
     );
   }
   if (payloadData?.config?.is_freeze === true) {
@@ -483,11 +469,13 @@ const deleteBankaccountService = async (ids, user_id) => {
   } 
 };
 
-const _activeInactiveBankAccountServiceInternal = async (ids, payload) => {
+const _activeInactiveBankAccountServiceInternal = async (ids, payload, conn) => {
   try {
     const result = await updateBankaccountDao(
       { id: ids.id, company_id: ids.company_id },
       payload,
+      false, // isParentDeleted
+      conn,  // Pass connection for transaction
     );
     return result;
   } catch (error) {
@@ -501,7 +489,7 @@ const activeInactiveBankAccountService = async (ids, payload) => {
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const result = await _activeInactiveBankAccountServiceInternal(ids, payload);
+    const result = await _activeInactiveBankAccountServiceInternal(ids, payload, conn);
     await commit(conn);
     return result;
   } catch (error) {

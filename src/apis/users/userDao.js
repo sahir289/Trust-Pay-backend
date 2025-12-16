@@ -478,11 +478,11 @@ const getUsersByUserNameDao = async (ids, username) => {
   }
 };
 
-const createUserDao = async (payload) => {
+const createUserDao = async (payload, conn = null) => {
   try {
     const [sql, params] = buildInsertQuery(tableName.USER, payload);
 
-    const result = await executeQuery(sql, params);
+    const result = conn ? await conn.query(sql, params) : await executeQuery(sql, params);
     logger.info(
       `User with username: ${payload.user_name} created successfully`,
     );
@@ -514,11 +514,11 @@ const getUsersForCronDao = async () => {
   }
 };
 
-const updateUserDao = async (ids, data) => {
+const updateUserDao = async (ids, data, conn = null) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.USER, data, ids);
 
-    const result = await executeQuery(sql, params);
+    const result = conn ? await conn.query(sql, params) : await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in updateUserDao:', error);

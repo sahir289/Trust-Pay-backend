@@ -255,6 +255,7 @@ const _getBeneficiaryAccountServiceByBankNameInternal = async (
   role,
   user_id,
   designation,
+  conn,
 ) => {
   try {
     let filters = {};
@@ -273,6 +274,7 @@ const _getBeneficiaryAccountServiceByBankNameInternal = async (
       company_id,
       type,
       filters,
+      conn,
     );
     return result;
   } catch (error) {
@@ -298,6 +300,7 @@ const getBeneficiaryAccountServiceByBankName = async (
       role,
       user_id,
       designation,
+      conn,
     );
     await commit(conn);
     return result;
@@ -321,7 +324,7 @@ const getBeneficiaryAccountServiceByBankName = async (
   }
 };
 
-const _createBeneficiaryAccountServiceInternal = async (payload, company_id) => {
+const _createBeneficiaryAccountServiceInternal = async (payload, company_id, conn) => {
   try {
     // Set user_id to created_by if not already set
     payload.user_id = payload.user_id || payload.created_by;
@@ -373,6 +376,7 @@ const _createBeneficiaryAccountServiceInternal = async (payload, company_id) => 
       null,
       null,
       roleObj.role,
+      conn,
     );
     if (exists.length > 0)
       throw new BadRequestError(
@@ -381,7 +385,7 @@ const _createBeneficiaryAccountServiceInternal = async (payload, company_id) => 
   }
 
   // Create account
-  const result = await createBeneficiaryAccountDao(payload);
+  const result = await createBeneficiaryAccountDao(payload, conn);
 
   // Notify users
   // const vendorUsers = await getUserByRoleDao(company_id, Role.VENDOR);
@@ -409,7 +413,7 @@ const createBeneficiaryAccountService = async (payload, company_id) => {
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const result = await _createBeneficiaryAccountServiceInternal(payload, company_id);
+    const result = await _createBeneficiaryAccountServiceInternal(payload, company_id, conn);
     await commit(conn);
     return result;
   } catch (error) {
@@ -421,12 +425,12 @@ const createBeneficiaryAccountService = async (payload, company_id) => {
   }
 };
 
-const _updateBeneficiaryAccountService = async (ids, payload) => {
+const _updateBeneficiaryAccountService = async (ids, payload, conn) => {
   if (payload.acc_no) {
     let filters = {};
     filters.acc_no = payload.acc_no;
     filters.company_id = ids.company_id;
-    const exists = await checkBeneficiaryAccountExistsDao(filters);
+    const exists = await checkBeneficiaryAccountExistsDao(filters, conn);
     if (exists) {
       throw new BadRequestError('Beneficiary account no. already exists');
     }
@@ -434,7 +438,7 @@ const _updateBeneficiaryAccountService = async (ids, payload) => {
   const [banks] = await getBeneficiaryAccountDao({
     id: ids.id,
     company_id: ids.company_id,
-  });
+  }, null, null, null, conn);
 
   if (!banks) {
     throw new BadRequestError('Beneficiary account not found');
@@ -443,6 +447,7 @@ const _updateBeneficiaryAccountService = async (ids, payload) => {
   const result = await updateBeneficiaryAccountDao(
     { id: ids.id, company_id: ids.company_id },
     payload,
+    conn,
   );
 
   // let notifyIds = [];
@@ -469,7 +474,7 @@ const updateBeneficiaryAccountService = async (ids, payload) => {
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const result = await _updateBeneficiaryAccountService(ids, payload);
+    const result = await _updateBeneficiaryAccountService(ids, payload, conn);
     await commit(conn);
     return result;
   } catch (error) {
@@ -481,11 +486,12 @@ const updateBeneficiaryAccountService = async (ids, payload) => {
   }
 };
 
-const _deleteBeneficiaryAccountServiceInternal = async (ids) => {
+const _deleteBeneficiaryAccountServiceInternal = async (ids, conn) => {
   try {
     let result = await deleteBeneficiaryDao(
       { id: ids.id, company_id: ids.company_id },
       { is_obsolete: true },
+      conn,
     );
     return result;
   } catch (error) {
@@ -499,7 +505,7 @@ const deleteBeneficiaryAccountService = async (ids) => {
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const result = await _deleteBeneficiaryAccountServiceInternal(ids);
+    const result = await _deleteBeneficiaryAccountServiceInternal(ids, conn);
     await commit(conn);
     return result;
   } catch (error) {

@@ -1436,10 +1436,10 @@ export const checkTodayCalculationExistsDao = async () => {
   }
 };
 
-const createCalculationDao = async (data) => {
+const createCalculationDao = async (data, conn = null) => {
   try {
     const [sql, params] = buildInsertQuery(tableName.CALCULATION, data);
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows ? result.rows[0] : result[0]; // Return the first row or result based on the structure
   } catch (error) {
     logger.error('Error creating calculation:', error); // Log the error for debugging
@@ -1447,31 +1447,32 @@ const createCalculationDao = async (data) => {
   }
 };
 
-const updateCalculationDao = async (id, data) => {
+const updateCalculationDao = async (id, data, conn = null) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.CALCULATION, data, id);
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows ? result.rows[0] : result[0]; // Return the first row or result based on the structure
   } catch (error) {
     logger.error('Error updating calculation:', error); // Log the error for debugging
     throw error;
   }
 };
-const updateCalculationConfigDao = async (id, data) => {
+const updateCalculationConfigDao = async (id, data, conn = null) => {
   return buildAndExecuteUpdateQuery(
     tableName.CALCULATION,
     data,
     id,
     {},
     { returnUpdated: true },
+    conn,
   );
 };
 
-const deleteCalculationDao = async (id, data) => {
+const deleteCalculationDao = async (id, data, conn = null) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.CALCULATION, data, id);
 
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
 
     return result.rows ? result.rows[0] : result[0]; // Return the first row or result based on the structure
   } catch (error) {
@@ -1480,7 +1481,7 @@ const deleteCalculationDao = async (id, data) => {
   }
 };
 
-export const updateCalculationBalanceDao = async (filters, data) => {
+export const updateCalculationBalanceDao = async (filters, data, conn = null) => {
   try {
     const specialFields = {};
     Object.keys(data).forEach((el) => {
@@ -1492,7 +1493,9 @@ export const updateCalculationBalanceDao = async (filters, data) => {
       filters,
       specialFields,
     );
-    const result = await executeQuery(sql, params);
+    const result = conn 
+      ? await conn.query(sql, params)
+      : await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
     logger.error('Error updating calculation:', error);

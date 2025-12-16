@@ -1,12 +1,10 @@
-import {
-  BadRequestError,
-  NotFoundError,
-} from '../../utils/appErrors.js';
+import { BadRequestError, NotFoundError } from '../../utils/appErrors.js';
 import {
   beginTransaction,
   commit,
   getConnection,
   rollback,
+  buildAndExecuteUpdateQuery,
 } from '../../utils/db.js';
 import {
   createSettlementDao,
@@ -45,7 +43,7 @@ import { checkLockEdit } from '../../utils/advisoryLock.js';
 // import { getUsersDao } from '../users/userDao.js';
 import {
   getBeneficiaryAccountDao,
-  updateBeneficiaryAccountDao,
+  // updateBeneficiaryAccountDao,
 } from '../beneficiaryAccounts/beneficiaryAccountDao.js';
 import { newTableEntry } from '../../utils/sockets.js';
 import { trackVendorsNetBalance } from '../../utils/trackVendorsNetBalance.js';
@@ -53,49 +51,67 @@ import { trackVendorsNetBalance } from '../../utils/trackVendorsNetBalance.js';
 // Helper function to check if vendor is sub-vendor and get parent info
 const getSubVendorParentInfo = async (vendor) => {
   try {
-    logger.info(`Settlement: Checking sub-vendor status for vendor: userId=${vendor.user_id}, designation=${vendor.designation || vendor.designation_name}, config=${JSON.stringify(vendor.config)}`);
-    
+    logger.info(
+      `Settlement: Checking sub-vendor status for vendor: userId=${vendor.user_id}, designation=${vendor.designation || vendor.designation_name}, config=${JSON.stringify(vendor.config)}`,
+    );
+
     // Check if vendor designation is SUB_VENDOR (handle both designation and designation_name properties)
     const vendorDesignation = vendor.designation || vendor.designation_name;
     if (vendorDesignation !== Role.SUB_VENDOR) {
-      logger.info(`Settlement: Vendor is not SUB_VENDOR, designation: ${vendorDesignation}`);
+      logger.info(
+        `Settlement: Vendor is not SUB_VENDOR, designation: ${vendorDesignation}`,
+      );
       return null;
     }
 
     // Check is_owned config
     const isOwned = vendor.config?.is_owned;
     if (isOwned === true || isOwned === 'true') {
-      logger.info(`Settlement: Vendor is owned (is_owned=${isOwned}), skipping parent calculation`);
+      logger.info(
+        `Settlement: Vendor is owned (is_owned=${isOwned}), skipping parent calculation`,
+      );
       return null;
     }
 
-    logger.info(`Settlement: Sub-vendor detected with is_owned=${isOwned}, fetching user hierarchy`);
+    logger.info(
+      `Settlement: Sub-vendor detected with is_owned=${isOwned}, fetching user hierarchy`,
+    );
 
     // Get user hierarchy to find parent
     const userHierarchys = await getUserHierarchysDao({
       user_id: vendor.user_id,
     });
-    
-    logger.info(`Settlement: User hierarchy result: ${JSON.stringify(userHierarchys)}`);
-    
+
+    logger.info(
+      `Settlement: User hierarchy result: ${JSON.stringify(userHierarchys)}`,
+    );
+
     const userHierarchy = userHierarchys?.[0];
     const parentId = userHierarchy?.config?.parent;
 
     if (!parentId) {
-      logger.warn(`Settlement: Sub-vendor ${vendor.user_id} has no parent in hierarchy`);
+      logger.warn(
+        `Settlement: Sub-vendor ${vendor.user_id} has no parent in hierarchy`,
+      );
       return null;
     }
 
-    logger.info(`Settlement: Found parent ID: ${parentId}, fetching parent vendor details`);
+    logger.info(
+      `Settlement: Found parent ID: ${parentId}, fetching parent vendor details`,
+    );
 
     // Get parent vendor details
     const parentVendors = await getVendorsDao({ user_id: parentId });
     if (!parentVendors || !parentVendors[0]) {
-      logger.warn(`Settlement: Parent vendor not found for user_id: ${parentId}`);
+      logger.warn(
+        `Settlement: Parent vendor not found for user_id: ${parentId}`,
+      );
       return null;
     }
 
-    logger.info(`Settlement: Parent vendor found: ${JSON.stringify(parentVendors[0])}`);
+    logger.info(
+      `Settlement: Parent vendor found: ${JSON.stringify(parentVendors[0])}`,
+    );
 
     return {
       parentVendor: parentVendors[0],
@@ -108,21 +124,32 @@ const getSubVendorParentInfo = async (vendor) => {
 };
 
 // Helper function to calculate commission for parent vendor in settlement
-const updateParentVendorSettlementCalculation = async (parentUserId, amount, vendorCommissionRate, isApproved) => {
+const updateParentVendorSettlementCalculation = async (
+  parentUserId,
+  amount,
+  vendorCommissionRate,
+  isApproved,
+) => {
   try {
-    logger.info(`Settlement: updateParentVendorSettlementCalculation called with: parentUserId=${parentUserId}, amount=${amount}, rate=${vendorCommissionRate}, isApproved=${isApproved}`);
-    
+    logger.info(
+      `Settlement: updateParentVendorSettlementCalculation called with: parentUserId=${parentUserId}, amount=${amount}, rate=${vendorCommissionRate}, isApproved=${isApproved}`,
+    );
+
     const parentCommission = calculateCommission(amount, vendorCommissionRate);
-    
-    logger.info(`Settlement: Calculated parent commission: ${parentCommission}`);
-    
+
+    logger.info(
+      `Settlement: Calculated parent commission: ${parentCommission}`,
+    );
+
     // Get parent calculation data
     const parentCalculationData = await getCalculationforCronDao(parentUserId);
     if (!parentCalculationData[0]) {
-      throw new NotFoundError(`Settlement: Parent calculation not found for user_id: ${parentUserId}`);
+      throw new NotFoundError(
+        `Settlement: Parent calculation not found for user_id: ${parentUserId}`,
+      );
     }
     // Create calculation update for parent vendor
-    const calculationUpdate = isApproved 
+    const calculationUpdate = isApproved
       ? {
           // For approval: Remove commission from parent (negative commission)
           total_settlement_count: 1,
@@ -138,19 +165,26 @@ const updateParentVendorSettlementCalculation = async (parentUserId, amount, ven
           total_settlement_commission: -parentCommission, // Positive to add commission back
           current_balance: -parentCommission,
           net_balance: -parentCommission,
-      };
-    logger.info(`Settlement: Updating parent calculation table with: ${JSON.stringify(calculationUpdate)}`);
+        };
+    logger.info(
+      `Settlement: Updating parent calculation table with: ${JSON.stringify(calculationUpdate)}`,
+    );
     const response = await updateCalculationBalanceDao(
       { id: parentCalculationData[0].id },
       calculationUpdate,
     );
     await trackVendorsNetBalance(parentUserId, response);
 
-    logger.info(`Settlement: Parent vendor calculation table updated successfully for userId: ${parentUserId}`);
-    
+    logger.info(
+      `Settlement: Parent vendor calculation table updated successfully for userId: ${parentUserId}`,
+    );
+
     return parentCommission;
   } catch (error) {
-    logger.error('Settlement: Error in updateParentVendorSettlementCalculation:', error);
+    logger.error(
+      'Settlement: Error in updateParentVendorSettlementCalculation:',
+      error,
+    );
     throw error;
   }
 };
@@ -324,7 +358,7 @@ const getSettlementsBySearchService = async (
     else if (role == Role.VENDOR) {
       const userHierarchys = await getUserHierarchysDao({ user_id });
       const userHierarchy = userHierarchys?.[0];
-      
+
       const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
       if (Array.isArray(subVendors) && subVendors.length > 0) {
         const vendorUserIds = [user_id, ...subVendors];
@@ -335,13 +369,13 @@ const getSettlementsBySearchService = async (
     } else if (role == Role.SUB_VENDOR) {
       filters.user_id = [user_id];
     }
-    
+
     const userHierarchys = await getUserHierarchysDao({ user_id });
     if (designation == Role.VENDOR_OPERATIONS) {
       const userHierarchy = userHierarchys?.[0];
       const parentID = userHierarchy?.config?.parent;
       const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
-      
+
       if (parentID) {
         if (Array.isArray(subVendors) && subVendors.length > 0) {
           const vendorUserIds = [parentID, ...subVendors];
@@ -386,21 +420,19 @@ const getSettlementsBySearchService = async (
   }
 };
 
-const _createSettlementServiceInternal = async (payload, role) => {
+const _createSettlementServiceInternal = async (payload, role, conn) => {
   const isInternalTransfer =
     payload.method === 'INTERNAL_QR_TRANSFER' ||
     payload.method === 'INTERNAL_BANK_TRANSFER';
 
   // Early return for non-internal transfers without reference_id
   if (!isInternalTransfer || !payload.config?.reference_id) {
-    const result = await createSettlementDao(payload);
+    const result = await createSettlementDao(payload, conn);
     return result;
   }
 
   // Validate bank response for internal transfers
-  const bankResponses = await getBankResponseByUTR(
-    payload.config.reference_id,
-  );
+  const bankResponses = await getBankResponseByUTR(payload.config.reference_id);
   if (!bankResponses) {
     throw new NotFoundError('Bank response not found for the provided UTR');
   }
@@ -423,12 +455,13 @@ const _createSettlementServiceInternal = async (payload, role) => {
     const result = await handleVendorInternalTransferByAdmin(
       payload,
       bankResponses,
+      conn,
     );
     return result;
   }
 
   // Handle other roles internal transfers
-  const result = await handleVendorInternalTransfer(payload);
+  const result = await handleVendorInternalTransfer(payload, conn);
   return result;
 };
 
@@ -437,7 +470,7 @@ const createSettlementService = async (payload, role) => {
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const result = await _createSettlementServiceInternal(payload, role);
+    const result = await _createSettlementServiceInternal(payload, role, conn);
     await commit(conn);
     return result;
   } catch (error) {
@@ -453,6 +486,7 @@ const createSettlementService = async (payload, role) => {
 const handleVendorInternalTransferByAdmin = async (
   payload,
   bankResponses,
+  conn,
 ) => {
   // Get vendor and calculation data
   const [vendorData, calculationData] = await Promise.all([
@@ -474,6 +508,7 @@ const handleVendorInternalTransferByAdmin = async (
   const response = await updateBankResponseDao(
     { id: bankResponses.id },
     { status: '/internalTransfer' },
+    conn,
   );
   const responseObj = {
     id: response.id,
@@ -506,8 +541,9 @@ const handleVendorInternalTransferByAdmin = async (
   const calculationResponse = await updateCalculationBalanceDao(
     { id: calculationData[0].id },
     updatedCalculation,
+    conn,
   );
-  
+
   await trackVendorsNetBalance(calculationData[0].user_id, calculationResponse);
 
   // Update calculation config based on method
@@ -519,6 +555,7 @@ const handleVendorInternalTransferByAdmin = async (
   await updateCalculationConfigDao(
     { id: calculationData[0].id },
     { config },
+    conn,
   );
 
   // Set final payload properties
@@ -533,11 +570,11 @@ const handleVendorInternalTransferByAdmin = async (
       true,
     );
   }
-  return await createSettlementDao(payload);
+  return await createSettlementDao(payload, conn);
 };
 
 // Helper function for internal transfers from vendors
-const handleVendorInternalTransfer = async (payload) => {
+const handleVendorInternalTransfer = async (payload, conn) => {
   // Adjust amount based on debit_credit type
   const isReceived = payload.config.debit_credit === 'RECEIVED';
   const amount = Number(payload.amount);
@@ -552,7 +589,7 @@ const handleVendorInternalTransfer = async (payload) => {
       : Math.abs(amount);
   }
 
-  return await createSettlementDao(payload);
+  return await createSettlementDao(payload, conn);
 };
 
 // Helper function to get config based on method
@@ -609,6 +646,7 @@ const handleInternalTransferUTR = async (
   payload,
   settlementData,
   changeUTRStatus,
+  conn,
 ) => {
   const isInternalMethod = INTERNAL_METHODS.includes(settlementData.method);
 
@@ -632,6 +670,7 @@ const handleInternalTransferUTR = async (
         const response = await updateBankResponseDao(
           { id: bankResponses.id },
           { status: '/internalTransfer' },
+          conn,
         );
 
         const responseObj = createBankResponseObject(
@@ -659,7 +698,7 @@ const calculateVendorCommission = async (payload) => {
   const vendor = vendorData[0];
   const vendorCommission = vendor.payin_commission || 0;
   const baseCommission = calculateCommission(payload.amount, vendorCommission);
-  
+
   // Check if this is a sub-vendor and calculate parent commission
   const subVendorParentInfo = await getSubVendorParentInfo(vendor);
   if (subVendorParentInfo) {
@@ -720,77 +759,86 @@ const updateBeneficiaryAccount = async (
   settlementData,
   payload,
   isReversed = false,
+  conn = null,
 ) => {
-  if (settlementData.role !== Role.VENDOR || settlementData.method !== 'BANK') {
-    return;
-  }
+  try {
+    if (
+      settlementData.role !== Role.VENDOR ||
+      settlementData.method !== 'BANK'
+    ) {
+      return;
+    }
 
-  const searchCriteria = isReversed
-    ? { user_id: settlementData.config.bank_id }
-    : { bank_name: settlementData.config.bank_name };
+    const searchCriteria = isReversed
+      ? { user_id: settlementData.config.bank_id }
+      : { bank_name: settlementData.config.bank_name };
 
-  const [beneficiaryAcc] = await getBeneficiaryAccountDao(searchCriteria);
+    const [beneficiaryAcc] = await getBeneficiaryAccountDao(searchCriteria);
 
-  if (!beneficiaryAcc) return;
+    if (!beneficiaryAcc) return;
 
-  const isSend =
-    payload.config?.debit_credit === 'send' ||
-    settlementData.config?.debit_credit === 'send';
-  const amount = payload.amount || 0;
+    const isSend =
+      payload.config?.debit_credit === 'send' ||
+      settlementData.config?.debit_credit === 'send';
+    const amount = payload.amount || 0;
 
-  let beneficiaryClosingBalance;
-  if (isReversed) {
-    beneficiaryClosingBalance = isSend
-      ? beneficiaryAcc.config?.closing_balance + amount
-      : beneficiaryAcc.config?.closing_balance - amount;
-  } else {
-    beneficiaryClosingBalance = isSend
-      ? beneficiaryAcc.config?.closing_balance - amount
-      : beneficiaryAcc.config?.closing_balance + amount;
-  }
+    let beneficiaryClosingBalance;
+    if (isReversed) {
+      beneficiaryClosingBalance = isSend
+        ? beneficiaryAcc.config?.closing_balance + amount
+        : beneficiaryAcc.config?.closing_balance - amount;
+    } else {
+      beneficiaryClosingBalance = isSend
+        ? beneficiaryAcc.config?.closing_balance - amount
+        : beneficiaryAcc.config?.closing_balance + amount;
+    }
 
-  const beneficiaryUpdatedConfig = {
-    ...beneficiaryAcc.config,
-    closing_balance: beneficiaryClosingBalance,
-  };
-
-  await updateBeneficiaryAccountDao(
-    { id: beneficiaryAcc.id, company_id: settlementData.company_id },
-    { config: beneficiaryUpdatedConfig },
-    false,
-  );
-
-  // Update payload config
-  if (isReversed && isSend) {
-    payload.config = {
-      ...settlementData.config,
-      beneficiary_closing_balance:
-        settlementData.config?.closing_balance + amount,
+    const beneficiaryUpdatedConfig = {
+      ...beneficiaryAcc.config,
+      closing_balance: beneficiaryClosingBalance,
     };
-  } else if (isReversed) {
-    payload.config = {
-      ...settlementData.config,
-      beneficiary_initial_balance:
-        settlementData.config?.initial_balance - amount === 0
-          ? settlementData.config?.initial_balance
-          : Number(settlementData.config?.initial_balance) - Number(amount),
-      beneficiary_closing_balance:
-        Number(settlementData.config?.closing_balance) - Number(amount),
-    };
-  } else {
-    payload.config = {
-      ...payload.config,
-      beneficiary_initial_balance: beneficiaryAcc.config?.closing_balance,
-      beneficiary_closing_balance: beneficiaryClosingBalance,
-    };
+
+    await buildAndExecuteUpdateQuery(
+      tableName.BENEFICIARY_ACCOUNTS,
+      { config: beneficiaryUpdatedConfig },
+      { id: beneficiaryAcc.id, company_id: settlementData.company_id },
+      {},
+      { returnUpdated: true },
+      conn,
+    );
+
+    // Update payload config
+    if (isReversed && isSend) {
+      payload.config = {
+        ...settlementData.config,
+        beneficiary_closing_balance:
+          settlementData.config?.closing_balance + amount,
+      };
+    } else if (isReversed) {
+      payload.config = {
+        ...settlementData.config,
+        beneficiary_initial_balance:
+          settlementData.config?.initial_balance - amount === 0
+            ? settlementData.config?.initial_balance
+            : Number(settlementData.config?.initial_balance) - Number(amount),
+        beneficiary_closing_balance:
+          Number(settlementData.config?.closing_balance) - Number(amount),
+      };
+    } else {
+      payload.config = {
+        ...payload.config,
+        beneficiary_initial_balance: beneficiaryAcc.config?.closing_balance,
+        beneficiary_closing_balance: beneficiaryClosingBalance,
+      };
+    }
+  } catch (error) {
+    logger.error('Error updating beneficiary account:', error);
+    throw error;
   }
 };
 
 // Helper function to handle internal transfer reversal
-const handleInternalTransferReversal = async (
-  settlementData,
-  payload,
-) => {
+const handleInternalTransferReversal = async (settlementData, payload) => {
   const [vendorData, calculationData] = await Promise.all([
     getVendorsDao({ user_id: settlementData.user_id }),
     getCalculationforCronDao(settlementData.user_id),
@@ -842,8 +890,10 @@ const handleInternalTransferReversal = async (
       Number(vendorData[0].config?.mediator_payin_commission) || 0,
       false, // isApproved = false (add commission back to parent)
     );
-    
-    logger.info(`Settlement reversal: Parent vendor calculation updated for sub-vendor settlement reversal`);
+
+    logger.info(
+      `Settlement reversal: Parent vendor calculation updated for sub-vendor settlement reversal`,
+    );
   }
 
   return {
@@ -942,213 +992,228 @@ const calculateTransferMethodConfig = (
   return { [keyName]: totalSettlementAmount };
 };
 
-const _updateSettlementServiceInternal = async (ids, payload) => {
+const _updateSettlementServiceInternal = async (ids, payload, conn) => {
   await checkLockEdit(ids.id);
   payload.config = payload.config || {};
 
-    // Get settlement data
-    const settlementArray = await getSettlementDao({
-      id: ids.id,
-      company_id: ids.company_id,
+  // Get settlement data
+  const settlementArray = await getSettlementDao({
+    id: ids.id,
+    company_id: ids.company_id,
+  });
+
+  if (!settlementArray?.length) {
+    throw new NotFoundError('Settlement not found');
+  }
+
+  const settlementData = settlementArray[0];
+
+  // Validate UTR
+  validateUTR(payload, settlementData);
+
+  let changeUTRStatus = true;
+
+  if (payload.config.rejected_reason) {
+    changeUTRStatus = false;
+  }
+
+  // Handle internal transfer UTR
+  await handleInternalTransferUTR(
+    payload,
+    settlementData,
+    changeUTRStatus,
+    conn,
+  );
+
+  // Get calculation data
+  const calculationData = await getCalculationforCronDao(
+    settlementData.user_id,
+  );
+
+  // Handle rejection
+  if (payload.config.rejected_reason) {
+    payload.status = Status.REJECTED;
+    payload.rejected_at = new Date();
+    payload.config.reference_id = '';
+  }
+
+  // Handle approval (reference_id provided)
+  if (payload.config.reference_id) {
+    payload.status = Status.SUCCESS;
+    payload.approved_at = new Date();
+
+    // Get merchant data to determine role
+    const merchantData = await getMerchantsDao({
+      user_id: settlementData.user_id,
     });
+    const isMerchant = merchantData.length > 0;
 
-    if (!settlementArray?.length) {
-      throw new NotFoundError('Settlement not found');
-    }
+    let updatedCalculation;
 
-    const settlementData = settlementArray[0];
-
-    // Validate UTR
-    validateUTR(payload, settlementData);
-
-    let changeUTRStatus = true;
-
-    if (payload.config.rejected_reason) {
-      changeUTRStatus = false;
-    }
-
-    // Handle internal transfer UTR
-    await handleInternalTransferUTR(
-      payload,
-      settlementData,
-      changeUTRStatus,
-    );
-
-    // Get calculation data
-    const calculationData = await getCalculationforCronDao(
-      settlementData.user_id,
-    );
-
-    // Handle rejection
-    if (payload.config.rejected_reason) {
-      payload.status = Status.REJECTED;
-      payload.rejected_at = new Date();
-      payload.config.reference_id = '';
-    }
-
-    // Handle approval (reference_id provided)
-    if (payload.config.reference_id) {
-      payload.status = Status.SUCCESS;
-      payload.approved_at = new Date();
-
-      // Get merchant data to determine role
-      const merchantData = await getMerchantsDao({
-        user_id: settlementData.user_id,
-      });
-      const isMerchant = merchantData.length > 0;
-
-      let updatedCalculation;
-
-      if (Array.isArray(calculationData) && calculationData.length > 0) {
-        if (isMerchant) {
-          updatedCalculation = createCalculationUpdate(settlementData, payload);
-        } else {
-          // Vendor approval
-          const isInternalMethod = INTERNAL_METHODS.includes(
-            settlementData.method,
+    if (Array.isArray(calculationData) && calculationData.length > 0) {
+      if (isMerchant) {
+        updatedCalculation = createCalculationUpdate(settlementData, payload);
+      } else {
+        // Vendor approval
+        const isInternalMethod = INTERNAL_METHODS.includes(
+          settlementData.method,
+        );
+        if (isInternalMethod) {
+          const commission = await calculateVendorCommission(payload);
+          updatedCalculation = createCalculationUpdate(
+            settlementData,
+            payload,
+            commission,
           );
-          if (isInternalMethod) {
-            const commission = await calculateVendorCommission(payload);
-            updatedCalculation = createCalculationUpdate(
-              settlementData,
-              payload,
-              commission,
+
+          // Handle parent vendor calculation for sub-vendors (only for internal methods)
+          if (payload._subVendorParentInfo && payload._parentCommission) {
+            await updateParentVendorSettlementCalculation(
+              payload._subVendorParentInfo.parentUserId,
+              payload.amount,
+              Number(
+                payload._subVendorParentInfo.parentVendor.payin_commission,
+              ),
+              true, // isApproved = true (remove commission from parent)
             );
-            
-            // Handle parent vendor calculation for sub-vendors (only for internal methods)
-            if (payload._subVendorParentInfo && payload._parentCommission) {
-              await updateParentVendorSettlementCalculation(
-                payload._subVendorParentInfo.parentUserId,
-                payload.amount,
-                Number(payload._subVendorParentInfo.parentVendor.payin_commission),
-                true, // isApproved = true (remove commission from parent)
-              );
-              
-              logger.info(`Settlement approval: Parent vendor calculation updated for sub-vendor settlement`);
-            }
-          } else {
-            updatedCalculation = createCalculationUpdate(
-              settlementData,
-              payload,
+
+            logger.info(
+              `Settlement approval: Parent vendor calculation updated for sub-vendor settlement`,
             );
           }
+        } else {
+          updatedCalculation = createCalculationUpdate(settlementData, payload);
         }
-
-        // Update calculation balance
-        const { id } = calculationData[0];
-        const updatedCalculationData = await updateCalculationBalanceDao({ id }, updatedCalculation);
-        
-        await trackVendorsNetBalance(calculationData[0].user_id, updatedCalculationData);
       }
-      delete payload._subVendorParentInfo;
-      delete payload._parentCommission;
-      delete payload.config.brokerage_commission;
 
-      // Update beneficiary account for vendor bank transactions
-      await updateBeneficiaryAccount(settlementData, payload);
+      // Update calculation balance
+      const { id } = calculationData[0];
+      const updatedCalculationData = await updateCalculationBalanceDao(
+        { id },
+        updatedCalculation,
+        conn,
+      );
+
+      await trackVendorsNetBalance(
+        calculationData[0].user_id,
+        updatedCalculationData,
+      );
     }
+    delete payload._subVendorParentInfo;
+    delete payload._parentCommission;
+    delete payload.config.brokerage_commission;
 
-    // Handle reversal (status INITIATED)
-    if (payload.status === Status.INITIATED) {
-      const merchantData = await getMerchantsDao({
-        user_id: settlementData.user_id,
-      });
-      const isMerchant = merchantData.length > 0;
+    // Update beneficiary account for vendor bank transactions
+    await updateBeneficiaryAccount(settlementData, payload, false, conn);
+  }
 
-      payload.status = Status.REVERSED;
-      payload.rejected_at = new Date();
+  // Handle reversal (status INITIATED)
+  if (payload.status === Status.INITIATED) {
+    const merchantData = await getMerchantsDao({
+      user_id: settlementData.user_id,
+    });
+    const isMerchant = merchantData.length > 0;
 
-      let updatedCalculation;
+    payload.status = Status.REVERSED;
+    payload.rejected_at = new Date();
 
-      if (isMerchant) {
-        // Merchant reversal
+    let updatedCalculation;
+
+    if (isMerchant) {
+      // Merchant reversal
+      updatedCalculation = createCalculationUpdate(
+        settlementData,
+        payload,
+        0,
+        true,
+      );
+    } else {
+      // Vendor reversal
+      const isInternalMethod = INTERNAL_METHODS.includes(settlementData.method);
+
+      if (isInternalMethod) {
+        updatedCalculation = await handleInternalTransferReversal(
+          settlementData,
+          payload,
+        );
+      } else {
         updatedCalculation = createCalculationUpdate(
           settlementData,
           payload,
           0,
           true,
         );
-      } else {
-        // Vendor reversal
-        const isInternalMethod = INTERNAL_METHODS.includes(
-          settlementData.method,
-        );
-
-        if (isInternalMethod) {
-          updatedCalculation = await handleInternalTransferReversal(
-            settlementData,
-            payload,
-          );
-        } else {
-          updatedCalculation = createCalculationUpdate(
-            settlementData,
-            payload,
-            0,
-            true,
-          );
-          // Update beneficiary account for vendor bank transactions
-          await updateBeneficiaryAccount(settlementData, payload, true);
-        }
-      }
-
-      // Update calculation balance
-      if (calculationData.length > 0) {
-        const { id } = calculationData[0];
-        const updatedCalculationResponse = await updateCalculationBalanceDao({ id }, updatedCalculation);
-        
-        await trackVendorsNetBalance(calculationData[0].user_id, updatedCalculationResponse);
+        // Update beneficiary account for vendor bank transactions
+        await updateBeneficiaryAccount(settlementData, payload, true, conn);
       }
     }
 
-    // Validate status transitions
-    if (payload.status) {
-      validateStatusTransition(settlementData.status, payload.status);
+    // Update calculation balance
+    if (calculationData.length > 0) {
+      const { id } = calculationData[0];
+      const updatedCalculationResponse = await updateCalculationBalanceDao(
+        { id },
+        updatedCalculation,
+        conn,
+      );
+
+      await trackVendorsNetBalance(
+        calculationData[0].user_id,
+        updatedCalculationResponse,
+      );
+    }
+  }
+
+  // Validate status transitions
+  if (payload.status) {
+    validateStatusTransition(settlementData.status, payload.status);
+  }
+
+  // Update settlement
+  const updateData = await updateSettlementDao(
+    { id: ids.id, company_id: ids.company_id },
+    payload,
+    conn,
+  );
+
+  // Update calculation config for success/reversed status
+  if (
+    (payload.status === Status.SUCCESS || payload.status === Status.REVERSED) &&
+    calculationData.length > 0
+  ) {
+    const isReversed = payload.status === Status.REVERSED;
+    let config;
+
+    // Handle internal methods
+    if (INTERNAL_METHODS.includes(payload.method)) {
+      config = calculateSettlementConfigAmount(
+        payload.method,
+        calculationData[0].config,
+        payload.amount,
+        isReversed,
+      );
+    }
+    // Handle transfer methods
+    else if (TRANSFER_METHODS.includes(payload.method)) {
+      config = calculateTransferMethodConfig(
+        payload.method,
+        payload.config.debit_credit,
+        calculationData[0].config,
+        payload.amount,
+        isReversed,
+      );
     }
 
-    // Update settlement
-    const updateData = await updateSettlementDao(
-      { id: ids.id, company_id: ids.company_id },
-      payload,
-    );
-
-    // Update calculation config for success/reversed status
-    if (
-      (payload.status === Status.SUCCESS ||
-        payload.status === Status.REVERSED) &&
-      calculationData.length > 0
-    ) {
-      const isReversed = payload.status === Status.REVERSED;
-      let config;
-
-      // Handle internal methods
-      if (INTERNAL_METHODS.includes(payload.method)) {
-        config = calculateSettlementConfigAmount(
-          payload.method,
-          calculationData[0].config,
-          payload.amount,
-          isReversed,
-        );
-      }
-      // Handle transfer methods
-      else if (TRANSFER_METHODS.includes(payload.method)) {
-        config = calculateTransferMethodConfig(
-          payload.method,
-          payload.config.debit_credit,
-          calculationData[0].config,
-          payload.amount,
-          isReversed,
-        );
-      }
-
-      if (config) {
-        await updateCalculationConfigDao(
-          { id: calculationData[0].id },
-          { config },
-        );
-      }
+    if (config) {
+      await updateCalculationConfigDao(
+        { id: calculationData[0].id },
+        { config },
+        conn,
+      );
     }
+  }
 
-    return updateData;
+  return updateData;
 };
 
 const updateSettlementService = async (ids, payload) => {
@@ -1156,7 +1221,11 @@ const updateSettlementService = async (ids, payload) => {
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const updateData = await _updateSettlementServiceInternal(ids, payload);
+    const updateData = await _updateSettlementServiceInternal(
+      ids,
+      payload,
+      conn,
+    );
     await commit(conn);
     return updateData;
   } catch (error) {
@@ -1177,6 +1246,7 @@ const deleteSettlementService = async (ids) => {
     const updatedData = await deleteSettlementDao(
       { id: ids.id, company_id: ids.company_id },
       { is_obsolete: true, updated_by: ids.user_id },
+      conn,
     );
 
     await commit(conn);
