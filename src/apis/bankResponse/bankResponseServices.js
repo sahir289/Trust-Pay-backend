@@ -112,7 +112,7 @@ const getSubVendorParentInfo = async (vendor, conn = null) => {
 };
 
 // Helper function to calculate commission for parent vendor
-const updateParentVendorCalculation = async (parentUserId, amount, vendorCommissionRate) => {
+const updateParentVendorCalculation = async (parentUserId, amount, vendorCommissionRate, conn = null) => {
   try {
     const parentCommission = calculateCommission(amount, vendorCommissionRate);
     
@@ -122,6 +122,7 @@ const updateParentVendorCalculation = async (parentUserId, amount, vendorCommiss
         payinCommission: parentCommission,
         amount: 0, // Parent vendor amount is always 0, only commission is tracked
       },
+      conn,
     );
 
     return parentCommission;
@@ -302,6 +303,7 @@ const createBankResponseService = async (
               parseFloat(botRes.amount),
             payin_count: parseFloat(bankDetails[0].payin_count + 1),
           },
+          null,
           localConn,
         );
         await _updateBankaccountInternal(
@@ -332,7 +334,7 @@ const createBankResponseService = async (
         let totalVendorCommission = payinVendorCommission;
         let parentCommission = 0;
 
-        const subVendorParentInfo = await getSubVendorParentInfo(vendor[0]);
+        const subVendorParentInfo = await getSubVendorParentInfo(vendor[0], localConn);
         if (subVendorParentInfo) {
           // Calculate parent commission
           parentCommission = await updateParentVendorCalculation(
