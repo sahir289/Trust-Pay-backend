@@ -2030,8 +2030,10 @@ export const getPayInForDuplicate = async (filters = {}, conn = null) => {
   }
 };
 
-export const updatePayInUrlDao = async (id, data, conn = null) => {
+export const updatePayInUrlDao = async (id, data, additionalData = null, conn = null) => {
   try {
+    console.log(additionalData, 'additionalData in dao');
+    // additionalData is temporary parameter for utr and amount (not used currently)
     const [sql, params] = buildUpdateQuery(tableName.PAYIN, data, { id });
     const result = conn 
       ? await conn.query(sql, params)

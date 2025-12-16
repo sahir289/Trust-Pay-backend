@@ -142,6 +142,7 @@ const createBankResponseService = async (
   let localConn;
   try {
     localConn = await getConnection();
+    await beginTransaction(localConn);
 
     const splitData = payload.split(' ');
     const amount = parseFloat(splitData[0]);
@@ -258,7 +259,7 @@ const createBankResponseService = async (
     // Use a transaction for all DB operations for a single entry
     try {
       // localConn = await getConnection();
-      await beginTransaction(localConn);
+      // Transaction already started at function beginning
       botRes = await createBankResponseDao(updatedData, localConn);
       // await sendNotification(updatedData.status.replace('/', ''), {
       //   id: botRes.id,
