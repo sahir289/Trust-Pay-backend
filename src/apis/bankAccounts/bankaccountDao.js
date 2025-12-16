@@ -151,11 +151,7 @@ const getBankaccountDao = async (filters, page, limit, role, designation, conn =
           ba.updated_at DESC  
       ${limitcondition};
       `;
-<<<<<<< shadow
     const result = await executeQuery(baseQuery, queryParams, conn);
-=======
-    const result = conn ? await conn.query(baseQuery, queryParams) : await executeQuery(baseQuery, queryParams);
->>>>>>> trust-pay-dev
     return result.rows;
   } catch (error) {
     logger.error('Error in get BankAccount Dao:', error);
@@ -596,11 +592,7 @@ export const getBankaccountDashBoardReportDao = async (filters = {}, conn = null
       `SELECT ${selectColumns} FROM "${tableName.BANK_ACCOUNT}" WHERE 1=1`,
       filters,
     );
-<<<<<<< shadow
     const result = await executeQuery(sql, params, conn);
-=======
-    const result = conn ? await conn.query(sql, params) : await executeQuery(sql, params);
->>>>>>> trust-pay-dev
     return result.rows || [];
   } catch (error) {
     logger.error('Error getting bank account data:', error);
