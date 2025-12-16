@@ -1139,6 +1139,7 @@ export const updateDepositStatusService = async (
     const updatePayInRes = await updatePayInUrlDao(
       payInData.id,
       updatePayInData,
+      null,
       conn,
     );
 
@@ -1253,7 +1254,7 @@ export const resetDepositService = async (
       }
     }
 
-    const result = await updatePayInUrlDao(payIn.id, updatePayInData, conn);
+    const result = await updatePayInUrlDao(payIn.id, updatePayInData, null, conn);
     await commit(conn);
     return result;
   } catch (error) {
@@ -2385,7 +2386,7 @@ export const processPayInByImageService = async (payload) => {
         one_time_used: true,
         user_submitted_image: payload.fileKey,
         duration,
-      }, conn);
+      }, null, conn);
 
       return {
         status: 'IMG_PENDING',
@@ -2581,7 +2582,7 @@ export const disputeDuplicateTransactionService = async (
           bank_response_id: payIn.bank_response_id,
           updated_by,
           // config: payinConfig,
-        }, conn);
+        }, null, conn);
         await updateCalculationTable(merchant.user_id, {
           payinCommission,
           amount: toAmount,
@@ -2595,7 +2596,7 @@ export const disputeDuplicateTransactionService = async (
           status: newStatus,
           bank_response_id: payIn.bank_response_id,
           updated_by,
-        }, conn);
+        }, null, conn);
       }
 
       if ([Status.BANK_MISMATCH, Status.SUCCESS].includes(newStatus)) {
@@ -2682,7 +2683,7 @@ export const disputeDuplicateTransactionService = async (
       updatePayload.status = Status.FAILED;
     }
 
-    response = await updatePayInUrlDao(payIn.id, updatePayload, conn);
+    response = await updatePayInUrlDao(payIn.id, updatePayload, null, conn);
     // await updateVendorBalanceDao(
     //   { user_id: bankResponse.user_id },
     //   toAmount,
@@ -3080,6 +3081,7 @@ const _checkPendingPayinStatusServiceInternal = async (
           const updatePayInDataRes = await updatePayInUrlDao(
             currentPayin.id,
             payInData,
+            null,
             conn,
           );
           await updateBotResponseDao(bankResponse.id, {
@@ -3173,7 +3175,7 @@ const _verifyPayinsServiceInternal = async (
       await updatePayInUrlDao(payIn.id, {
         config: updatedConfig,
         one_time_used: true,
-      }, conn);
+      }, null, conn);
 
       const result = {
         redirect_url: payIn.config?.urls?.return,
@@ -4365,7 +4367,7 @@ export const updatePayInService = async (
         : payload.bank_acc_id
           ? newVendorCommission
           : payIn.payin_vendor_commission,
-    }, conn);
+    }, null, conn);
     // await notifyAdminsAndUsers({
     //   conn,
     //   company_id: payIn.company_id,
