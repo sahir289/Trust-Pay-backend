@@ -217,7 +217,7 @@ const createCheckUtrDao = async (payload, conn = null) => {
       tableName.CHECK_UTR_HISTORY,
       payload,
     );
-    const result = conn ? await conn.query(sql, params) : await executeQuery(sql, params);
+    const result = conn ? await conn.query(sql, params) : await executeQuery(sql, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error creating CheckUtr:', error);

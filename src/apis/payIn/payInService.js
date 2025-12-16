@@ -2826,8 +2826,7 @@ export const telegramCheckUTRService = async (
         created_by: updated_by,
         updated_by,
       },
-      merchant_order_id,
-      utr,
+      conn,
     );
 
     if (payIn.bank_response_id) {
