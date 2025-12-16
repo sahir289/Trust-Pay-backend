@@ -25,7 +25,7 @@ export const getBankaccountPayinDao = async (filters) => {
     throw error;
   }
 };
-const getBankaccountDao = async (filters, page, limit, role, designation) => {
+const getBankaccountDao = async (filters, page, limit, role, designation, conn = null) => {
   try {
     let queryParams = [];
     let conditions = [`ba.is_obsolete = false`];
@@ -151,7 +151,7 @@ const getBankaccountDao = async (filters, page, limit, role, designation) => {
           ba.updated_at DESC  
       ${limitcondition};
       `;
-    const result = await executeQuery(baseQuery, queryParams);
+    const result = conn ? await conn.query(baseQuery, queryParams) : await executeQuery(baseQuery, queryParams);
     return result.rows;
   } catch (error) {
     logger.error('Error in get BankAccount Dao:', error);
@@ -573,7 +573,7 @@ export const getBankaccountCheckDao = async (filters = {}, conn = null) => {
   }
 };
 
-export const getBankaccountDashBoardReportDao = async (filters = {}) => {
+export const getBankaccountDashBoardReportDao = async (filters = {}, conn = null) => {
   try {
     const selectColumns = `
       id,
@@ -589,7 +589,7 @@ export const getBankaccountDashBoardReportDao = async (filters = {}) => {
       `SELECT ${selectColumns} FROM "${tableName.BANK_ACCOUNT}" WHERE 1=1`,
       filters,
     );
-    const result = await executeQuery(sql, params);
+    const result = conn ? await conn.query(sql, params) : await executeQuery(sql, params);
     return result.rows || [];
   } catch (error) {
     logger.error('Error getting bank account data:', error);
@@ -761,7 +761,7 @@ const updateBankaccountDao = async (id, payload, isParentDeleted, conn = null) =
     const existingBankArr = await getBankaccountDao({
       id: id.id,
       company_id: id.company_id,
-    });
+    }, null, null, null, null, conn);
     const existingBank = existingBankArr[0];
 
     if (!existingBank) {
