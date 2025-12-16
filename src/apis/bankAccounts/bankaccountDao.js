@@ -521,8 +521,9 @@ const getBankAccountsBySearchDao = async (
       executeQuery(
         countQuery,
         queryParams.slice(0, page && limit ? -2 : queryParams.length),
+        conn,
       ),
-      executeQuery(mainQuery, queryParams),
+      executeQuery(mainQuery, queryParams, conn),
     ]);
 
     const totalCount = parseInt(countResult.rows[0].total);

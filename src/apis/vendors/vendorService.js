@@ -58,7 +58,7 @@ const _createVendorServiceInternal = async (payload, conn) => {
     // Handle SUB_VENDOR hierarchy creation
     if (userDesignation === Role.SUB_VENDOR && parentId) {
       try {
-        const hierarchy = await getUserHierarchysDao({ user_id: parentId });
+        const hierarchy = await getUserHierarchysDao({ user_id: parentId }, null, null, null, null, null, conn);
         if (!hierarchy || hierarchy.length === 0) {
           logger.error('No hierarchy found for parentId:', parentId);
           return;
@@ -153,7 +153,7 @@ const getVendorsService = async (
         : [];
 
     if (role === Role.VENDOR) {
-      const userHierarchys = await getUserHierarchysDao({ user_id });
+      const userHierarchys = await getUserHierarchysDao({ user_id }, null, null, null, null, null, null);
       const userHierarchy = userHierarchys[0];
 
       if (designation === Role.VENDOR || designation === Role.SUB_VENDOR) {
@@ -169,7 +169,7 @@ const getVendorsService = async (
         if (parentUserId) {
           const parentHierarchys = await getUserHierarchysDao({
             user_id: parentUserId,
-          });
+          }, null, null, null, null, null, null);
           const parentHierarchy = parentHierarchys[0];
           if (parentHierarchy?.config?.siblings?.sub_vendors) {
             const subVendors =
@@ -227,7 +227,7 @@ const getVendorsCodeService = async (
         : [];
 
     if (role === Role.VENDOR) {
-      const userHierarchys = await getUserHierarchysDao({ user_id });
+      const userHierarchys = await getUserHierarchysDao({ user_id }, null, null, null, null, null, conn);
       const userHierarchy = userHierarchys[0];
 
       if (designation === Role.VENDOR || designation === Role.VENDOR_ADMIN) {
@@ -241,7 +241,7 @@ const getVendorsCodeService = async (
         if (parentUserId) {
           const parentHierarchys = await getUserHierarchysDao({
             user_id: parentUserId,
-          });
+          }, null, null, null, null, null, conn);
           const parentHierarchy = parentHierarchys[0];
           const subVendors =
             parentHierarchy?.config?.siblings?.sub_vendors ?? [];
@@ -310,7 +310,7 @@ const getVendorsBySearchService = async (
         : [];
 
     if (role === Role.VENDOR) {
-      const userHierarchys = await getUserHierarchysDao({ user_id });
+      const userHierarchys = await getUserHierarchysDao({ user_id }, null, null, null, null, null, null);
       const userHierarchy = userHierarchys[0];
 
       if (designation === Role.VENDOR || designation === Role.SUB_VENDOR) {
@@ -326,7 +326,7 @@ const getVendorsBySearchService = async (
         if (parentUserId) {
           const parentHierarchys = await getUserHierarchysDao({
             user_id: parentUserId,
-          });
+          }, null, null, null, null, null, null);
           const parentHierarchy = parentHierarchys[0];
           if (parentHierarchy?.config?.siblings?.sub_vendors) {
             const subVendors =
@@ -468,7 +468,7 @@ const _deleteVendorServiceInternal = async (ids, updated_by, conn) => {
       //for childs user hierachys
       const UserHierarchy = await getUserHierarchysDao({
         user_id: ids.user_id || ids.id,
-      });
+      }, null, null, null, null, null, conn);
       if (UserHierarchy[0]?.config?.child?.operations) {
         const userIds = UserHierarchy[0].config.child.operations;
         for (const userId of userIds) {
@@ -544,7 +544,7 @@ const getBankResponseAccessByIDService = async (id, designation) => {
   try {
     let userId = id;
     if (designation === Role.VENDOR_OPERATIONS) {
-      const [userHierarchys] = await getUserHierarchysDao({ user_id: id });
+      const [userHierarchys] = await getUserHierarchysDao({ user_id: id }, null, null, null, null, null, null);
       userId = userHierarchys?.config?.parent || id;
     }
     const data = await getBankResponseAccessByIDDao(userId);

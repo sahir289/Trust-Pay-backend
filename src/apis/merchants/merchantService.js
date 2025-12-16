@@ -237,7 +237,7 @@ const getMerchantsBySearchService = async (
         ? [user_id]
         : [];
     if (role === Role.MERCHANT) {
-      const userHierarchys = await getUserHierarchysDao({ user_id });
+      const userHierarchys = await getUserHierarchysDao({ user_id }, null, null, null, null, null, null);
       const userHierarchy = userHierarchys[0];
       if (designation === Role.MERCHANT || designation === Role.SUB_MERCHANT) {
         if (userHierarchy?.config?.siblings?.sub_merchants) {
@@ -253,7 +253,7 @@ const getMerchantsBySearchService = async (
         if (parentUserId) {
           const parentHierarchys = await getUserHierarchysDao({
             user_id: parentUserId,
-          });
+          }, null, null, null, null, null, null);
           const parentHierarchy = parentHierarchys[0];
           if (parentHierarchy?.config?.siblings?.sub_merchants) {
             const subMerchants =
@@ -326,7 +326,7 @@ const getMerchantsServiceCode = async (
         : [];
 
     if (role === Role.MERCHANT) {
-      const userHierarchys = await getUserHierarchysDao({ user_id });
+      const userHierarchys = await getUserHierarchysDao({ user_id }, null, null, null, null, null, conn);
       const userHierarchy = userHierarchys[0];
 
       if (designation === Role.MERCHANT) {
@@ -460,19 +460,20 @@ const _deleteMerchantServiceInternal = async (ids, updated_by, roleIs, conn) => 
       'updated_at',
       null,
       roleIs,
+      conn,
     );
 
     //------delete merchant and submerchant--------------------
 
     const user_id = merchantDetails[0].user_id;
-    const subMerchants = await getUserHierarchysDao({ user_id });
+    const subMerchants = await getUserHierarchysDao({ user_id }, null, null, null, null, null, conn);
     const subMerchantIds =
       subMerchants[0]?.config?.siblings?.sub_merchants || [];
     const operationIds = subMerchants[0]?.config?.child?.operations || [];
     const allMerchantIds = [merchantDetails[0].id]; // start with this id
     const allIds = [...subMerchantIds, ...operationIds];
     for (const id of allIds) {
-      const idsList = await getMerchantsDao({ user_id: id });
+      const idsList = await getMerchantsDao({ user_id: id }, null, null, null, null, null, conn);
       if (Array.isArray(idsList)) {
         for (const merchant of idsList) {
           allMerchantIds.push(merchant.id);
@@ -491,10 +492,11 @@ const _deleteMerchantServiceInternal = async (ids, updated_by, roleIs, conn) => 
       null,
       null,
       roleIs,
+      conn,
     );
     const userId = [merchantDetails[0].id];
     for (const subMerchantId of subMerchantIds) {
-      const idsList = await getMerchantsDao({ user_id: subMerchantId });
+      const idsList = await getMerchantsDao({ user_id: subMerchantId }, null, null, null, null, null, conn);
       if (Array.isArray(idsList)) {
         for (const merchant of idsList) {
           userId.push(merchant.id);
@@ -606,7 +608,7 @@ const getMerchantByIdService = async (
 
     if (addUserHierarchy) {
       // user_id is unique
-      const userHierarchys = await getUserHierarchysDao({ user_id });
+      const userHierarchys = await getUserHierarchysDao({ user_id }, null, null, null, null, null, null);
       const userHierarchy = userHierarchys[0];
 
       if (
