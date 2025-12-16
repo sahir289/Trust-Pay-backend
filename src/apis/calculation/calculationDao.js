@@ -130,7 +130,7 @@ const getCalculationDao = async (
       tableName.CALCULATION,
     );
     // Execute query
-    const result = conn ? await conn.query(sql, queryParams) : await executeQuery(sql, queryParams);
+    const result = conn ? await conn.query(sql, queryParams) : await executeQuery(sql, queryParams, conn);
     return result.rows;
   } catch (error) {
     logger.error('Error fetching Calculation', error);
@@ -215,7 +215,7 @@ export const updateTodayNetBalanceDao = async (Id, net_balance, conn = null) => 
   }
 };
 
-export const getCalculationsSumDao = async (filters, conn = null) => {
+export const getCalculationsSumDao = async (filters) => {
   try {
     const {
       role,
@@ -843,7 +843,7 @@ export const getCalculationsForInternalUseDao = async (filters, conn = null) => 
       designation === Role.MERCHANT_OPERATIONS ||
       designation === Role.VENDOR_OPERATIONS
     ) {
-      const hierarchy = await getUserHierarchysDao({ user_id });
+      const hierarchy = await getUserHierarchysDao({ user_id }, null, null, null, null, null, conn);
       const parentId = hierarchy?.[0]?.config?.parent;
       if (parentId) {
         effectiveUserId = parentId;
@@ -1551,7 +1551,7 @@ const getMerchantNetBalanceDao = async (companyId, startDate, endDate, conn = nu
       WHERE rn = 1
     `;
 
-    const result = await executeQuery(wrappedSql, queryParams);
+    const result = await executeQuery(wrappedSql, queryParams, conn);
     let merchantData = result.rows;
 
     // If no data, return empty array
@@ -1576,10 +1576,13 @@ const getMerchantNetBalanceDao = async (companyId, startDate, endDate, conn = nu
           LIMIT 10
         `;
 
-        const historyResult = await executeQuery(historyQuery, [
+        const historyResult = conn ? await conn.query(historyQuery, [
           merchant.user_id,
           companyId,
-        ]);
+        ]) : await executeQuery(historyQuery, [
+          merchant.user_id,
+          companyId,
+        ], conn);
         const netBalances = historyResult.rows.map((row) =>
           parseFloat(row.net_balance),
         );
@@ -1726,7 +1729,7 @@ const getVendorNetBalanceDao = async (companyId, startDate, endDate, conn = null
       WHERE rn = 1
     `;
 
-    const result = await executeQuery(wrappedSql, queryParams);
+    const result = await executeQuery(wrappedSql, queryParams, conn);
     let vendorData = result.rows;
 
     // If no data, return empty array
@@ -1751,10 +1754,13 @@ const getVendorNetBalanceDao = async (companyId, startDate, endDate, conn = null
           LIMIT 10
         `;
 
-        const historyResult = await executeQuery(historyQuery, [
+        const historyResult = conn ? await conn.query(historyQuery, [
           vendor.user_id,
           companyId,
-        ]);
+        ]) : await executeQuery(historyQuery, [
+          vendor.user_id,
+          companyId,
+        ], conn);
         const netBalances = historyResult.rows.map((row) =>
           parseFloat(row.net_balance),
         );
@@ -1944,7 +1950,7 @@ const calculatePayinDataDao = async (
       queryParams = [user_id, company_id, startDate];
     }
 
-    const result = await executeQuery(query, queryParams);
+    const result = conn ? await conn.query(query, queryParams) : await executeQuery(query, queryParams, conn);
 
     const payinData = {
       total_payin_count: 0,
@@ -1978,7 +1984,7 @@ const calculatePayinDataDao = async (
 const calculatePayoutDataDao = async (user_id, company_id, startDate, conn = null) => {
   try {
     // Get user's role to determine which commission field to use and which table to join
-    const userRole = await getUserRoleDao(user_id);
+    const userRole = await getUserRoleDao(user_id, conn);
     const commissionField =
       userRole === Role.MERCHANT
         ? 'payout_merchant_commission'
@@ -2030,7 +2036,7 @@ const calculatePayoutDataDao = async (user_id, company_id, startDate, conn = nul
       queryParams = [user_id, company_id, startDate];
     }
 
-    const result = await executeQuery(query, queryParams);
+    const result = conn ? await conn.query(query, queryParams) : await executeQuery(query, queryParams, conn);
 
     const payoutData = {
       total_payout_count: 0,
@@ -2119,7 +2125,7 @@ const calculateSettlementDataDao = async (
       `;
     }
 
-    const result = await executeQuery(query, [user_id, company_id, startDate]);
+    const result = await executeQuery(query, [user_id, company_id, startDate], conn);
 
     const settlementData = {
       total_settlement_count: 0,
@@ -2286,10 +2292,10 @@ const calculateSettlementDataDao = async (
 };
 
 // Helper function to calculate chargeback data for a user and date range
-const calculateChargebackDataDao = async (user_id, company_id, startDate) => {
+const calculateChargebackDataDao = async (user_id, company_id, startDate, conn = null) => {
   try {
     // Get user's role to determine which user_id field to use
-    const userRole = await getUserRoleDao(user_id);
+    const userRole = await getUserRoleDao(user_id, conn);
 
     let whereClause;
     if (userRole === Role.MERCHANT) {
@@ -2310,7 +2316,7 @@ const calculateChargebackDataDao = async (user_id, company_id, startDate) => {
         AND (created_at)::date = $3::date
     `;
 
-    const result = await executeQuery(query, [user_id, company_id, startDate]);
+    const result = conn ? await conn.query(query, [user_id, company_id, startDate]) : await executeQuery(query, [user_id, company_id, startDate], conn);
     const row = result.rows[0];
 
     return {
@@ -2326,10 +2332,10 @@ const calculateChargebackDataDao = async (user_id, company_id, startDate) => {
 // Helper function to calculate adjustment data for a user and date range
 // Only counts entries where specific field amounts are changed on the processing date
 // Returns the difference between current and previous amounts from config.history
-const calculateAdjustmentDataDao = async (user_id, company_id, startDate) => {
+const calculateAdjustmentDataDao = async (user_id, company_id, startDate, conn = null) => {
   try {
     // Get user's role to determine which table to query
-    const userRole = await getUserRoleDao(user_id);
+    const userRole = await getUserRoleDao(user_id, conn);
 
     let query, queryParams;
 
@@ -2355,11 +2361,15 @@ const calculateAdjustmentDataDao = async (user_id, company_id, startDate) => {
           )
       `;
 
-      const payinRecords = await executeQuery(getPayinRecordsQuery, [
+      const payinRecords = conn ? await conn.query(getPayinRecordsQuery, [
         user_id,
         company_id,
         startDate,
-      ]);
+      ]) : await executeQuery(getPayinRecordsQuery, [
+        user_id,
+        company_id,
+        startDate,
+      ], conn);
 
       let totalAdjustmentCount = 0;
       let totalAmountDifference = 0;
@@ -2477,7 +2487,7 @@ const calculateAdjustmentDataDao = async (user_id, company_id, startDate) => {
       `;
       queryParams = [user_id, company_id, startDate];
 
-      const result = await executeQuery(query, queryParams);
+      const result = conn ? await conn.query(query, queryParams) : await executeQuery(query, queryParams, conn);
       const row = result.rows[0];
 
       return {
