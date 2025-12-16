@@ -130,14 +130,19 @@ const getCalculationDao = async (
       tableName.CALCULATION,
     );
     // Execute query
-    const result = conn ? await conn.query(sql, queryParams) : await executeQuery(sql, queryParams, conn);
+    const result = conn
+      ? await conn.query(sql, queryParams)
+      : await executeQuery(sql, queryParams);
     return result.rows;
   } catch (error) {
     logger.error('Error fetching Calculation', error);
     throw error;
   }
 };
-export const getCalculationDashBoardReportDao = async (filters = {}, conn = null) => {
+export const getCalculationDashBoardReportDao = async (
+  filters = {},
+  conn = null,
+) => {
   try {
     const selectColumns = `
       total_payin_amount,
@@ -155,7 +160,9 @@ export const getCalculationDashBoardReportDao = async (filters = {}, conn = null
     const queryFilters = { user_id, company_id };
     baseQuery += ` AND created_at BETWEEN '${new Date(sDate).toISOString()}'::TIMESTAMPTZ AND '${new Date(eDate).toISOString()}'::TIMESTAMPTZ`;
     const [sql, params] = buildSelectQuery(baseQuery, queryFilters);
-    const result = conn ? await conn.query(sql, params) : await executeQuery(sql, params, conn);
+    const result = conn
+      ? await conn.query(sql, params)
+      : await executeQuery(sql, params, conn);
     return result.rows || [];
   } catch (error) {
     logger.error('Error getting calculation data:', error);
@@ -170,7 +177,7 @@ export const getCalculationByDateAndUserDao = async (date, conn = null) => {
   if (isNaN(parsedDate.getTime())) {
     throw new Error('Invalid date format. Use YYYY-MM-DD');
   }
-  const isoDate = parsedDate.toISOString().split('T')[0]; 
+  const isoDate = parsedDate.toISOString().split('T')[0];
   try {
     const sql = `
       SELECT
@@ -185,7 +192,9 @@ export const getCalculationByDateAndUserDao = async (date, conn = null) => {
       WHERE created_at::DATE = $1   
     `;
     const params = [isoDate];
-    const result = conn ? await conn.query(sql, params) : await executeQuery(sql, params, conn);
+    const result = conn
+      ? await conn.query(sql, params)
+      : await executeQuery(sql, params, conn);
     return result.rows || null;
   } catch (error) {
     logger.error(
@@ -195,7 +204,11 @@ export const getCalculationByDateAndUserDao = async (date, conn = null) => {
     throw error;
   }
 };
-export const updateTodayNetBalanceDao = async (Id, net_balance, conn = null) => {
+export const updateTodayNetBalanceDao = async (
+  Id,
+  net_balance,
+  conn = null,
+) => {
   try {
     const sql = `
       UPDATE "${tableName.CALCULATION}"
@@ -203,14 +216,12 @@ export const updateTodayNetBalanceDao = async (Id, net_balance, conn = null) => 
       WHERE id = $1 
     `;
     const params = [Id, net_balance];
-    const result = conn ? await conn.query(sql, params) : await executeQuery(sql, params, conn);
+    const result = conn
+      ? await conn.query(sql, params)
+      : await executeQuery(sql, params, conn);
     return result.rows[0] || null;
-
   } catch (error) {
-    logger.error(
-      `Failed to update net_balance for user ${Id}:`,
-      error.message
-    );
+    logger.error(`Failed to update net_balance for user ${Id}:`, error.message);
     throw error;
   }
 };
@@ -352,15 +363,26 @@ export const getCalculationsSumDao = async (filters) => {
       }
       const vQuery = `${vendorQuery}  AND c.company_id = '${company_id}' AND u.company_id = '${company_id}' ${groupBy}`;
       const mQuery = `${merchantQuery}  AND c.company_id = '${company_id}' AND u.company_id = '${company_id}' ${groupBy}`;
-      merchantData = (await executeQuery(mQuery, [])).rows;
-      vendorData = (await executeQuery(vQuery, [])).rows;
+      merchantData = (
+        conn ? await conn.query(mQuery, []) : await executeQuery(mQuery, [])
+      ).rows;
+      vendorData = (
+        conn ? await conn.query(vQuery, []) : await executeQuery(vQuery, [])
+      ).rows;
     }
 
     // Super Admin Query
     if (Role.SUPER_ADMIN === role) {
-      merchantData = (await executeQuery(`${merchantQuery}  ${groupBy}`, []))
-        .rows;
-      vendorData = (await executeQuery(`${vendorQuery}  ${groupBy}`, [])).rows;
+      merchantData = (
+        conn
+          ? await conn.query(`${merchantQuery}  ${groupBy}`, [])
+          : await executeQuery(`${merchantQuery}  ${groupBy}`, [])
+      ).rows;
+      vendorData = (
+        conn
+          ? await conn.query(`${vendorQuery}  ${groupBy}`, [])
+          : await executeQuery(`${vendorQuery}  ${groupBy}`, [])
+      ).rows;
     }
 
     // query for merchant only role
@@ -389,7 +411,11 @@ export const getCalculationsSumDao = async (filters) => {
         AND c.company_id = $1
         ${groupBy}`;
 
-      merchantData = (await executeQuery(mQuery, [company_id])).rows;
+      merchantData = (
+        conn
+          ? await conn.query(mQuery, [company_id])
+          : await executeQuery(mQuery, [company_id])
+      ).rows;
     }
 
     // query for vendor only role
@@ -414,15 +440,22 @@ export const getCalculationsSumDao = async (filters) => {
         // const validUserIds = userCodes.filter((id) =>
         //   allowedSubVendors.includes(id),
         // );
-        userIds = [...new Set([...userCodes
-          // ,...validUserIds
-        ])]; // Remove duplicates
+        userIds = [
+          ...new Set([
+            ...userCodes,
+            // ,...validUserIds
+          ]),
+        ]; // Remove duplicates
       }
 
       // Create parameterized query for all user IDs
       const userIdParams = userIds.map((_, index) => `$${index + 1}`).join(',');
       const vQuery = `${vendorQuery}  AND c.user_id = ANY(ARRAY[${userIdParams}])  AND c.company_id = $${userIds.length + 1}  ${groupBy}`;
-      vendorData = (await executeQuery(vQuery, [...userIds, company_id])).rows;
+      vendorData = (
+        conn
+          ? await conn.query(vQuery, [...userIds, company_id])
+          : await executeQuery(vQuery, [...userIds, company_id])
+      ).rows;
     }
 
     if ([Role.SUPER_ADMIN, Role.ADMIN].includes(role)) {
@@ -481,7 +514,9 @@ export const getCalculationsSumDao = async (filters) => {
         WHERE rn = 1
         GROUP BY role, company_id`;
 
-      const balanceResult = await executeQuery(baseCalQuery);
+      const balanceResult = conn
+        ? await conn.query(baseCalQuery)
+        : await executeQuery(baseCalQuery);
 
       // Process results into netBalance object with company filtering
       netBalance = balanceResult.rows.reduce(
@@ -533,10 +568,8 @@ export const getCalculationsSumDao = async (filters) => {
 
         // Only include valid IDs based on role
         const validUserIds = userCodes.filter(
-          (id) =>
-            allowedSubmerchants.includes(id)
-            // || allowedSubVendors.includes(id)
-          ,
+          (id) => allowedSubmerchants.includes(id),
+          // || allowedSubVendors.includes(id)
         );
         userIds = [...new Set([...userCodes, ...validUserIds])]; // Remove duplicates
       }
@@ -567,9 +600,15 @@ export const getCalculationsSumDao = async (filters) => {
       );
 
       netBalance.vendor =
-        (await executeQuery(vendorCalQuery)).rows[0]?.net_balance_sum || 0;
+        (conn
+          ? await conn.query(vendorCalQuery)
+          : await executeQuery(vendorCalQuery)
+        ).rows[0]?.net_balance_sum || 0;
       netBalance.merchant =
-        (await executeQuery(merchantCalQuery)).rows[0]?.net_balance_sum || 0;
+        (conn
+          ? await conn.query(merchantCalQuery)
+          : await executeQuery(merchantCalQuery)
+        ).rows[0]?.net_balance_sum || 0;
     }
 
     // Modify total calculations query for merchants based on role
@@ -723,9 +762,12 @@ export const getCalculationsSumDao = async (filters) => {
       // const validUserIds = userCodes.filter((id) =>
       //   allowedSubVendors.includes(id),
       // );
-      userIds = [...new Set([...userCodes,
-        // ...validUserIds
-      ])]; // Remove duplicates
+      userIds = [
+        ...new Set([
+          ...userCodes,
+          // ...validUserIds
+        ]),
+      ]; // Remove duplicates
       // Add filter to vendor total query
       vendorTotalQuery += ` AND c.user_id = ANY(ARRAY['${userIds.join("','")}']) `;
       vendorTotalQuery += ` AND c.company_id = '${company_id}'`;
@@ -786,10 +828,14 @@ export const getCalculationsSumDao = async (filters) => {
     // Execute queries based on role
     const [merchantTotal, vendorTotal] = await Promise.all([
       merchantTotalQuery
-        ? executeQuery(merchantTotalQuery)
+        ? conn
+          ? await conn.query(merchantTotalQuery)
+          : await executeQuery(merchantTotalQuery)
         : Promise.resolve({ rows: [{}] }),
       vendorTotalQuery
-        ? executeQuery(vendorTotalQuery)
+        ? conn
+          ? await conn.query(vendorTotalQuery)
+          : await executeQuery(vendorTotalQuery)
         : Promise.resolve({ rows: [{}] }),
     ]);
     return {
@@ -805,7 +851,10 @@ export const getCalculationsSumDao = async (filters) => {
   }
 };
 
-export const getCalculationsForInternalUseDao = async (filters, conn = null) => {
+export const getCalculationsForInternalUseDao = async (
+  filters,
+  conn = null,
+) => {
   try {
     const {
       role,
@@ -948,15 +997,26 @@ export const getCalculationsForInternalUseDao = async (filters, conn = null) => 
       }
       const vQuery = `${vendorQuery}  AND c.company_id = '${company_id}' AND u.company_id = '${company_id}' ${groupBy}`;
       const mQuery = `${merchantQuery}  AND c.company_id = '${company_id}' AND u.company_id = '${company_id}' ${groupBy}`;
-      merchantData = (await executeQuery(mQuery, [])).rows;
-      vendorData = (await executeQuery(vQuery, [])).rows;
+      merchantData = (
+        conn ? await conn.query(mQuery, []) : await executeQuery(mQuery, [])
+      ).rows;
+      vendorData = (
+        conn ? await conn.query(vQuery, []) : await executeQuery(vQuery, [])
+      ).rows;
     }
 
     // Super Admin Query
     if (Role.SUPER_ADMIN === role) {
-      merchantData = (await executeQuery(`${merchantQuery}  ${groupBy}`, []))
-        .rows;
-      vendorData = (await executeQuery(`${vendorQuery}  ${groupBy}`, [])).rows;
+      merchantData = (
+        conn
+          ? await conn.query(`${merchantQuery}  ${groupBy}`, [])
+          : await executeQuery(`${merchantQuery}  ${groupBy}`, [])
+      ).rows;
+      vendorData = (
+        conn
+          ? await conn.query(`${vendorQuery}  ${groupBy}`, [])
+          : await executeQuery(`${vendorQuery}  ${groupBy}`, [])
+      ).rows;
     }
 
     // query for merchant only role
@@ -985,7 +1045,11 @@ export const getCalculationsForInternalUseDao = async (filters, conn = null) => 
         AND c.company_id = $1
         ${groupBy}`;
 
-      merchantData = (await executeQuery(mQuery, [company_id])).rows;
+      merchantData = (
+        conn
+          ? await conn.query(mQuery, [company_id])
+          : await executeQuery(mQuery, [company_id])
+      ).rows;
     }
 
     // query for vendor only role
@@ -1018,7 +1082,11 @@ export const getCalculationsForInternalUseDao = async (filters, conn = null) => 
       // Create parameterized query for all user IDs
       const userIdParams = userIds.map((_, index) => `$${index + 1}`).join(',');
       const vQuery = `${vendorQuery}  AND c.user_id = ANY(ARRAY[${userIdParams}])  AND c.company_id = $${userIds.length + 1}  ${groupBy}`;
-      vendorData = (await executeQuery(vQuery, [...userIds, company_id])).rows;
+      vendorData = (
+        conn
+          ? await conn.query(vQuery, [...userIds, company_id])
+          : await executeQuery(vQuery, [...userIds, company_id])
+      ).rows;
     }
 
     if ([Role.SUPER_ADMIN, Role.ADMIN].includes(role)) {
@@ -1081,7 +1149,9 @@ export const getCalculationsForInternalUseDao = async (filters, conn = null) => 
         WHERE rn = 1
         GROUP BY role, company_id`;
 
-      const balanceResult = await executeQuery(baseCalQuery);
+      const balanceResult = conn
+        ? await conn.query(baseCalQuery)
+        : await executeQuery(baseCalQuery);
 
       // Process results into netBalance object with company filtering
       netBalance = balanceResult.rows.reduce(
@@ -1164,9 +1234,15 @@ export const getCalculationsForInternalUseDao = async (filters, conn = null) => 
       );
 
       netBalance.vendor =
-        (await executeQuery(vendorCalQuery)).rows[0]?.net_balance_sum || 0;
+        (conn
+          ? await conn.query(vendorCalQuery)
+          : await executeQuery(vendorCalQuery)
+        ).rows[0]?.net_balance_sum || 0;
       netBalance.merchant =
-        (await executeQuery(merchantCalQuery)).rows[0]?.net_balance_sum || 0;
+        (conn
+          ? await conn.query(merchantCalQuery)
+          : await executeQuery(merchantCalQuery)
+        ).rows[0]?.net_balance_sum || 0;
     }
 
     // Modify total calculations query for merchants based on role
@@ -1362,10 +1438,14 @@ export const getCalculationsForInternalUseDao = async (filters, conn = null) => 
     // Execute queries based on role
     const [merchantTotal, vendorTotal] = await Promise.all([
       merchantTotalQuery
-        ? executeQuery(merchantTotalQuery)
+        ? conn
+          ? await conn.query(merchantTotalQuery)
+          : await executeQuery(merchantTotalQuery)
         : Promise.resolve({ rows: [{}] }),
       vendorTotalQuery
-        ? executeQuery(vendorTotalQuery)
+        ? conn
+          ? await conn.query(vendorTotalQuery)
+          : await executeQuery(vendorTotalQuery)
         : Promise.resolve({ rows: [{}] }),
     ]);
     return {
@@ -1393,7 +1473,9 @@ export const getCalculationforCronDao = async (userId, conn = null) => {
       LIMIT 1
     `;
     // Ensure userId is correctly passed as an array
-    const result = conn ? await conn.query(sql, [userId]) : await executeQuery(sql, [userId]);
+    const result = conn
+      ? await conn.query(sql, [userId])
+      : await executeQuery(sql, [userId]);
     return result.rows;
   } catch (error) {
     logger.error('Error fetching Calculation', error);
@@ -1411,7 +1493,9 @@ export const getAllCalculationforCronDao = async (userId, conn = null) => {
       ORDER BY created_at DESC 
     `;
     // Ensure userId is correctly passed as an array
-    const result = conn ? await conn.query(sql, [userId]) : await executeQuery(sql, [userId], conn);
+    const result = conn
+      ? await conn.query(sql, [userId])
+      : await executeQuery(sql, [userId], conn);
     return result.rows;
   } catch (error) {
     logger.error('Error fetching Calculation', error);
@@ -1429,7 +1513,9 @@ export const checkTodayCalculationExistsDao = async (conn = null) => {
       AND DATE(created_at) = $1
       LIMIT 1
     `;
-    const result = conn ? await conn.query(sql, [today]) : await executeQuery(sql, [today], conn);
+    const result = conn
+      ? await conn.query(sql, [today])
+      : await executeQuery(sql, [today], conn);
     return parseInt(result.rows[0].count) > 0;
   } catch (error) {
     logger.error('Error checking today calculation exists:', error);
@@ -1440,7 +1526,9 @@ export const checkTodayCalculationExistsDao = async (conn = null) => {
 const createCalculationDao = async (data, conn = null) => {
   try {
     const [sql, params] = buildInsertQuery(tableName.CALCULATION, data);
-    const result = conn ? await conn.query(sql, params) : await executeQuery(sql, params);
+    const result = conn
+      ? await conn.query(sql, params)
+      : await executeQuery(sql, params);
     return result.rows ? result.rows[0] : result[0]; // Return the first row or result based on the structure
   } catch (error) {
     logger.error('Error creating calculation:', error); // Log the error for debugging
@@ -1451,7 +1539,9 @@ const createCalculationDao = async (data, conn = null) => {
 const updateCalculationDao = async (id, data, conn = null) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.CALCULATION, data, id);
-    const result = conn ? await conn.query(sql, params) : await executeQuery(sql, params);
+    const result = conn
+      ? await conn.query(sql, params)
+      : await executeQuery(sql, params);
     return result.rows ? result.rows[0] : result[0]; // Return the first row or result based on the structure
   } catch (error) {
     logger.error('Error updating calculation:', error); // Log the error for debugging
@@ -1473,7 +1563,9 @@ const deleteCalculationDao = async (id, data, conn = null) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.CALCULATION, data, id);
 
-    const result = conn ? await conn.query(sql, params) : await executeQuery(sql, params);
+    const result = conn
+      ? await conn.query(sql, params)
+      : await executeQuery(sql, params);
 
     return result.rows ? result.rows[0] : result[0]; // Return the first row or result based on the structure
   } catch (error) {
@@ -1482,7 +1574,11 @@ const deleteCalculationDao = async (id, data, conn = null) => {
   }
 };
 
-export const updateCalculationBalanceDao = async (filters, data, conn = null) => {
+export const updateCalculationBalanceDao = async (
+  filters,
+  data,
+  conn = null,
+) => {
   try {
     const specialFields = {};
     Object.keys(data).forEach((el) => {
@@ -1494,7 +1590,7 @@ export const updateCalculationBalanceDao = async (filters, data, conn = null) =>
       filters,
       specialFields,
     );
-    const result = conn 
+    const result = conn
       ? await conn.query(sql, params)
       : await executeQuery(sql, params);
     return result.rows[0];
@@ -1514,7 +1610,9 @@ const checkCalculationEntryForDateDao = async (date, conn = null) => {
       AND to_char(created_at AT TIME ZONE 'Asia/Kolkata', 'YYYY-MM-DD') = $1
       LIMIT 1
     `;
-    const result = conn ? await conn.query(sql, [date]) : await executeQuery(sql, [date], conn);
+    const result = conn
+      ? await conn.query(sql, [date])
+      : await executeQuery(sql, [date], conn);
     return result.rows.length > 0;
   } catch (error) {
     logger.error('Error checking calculation entry for date', error);
@@ -1522,7 +1620,12 @@ const checkCalculationEntryForDateDao = async (date, conn = null) => {
   }
 };
 
-const getMerchantNetBalanceDao = async (companyId, startDate, endDate, conn = null) => {
+const getMerchantNetBalanceDao = async (
+  companyId,
+  startDate,
+  endDate,
+  conn = null,
+) => {
   try {
     // Base query to get merchant net balance data with latest records
     let sql = `
@@ -1551,7 +1654,9 @@ const getMerchantNetBalanceDao = async (companyId, startDate, endDate, conn = nu
       WHERE rn = 1
     `;
 
-    const result = await executeQuery(wrappedSql, queryParams, conn);
+    const result = conn
+      ? await conn.query(wrappedSql, queryParams)
+      : await executeQuery(wrappedSql, queryParams);
     let merchantData = result.rows;
 
     // If no data, return empty array
@@ -1576,13 +1681,9 @@ const getMerchantNetBalanceDao = async (companyId, startDate, endDate, conn = nu
           LIMIT 10
         `;
 
-        const historyResult = conn ? await conn.query(historyQuery, [
-          merchant.user_id,
-          companyId,
-        ]) : await executeQuery(historyQuery, [
-          merchant.user_id,
-          companyId,
-        ], conn);
+        const historyResult = conn
+          ? await conn.query(historyQuery, [merchant.user_id, companyId])
+          : await executeQuery(historyQuery, [merchant.user_id, companyId]);
         const netBalances = historyResult.rows.map((row) =>
           parseFloat(row.net_balance),
         );
@@ -1700,7 +1801,12 @@ const getMerchantNetBalanceDao = async (companyId, startDate, endDate, conn = nu
   }
 };
 
-const getVendorNetBalanceDao = async (companyId, startDate, endDate, conn = null) => {
+const getVendorNetBalanceDao = async (
+  companyId,
+  startDate,
+  endDate,
+  conn = null,
+) => {
   try {
     // Base query to get vendor net balance data with latest records
     let sql = `
@@ -1729,7 +1835,9 @@ const getVendorNetBalanceDao = async (companyId, startDate, endDate, conn = null
       WHERE rn = 1
     `;
 
-    const result = await executeQuery(wrappedSql, queryParams, conn);
+    const result = conn
+      ? await conn.query(wrappedSql, queryParams)
+      : await executeQuery(wrappedSql, queryParams);
     let vendorData = result.rows;
 
     // If no data, return empty array
@@ -1754,13 +1862,9 @@ const getVendorNetBalanceDao = async (companyId, startDate, endDate, conn = null
           LIMIT 10
         `;
 
-        const historyResult = conn ? await conn.query(historyQuery, [
-          vendor.user_id,
-          companyId,
-        ]) : await executeQuery(historyQuery, [
-          vendor.user_id,
-          companyId,
-        ], conn);
+        const historyResult = conn
+          ? await conn.query(historyQuery, [vendor.user_id, companyId])
+          : await executeQuery(historyQuery, [vendor.user_id, companyId]);
         const netBalances = historyResult.rows.map((row) =>
           parseFloat(row.net_balance),
         );
@@ -1883,7 +1987,9 @@ const getUserRoleDao = async (user_id, conn = null) => {
       WHERE u.id = $1 AND u.is_obsolete = false
     `;
 
-    const result = conn ? await conn.query(query, [user_id]) : await executeQuery(query, [user_id], conn);
+    const result = conn
+      ? await conn.query(query, [user_id])
+      : await executeQuery(query, [user_id], conn);
     return result.rows[0]?.role || null;
   } catch (error) {
     logger.error('Error getting user role:', error);
@@ -1950,7 +2056,9 @@ const calculatePayinDataDao = async (
       queryParams = [user_id, company_id, startDate];
     }
 
-    const result = conn ? await conn.query(query, queryParams) : await executeQuery(query, queryParams, conn);
+    const result = conn
+      ? await conn.query(query, queryParams)
+      : await executeQuery(query, queryParams);
 
     const payinData = {
       total_payin_count: 0,
@@ -1981,7 +2089,12 @@ const calculatePayinDataDao = async (
 };
 
 // Helper function to calculate payout data for a user and date range
-const calculatePayoutDataDao = async (user_id, company_id, startDate, conn = null) => {
+const calculatePayoutDataDao = async (
+  user_id,
+  company_id,
+  startDate,
+  conn = null,
+) => {
   try {
     // Get user's role to determine which commission field to use and which table to join
     const userRole = await getUserRoleDao(user_id, conn);
@@ -2036,7 +2149,9 @@ const calculatePayoutDataDao = async (user_id, company_id, startDate, conn = nul
       queryParams = [user_id, company_id, startDate];
     }
 
-    const result = conn ? await conn.query(query, queryParams) : await executeQuery(query, queryParams, conn);
+    const result = conn
+      ? await conn.query(query, queryParams)
+      : await executeQuery(query, queryParams);
 
     const payoutData = {
       total_payout_count: 0,
@@ -2125,7 +2240,9 @@ const calculateSettlementDataDao = async (
       `;
     }
 
-    const result = await executeQuery(query, [user_id, company_id, startDate], conn);
+    const result = conn
+      ? await conn.query(query, [user_id, company_id, startDate])
+      : await executeQuery(query, [user_id, company_id, startDate]);
 
     const settlementData = {
       total_settlement_count: 0,
@@ -2292,7 +2409,12 @@ const calculateSettlementDataDao = async (
 };
 
 // Helper function to calculate chargeback data for a user and date range
-const calculateChargebackDataDao = async (user_id, company_id, startDate, conn = null) => {
+const calculateChargebackDataDao = async (
+  user_id,
+  company_id,
+  startDate,
+  conn = null,
+) => {
   try {
     // Get user's role to determine which user_id field to use
     const userRole = await getUserRoleDao(user_id, conn);
@@ -2316,7 +2438,9 @@ const calculateChargebackDataDao = async (user_id, company_id, startDate, conn =
         AND (created_at)::date = $3::date
     `;
 
-    const result = conn ? await conn.query(query, [user_id, company_id, startDate]) : await executeQuery(query, [user_id, company_id, startDate], conn);
+    const result = conn
+      ? await conn.query(query, [user_id, company_id, startDate])
+      : await executeQuery(query, [user_id, company_id, startDate]);
     const row = result.rows[0];
 
     return {
@@ -2332,7 +2456,12 @@ const calculateChargebackDataDao = async (user_id, company_id, startDate, conn =
 // Helper function to calculate adjustment data for a user and date range
 // Only counts entries where specific field amounts are changed on the processing date
 // Returns the difference between current and previous amounts from config.history
-const calculateAdjustmentDataDao = async (user_id, company_id, startDate, conn = null) => {
+const calculateAdjustmentDataDao = async (
+  user_id,
+  company_id,
+  startDate,
+  conn = null,
+) => {
   try {
     // Get user's role to determine which table to query
     const userRole = await getUserRoleDao(user_id, conn);
@@ -2361,15 +2490,17 @@ const calculateAdjustmentDataDao = async (user_id, company_id, startDate, conn =
           )
       `;
 
-      const payinRecords = conn ? await conn.query(getPayinRecordsQuery, [
-        user_id,
-        company_id,
-        startDate,
-      ]) : await executeQuery(getPayinRecordsQuery, [
-        user_id,
-        company_id,
-        startDate,
-      ], conn);
+      const payinRecords = conn
+        ? await conn.query(getPayinRecordsQuery, [
+            user_id,
+            company_id,
+            startDate,
+          ])
+        : await executeQuery(getPayinRecordsQuery, [
+            user_id,
+            company_id,
+            startDate,
+          ]);
 
       let totalAdjustmentCount = 0;
       let totalAmountDifference = 0;
@@ -2487,7 +2618,9 @@ const calculateAdjustmentDataDao = async (user_id, company_id, startDate, conn =
       `;
       queryParams = [user_id, company_id, startDate];
 
-      const result = conn ? await conn.query(query, queryParams) : await executeQuery(query, queryParams, conn);
+      const result = conn
+        ? await conn.query(query, queryParams)
+        : await executeQuery(query, queryParams);
       const row = result.rows[0];
 
       return {

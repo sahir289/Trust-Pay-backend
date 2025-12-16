@@ -484,7 +484,7 @@ export const getMerchantsByCodeAndApiKeyDao = async (code, api_key, conn = null)
 
     const params = [cleanCode, cleanApiKey];
 
-    const result = await executeQuery(query, params, conn);
+    const result = conn ? await conn.query(query, params) : await executeQuery(query, params);
     return result?.rows ?? [];
   } catch (error) {
     logger.error('Error in getMerchantsByCodeAndApiKeyDao:', error);
