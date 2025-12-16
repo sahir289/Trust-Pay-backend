@@ -20,7 +20,7 @@ export const createMerchantDao = async (data, conn = null) => {
   }
 };
 
-export const getMerchantForEsDao = async (merchantId) => {
+export const getMerchantForEsDao = async (merchantId, conn = null) => {
   try {
     const sql = `
       SELECT 
@@ -31,7 +31,7 @@ export const getMerchantForEsDao = async (merchantId) => {
       FROM "${tableName.MERCHANT}"
       WHERE id = $1
     `;
-    const result = await executeQuery(sql, [merchantId]);
+    const result = conn ? await conn.query(sql, [merchantId]) : await executeQuery(sql, [merchantId]);
     return result.rows[0];
    
   } catch (error) {
@@ -134,7 +134,7 @@ export const getMerchantsCodeDao = async (
   }
 };
 // get merchant with user_id  to get submerchant for user hierachys
-export const getMerchantByUserIdDao = async (userId) => {
+export const getMerchantByUserIdDao = async (userId, conn = null) => {
   try {
     const sql = `
       SELECT 
@@ -176,7 +176,7 @@ export const getMerchantByUserIdDao = async (userId) => {
     const queryParams = [userId];
 
     // Execute query
-    const result = await executeQuery(sql, queryParams);
+    const result = conn ? await conn.query(sql, queryParams) : await executeQuery(sql, queryParams);
 
     // Return the rows (merchant data)
     return result.rows;
@@ -190,7 +190,7 @@ export const getMerchantByUserIdDao = async (userId) => {
 };
 
 //only for submerchant data
-export const getMerchantByUserDao = async (userId, role) => {
+export const getMerchantByUserDao = async (userId, role, conn = null) => {
   try {
     const sql = `
       SELECT 
@@ -241,7 +241,7 @@ export const getMerchantByUserDao = async (userId, role) => {
     const queryParams = [userId, sanitizedRole];
 
     // Execute query
-    const result = await executeQuery(sql, queryParams);
+    const result = conn ? await conn.query(sql, queryParams) : await executeQuery(sql, queryParams);
 
     // Return the rows (merchant data)
     return result.rows;
@@ -253,7 +253,7 @@ export const getMerchantByUserDao = async (userId, role) => {
     throw error;
   }
 };
-export const getMerchantsBankResponseDao = async (filters = {}) => {
+export const getMerchantsBankResponseDao = async (filters = {}, conn = null) => {
   try {
     const selectColumns = `
       id,
@@ -266,7 +266,7 @@ export const getMerchantsBankResponseDao = async (filters = {}) => {
       `SELECT ${selectColumns} FROM "${tableName.MERCHANT}" WHERE 1=1`,
       filters,
     );
-    const result = await executeQuery(sql, params);
+    const result = conn ? await conn.query(sql, params) : await executeQuery(sql, params);
     return result.rows || [];
   } catch (error) {
     logger.error('Error fetching merchant data:', error);
@@ -274,7 +274,7 @@ export const getMerchantsBankResponseDao = async (filters = {}) => {
   }
 };
 
-export const getMerchantByIdDao = async (id, company_id) => {
+export const getMerchantByIdDao = async (id, company_id, conn = null) => {
   try {
     const sql = `
         SELECT id, user_id, code, payout_commission, config->'urls'->>'payout_notify' AS payout_notify 
@@ -282,7 +282,7 @@ export const getMerchantByIdDao = async (id, company_id) => {
           AND company_id = $2 
           AND is_obsolete = false`;
     const params = [id, company_id];
-    const result = await executeQuery(sql, params);
+    const result = conn ? await conn.query(sql, params) : await executeQuery(sql, params);
     return result?.rows;
   } catch (error) {
     logger.error(`Error in getMerchantByIdDao for ID ${id}:`, error.message);
@@ -388,7 +388,7 @@ export const getMerchantsForDashboardReportDao = async (
 };
 
 
-export const getMerchantsByCodeDao = async (code, api_key) => {
+export const getMerchantsByCodeDao = async (code, api_key, conn = null) => {
   try {
     let baseQuery = `
     SELECT 
@@ -437,7 +437,7 @@ export const getMerchantsByCodeDao = async (code, api_key) => {
       baseQuery += ` AND ("Merchant".config->'keys'->>'public' = $${queryParams.length} OR "Merchant".config->'keys'->>'private' = $${queryParams.length})`;
     }
 
-    const result = await executeQuery(baseQuery, queryParams);
+    const result = await executeQuery(baseQuery, queryParams, conn);
     return result.rows;
   } catch (error) {
     logger.error('Error in getMerchants By Code Dao:', error);
@@ -445,7 +445,7 @@ export const getMerchantsByCodeDao = async (code, api_key) => {
   }
 };
 
-export const getMerchantsByCodeAndApiKeyDao = async (code, api_key) => {
+export const getMerchantsByCodeAndApiKeyDao = async (code, api_key, conn = null) => {
   try {
     if (!code || !api_key) return [];
     const cleanCode = code.trim();
@@ -483,7 +483,7 @@ export const getMerchantsByCodeAndApiKeyDao = async (code, api_key) => {
 
     const params = [cleanCode, cleanApiKey];
 
-    const result = await executeQuery(query, params);
+    const result = await executeQuery(query, params, conn);
     return result?.rows ?? [];
   } catch (error) {
     logger.error('Error in getMerchantsByCodeAndApiKeyDao:', error);
@@ -491,7 +491,7 @@ export const getMerchantsByCodeAndApiKeyDao = async (code, api_key) => {
   }
 };
 
-export const getMerchantByCodeDao = async (code) => {
+export const getMerchantByCodeDao = async (code, conn = null) => {
   try {
     let baseQuery = `
       SELECT 
@@ -510,14 +510,14 @@ export const getMerchantByCodeDao = async (code) => {
       baseQuery += ` WHERE "Merchant".code = $1`;
       queryParams = [code.trim()];
     }
-    const result = await executeQuery(baseQuery, queryParams);
+    const result = await executeQuery(baseQuery, queryParams, conn);
     return result.rows;
   } catch (error) {
     logger.error('Error in getMerchants By Code Dao:', error);
     throw error;
   }
 };
-export const getMerchantsForSuccessRatioDao = async (filters = {}) => {
+export const getMerchantsForSuccessRatioDao = async (filters = {}, conn = null) => {
   try {
     const selectColumns = `
       id,
@@ -528,7 +528,7 @@ export const getMerchantsForSuccessRatioDao = async (filters = {}) => {
       `SELECT ${selectColumns} FROM "${tableName.MERCHANT}" WHERE is_obsolete = false`,
       filters,
     );
-    const result = await executeQuery(sql, params);
+    const result = conn ? await conn.query(sql, params) : await executeQuery(sql, params);
     return result.rows || [];
   } catch (error) {
     logger.error('Error in getMerchantsForSuccessRatioDao:', error);
@@ -813,7 +813,7 @@ export const getMerchantsBySearchDao = async (
     throw error;
   }
 };
-export const getMerchantsForValidatePayinDao = async (filters) => {
+export const getMerchantsForValidatePayinDao = async (filters, conn = null) => {
   try {
     let query = `
     SELECT id, code, min_payin, max_payin, config
@@ -822,7 +822,7 @@ export const getMerchantsForValidatePayinDao = async (filters) => {
     and id = $1
   `;
     const params = [filters.id];
-    const result = await executeQuery(query, params);
+    const result = conn ? await conn.query(query, params) : await executeQuery(query, params);
     return result.rows;
   } catch (error) {
     logger.error('Error in getMerchantsForValidatePayinDao:', error.message);
@@ -901,7 +901,7 @@ export const updateMerchantBalanceDao = async (
   }
 };
 
-export const getMerchantByCodeAndApiKey = async (code, publicKey) => {
+export const getMerchantByCodeAndApiKey = async (code, publicKey, conn = null) => {
   try {
     const query = `
       SELECT * 
@@ -911,7 +911,7 @@ export const getMerchantByCodeAndApiKey = async (code, publicKey) => {
       AND is_obsolete = false
     `;
     const params = [code, publicKey];
-    const result = await executeQuery(query, params);
+    const result = conn ? await conn.query(query, params) : await executeQuery(query, params);
     return result.rows[0]; // Return the first matching merchant
   } catch (error) {
     logger.error('Error fetching merchant by code and API key:', error);

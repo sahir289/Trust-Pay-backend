@@ -220,7 +220,7 @@ const _createBankaccountServiceInternal = async (
   try {
     //child add bankaccount for its parent
     if (designation === Role.VENDOR_OPERATIONS) {
-      const childHierarchy = await getUserHierarchysDao({ user_id });
+      const childHierarchy = await getUserHierarchysDao({ user_id }, null, null, null, null, null, conn);
       const parentUserId = childHierarchy[0].config.parent;
       payload.user_id = parentUserId;
     }

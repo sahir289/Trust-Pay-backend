@@ -8,7 +8,7 @@ import {
 import { tableName } from '../../constants/index.js';
 import { logger } from '../../utils/logger.js';
 
-const getCompanyDao = async (filters, page, pageSize, sortBy, sortOrder) => {
+const getCompanyDao = async (filters, page, pageSize, sortBy, sortOrder, conn) => {
   try {
     const baseQuery = `SELECT id,first_name,last_name,config FROM "${tableName.COMPANY}" WHERE 1=1`;
     //TODO: columns.Company dynamic search
@@ -20,7 +20,7 @@ const getCompanyDao = async (filters, page, pageSize, sortBy, sortOrder) => {
       sortBy,
       sortOrder,
     );
-    const result = await executeQuery(sql, queryParams);
+    const result = await executeQuery(sql, queryParams, conn);
     return result.rows.length > 0 ? result.rows : result.rows[0];
   } catch (error) {
     logger.error('Error fetching company:', error);
@@ -119,13 +119,14 @@ const updateCompanyDao = async (id, data) => {
     throw error;
   }
 };
-const updateCompanyConfigDao = async (id, data) => {
+const updateCompanyConfigDao = async (id, data, conn) => {
   return await buildAndExecuteUpdateQuery(
     tableName.COMPANY,
     data,
     id,
     {},
     { returnUpdated: true },
+    conn,
   );
 };
 

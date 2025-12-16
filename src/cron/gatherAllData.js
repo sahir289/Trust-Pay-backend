@@ -4,7 +4,6 @@ import { getCalculationDashBoardReportDao } from '../apis/calculation/calculatio
 import { getBankaccountDashBoardReportDao } from '../apis/bankAccounts/bankaccountDao.js';
 import { sendTelegramDashboardReportMessage } from '../utils/sendTelegramMessages.js';
 import config from '../config/config.js';
-import { getConnection } from '../utils/db.js';
 import { getVendorsDashBoardReportDao } from '../apis/vendors/vendorDao.js';
 import { logger } from '../utils/logger.js';
 import { getUserHierarchysDashBoardReportDao } from '../apis/userHierarchy/userHierarchyDao.js';
@@ -170,9 +169,7 @@ const gatherAllData = async (
   type = 'N',
   timezone = 'Asia/Kolkata',
 ) => {
-  let conn;
   try {
-    conn = await getConnection();
 
     let sDate;
     let eDate;
@@ -466,10 +463,6 @@ const gatherAllData = async (
     logger.info(`Dashboard Report CRON Ended for company: ${company_id}`);
   } catch (error) {
     logger.error(`Error in gatherAllData for company ${company_id}: ${error}`);
-  } finally {
-    if (conn) {
-      conn.release();
-    }
   }
 };
 

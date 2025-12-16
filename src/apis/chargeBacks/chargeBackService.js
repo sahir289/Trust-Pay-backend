@@ -61,7 +61,7 @@ const _createChargeBackServiceInternal = async (
       ],
     };
     delete payload.merchant_order_id;
-    const companyData = await getCompanyDao({ id: company_id });
+    const companyData = await getCompanyDao({ id: company_id }, null, null, null, null, conn);
     if (!companyData || !companyData[0]) {
       throw new NotFoundError('Company not found');
     }
@@ -96,7 +96,7 @@ const _createChargeBackServiceInternal = async (
     );
     const data = await createChargeBackDao(payload, conn);
     const MerchantuserId = data.merchant_user_id;
-    const merchantData = await getMerchantByUserIdDao(MerchantuserId);
+    const merchantData = await getMerchantByUserIdDao(MerchantuserId, conn);
     if (!merchantData || !merchantData[0]) {
       throw new NotFoundError('Merchant not found');
     }
@@ -139,7 +139,7 @@ const _createChargeBackServiceInternal = async (
       },
       conn,
     );
-    const merchantCalculation = await getCalculationforCronDao(MerchantuserId);
+    const merchantCalculation = await getCalculationforCronDao(MerchantuserId, conn );
     if (!merchantCalculation || !merchantCalculation[0]) {
       throw new NotFoundError('Merchant calculations not found');
     }
@@ -156,7 +156,7 @@ const _createChargeBackServiceInternal = async (
       conn,
     );
     const VendorUserId = data.vendor_user_id;
-    const vendorCalculation = await getCalculationforCronDao(VendorUserId);
+    const vendorCalculation = await getCalculationforCronDao(VendorUserId, conn );
     if (!vendorCalculation || !vendorCalculation[0]) {
       throw new NotFoundError('Vendor calculations not found');
     }

@@ -3,7 +3,6 @@ import {
   sendTelegramVendorDashboardReportMessage,
 } from '../utils/sendTelegramMessages.js';
 import config from '../config/config.js';
-import { getConnection } from '../utils/db.js';
 import { logger } from '../utils/logger.js';
 import { getCompanyDao } from '../apis/company/companyDao.js';
 import dayjs from 'dayjs';
@@ -75,9 +74,7 @@ const gatherAllMerchantsNetBalance = async (
   type = 'N',
   timezone = 'Asia/Kolkata',
 ) => {
-  let conn;
   try {
-    conn = await getConnection();
 
     let sDate;
     let eDate;
@@ -156,10 +153,6 @@ const gatherAllMerchantsNetBalance = async (
     logger.error(
       `Error in gatherAllMerchantsNetBalance for company ${company_id}: ${error}`,
     );
-  } finally {
-    if (conn) {
-      conn.release();
-    }
   }
 };
 
@@ -168,10 +161,7 @@ const gatherAllVendorsNetBalance = async (
   type = 'N',
   timezone = 'Asia/Kolkata',
 ) => {
-  let conn;
   try {
-    conn = await getConnection();
-
     let sDate;
     let eDate;
     if (typeof timezone !== 'string') {
@@ -246,10 +236,6 @@ const gatherAllVendorsNetBalance = async (
     logger.error(
       `Error in gatherAllVendorsNetBalance for company ${company_id}: ${error}`,
     );
-  } finally {
-    if (conn) {
-      conn.release();
-    }
   }
 };
 

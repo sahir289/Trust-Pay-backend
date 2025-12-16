@@ -69,7 +69,7 @@ import { trackVendorsNetBalance } from '../../utils/trackVendorsNetBalance.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 
 // Helper function to check if vendor is sub-vendor and get parent info
-const getSubVendorParentInfo = async (vendor) => {
+const getSubVendorParentInfo = async (vendor, conn = null) => {
   try {
     // Check if vendor designation is SUB_VENDOR
     if (vendor.designation_name !== Role.SUB_VENDOR && vendor.designation !== Role.SUB_VENDOR) {
@@ -85,7 +85,7 @@ const getSubVendorParentInfo = async (vendor) => {
     // Get user hierarchy to find parent
     const userHierarchys = await getUserHierarchysDao({
       user_id: vendor.user_id,
-    });
+    }, null, null, null, null, [], conn);
     const userHierarchy = userHierarchys?.[0];
     const parentId = userHierarchy?.config?.parent;
 
@@ -95,7 +95,7 @@ const getSubVendorParentInfo = async (vendor) => {
     }
 
     // Get parent vendor details
-    const parentVendors = await getVendorsBankReponseDao({ user_id: parentId });
+    const parentVendors = await getVendorsBankReponseDao({ user_id: parentId }, conn);
     if (!parentVendors || !parentVendors[0]) {
       logger.warn(`Parent vendor not found for user_id: ${parentId}`);
       return null;
@@ -159,7 +159,7 @@ const createBankResponseService = async (
       id: bank_id,
       company_id: companyId,
       bank_used_for: 'PayIn',
-    });
+    }, localConn);
     if (!bankCompanyCheck) {
       throw new NotFoundError('Bank account does not exist for this company');
     }
@@ -212,12 +212,12 @@ const createBankResponseService = async (
       utrAlreadyExist = await getCheckBankResponseDao({
         upi_short_code,
         company_id,
-      });
+      }, null , localConn);
       if (!utrAlreadyExist) {
-        utrAlreadyExist = await getCheckBankResponseDao({ utr, company_id });
+        utrAlreadyExist = await getCheckBankResponseDao({ utr, company_id }, null , localConn);
       }
     } else {
-      utrAlreadyExist = await getCheckBankResponseDao({ utr, company_id });
+      utrAlreadyExist = await getCheckBankResponseDao({ utr, company_id }, null , localConn);
     }
     const isRepeated = utrAlreadyExist;
 
@@ -285,7 +285,7 @@ const createBankResponseService = async (
         bankDetails = await getBankaccountDashBoardReportDao({
           id: botRes?.bank_id,
           company_id: companyId,
-        });
+        }, localConn);
         if (
           isNaN(bankDetails[0].balance) ||
           isNaN(bankDetails[0].today_balance)
@@ -312,7 +312,7 @@ const createBankResponseService = async (
         );
         vendor = await getVendorsBankReponseDao({
           user_id: bankDetails[0].user_id,
-        });
+        }, localConn);
         if (isNaN(vendor[0].balance)) {
           throw new BadRequestError('Invalid amount or commission');
         }
@@ -911,12 +911,12 @@ const createBankResponseWebHookService = async (
       utrAlreadyExist = await getCheckBankResponseDao({
         upi_short_code,
         company_id,
-      });
+      }, null, localConn);
       if (!utrAlreadyExist) {
-        utrAlreadyExist = await getCheckBankResponseDao({ utr, company_id });
+        utrAlreadyExist = await getCheckBankResponseDao({ utr, company_id }, null, localConn);
       }
     } else {
-      utrAlreadyExist = await getCheckBankResponseDao({ utr, company_id });
+      utrAlreadyExist = await getCheckBankResponseDao({ utr, company_id }, null, localConn);
     }
     const isRepeated = utrAlreadyExist;
 
@@ -1031,7 +1031,7 @@ const createBankResponseWebHookService = async (
         let totalVendorCommission = payinVendorCommission;
         let parentCommission = 0;
 
-        const subVendorParentInfo = await getSubVendorParentInfo(vendor[0]);
+        const subVendorParentInfo = await getSubVendorParentInfo(vendor[0], localConn);
         if (subVendorParentInfo) {
           // Calculate parent commission
           // parentCommission = await updateParentVendorCalculation(
@@ -1126,7 +1126,7 @@ const updateCalculationTable = async (user_id, data, conn) => {
       throw new BadRequestError('Invalid amount or commission');
     }
     if (user_id) {
-      const calculationData = await getCalculationforCronDao(user_id);
+      const calculationData = await getCalculationforCronDao(user_id, conn);
       if (!calculationData[0]) {
         throw new NotFoundError('Calculation not found!');
       }
@@ -1479,7 +1479,7 @@ const _resetBankResponseServiceInternal = async (id, userData, conn = null) => {
       userData;
 
     // Fetch bank response
-    const botRes = await getBankResponseDao({ id, company_id });
+    const botRes = await getBankResponseDao({ id, company_id }, null, null, null, null, null, conn);
   if (!botRes) {
     logger.error(`Bank response not found for ID: ${id}`);
     throw new NotFoundError('Bank response not found');
@@ -1489,12 +1489,12 @@ const _resetBankResponseServiceInternal = async (id, userData, conn = null) => {
   let payInData = await getPayInsForResetBankResDao({
     user_submitted_utr: botRes.utr,
     company_id,
-  });
+  }, conn);
   if (!payInData?.length) {
     payInData = await getPayInsForResetBankResDao({
       bank_response_id: botRes.id,
       company_id,
-    });
+    }, conn);
   }
 
   const hasSuccess = payInData?.some(
@@ -1518,7 +1518,7 @@ const _resetBankResponseServiceInternal = async (id, userData, conn = null) => {
     utr: botRes.utr,
     bank_id: botRes.bank_id,
     config: botRes.config || {},
-    bank_name: (await getBankaccountDao({ id: botRes.bank_id }))[0]
+    bank_name: (await getBankaccountDao({ id: botRes.bank_id }, null, null, null, null, null, conn))[0]
       ?.nick_name,
   };
 
@@ -1655,11 +1655,11 @@ const handleAmountUpdate = async ({
     };
 
     if (amount !== previousAmount) {
-      const bankDetails = await getBankaccountDao({ id: botRes.bank_id });
+      const bankDetails = await getBankaccountDao({ id: botRes.bank_id }, null, null, null, null, null, conn);
       if (!bankDetails[0]) throw new NotFoundError('Bank account not found');
 
       const bank = bankDetails[0];
-      const vendor = await getVendorsDao({ user_id: bank.user_id });
+      const vendor = await getVendorsDao({ user_id: bank.user_id }, 1, 10, 'created_at', 'DESC', null, false, conn);
       if (!vendor[0]) throw new NotFoundError('Vendor not found');
 
       const updatedAmount =
@@ -1676,7 +1676,7 @@ const handleAmountUpdate = async ({
       let totalVendorCommission = payinCommission;
       let parentCommission = 0;
 
-      const subVendorParentInfo = await getSubVendorParentInfo(vendor[0]);
+      const subVendorParentInfo = await getSubVendorParentInfo(vendor[0], conn);
       if (subVendorParentInfo) {
         // Calculate parent commission for amount difference
         const baseParentCommission = calculateCommission(
@@ -1845,8 +1845,8 @@ const handleBankIdUpdate = async ({
 }) => {
   try {
     const [prevBank, newBank] = await Promise.all([
-      getBankaccountDao({ id: botRes.bank_id }),
-      getBankaccountDao({ id: bank_id }),
+      getBankaccountDao({ id: botRes.bank_id }, null, null, null, null, null, conn),
+      getBankaccountDao({ id: bank_id }, null, null, null, null, null, conn),
     ]);
     const previousBank = prevBank[0].nick_name;
     const previousUpdater = botRes.updated_by;
@@ -1863,15 +1863,15 @@ const handleBankIdUpdate = async ({
     }
 
     const [prevVendor, newVendor] = await Promise.all([
-      getVendorsDao({ user_id: prevBank[0].user_id }),
-      getVendorsDao({ user_id: newBank[0].user_id }),
+      getVendorsDao({ user_id: prevBank[0].user_id }, 1, 10, 'created_at', 'DESC', null, false, conn),
+      getVendorsDao({ user_id: newBank[0].user_id }, 1, 10, 'created_at', 'DESC', null, false, conn),
     ]);
     if (!prevVendor[0] || !newVendor[0])
       throw new NotFoundError('Vendor not found');
 
     const [prevVendorCalc, newVendorCalc] = await Promise.all([
-      getAllCalculationforCronDao(prevVendor[0].user_id),
-      getAllCalculationforCronDao(newVendor[0].user_id),
+      getAllCalculationforCronDao(prevVendor[0].user_id, conn),
+      getAllCalculationforCronDao(newVendor[0].user_id, conn),
     ]);
 
     if (!prevVendorCalc[0] || !newVendorCalc[0]) {
@@ -1910,7 +1910,7 @@ const handleBankIdUpdate = async ({
     let totalNewVendorCommission = newVendorCommission;
 
     // Check if previous vendor is sub-vendor
-    const prevSubVendorParentInfo = await getSubVendorParentInfo(prevVendor[0]);
+    const prevSubVendorParentInfo = await getSubVendorParentInfo(prevVendor[0], conn);
     let prevParentCommission = 0;
     let prevParentCalculationData = null;
     let prevParentCurrentCalcs = [];
@@ -1924,7 +1924,7 @@ const handleBankIdUpdate = async ({
       totalPrevVendorCommission = prevVendorCommission + prevParentCommission;
       
       // Fetch parent calculation data for proper adjustment handling
-      prevParentCalculationData = await getAllCalculationforCronDao(prevSubVendorParentInfo.parentUserId);
+      prevParentCalculationData = await getAllCalculationforCronDao(prevSubVendorParentInfo.parentUserId, conn);
       if (prevParentCalculationData[0]) {
         const approvedDate = getDateWithoutTime(botRes.created_at);
         prevParentCurrentCalcs = prevParentCalculationData.filter(
@@ -1939,7 +1939,7 @@ const handleBankIdUpdate = async ({
     }
 
     // Check if new vendor is sub-vendor
-    const newSubVendorParentInfo = await getSubVendorParentInfo(newVendor[0]);
+    const newSubVendorParentInfo = await getSubVendorParentInfo(newVendor[0], conn);
     let newParentCommission = 0;
     let newParentCalculationData = null;
     let newParentCurrentCalcs = [];
@@ -1953,7 +1953,7 @@ const handleBankIdUpdate = async ({
       totalNewVendorCommission = newVendorCommission + newParentCommission;
       
       // Fetch parent calculation data for proper adjustment handling
-      newParentCalculationData = await getAllCalculationforCronDao(newSubVendorParentInfo.parentUserId);
+      newParentCalculationData = await getAllCalculationforCronDao(newSubVendorParentInfo.parentUserId, conn);
       if (newParentCalculationData[0]) {
         const approvedDate = getDateWithoutTime(botRes.created_at);
         newParentCurrentCalcs = newParentCalculationData.filter(

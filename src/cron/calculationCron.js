@@ -81,13 +81,13 @@ const collectCalculationData = async () => {
     await beginTransaction(conn);
     // Check if entry for current date already exists
     const currentDate = dayjs().tz(IST).format('YYYY-MM-DD');
-    const entryExists = await checkCalculationEntryForDateDao(currentDate);
+    const entryExists = await checkCalculationEntryForDateDao(currentDate, conn);
     if (entryExists) {
       logger.info(`Calculation entry for date ${currentDate} already exists. Skipping cron execution.`);
       return;
     }
 
-    const users = await getUsersForCronDao() || [];
+    const users = await getUsersForCronDao(conn) || [];
     const usersArray = users || [];
 
     // Create IST time in the exact format we want
@@ -96,7 +96,7 @@ const collectCalculationData = async () => {
 
     for (const user of usersArray) {
       try {
-        const calculation = await getCalculationforCronDao(user.id);
+        const calculation = await getCalculationforCronDao(user.id, conn);
         if (calculation.length > 0) {
           const resetData = {
             user_id: calculation[0].user_id,

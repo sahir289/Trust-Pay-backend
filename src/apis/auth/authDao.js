@@ -3,7 +3,7 @@ import { executeQuery } from '../../utils/db.js';
 import { stringifyJSON } from '../../utils/index.js';
 import { logger } from '../../utils/logger.js';
 
-const addLoginDao = async (user_id, config, company_id, sessionId) => {
+const addLoginDao = async (user_id, config, company_id, sessionId, conn = null) => {
   try {
     // const id = generateUUID();
     const configData = stringifyJSON(config, (key, value) =>
@@ -19,7 +19,7 @@ const addLoginDao = async (user_id, config, company_id, sessionId) => {
       WHERE user_id = $1 AND company_id = $2 AND is_obsolete = false
     `;
     
-    await executeQuery(cleanupSql, [user_id, company_id]);
+    await executeQuery(cleanupSql, [user_id, company_id], conn);
     
     // Now insert the new session
     const sql = `
@@ -60,14 +60,14 @@ const getLoginDao = async (user_id, company_id) => {
   }
 };
 
-const getSessionByIdDao = async (decodeToken) => {
+const getSessionByIdDao = async (decodeToken, conn = null) => {
   try {
     const query = `SELECT session_id, config FROM "${tableName.ACCESS_TOKEN}" WHERE user_id=$1 AND company_id=$2 and is_obsolete = false`;
 
     const result = await executeQuery(query, [
       decodeToken.user_id,
       decodeToken.company_id,
-    ]);
+    ], conn);
     return result.rows?.[0] || undefined;
   } catch (error) {
     logger.error('Error in getting session details', error);
@@ -90,7 +90,7 @@ const updateSessionDao = async (user_id, company_id, session_id, config) => {
   }
 };
 
-const deleteUserSessionsDao = async (user_id, company_id, session_id) => {
+const deleteUserSessionsDao = async (user_id, company_id, session_id, conn = null) => {
   try {
     let query = `UPDATE "${tableName.ACCESS_TOKEN}" SET is_obsolete = true WHERE user_id = $1 AND company_id = $2`;
     const params = [user_id, company_id];
@@ -100,7 +100,7 @@ const deleteUserSessionsDao = async (user_id, company_id, session_id) => {
       params.push(session_id);
     }
 
-    const result = await executeQuery(query, params);
+    const result = await executeQuery(query, params, conn);
     
     return result.rows;
   } catch (error) {

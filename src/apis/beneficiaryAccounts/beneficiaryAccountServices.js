@@ -262,7 +262,7 @@ const _getBeneficiaryAccountServiceByBankNameInternal = async (
     if (role == Role.VENDOR) {
       filters.user_id = [user_id];
     }
-    const userHierarchys = await getUserHierarchysDao({ user_id });
+    const userHierarchys = await getUserHierarchysDao({ user_id }, null, null, null, null, null, conn);
     if (designation == Role.VENDOR_OPERATIONS) {
       const parentID = userHierarchys[0]?.config?.parent;
       if (parentID) {
@@ -426,6 +426,7 @@ const createBeneficiaryAccountService = async (payload, company_id) => {
 };
 
 const _updateBeneficiaryAccountService = async (ids, payload, conn) => {
+  try {
   if (payload.acc_no) {
     let filters = {};
     filters.acc_no = payload.acc_no;
@@ -467,6 +468,10 @@ const _updateBeneficiaryAccountService = async (ids, payload, conn) => {
   //   category: 'Beneficiary Account',
   // });
   return result;
+  } catch (error) {
+    logger.error('error in _updateBeneficiaryAccountService', error);
+    throw error;
+  }
 };
 
 const updateBeneficiaryAccountService = async (ids, payload) => {

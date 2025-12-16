@@ -72,7 +72,7 @@ const _createMerchantServiceInternal = async (payload, conn) => {
       userDesignation === Role.SUB_MERCHANT
     ) {
       try {
-        const hierarchy = await getUserHierarchysDao({ user_id: parentId });
+        const hierarchy = await getUserHierarchysDao({ user_id: parentId }, null, null, null, null, null, conn);
         if (!hierarchy || !hierarchy[0]?.id) {
           logger.error('No hierarchy found for parentId:', parentId);
           return;
@@ -163,7 +163,7 @@ const getMerchantsService = async (
         ? [user_id]
         : [];
     if (role === Role.MERCHANT) {
-      const userHierarchys = await getUserHierarchysDao({ user_id });
+      const userHierarchys = await getUserHierarchysDao({ user_id }, null, null, null, null, null);
       const userHierarchy = userHierarchys[0];
       if (designation === Role.MERCHANT || designation === Role.SUB_MERCHANT) {
         if (userHierarchy?.config?.siblings?.sub_merchants) {

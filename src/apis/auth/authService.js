@@ -34,7 +34,8 @@ const loginService = async (config, clientIP, retryCount = 0) => {
   const MAX_RETRIES = 2;
   let conn;
   try {
-    let user = await getUsersByUserNameDao({}, config.username);
+    conn = await getConnection();
+    let user = await getUsersByUserNameDao({}, config.username, conn);
     if (!user) {
       throw new NotFoundError('User Not Found.');
     }
@@ -65,7 +66,7 @@ const loginService = async (config, clientIP, retryCount = 0) => {
         throw new NotFoundError('Invalid current password. Please try again.');
       }
       const hashedPassword = await createHash(config.newPassword);
-      conn = await getConnection();
+      
       try {
         await updateUserDao(
           { id: user.id },
@@ -98,7 +99,7 @@ const loginService = async (config, clientIP, retryCount = 0) => {
     }
 
     // Proceed with session and token generation for non-first login
-    conn = conn || (await getConnection());
+    // conn = conn || (await getConnection());
     
     try {
       // Start a transaction with read committed isolation for better concurrency
@@ -107,7 +108,7 @@ const loginService = async (config, clientIP, retryCount = 0) => {
       
       // First, immediately invalidate ALL existing sessions for this user
       // This prevents any race condition with multiple simultaneous logins
-      await deleteUserSessionsDao(user.id, user.company_id, null);
+      await deleteUserSessionsDao(user.id, user.company_id, null, conn);
       
       // Add a small delay to ensure any concurrent operations complete
       await new Promise(resolve => setTimeout(resolve, 50));
@@ -135,7 +136,7 @@ const loginService = async (config, clientIP, retryCount = 0) => {
       };
 
       // Create new session - this should be the only active session
-      await addLoginDao(user.id, newConfig, user.company_id, sessionId);
+      await addLoginDao(user.id, newConfig, user.company_id, sessionId, conn);
       
       // Commit the transaction
       await conn.query('COMMIT');

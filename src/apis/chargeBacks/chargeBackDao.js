@@ -21,11 +21,11 @@ export const createChargeBackDao = async (data, conn = null) => {
   }
 };
 
-export const getChargebackByIdDao = async (filters) => {
+export const getChargebackByIdDao = async (filters, conn = null) => {
   try {
     const query = `SELECT id, sno, merchant_user_id, vendor_user_id, payin_id, bank_acc_id, amount,config, reference_date, created_by, updated_by, created_at, updated_at FROM "${tableName.CHARGE_BACK}" WHERE 1=1`;
     const [sql, parameters] = buildSelectQuery(query, filters);
-    const result = await executeQuery(sql, parameters);
+    const result = conn ? await conn.query(sql, parameters) : await executeQuery(sql, parameters);
     return result.rows;
   } catch (error) {
     logger.error(error);
@@ -42,6 +42,7 @@ export const getChargeBackDao = async (
   sortOrder,
   columns = [],
   role,
+  conn = null,
 ) => {
   try {
     const {
@@ -243,7 +244,7 @@ export const getChargeBackDao = async (
       );
     }
 
-    const result = await executeQuery(baseQuery, queryParams);
+    const result = await executeQuery(baseQuery, queryParams, conn);
     return result.rows;
   } catch (error) {
     logger.error('Error fetching ChargeBack entries:', error);

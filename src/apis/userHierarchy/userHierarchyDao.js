@@ -40,6 +40,7 @@ export const getUserHierarchysDao = async (
   sortBy,
   sortOrder,
   columns = [],
+  conn = null,
 ) => {
   try {
     const baseQuery = `SELECT ${columns.length ? columns.join(', ') : '*'} FROM "${tableName.USER_HIERARCHY}" WHERE 1=1`;
@@ -57,7 +58,7 @@ export const getUserHierarchysDao = async (
       sortOrder,
     );
     // Execute query
-    const result = await executeQuery(sql, queryParams);
+    const result = conn ? await conn.query(sql, queryParams) : await executeQuery(sql, queryParams);
     return result.rows;
   } catch (error) {
     logger.error('Error in get UserHierarchy Dao:', error);

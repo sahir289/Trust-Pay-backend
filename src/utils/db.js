@@ -183,13 +183,13 @@ const rollback = async (client, throwError = true) => {
   }
 };
 
-export const executeQuery = async (query, queryParams = []) => {
+export const executeQuery = async (query, queryParams = [], conn = null) => {
   const maxRetries = 3; // Number of retries for transient errors
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       const isSelect = query.trim().toUpperCase().startsWith('SELECT');
       const pool = isSelect ? readerPool : writerPool;
-      const result = await pool.query(query, queryParams);
+      const result = conn ? await conn.query(query, queryParams) : await pool.query(query, queryParams);
       return result;
     } catch (error) {
       logger.error(`Error while executing query (Attempt ${attempt}):`, error);

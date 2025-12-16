@@ -580,11 +580,11 @@ const _linkVendorServiceInternal = async (
   conn,
 ) => {
   try {
-    if (!(await isNetBalanceZeroForTwoHours(subVendorUserId))) {
+    if (!(await isNetBalanceZeroForTwoHours(subVendorUserId, conn))) {
       throw new BadRequestError('Vendor net balance must be zero to link.');
     }
-    const parent = await getVendorByUserId(vendorUserId);
-    const banks = await getBankaccountCheckDao({ user_id: vendorUserId });
+    const parent = await getVendorByUserId(vendorUserId, conn);
+    const banks = await getBankaccountCheckDao({ user_id: vendorUserId }, conn);
     if (banks) {
       throw new BadRequestError(
         'Parent cannot contain any existing banks. Please remove all banks from the parent before adding a new Vendor.',
@@ -738,8 +738,8 @@ const _transferVendorServiceInternal = async (
     if (!(await isNetBalanceZeroForTwoHours(subVendorUserId))) {
       throw new BadRequestError('Vendor net balance must be zero to transfer.');
     }
-    const parent = await getVendorByUserId(newVendorUserId);
-    const banks = await getBankaccountCheckDao({ user_id: newVendorUserId });
+    const parent = await getVendorByUserId(newVendorUserId, conn);
+    const banks = await getBankaccountCheckDao({ user_id: newVendorUserId }, conn);
     if (banks) {
       throw new BadRequestError(
         'Parent cannot contain any existing banks. Please remove all banks from the New parent before transfering a new Vendor.',

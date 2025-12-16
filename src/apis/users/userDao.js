@@ -421,7 +421,7 @@ const getUserDao = async (id) => {
     throw error;
   }
 };
-const getUsersByUserNameDao = async (ids, username) => {
+const getUsersByUserNameDao = async (ids, username, conn = null) => {
   try {
     let baseQuery = `
       SELECT 
@@ -466,7 +466,7 @@ const getUsersByUserNameDao = async (ids, username) => {
       queryParams.push(ids.company_id);
     }
 
-    const result = await executeQuery(baseQuery, queryParams);
+    const result = await executeQuery(baseQuery, queryParams, conn);
     if (result.rowCount === 0) {
       logger.info(`No user found with username: ${username}`);
       return null;
@@ -499,10 +499,10 @@ const createUserDao = async (payload, conn = null) => {
 };
 
 /////no params get all users data
-const getUsersForCronDao = async () => {
+const getUsersForCronDao = async (conn = null) => {
   try {
     const sql = `SELECT id  FROM public."User" where is_obsolete = false`;
-    const result = await executeQuery(sql);
+    const result = conn ? await conn.query(sql) : await executeQuery(sql);
     if (result.rows.length === 0) {
       logger.info('No users Found');
       return [];

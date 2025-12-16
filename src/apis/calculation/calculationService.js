@@ -453,7 +453,7 @@ const calculateSuccessRatiosService = async (date, user_ids) => {
     // Get merchants data using user_ids
     const merchants = await getMerchantsDao({
       user_id: user_ids,
-    });
+    }, null, null, null, null, 'ADMIN', conn);
 
     // Process each merchant in parallel using user_ids
     const successRatiosPromises = user_ids.map(async (userId) => {
@@ -482,7 +482,7 @@ const updateCalculationsService = async (filters) => {
 
     const { date, user_id, startDate, endDate, company_id } = filters;
 
-    const role = await getUserRoleDao(user_id);
+    const role = await getUserRoleDao(user_id, conn);
 
     // Validate user_id
     if (!user_id || typeof user_id !== 'string') {
@@ -531,7 +531,7 @@ const updateCalculationsService = async (filters) => {
       startDate: calculationStartDate,
       endDate: calculationEndDate,
       role,
-    });
+    }, conn);
 
     let processedUsers = [];
     let updatedCount = 0;
