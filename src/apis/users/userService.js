@@ -147,12 +147,12 @@ const getUsersBySearchService = async (
   user_id,
 ) => {
   try {
-    const filterColumns =
-      role === Role.MERCHANT
-        ? merchantColumns.USER
-        : role === Role.VENDOR || role === Role.SUB_VENDOR
-          ? vendorColumns.USER
-          : columns.USER;
+    // const filterColumns =
+    //   role === Role.MERCHANT
+    //     ? merchantColumns.USER
+    //     : role === Role.VENDOR || role === Role.SUB_VENDOR
+    //       ? vendorColumns.USER
+    //       : columns.USER;
 
     const pageNumber = parseInt(page, 10) || 1;
     const pageSize = parseInt(limit, 10) || 10;
@@ -246,8 +246,8 @@ const getUsersBySearchService = async (
       searchTerms,
       pageNumber,
       pageSize,
-      filterColumns,
       role,
+      null, // conn
     );
 
     return data;

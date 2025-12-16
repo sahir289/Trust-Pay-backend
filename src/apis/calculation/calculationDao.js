@@ -1473,9 +1473,7 @@ export const getCalculationforCronDao = async (userId, conn = null) => {
       LIMIT 1
     `;
     // Ensure userId is correctly passed as an array
-    const result = conn
-      ? await conn.query(sql, [userId])
-      : await executeQuery(sql, [userId]);
+    const result = conn ? await conn.query(sql, [userId]) : await executeQuery(sql, [userId], conn);
     return result.rows;
   } catch (error) {
     logger.error('Error fetching Calculation', error);
@@ -1526,9 +1524,7 @@ export const checkTodayCalculationExistsDao = async (conn = null) => {
 const createCalculationDao = async (data, conn = null) => {
   try {
     const [sql, params] = buildInsertQuery(tableName.CALCULATION, data);
-    const result = conn
-      ? await conn.query(sql, params)
-      : await executeQuery(sql, params);
+    const result = conn ? await conn.query(sql, params) : await executeQuery(sql, params, conn);
     return result.rows ? result.rows[0] : result[0]; // Return the first row or result based on the structure
   } catch (error) {
     logger.error('Error creating calculation:', error); // Log the error for debugging
@@ -1539,9 +1535,7 @@ const createCalculationDao = async (data, conn = null) => {
 const updateCalculationDao = async (id, data, conn = null) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.CALCULATION, data, id);
-    const result = conn
-      ? await conn.query(sql, params)
-      : await executeQuery(sql, params);
+    const result = conn ? await conn.query(sql, params) : await executeQuery(sql, params, conn);
     return result.rows ? result.rows[0] : result[0]; // Return the first row or result based on the structure
   } catch (error) {
     logger.error('Error updating calculation:', error); // Log the error for debugging
@@ -1563,9 +1557,7 @@ const deleteCalculationDao = async (id, data, conn = null) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.CALCULATION, data, id);
 
-    const result = conn
-      ? await conn.query(sql, params)
-      : await executeQuery(sql, params);
+    const result = conn ? await conn.query(sql, params) : await executeQuery(sql, params, conn);
 
     return result.rows ? result.rows[0] : result[0]; // Return the first row or result based on the structure
   } catch (error) {

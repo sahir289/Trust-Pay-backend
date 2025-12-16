@@ -1382,7 +1382,7 @@ const getBankResponseBySearchService = async (
       sortOrder || 'DESC',
       payload.startDate || undefined,
       payload.endDate || undefined,
-      role
+      null, // conn
     );
 
     return data;
