@@ -20,7 +20,6 @@ const getSettlementDao = async (
   sortBy,
   sortOrder,
   columns = [],
-  conn = null,
 ) => {
   try {
     const { SETTLEMENT, USER, ROLE, BENEFICIARY_ACCOUNTS, MERCHANT, VENDOR } =
@@ -270,7 +269,7 @@ const getSettlementDao = async (
       ${limitcondition.value}
     `;
 
-    const result = conn ? await conn.query(finalQuery, queryParams) : await executeQuery(finalQuery, queryParams);
+    const result = await executeQuery(finalQuery, queryParams);
     return result.rows;
   } catch (error) {
     logger.error('Error in getSettlementDao:', error);
@@ -649,7 +648,7 @@ const getSettlementsBySearchDao = async (
   }
 };
 
-const getSettlementByUTRDao = async (utr, conn = null) => {
+const getSettlementByUTRDao = async (utr) => {
   try {
     let baseQuery = `SELECT
       id,
@@ -672,7 +671,7 @@ const getSettlementByUTRDao = async (utr, conn = null) => {
       config ->> 'reference_id' = $1`;
 
     const queryParams = [utr];
-    const result = conn ? await conn.query(baseQuery, queryParams) : await executeQuery(baseQuery, queryParams);
+    const result = await executeQuery(baseQuery, queryParams);
     return result.rows.length > 0 ? result.rows : result.rows[0];
   } catch (error) {
     logger.error(error);

@@ -217,6 +217,7 @@ const getBankResponseBySearchDao = async (
   start_date,
   end_date,
   // role
+  conn = null,
 ) => {
   try {
     let data;
@@ -466,14 +467,14 @@ const getBankResponseBySearchDao = async (
     const offset = (page - 1) * pageSize;
     queryText += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
     values.push(Number(pageSize), offset);
-    const countResult = await executeQuery(countQuery, values.slice(0, -2));
-    let searchResult = await executeQuery(queryText, values);
+    const countResult = conn ? await conn.query(countQuery, values.slice(0, -2)) : await executeQuery(countQuery, values.slice(0, -2), conn);
+    let searchResult = conn ? await conn.query(queryText, values) : await executeQuery(queryText, values, conn);
 
     const totalCount = parseInt(countResult.rows[0].total);
     let totalPages = Math.ceil(totalCount / Number(pageSize));
     if (totalCount > 0 && searchResult.rows.length === 0 && offset > 0) {
       values[values.length - 1] = 0;
-      searchResult = await executeQuery(queryText, values);
+      searchResult = conn ? await conn.query(queryText, values) : await executeQuery(queryText, values, conn);
       totalPages = Math.ceil(totalCount / pageSize);
     }
     data = {
@@ -1139,6 +1140,7 @@ const getBankMessageDao = async (
   // pageSize,
   // sortBy,
   // sortOrder
+  conn = null,
 ) => {
   try {
     const query = `SELECT * FROM "BankResponse" 
@@ -1150,7 +1152,7 @@ const getBankMessageDao = async (
       ORDER BY "created_at" DESC 
       LIMIT $4 OFFSET $5`;
     const values = [bank_id, startDate, endDate, 10, 0, company_id];
-    const result = await executeQuery(query, values);
+    const result = conn ? await conn.query(query, values) : await executeQuery(query, values, conn);
     return result.rows;
   } catch (error) {
     logger.error('Error in getBankMessageDao:', error);

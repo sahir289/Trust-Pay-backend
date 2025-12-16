@@ -82,7 +82,7 @@ const getBeneficiaryAccountDao = async (filters, page, limit, role, conn = null)
           bea.updated_at DESC  
       ${limitcondition};
       `;
-    const result = await executeQuery(baseQuery, queryParams, conn);
+    const result = conn ? await conn.query(baseQuery, queryParams) : await executeQuery(baseQuery, queryParams);
     return result.rows;
   } catch (error) {
     logger.error('Error in get BeneficiaryAccount Dao:', error);
@@ -106,7 +106,7 @@ const checkBeneficiaryAccountExistsDao = async (filters, conn = null) => {
     `;
 
     const params = [acc_no, company_id];
-    const result = await executeQuery(query, params, conn);
+    const result = conn ? await conn.query(query, params) : await executeQuery(query, params);
 
     return result.rows.length > 0;
   } catch (error) {
@@ -115,7 +115,7 @@ const checkBeneficiaryAccountExistsDao = async (filters, conn = null) => {
   }
 };
 
-const getBeneficiaryAccountDaoAll = async (filters, page, limit, role) => {
+const getBeneficiaryAccountDaoAll = async (filters, page, limit, role, conn = null) => {
   try {
     let queryParams = [];
     let conditions = [`bea.is_obsolete = false`];
@@ -196,7 +196,7 @@ const getBeneficiaryAccountDaoAll = async (filters, page, limit, role) => {
     ORDER BY bea.updated_at DESC
     ${limitCondition};`;
 
-    const result = await executeQuery(baseQuery, queryParams);
+    const result = conn ? await conn.query(baseQuery, queryParams) : await executeQuery(baseQuery, queryParams, conn);
     return result.rows;
   } catch (error) {
     logger.error('Error in get BeneficiaryAccount Dao:', error);
@@ -210,6 +210,7 @@ const getBeneficiaryAccountBySearchDao = async (
   limit,
   role,
   searchTerms,
+  conn = null,
 ) => {
   try {
     let queryParams = [];
@@ -329,11 +330,12 @@ const getBeneficiaryAccountBySearchDao = async (
       WHERE ${conditions.join(' AND ')}
       ${searchConditions.length > 0 ? ` AND (${searchConditions.join(' OR ')})` : ''}`;
 
-    const countResult = await executeQuery(
+    const countResult = conn ? await conn.query(countQuery, queryParams.slice(0, -2)) : await executeQuery(
       countQuery,
       queryParams.slice(0, -2),
+      conn,
     );
-    let searchResult = await executeQuery(baseQuery, queryParams);
+    let searchResult = conn ? await conn.query(baseQuery, queryParams) : await executeQuery(baseQuery, queryParams, conn);
 
     const totalItems = parseInt(countResult.rows[0].total);
     const totalPages = totalItems > 0 ? Math.ceil(totalItems / limit) : 0;
@@ -343,7 +345,7 @@ const getBeneficiaryAccountBySearchDao = async (
       (page - 1) * limit > 0
     ) {
       queryParams[queryParams.length - 1] = 0;
-      searchResult = await executeQuery(baseQuery, queryParams);
+      searchResult = conn ? await conn.query(baseQuery, queryParams) : await executeQuery(baseQuery, queryParams, conn);
     }
     return {
       totalCount: totalItems,
@@ -362,7 +364,7 @@ const createBeneficiaryAccountDao = async (payload, conn = null) => {
       tableName.BENEFICIARY_ACCOUNTS,
       payload,
     );
-    const result = await executeQuery(sql, params, conn);
+    const result = conn ? await conn.query(sql, params) : await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
     logger.error(error);
@@ -406,7 +408,7 @@ const getBeneficiaryAccountDaoByBankName = async (
     `;
 
     // Execute query
-    const result = await executeQuery(baseQuery, queryParams, conn);
+    const result = conn ? await conn.query(baseQuery, queryParams) : await executeQuery(baseQuery, queryParams);
 
     return {
       totalCount: result.rowCount,
@@ -447,7 +449,7 @@ const deleteBeneficiaryDao = async (id, data, conn = null) => {
       data,
       id,
     );
-    const result = await executeQuery(sql, params, conn);
+    const result = conn ? await conn.query(sql, params) : await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in deleteBeneficiaryDao:', error);
@@ -459,6 +461,7 @@ export const updateBanktBalanceDao = async (
   filters,
   amount,
   updated_by,
+  conn = null,
 ) => {
   try {
     const [sql, params] = buildUpdateQuery(
@@ -467,7 +470,7 @@ export const updateBanktBalanceDao = async (
       filters,
       { balance: '+', today_balance: '+' },
     );
-    const result = await executeQuery(sql, params);
+    const result = conn ? await conn.query(sql, params) : await executeQuery(sql, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error(error);

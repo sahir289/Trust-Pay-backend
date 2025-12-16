@@ -314,7 +314,7 @@ export const getPayoutByUtrIdDao = async (utr_id, company_id, conn = null) => {
   }
 }
 
-export const getPayoutBankDetailsDao = async (filters, company_id) => {
+export const getPayoutBankDetailsDao = async (filters, company_id, conn = null) => {
   try {
     const conditions = [`u.is_obsolete = false`];
     const queryParams = [];
@@ -349,7 +349,7 @@ export const getPayoutBankDetailsDao = async (filters, company_id) => {
       ORDER BY u.sno DESC
     `;
 
-    const result = await executeQuery(baseQuery, queryParams);
+    const result = conn ? await conn.query(baseQuery, queryParams) : await executeQuery(baseQuery, queryParams, conn);
     return result.rows;
 
   } catch (error) {
@@ -566,6 +566,7 @@ export const getPayoutsBySearchDao = async (
   offset,
   role,
   ifamount = false,
+  conn = null,
 ) => {
   try {
     const conditions = [`p.is_obsolete = false`, `p.company_id = $1`];
@@ -1024,7 +1025,7 @@ export const getPayoutsBySearchDao = async (
       `;
 
       // Execute amount query
-      const amountResult = await executeQuery(amountQuery, amountParams);
+      const amountResult = conn ? await conn.query(amountQuery, amountParams) : await executeQuery(amountQuery, amountParams, conn);
       totalAmount = parseFloat(amountResult.rows[0]?.total_amount || 0);
     }
 
@@ -1037,11 +1038,12 @@ export const getPayoutsBySearchDao = async (
     queryParams.push(limitNum, offset);
 
     // Execute main queries
-    const countResult = await executeQuery(
+    const countResult = conn ? await conn.query(countQuery, queryParams.slice(0, -2)) : await executeQuery(
       countQuery,
       queryParams.slice(0, -2),
+      conn,
     );
-    const searchResult = await executeQuery(queryText, queryParams);
+    const searchResult = conn ? await conn.query(queryText, queryParams) : await executeQuery(queryText, queryParams, conn);
     let finalResult = searchResult;
     if (
       parseInt(countResult.rows[0].total) > 0 &&
@@ -1049,7 +1051,7 @@ export const getPayoutsBySearchDao = async (
       offset > 0
     ) {
       queryParams[queryParams.length - 1] = 0; 
-      finalResult = await executeQuery(queryText, queryParams);
+      finalResult = conn ? await conn.query(queryText, queryParams) : await executeQuery(queryText, queryParams, conn);
     }
     const data = {
       ...(ifamount && { totalAmount: totalAmount }),
@@ -1175,14 +1177,14 @@ export const updatePayoutDao = async (ids, data, conn = null) => {
   }
 };
 
-export const getPayoutByTxnId = async (txnId) => {
+export const getPayoutByTxnId = async (txnId, conn = null) => {
   try {
     const query = `
       SELECT * FROM public."Payout"
       WHERE config->>'txnid' = $1
     `;
     const params = [txnId];
-    const result = await executeQuery(query, params);
+    const result = conn ? await conn.query(query, params) : await executeQuery(query, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error occurred while fetching payout by txnId:', error);

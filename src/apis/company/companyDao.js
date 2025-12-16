@@ -27,11 +27,11 @@ const getCompanyDao = async (filters, page, pageSize, sortBy, sortOrder, conn) =
     throw error;
   }
 };
-const getCompanyDetailsByIdDao = async (id) => {
+const getCompanyDetailsByIdDao = async (id, conn = null) => {
   try {
     const baseQuery = `SELECT CONCAT(first_name, ' ', last_name) AS full_name, config ->> 'allowPayAssist' AS allowPayAssist, config ->> 'allowTataPay' AS allowTataPay, config ->> 'allow_clickrr' AS allow_clickrr FROM "${tableName.COMPANY}" WHERE 1 = 1`;
     const [sql, queryParams] = buildSelectQuery(baseQuery, id);
-    const result = await executeQuery(sql, queryParams);
+    const result = await executeQuery(sql, queryParams, conn);
     return result.rows.length > 0 ? result.rows : result.rows[0];
   } catch (error) {
     logger.error('Error fetching company details by ID:', error);
@@ -39,12 +39,12 @@ const getCompanyDetailsByIdDao = async (id) => {
   }
 };
 
-const getClickrrDetailsByCompanyIdDao = async (id) => {
+const getClickrrDetailsByCompanyIdDao = async (id, conn = null) => {
   try {
     const sql = `SELECT config -> 'CLICKRR' ->> 'api_key' AS api_key,
     config -> 'CLICKRR' ->> 'api_secret' AS api_secret FROM "${tableName.COMPANY}" WHERE id = $1`;
     const queryParams = [id];
-    const result = await executeQuery(sql, queryParams);
+    const result = await executeQuery(sql, queryParams, conn);
     return result.rows.length > 0 ? result.rows[0] : result.rows;
   } catch (error) {
     logger.error('Error fetching clickrr details by companyId:', error);
@@ -52,12 +52,12 @@ const getClickrrDetailsByCompanyIdDao = async (id) => {
   }
 };
 
-const getBepayDetailsByCompanyIdDao = async (id) => {
+const getBepayDetailsByCompanyIdDao = async (id, conn = null) => {
   try {
     const sql = `SELECT config -> 'Bepay' ->> 'api_key' AS api_key,
     config -> 'Bepay' ->> 'api_secret' AS api_secret FROM "${tableName.COMPANY}" WHERE id = $1`;
     const queryParams = [id];
-    const result = await executeQuery(sql, queryParams);
+    const result = await executeQuery(sql, queryParams, conn);
     return result.rows.length > 0 ? result.rows[0] : result.rows;
   } catch (error) {
     logger.error('Error fetching Bepay details by companyId:', error);
@@ -65,7 +65,7 @@ const getBepayDetailsByCompanyIdDao = async (id) => {
   }
 };
 
-const getCashfreeAllowByCompanyIdDao = async (id) => {
+const getCashfreeAllowByCompanyIdDao = async (id, conn = null) => {
   try {
     const sql = `
       SELECT 
@@ -78,7 +78,7 @@ const getCashfreeAllowByCompanyIdDao = async (id) => {
       WHERE id = $1
     `
     const queryParams = [id];
-    const result = await executeQuery(sql, queryParams);
+    const result = await executeQuery(sql, queryParams, conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error fetching company details by ID:', error);
@@ -90,7 +90,7 @@ const getCompanyByIDDao = async (filters, conn = null) => {
   try {
     const baseQuery = `SELECT id,config FROM "${tableName.COMPANY}" WHERE 1=1`;
     const [sql, queryParams] = buildSelectQuery(baseQuery, filters);
-    const result = conn ? conn.query(sql, queryParams) : await executeQuery(sql, queryParams);
+    const result = conn ? await conn.query(sql, queryParams) : await executeQuery(sql, queryParams, conn);
     return result.rows.length > 0 ? result.rows : result.rows[0];
   } catch (error) {
     logger.error('Error fetching company:', error);
@@ -98,10 +98,10 @@ const getCompanyByIDDao = async (filters, conn = null) => {
   }
 };
 
-const createCompanyDao = async (payload) => {
+const createCompanyDao = async (payload, conn = null) => {
   try {
     const [sql, params] = buildInsertQuery(tableName.COMPANY, payload);
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error fetching company:', error);
@@ -109,10 +109,10 @@ const createCompanyDao = async (payload) => {
   }
 };
 
-const updateCompanyDao = async (id, data) => {
+const updateCompanyDao = async (id, data, conn = null) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.COMPANY, data, id);
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error updating company:', error); // Log the error for debugging
@@ -130,10 +130,10 @@ const updateCompanyConfigDao = async (id, data, conn) => {
   );
 };
 
-const deleteCompanyDao = async (id, data) => {
+const deleteCompanyDao = async (id, data, conn = null) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.COMPANY, data, id);
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error deleting company:', error); // Log the error for debugging

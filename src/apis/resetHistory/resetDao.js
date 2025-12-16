@@ -16,6 +16,7 @@ const getResetHistoryDao = async (
   startDate,
   endDate,
   columns = [],
+  conn = null
 ) => {
   try {
     const { BANK_RESPONSE, RESET_DATA_HISTORY, PAYIN, USER } = tableName;
@@ -115,7 +116,7 @@ const getResetHistoryDao = async (
     // paramIndex += 2;
 
     // Execute both queries
-    const [result] = await Promise.all([executeQuery(sql, queryParams)]);
+    const [result] = await Promise.all([executeQuery(sql, queryParams, conn)]);
 
     return {
       resetHistory: result.rows,
@@ -131,6 +132,7 @@ const getResetHistoryBySearchDao = async (
   searchTerms,
   limitNum,
   offset,
+  conn = null
 ) => {
   try {
     const conditions = [];
@@ -206,14 +208,14 @@ const getResetHistoryBySearchDao = async (
     `;
     values.push(limitNum, offset);
 
-    const countResult = await executeQuery(countQuery, values.slice(0, -2));
-    let searchResult = await executeQuery(queryText, values);
+    const countResult = await executeQuery(countQuery, values.slice(0, -2), conn);
+    let searchResult = await executeQuery(queryText, values, conn);
 
     const totalItems = parseInt(countResult.rows[0].total);
     let totalPages = Math.ceil(totalItems / limitNum);
     if (totalItems > 0 && searchResult.rows.length === 0 && offset > 0) {
       values[values.length - 1] = 0; 
-      searchResult = await executeQuery(queryText, values);
+      searchResult = await executeQuery(queryText, values, conn);
       totalPages = Math.ceil(totalItems / limitNum);
     }
     return {
@@ -232,7 +234,7 @@ const createResetHistoryDao = async (payload, conn = null) => {
     const [sql, params] = buildInsertQuery(tableName, payload);
     const result = conn 
       ? await conn.query(sql, params)
-      : await executeQuery(sql, params);
+      : await executeQuery(sql, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in createResetHistoryDao:', error);
@@ -246,7 +248,7 @@ const updateResetHistoryDao = async (id, data, conn = null) => {
     const [sql, params] = buildUpdateQuery(tableName, data, { id });
     const result = conn 
       ? await conn.query(sql, params)
-      : await executeQuery(sql, params);
+      : await executeQuery(sql, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in updateResetHistoryDao:', error);
@@ -254,11 +256,11 @@ const updateResetHistoryDao = async (id, data, conn = null) => {
   }
 };
 
-const deleteResetHistoryDao = async (id, data) => {
+const deleteResetHistoryDao = async (id, data, conn = null) => {
   try {
     const tableName = 'ResetHistory';
     const [sql, params] = buildUpdateQuery(tableName, data, { id });
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in deleteResetHistoryDao:', error);
