@@ -615,7 +615,7 @@ const createBankResponseService = async (
           const updatePayin = await updatePayInUrlDao(
             payInUtr.id,
             payInData,
-            // { utr: botRes.utr, amount: botRes.amount }, //temperary
+            { utr: botRes.utr, amount: botRes.amount }, //temperary
             localConn,
           );
           await updateBotResponseDao(botRes.id, { is_used: true }, localConn);
@@ -1827,7 +1827,7 @@ const handleUtrUpdate = async ({
       await updatePayInUrlDao(payIn[0].id, {
         user_submitted_utr: utr,
         updated_by: user_id,
-      }, conn);
+      }, null, conn);
       await newTableEntry(tableName.PAYIN);
     }
     await updateBotResponseDao(botRes.id, updateData, conn);
@@ -2085,7 +2085,7 @@ const updatePayInData = async ({ payInData, user_name, botRes }) => {
         bank_response_id: null,
         updated_by: user_name,
       };
-      await updatePayInUrlDao(updatePayinID[0].id, updatePayinData);
+      await updatePayInUrlDao(updatePayinID[0].id, updatePayinData, );
       await newTableEntry(tableName.PAYIN);
     }
   } catch (error) {
