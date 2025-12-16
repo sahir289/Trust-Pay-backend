@@ -426,11 +426,20 @@ export default formattedSuccessRatiosForAllCompanies;
 //   }
 // };
 
+let successRatioCronJob = null;
+
 //run only on server - side /production level
 if (config?.env === 'production') {
-  cron.schedule('*/11 * * * *', () => {
+  successRatioCronJob = cron.schedule('*/11 * * * *', () => {
     formattedSuccessRatiosForAllCompanies();
   });
 } else {
   logger.warn('Cron jobs are disabled in non-production environments.');
 }
+
+export const stopSuccessRatioCron = () => {
+  if (successRatioCronJob) {
+    successRatioCronJob.stop();
+    logger.info('Success ratio cron job stopped');
+  }
+};

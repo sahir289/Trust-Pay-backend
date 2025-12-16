@@ -22,10 +22,13 @@ const IST = 'Asia/Kolkata';
 let retryCount = 0;
 const MAX_RETRIES = 3; // Total attempts: 1 initial + 2 retries
 
+let calculationCronJob = null;
+// let retryCronJob = null;
+
 // Only run cron jobs in production environment
 if (config?.env === 'production') {
   // Main cron job at midnight
-  cron.schedule(
+  calculationCronJob = cron.schedule(
     '0 0 * * *',
     async () => {
       retryCount = 0; // Reset retry count for new day
@@ -69,6 +72,13 @@ const executeWithRetry = async (attemptDescription) => {
 const markExecution = () => {
   const currentDate = dayjs().tz(IST).format('YYYY-MM-DD');
   logger.info(`Cron execution marked successfully for date: ${currentDate}`);
+};
+
+export const stopCalculationCron = () => {
+  if (calculationCronJob) {
+    calculationCronJob.stop();
+    logger.info('Calculation cron job stopped');
+  }
 };
 
 const collectCalculationData = async () => {

@@ -23,9 +23,12 @@ let dailyRetryCount = 0;
 let hourlyRetryCount = 0;
 const MAX_RETRIES = 3; // Total attempts: 1 initial + 2 retries
 
+let dailyCronJob = null;
+let hourlyCronJob = null;
+
 //run only on server - side /production level
 if (config?.env === 'production') {
-  cron.schedule('0 0 * * *', async () => {
+  dailyCronJob = cron.schedule('0 0 * * *', async () => {
     dailyRetryCount = 0; // Reset retry count for new day
     await executeWithRetry(
       'daily',
@@ -33,7 +36,7 @@ if (config?.env === 'production') {
     );
   });
 
-  cron.schedule('0,30 * * * *', async () => {
+  hourlyCronJob = cron.schedule('0,30 * * * *', async () => {
     hourlyRetryCount = 0; // Reset retry count for new hour
     const currentHour = dayjs().tz('Asia/Kolkata').hour();
     const now = dayjs().tz('Asia/Kolkata');
@@ -463,6 +466,17 @@ const gatherAllData = async (
     logger.info(`Dashboard Report CRON Ended for company: ${company_id}`);
   } catch (error) {
     logger.error(`Error in gatherAllData for company ${company_id}: ${error}`);
+  }
+};
+
+export const stopGatherAllDataCron = () => {
+  if (dailyCronJob) {
+    dailyCronJob.stop();
+    logger.info('Daily gather all data cron job stopped');
+  }
+  if (hourlyCronJob) {
+    hourlyCronJob.stop();
+    logger.info('Hourly gather all data cron job stopped');
   }
 };
 

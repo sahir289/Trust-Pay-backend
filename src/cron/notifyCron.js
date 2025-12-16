@@ -10,14 +10,23 @@ import { logger } from '../utils/logger.js';
 import { calculateDuration } from '../helpers/index.js';
 import config from '../config/config.js';
 
+let notifyCronJob = null;
+
 if (config?.env == 'production') {
-  cron.schedule('*/10 * * * * *', () => {
+  notifyCronJob = cron.schedule('*/10 * * * * *', () => {
     collectPayinData('Asia/Kolkata');
   });
   logger.info('Running cron job in production environment');
 } else {
   logger.warn('Cron jobs are disabled in non-production environments.');
 }
+
+export const stopNotifyCron = () => {
+  if (notifyCronJob) {
+    notifyCronJob.stop();
+    logger.info('Notify cron job stopped');
+  }
+};
 
 const collectPayinData = async (timezone = 'Asia/Kolkata') => {
   const currentTime = moment().tz(timezone, true);

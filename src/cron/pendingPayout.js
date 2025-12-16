@@ -13,6 +13,7 @@ const formatINR = (num) => {
   }).format(num);
 };
 const telegramSender = createTelegramSender();
+let pendingPayoutCronJob = null;
 const collectPayoutData = async () => {
   try {
     const companies = await getCompanyDao({});
@@ -65,10 +66,17 @@ const sendPayoutTelegramMessage = async (botToken, chatId, message) => {
 };
 
 if (config?.env === 'production') {
-  cron.schedule('0,30 * * * *', collectPayoutData);
+  pendingPayoutCronJob = cron.schedule('0,30 * * * *', collectPayoutData);
   logger.info('Running payout data cron job in production.');
 } else {
   logger.warn('Cron jobs are disabled in non-production environments.');
 }
+
+export const stopPendingPayoutCron = () => {
+  if (pendingPayoutCronJob) {
+    pendingPayoutCronJob.stop();
+    logger.info('Pending payout cron job stopped');
+  }
+};
 
 export default collectPayoutData;

@@ -21,8 +21,10 @@ dayjs.extend(utc);
 dayjs.extend(timezone);
 const IST = 'Asia/Kolkata';
 
+let checkNetbalanceCronJob = null;
+
 if (config?.env === 'production') {
-  cron.schedule(
+  checkNetbalanceCronJob = cron.schedule(
     '1 0 * * *', 
     async () => {
       await runDailyCalculation();
@@ -85,6 +87,13 @@ const processUserCalculation = async (today, yesterday) => {
 
 const markSuccess = (date) => {
   logger.info(`Daily calculation cron completed successfully for date: ${date}`);
+};
+
+export const stopCheckNetbalanceCron = () => {
+  if (checkNetbalanceCronJob) {
+    checkNetbalanceCronJob.stop();
+    logger.info('Check netbalance cron job stopped');
+  }
 };
 
 export default runDailyCalculation;

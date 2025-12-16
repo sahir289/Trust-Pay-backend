@@ -8,6 +8,12 @@ import { closePool } from './src/utils/db.js';
 import { closeRabbitMQ } from './src/utils/rabbitmq.js';
 import { startBankResponseWorker } from './src/worker/consume-bank-response-worker.js';
 import { closeRedis } from './src/utils/redisClient.js';
+import { stopNotifyCron } from './src/cron/notifyCron.js';
+import { stopCalculationCron } from './src/cron/calculationCron.js';
+import { stopPendingPayoutCron } from './src/cron/pendingPayout.js';
+import { stopGatherAllDataCron } from './src/cron/gatherAllData.js';
+import { stopCheckNetbalanceCron } from './src/cron/checkNetbalance.js';
+import { stopSuccessRatioCron } from './src/cron/successRatioCron.js';
 // import { migrateUsersToES } from './src/elasticSearch/user/migrate.js';
 
 const server = createServer(app);
@@ -75,6 +81,15 @@ async function gracefulShutdown(label, err) {
 
   //  we need to close the resources (HTTP server, DB, etc.)
   try {
+    // Stop all cron jobs first
+    logger.info('Stopping all cron jobs...');
+    stopNotifyCron();
+    stopCalculationCron();
+    stopPendingPayoutCron();
+    stopGatherAllDataCron();
+    stopCheckNetbalanceCron();
+    stopSuccessRatioCron();
+    
     await Promise.allSettled([
       new Promise((res) => server.close(res)),
       closePool(),
