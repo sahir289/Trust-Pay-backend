@@ -63,8 +63,6 @@ export const createPool = (connectionString, name) => {
 
   pool.on('connect', (client) => {
     client.query("SET TIME ZONE 'Asia/Kolkata'");
-    // Set statement timeout to 60 seconds to prevent runaway queries
-    client.query("SET statement_timeout = '60000'"); // 60 seconds
   });
 
   pool.on('error', async (err) => {
@@ -198,16 +196,12 @@ export const executeQuery = async (query, queryParams = [], conn = null) => {
       logger.error(`\nQuery: ${query}\nParams: [${queryParams}]`);
 
       // Retry only for transient errors
-      const isTransientError = 
-        error.message.includes('Connection terminated unexpectedly') ||
-        error.code === 'ECONNRESET' ||
-        error.code === 'ETIMEDOUT' ||
-        error.code === 'ENOTFOUND' ||
-        error.code === '57P01'; // PostgreSQL admin shutdown
-        
-      if (isTransientError && attempt < maxRetries) {
-        logger.warn(`Retrying query due to transient error (Attempt ${attempt + 1})...`);
-        await new Promise((resolve) => setTimeout(resolve, 1000 * attempt)); // Exponential backoff
+      if (
+        error.message.includes('Connection terminated unexpectedly') &&
+        attempt < maxRetries
+      ) {
+        logger.warn(`Retrying query (Attempt ${attempt + 1})...`);
+        await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait 1 second before retrying
         continue;
       }
 
