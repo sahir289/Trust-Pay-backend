@@ -86,11 +86,11 @@ const getCashfreeAllowByCompanyIdDao = async (id) => {
   }
 };
 
-const getCompanyByIDDao = async (filters) => {
+const getCompanyByIDDao = async (filters, conn = null) => {
   try {
     const baseQuery = `SELECT id,config FROM "${tableName.COMPANY}" WHERE 1=1`;
     const [sql, queryParams] = buildSelectQuery(baseQuery, filters);
-    const result = await executeQuery(sql, queryParams);
+    const result = conn ? conn.query(sql, queryParams) : await executeQuery(sql, queryParams);
     return result.rows.length > 0 ? result.rows : result.rows[0];
   } catch (error) {
     logger.error('Error fetching company:', error);

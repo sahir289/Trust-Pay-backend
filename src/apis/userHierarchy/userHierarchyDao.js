@@ -43,7 +43,7 @@ export const getUserHierarchysDao = async (
   conn = null,
 ) => {
   try {
-    const baseQuery = `SELECT ${columns.length ? columns.join(', ') : '*'} FROM "${tableName.USER_HIERARCHY}" WHERE 1=1`;
+    const baseQuery = `SELECT ${columns?.length ? columns.join(', ') : '*'} FROM "${tableName.USER_HIERARCHY}" WHERE 1=1`;
     //TODO: columns.USER_HEIRARCHY dynamic search
     if (filters.search) {
       filters.or = buildSearchFilterObj(filters.search, tableName.MERCHANT);
