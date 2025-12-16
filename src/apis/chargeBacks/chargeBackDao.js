@@ -244,7 +244,7 @@ export const getChargeBackDao = async (
       );
     }
 
-    const result = await executeQuery(baseQuery, queryParams);
+    const result = await executeQuery(baseQuery, queryParams, conn);
     return result.rows;
   } catch (error) {
     logger.error('Error fetching ChargeBack entries:', error);
@@ -460,7 +460,7 @@ export const getAllChargeBackDao = async (
       );
     }
 
-    const result = await executeQuery(baseQuery, queryParams);
+    const result = await executeQuery(baseQuery, queryParams, conn);
     return result.rows;
   } catch (error) {
     logger.error('Error fetching ChargeBack entries:', error);
