@@ -7,7 +7,6 @@ import {
   calculateSuccessRatiosService,
   updateCalculationsService,
 } from './calculationService.js';
-import { transactionWrapper } from '../../utils/db.js';
 import {
   VALIDATE_CALCULATION_SCHEMA,
   VALIDATE_UPDATE_CALCULATION_STATUS,
@@ -66,7 +65,7 @@ const createCalculation = async (req, res) => {
     logger.error('payload is required');
     throw new BadRequestError('payload is required');
   }
-  await transactionWrapper(createCalculationService)(payload, role);
+  await createCalculationService(payload, role);
   return sendSuccess(res, {}, 'Create Calculation successfully');
 };
 
@@ -89,7 +88,7 @@ const updateCalculation = async (req, res) => {
   const ids = { company_id, id };
   // Assuming the Payout ID is passed as a parameter
   // Call the service to update the Payout
-  await transactionWrapper(updateCalculationService)(ids, payload, role);
+  await updateCalculationService(ids, payload, role);
   return sendSuccess(res, {}, 'Update Calculation successfully');
 };
 
@@ -103,7 +102,7 @@ const deleteCalculation = async (req, res) => {
   const { company_id } = req.user;
   const { id } = req.params;
   const ids = { id, company_id };
-  await transactionWrapper(deleteCalculationService)(ids, role);
+  await deleteCalculationService(ids, role);
   return sendSuccess(res, {}, 'Delete Calculation successfully');
 };
 
@@ -146,7 +145,7 @@ const updateCalculations = async (req, res) => {
       `Updating calculations for date: ${targetDate}, user_id: ${user_id}`,
     );
 
-    const data = await transactionWrapper(updateCalculationsService)(
+    const data = await updateCalculationsService(
       {
         date: targetDate,
         user_id,

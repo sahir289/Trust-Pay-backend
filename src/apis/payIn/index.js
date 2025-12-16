@@ -26,6 +26,7 @@ import {
   processPayInIMGUTR,
   getPayinsSummary,
   processPayInH2H,
+  verifyPayinsrazorpay,
 } from './payInController.js';
 // import { payInUpdateCashfreeWebhook } from '../../webhooks/index.js';
 import { multerUpload } from '../../utils/index.js';
@@ -194,6 +195,11 @@ router.post('/check-payin-status', tryCatchHandler(checkPayInStatus));
 router.post(
   '/generate-intent-order/:merchantOrderId',
   tryCatchHandler(payInIntentGenerateOrder),
+);
+
+router.post(
+  '/verify-intent-order',
+  tryCatchHandler(verifyPayinsrazorpay),
 );
 
 /**

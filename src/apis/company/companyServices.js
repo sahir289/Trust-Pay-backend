@@ -32,7 +32,7 @@ const getCompanyByIdService = async (id) => {
   }
 };
 
-const createCompanyService = async (conn, payload) => {
+const _createCompanyServiceInternal = async (payload) => {
   try {
     // Validate payload
     // Create company
@@ -57,6 +57,7 @@ const createCompanyService = async (conn, payload) => {
       allow_cashfree: false,
       allow_zentechind: false,
       allow_nmplpay: false,
+      allow_razorpay: false,
       allowTataPay: false,
       allow_clickrr: false,
       PAY_ASSIST: {
@@ -79,7 +80,7 @@ const createCompanyService = async (conn, payload) => {
       },
     };
 
-    const company = await createCompanyDao(conn, {
+    const company = await createCompanyDao({
       first_name: payload.first_name,
       last_name: payload.last_name,
       email: payload.email,
@@ -107,8 +108,9 @@ const createCompanyService = async (conn, payload) => {
       unique_admin_id: unique_id,
       code: payload.first_name.split('').reverse().join(''),
     };
-    // Create user
-    const user = await createUserService(conn, userPayload);
+    // Create user - this will manage its own transaction
+    const user = await createUserService(userPayload);
+
     // Return result
     return {
       company_id: company.id,
@@ -116,6 +118,16 @@ const createCompanyService = async (conn, payload) => {
       designation_ids: designations.map((designation) => designation.id),
       user_id: user.id,
     };
+  } catch (error) {
+    logger.error('error in _createCompanyServiceInternal', error);
+    throw error;
+  }
+};
+
+const createCompanyService = async (payload) => {
+  try {
+    const result = await _createCompanyServiceInternal(payload);
+    return result;
   } catch (error) {
     logger.error('Error while creating company:', error);
     throw error;

@@ -1,6 +1,11 @@
 import { InternalServerError } from '../../utils/appErrors.js';
 import { createHash } from '../../utils/bcryptPassword.js';
-import { getConnection } from '../../utils/db.js';
+import {
+  getConnection,
+  beginTransaction,
+  commit,
+  rollback,
+} from '../../utils/db.js';
 import { generateUUID } from '../../utils/generateUUID.js';
 import { generatePassword } from '../../utils/generatePassword.js';
 import { sendCredentialsEmail } from '../../utils/sendMailer.js';
@@ -23,8 +28,8 @@ import {
   Role,
   vendorColumns,
 } from '../../constants/index.js';
-import { createMerchantService } from '../merchants/merchantService.js';
-import { createVendorService } from '../vendors/vendorService.js';
+import { _createMerchantServiceInternal } from '../merchants/merchantService.js';
+import { _createVendorServiceInternal } from '../vendors/vendorService.js';
 import { BadRequestError } from '../../utils/appErrors.js';
 import { logger } from '../../utils/logger.js';
 import {
@@ -142,12 +147,12 @@ const getUsersBySearchService = async (
   user_id,
 ) => {
   try {
-    const filterColumns =
-      role === Role.MERCHANT
-        ? merchantColumns.USER
-        : role === Role.VENDOR || role === Role.SUB_VENDOR
-          ? vendorColumns.USER
-          : columns.USER;
+    // const filterColumns =
+    //   role === Role.MERCHANT
+    //     ? merchantColumns.USER
+    //     : role === Role.VENDOR || role === Role.SUB_VENDOR
+    //       ? vendorColumns.USER
+    //       : columns.USER;
 
     const pageNumber = parseInt(page, 10) || 1;
     const pageSize = parseInt(limit, 10) || 10;
@@ -241,8 +246,8 @@ const getUsersBySearchService = async (
       searchTerms,
       pageNumber,
       pageSize,
-      filterColumns,
       role,
+      null, // conn
     );
 
     return data;
@@ -289,7 +294,7 @@ const getUsersByUserNameService = async (username, ids, role) => {
           ? vendorColumns.USER
           : columns.USER;
     conn = await getConnection('reader');
-    const data = await getUsersByUserNameDao(ids, username, conn);
+    const data = await getUsersByUserNameDao(ids, username);
     const finalResult = filterResponse(data, filterColumns);
     return finalResult;
   } catch (error) {
@@ -306,7 +311,7 @@ const getUsersByUserNameService = async (username, ids, role) => {
   }
 };
 
-const createUserService = async (conn, payload) => {
+const _createUserServiceInternal = async (payload, conn) => {
   try {
     const { user_name } = payload;
     let company_id = payload.company_id;
@@ -436,7 +441,7 @@ const createUserService = async (conn, payload) => {
         company_id: payload.company_id,
         first_name: payload.first_name,
         last_name: payload.last_name,
-        code: payload.code,
+        code: payload.code.trim(),
         balance: Number(0),
         min_payin: Number(payload.min_payin),
         max_payin: Number(payload.max_payin),
@@ -469,7 +474,7 @@ const createUserService = async (conn, payload) => {
           unblocked_countries: unblocked_countries,
         },
       };
-      merchant = await createMerchantService(conn, merchantPayload);
+      merchant = await _createMerchantServiceInternal(merchantPayload, conn);
     }
     ///for vendor sub-vendor
     if (
@@ -494,23 +499,26 @@ const createUserService = async (conn, payload) => {
         company_id: payload.company_id,
         first_name: payload.first_name,
         last_name: payload.last_name,
-        code: payload.code,
+        code: payload.code.trim(),
         balance: Number(0),
         config: {
           bank_response_access: false,
           net_balance: payload.net_balance || '0',
           ...(sub_code && { sub_code }),
           ...(is_owned && { is_owned }),
+          is_enabled: true,
+          mediator_payin_commission: payload.mediator_payin_commission || 0,
+          mediator_payout_commission: payload.mediator_payout_commission || 0,
         },
-        payin_commission: Number(payload.payin_commission) || 1,
-        payout_commission: Number(payload.payout_commission) || 1,
+        payin_commission: Number(payload.payin_commission),
+        payout_commission: Number(payload.payout_commission),
         created_by: payload.created_by,
         updated_by: payload.updated_by,
         designation: userDesignation[0]?.designation,
         role: userRole[0].role,
         parent_id: payload?.parent_id ? payload?.parent_id : payload.created_by,
       };
-      await createVendorService(conn, vendorPayload);
+      await _createVendorServiceInternal(vendorPayload, conn);
     }
 
     if (User) {
@@ -547,14 +555,29 @@ const createUserService = async (conn, payload) => {
     // });
     return User;
   } catch (error) {
-    console.error(error);
-    logger.error('Error in createUserService:', error);
-
+    logger.error('error in _createUserServiceInternal', error);
     throw error;
   }
 };
 
-const userUpdateService = async (conn, ids, payload) => {
+const createUserService = async (payload) => {
+  let conn;
+  try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+    const User = await _createUserServiceInternal(payload, conn);
+    await commit(conn);
+    return User;
+  } catch (error) {
+    if (conn) await rollback(conn);
+    logger.error('Error in createUserService:', error);
+    throw error;
+  } finally {
+    if (conn) conn.release();
+  }
+};
+
+const _userUpdateServiceInternal = async (ids, payload, conn) => {
   try {
     // if (payload.email) {
     //   const verifyEmail = await getUsersDao({ email: payload.email });
@@ -563,18 +586,39 @@ const userUpdateService = async (conn, ids, payload) => {
     //   }
     // }
     const User = await updateUserDao(ids, payload, conn);
-    // await notifyAdminsAndUsers({
-    //   conn,
-    //   company_id: ids.company_id,
-    //   message: `User with username: ${User.user_name} has been updated.`,
-    //   payloadUserId: payload.updated_by,
-    //   actorUserId: payload.updated_by,
-    //   category: 'User',
-    // });
+  // await notifyAdminsAndUsers({
+  //   conn,
+  //   company_id: ids.company_id,
+  //   message: `User with username: ${User.user_name} has been updated.`,
+  //   payloadUserId: payload.updated_by,
+  //   actorUserId: payload.updated_by,
+  //   category: 'User',
+  // });
     return User;
   } catch (error) {
+    logger.error('error in _userUpdateServiceInternal', error);
+    throw error;
+  }
+};
+
+const userUpdateService = async (ids, payload) => {
+  let conn;
+  try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+    const User = await _userUpdateServiceInternal(ids, payload, conn);
+    await commit(conn);
+    return User;
+  } catch (error) {
+    if (conn) {
+      await rollback(conn);
+    }
     logger.error('error getting while updating user', error);
     throw error;
+  } finally {
+    if (conn) {
+      conn.release();
+    }
   }
 };
 

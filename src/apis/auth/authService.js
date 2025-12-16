@@ -34,7 +34,8 @@ const loginService = async (config, clientIP, retryCount = 0) => {
   const MAX_RETRIES = 2;
   let conn;
   try {
-    let user = await getUsersByUserNameDao({}, config.username);
+    conn = await getConnection();
+    let user = await getUsersByUserNameDao({}, config.username, conn);
     if (!user) {
       throw new NotFoundError('User Not Found.');
     }
@@ -65,15 +66,20 @@ const loginService = async (config, clientIP, retryCount = 0) => {
         throw new NotFoundError('Invalid current password. Please try again.');
       }
       const hashedPassword = await createHash(config.newPassword);
-      conn = await getConnection();
-      await updateUserDao(
-        { id: user.id },
-        {
-          password: hashedPassword,
-          config: { ...user.config, isLoginFirst: false },
-        },
-        conn,
-      );
+      
+      try {
+        await updateUserDao(
+          { id: user.id },
+          {
+            password: hashedPassword,
+            config: { ...user.config, isLoginFirst: false },
+          },
+          conn,
+        );
+      } catch (updateError) {
+        logger.error('Error updating user password:', updateError);
+        throw updateError;
+      }
       isLoginSecondFlag = true;
     } else {
       // Verify password for regular login
@@ -93,7 +99,7 @@ const loginService = async (config, clientIP, retryCount = 0) => {
     }
 
     // Proceed with session and token generation for non-first login
-    conn = conn || (await getConnection());
+    // conn = conn || (await getConnection());
     
     try {
       // Start a transaction with read committed isolation for better concurrency
@@ -198,7 +204,6 @@ const loginService = async (config, clientIP, retryCount = 0) => {
 };
 
 const refreshTokenService = async (user_id, company_id, refreshToken) => {
-  let conn;
   try {
     const session = await getSessionByIdDao({ user_id, company_id });
     if (!session) {
@@ -214,21 +219,11 @@ const refreshTokenService = async (user_id, company_id, refreshToken) => {
   } catch (error) {
     logger.log('Error getting :', error);
     throw error;
-  } finally {
-    if (conn) {
-      try {
-        conn.release();
-      } catch (releaseError) {
-        logger.error('Error while releasing the connection', releaseError);
-      }
-    }
   }
 };
 
 const logoutService = async (decodeToken, session_id) => {
-  let conn;
   try {
-    conn = await getConnection();
     const data = await deleteUserSessionsDao(
       decodeToken.user_id,
       decodeToken.company_id,
@@ -239,21 +234,11 @@ const logoutService = async (decodeToken, session_id) => {
   } catch (error) {
     logger.error('Error getting while logout', error);
     throw error;
-  } finally {
-    if (conn) {
-      try {
-        conn.release();
-      } catch (releaseError) {
-        logger.error('Error while releasing the connection', releaseError);
-      }
-    }
   }
 };
 
 const changePasswordService = async (payload) => {
-  let conn;
   try {
-    conn = await getConnection();
     const userDetials = {
       user_name: payload.user_name,
       password: payload.oldPassword,
@@ -268,14 +253,6 @@ const changePasswordService = async (payload) => {
   } catch (error) {
     logger.error('Error getting while changing password', error);
     throw error;
-  } finally {
-    if (conn) {
-      try {
-        conn.release();
-      } catch (releaseError) {
-        logger.error('Error while releasing the connection', releaseError);
-      }
-    }
   }
 };
 
@@ -372,10 +349,16 @@ const getUserRoleService = async (userName) => {
 
     let response = {
       isAdmin: false,
+      isVendor: false,
     };
     if (user.designation === Role.ADMIN) {
       response = {
         isAdmin: true,
+      };
+    }
+    else if (user.role === Role.VENDOR) {
+      response = {
+        isVendor: true,
       };
     }
     return response;

@@ -9,9 +9,8 @@ import { getBankaccountDao, updateBankaccountDao } from '../apis/bankAccounts/ba
  * @param {string} user_id - User ID
  * @param {number} currentNetBalance - Current net balance
  * @param {number} netBalanceLimit - Net balance limit
- * @param {Object} conn - Database connection (optional)
  */
-const disableBankAccount = async (bank, user_id, currentNetBalance, netBalanceLimit, conn) => {
+const disableBankAccount = async (bank, user_id, currentNetBalance, netBalanceLimit) => {
   try {
     const configUpdate = {
       merchants: [],
@@ -28,7 +27,6 @@ const disableBankAccount = async (bank, user_id, currentNetBalance, netBalanceLi
         updated_by: user_id,
         config: { ...bank.config, ...configUpdate },
       },
-      conn
     );
 
     return { success: true };
@@ -45,11 +43,10 @@ const disableBankAccount = async (bank, user_id, currentNetBalance, netBalanceLi
 /**
  * Track vendor's net balance and disable bank accounts if balance exceeds configured limit
  * @param {string} user_id - The vendor's user ID
- * @param {Object} conn - Database connection (optional, uses pool if not provided)
  * @param {Object} calculationData - Pre-fetched calculation data (optional, will query if not provided)
  * @returns {Object} - Result object containing status and details
  */
-export const trackVendorsNetBalance = async (user_id, conn = null, calculationData = null) => {
+export const trackVendorsNetBalance = async (user_id, calculationData = null) => {
   try {
     logger.info(`Starting net balance tracking for user_id: ${user_id}`);
 
@@ -157,7 +154,7 @@ export const trackVendorsNetBalance = async (user_id, conn = null, calculationDa
       }
 
       try {
-        const result = await disableBankAccount(bank, user_id, currentNetBalance, netBalanceLimit, conn);
+        const result = await disableBankAccount(bank, user_id, currentNetBalance, netBalanceLimit);
         
         if (result.success) {
           disabledBanks.push({ bank_id: bank.id, nick_name: bank.nick_name });

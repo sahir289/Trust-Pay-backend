@@ -21,6 +21,7 @@ const getCalculationDao = async (
   sortBy,
   sortOrder,
   columns = [],
+  conn = null,
 ) => {
   try {
     // if simple user is querying then filter object must have user_id to bind result
@@ -129,14 +130,14 @@ const getCalculationDao = async (
       tableName.CALCULATION,
     );
     // Execute query
-    const result = await executeQuery(sql, queryParams);
+    const result = conn ? await conn.query(sql, queryParams) : await executeQuery(sql, queryParams, conn);
     return result.rows;
   } catch (error) {
     logger.error('Error fetching Calculation', error);
     throw error;
   }
 };
-export const getCalculationDashBoardReportDao = async (filters = {}) => {
+export const getCalculationDashBoardReportDao = async (filters = {}, conn = null) => {
   try {
     const selectColumns = `
       total_payin_amount,
@@ -154,10 +155,62 @@ export const getCalculationDashBoardReportDao = async (filters = {}) => {
     const queryFilters = { user_id, company_id };
     baseQuery += ` AND created_at BETWEEN '${new Date(sDate).toISOString()}'::TIMESTAMPTZ AND '${new Date(eDate).toISOString()}'::TIMESTAMPTZ`;
     const [sql, params] = buildSelectQuery(baseQuery, queryFilters);
-    const result = await executeQuery(sql, params);
+    const result = conn ? await conn.query(sql, params) : await executeQuery(sql, params, conn);
     return result.rows || [];
   } catch (error) {
     logger.error('Error getting calculation data:', error);
+    throw error;
+  }
+};
+export const getCalculationByDateAndUserDao = async (date, conn = null) => {
+  if (!date) {
+    throw new Error('date are required');
+  }
+  const parsedDate = new Date(date);
+  if (isNaN(parsedDate.getTime())) {
+    throw new Error('Invalid date format. Use YYYY-MM-DD');
+  }
+  const isoDate = parsedDate.toISOString().split('T')[0]; 
+  try {
+    const sql = `
+      SELECT
+        id,
+        user_id,
+        role_id,
+        company_id,
+        current_balance,
+        net_balance,
+        created_at
+      FROM "${tableName.CALCULATION}"
+      WHERE created_at::DATE = $1   
+    `;
+    const params = [isoDate];
+    const result = conn ? await conn.query(sql, params) : await executeQuery(sql, params, conn);
+    return result.rows || null;
+  } catch (error) {
+    logger.error(
+      `Error in getCalculationByDateAndUserDao for  date ${date}:`,
+      error,
+    );
+    throw error;
+  }
+};
+export const updateTodayNetBalanceDao = async (Id, net_balance, conn = null) => {
+  try {
+    const sql = `
+      UPDATE "${tableName.CALCULATION}"
+      SET net_balance = $2 + current_balance
+      WHERE id = $1 
+    `;
+    const params = [Id, net_balance];
+    const result = conn ? await conn.query(sql, params) : await executeQuery(sql, params, conn);
+    return result.rows[0] || null;
+
+  } catch (error) {
+    logger.error(
+      `Failed to update net_balance for user ${Id}:`,
+      error.message
+    );
     throw error;
   }
 };
@@ -546,6 +599,7 @@ export const getCalculationsSumDao = async (filters) => {
         CAST(ROUND(SUM(COALESCE((c.config->>'total_bankSentSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_bankSentSettlement_amount,
         CAST(ROUND(SUM(COALESCE((c.config->>'total_cashSentSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_cashSentSettlement_amount,
         CAST(ROUND(SUM(COALESCE((c.config->>'total_internalSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_internalSettlement_amount,
+        CAST(ROUND(SUM(COALESCE((c.config->>'total_cryptoSentSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_cryptoSentSettlement_amount,
         CAST(ROUND(SUM(COALESCE((c.config->>'total_aedReceivedSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_aedReceivedSettlement_amount,
         CAST(ROUND(SUM(COALESCE((c.config->>'total_bankReceivedSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_bankReceivedSettlement_amount,
         CAST(ROUND(SUM(COALESCE((c.config->>'total_cashReceivedSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_cashReceivedSettlement_amount,
@@ -593,6 +647,7 @@ export const getCalculationsSumDao = async (filters) => {
       CAST(ROUND(SUM(COALESCE((c.config->>'total_bankSentSettlement_amount')::NUMERIC,0))::NUMERIC,2) AS FLOAT) AS total_bankSentSettlement_amount,
       CAST(ROUND(SUM(COALESCE((c.config->>'total_cashSentSettlement_amount')::NUMERIC,0))::NUMERIC,2) AS FLOAT) AS total_cashSentSettlement_amount,
       CAST(ROUND(SUM(COALESCE((c.config->>'total_internalSettlement_amount')::NUMERIC,0))::NUMERIC,2) AS FLOAT) AS total_internalSettlement_amount,
+      CAST(ROUND(SUM(COALESCE((c.config->>'total_cryptoSentSettlement_amount')::NUMERIC,0))::NUMERIC,2) AS FLOAT) AS total_cryptoSentSettlement_amount,
       CAST(ROUND(SUM(COALESCE((c.config->>'total_aedReceivedSettlement_amount')::NUMERIC,0))::NUMERIC,2) AS FLOAT) AS total_aedReceivedSettlement_amount,
       CAST(ROUND(SUM(COALESCE((c.config->>'total_bankReceivedSettlement_amount')::NUMERIC,0))::NUMERIC,2) AS FLOAT) AS total_bankReceivedSettlement_amount,
       CAST(ROUND(SUM(COALESCE((c.config->>'total_cashReceivedSettlement_amount')::NUMERIC,0))::NUMERIC,2) AS FLOAT) AS total_cashReceivedSettlement_amount,
@@ -750,7 +805,7 @@ export const getCalculationsSumDao = async (filters) => {
   }
 };
 
-export const getCalculationsForInternalUseDao = async (filters) => {
+export const getCalculationsForInternalUseDao = async (filters, conn = null) => {
   try {
     const {
       role,
@@ -788,7 +843,7 @@ export const getCalculationsForInternalUseDao = async (filters) => {
       designation === Role.MERCHANT_OPERATIONS ||
       designation === Role.VENDOR_OPERATIONS
     ) {
-      const hierarchy = await getUserHierarchysDao({ user_id });
+      const hierarchy = await getUserHierarchysDao({ user_id }, null, null, null, null, null, conn);
       const parentId = hierarchy?.[0]?.config?.parent;
       if (parentId) {
         effectiveUserId = parentId;
@@ -1141,6 +1196,7 @@ export const getCalculationsForInternalUseDao = async (filters) => {
         CAST(ROUND(SUM(COALESCE((c.config->>'total_bankSentSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_bankSentSettlement_amount,
         CAST(ROUND(SUM(COALESCE((c.config->>'total_cashSentSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_cashSentSettlement_amount,
         CAST(ROUND(SUM(COALESCE((c.config->>'total_internalSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_internalSettlement_amount,
+        CAST(ROUND(SUM(COALESCE((c.config->>'total_cryptoSentSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_cryptoSentSettlement_amount,
         CAST(ROUND(SUM(COALESCE((c.config->>'total_aedReceivedSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_aedReceivedSettlement_amount,
         CAST(ROUND(SUM(COALESCE((c.config->>'total_bankReceivedSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_bankReceivedSettlement_amount,
         CAST(ROUND(SUM(COALESCE((c.config->>'total_cashReceivedSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_cashReceivedSettlement_amount,
@@ -1181,6 +1237,7 @@ export const getCalculationsForInternalUseDao = async (filters) => {
         CAST(ROUND(SUM(COALESCE((c.config->>'total_bankSentSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_bankSentSettlement_amount,
         CAST(ROUND(SUM(COALESCE((c.config->>'total_cashSentSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_cashSentSettlement_amount,
         CAST(ROUND(SUM(COALESCE((c.config->>'total_internalSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_internalSettlement_amount,
+        CAST(ROUND(SUM(COALESCE((c.config->>'total_cryptoSentSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_cryptoSentSettlement_amount,
         CAST(ROUND(SUM(COALESCE((c.config->>'total_aedReceivedSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_aedReceivedSettlement_amount,
         CAST(ROUND(SUM(COALESCE((c.config->>'total_bankReceivedSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_bankReceivedSettlement_amount,
         CAST(ROUND(SUM(COALESCE((c.config->>'total_cashReceivedSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_cashReceivedSettlement_amount,
@@ -1325,7 +1382,7 @@ export const getCalculationsForInternalUseDao = async (filters) => {
 };
 
 ////for cron job to update net_balance
-export const getCalculationforCronDao = async (userId) => {
+export const getCalculationforCronDao = async (userId, conn = null) => {
   try {
     const sql = `
       SELECT *
@@ -1336,7 +1393,7 @@ export const getCalculationforCronDao = async (userId) => {
       LIMIT 1
     `;
     // Ensure userId is correctly passed as an array
-    const result = await executeQuery(sql, [userId]);
+    const result = conn ? await conn.query(sql, [userId]) : await executeQuery(sql, [userId], conn);
     return result.rows;
   } catch (error) {
     logger.error('Error fetching Calculation', error);
@@ -1344,7 +1401,7 @@ export const getCalculationforCronDao = async (userId) => {
   }
 };
 
-export const getAllCalculationforCronDao = async (userId) => {
+export const getAllCalculationforCronDao = async (userId, conn = null) => {
   try {
     const sql = `
       SELECT *
@@ -1354,7 +1411,7 @@ export const getAllCalculationforCronDao = async (userId) => {
       ORDER BY created_at DESC 
     `;
     // Ensure userId is correctly passed as an array
-    const result = await executeQuery(sql, [userId]);
+    const result = conn ? await conn.query(sql, [userId]) : await executeQuery(sql, [userId], conn);
     return result.rows;
   } catch (error) {
     logger.error('Error fetching Calculation', error);
@@ -1362,7 +1419,7 @@ export const getAllCalculationforCronDao = async (userId) => {
   }
 };
 
-export const checkTodayCalculationExistsDao = async () => {
+export const checkTodayCalculationExistsDao = async (conn = null) => {
   try {
     const today = dayjs().tz(IST).format('YYYY-MM-DD');
     const sql = `
@@ -1372,7 +1429,7 @@ export const checkTodayCalculationExistsDao = async () => {
       AND DATE(created_at) = $1
       LIMIT 1
     `;
-    const result = await executeQuery(sql, [today]);
+    const result = conn ? await conn.query(sql, [today]) : await executeQuery(sql, [today], conn);
     return parseInt(result.rows[0].count) > 0;
   } catch (error) {
     logger.error('Error checking today calculation exists:', error);
@@ -1380,15 +1437,10 @@ export const checkTodayCalculationExistsDao = async () => {
   }
 };
 
-const createCalculationDao = async (conn, data) => {
+const createCalculationDao = async (data, conn = null) => {
   try {
     const [sql, params] = buildInsertQuery(tableName.CALCULATION, data);
-    let result;
-    if (conn && conn.query) {
-      result = await conn.query(sql, params);
-    } else {
-      result = await executeQuery(sql, params);
-    }
+    const result = conn ? await conn.query(sql, params) : await executeQuery(sql, params, conn);
     return result.rows ? result.rows[0] : result[0]; // Return the first row or result based on the structure
   } catch (error) {
     logger.error('Error creating calculation:', error); // Log the error for debugging
@@ -1396,22 +1448,17 @@ const createCalculationDao = async (conn, data) => {
   }
 };
 
-const updateCalculationDao = async (id, data, conn) => {
+const updateCalculationDao = async (id, data, conn = null) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.CALCULATION, data, id);
-    let result;
-    if (conn && conn.query) {
-      result = await conn.query(sql, params); // Use connection to execute query
-    } else {
-      result = await executeQuery(sql, params); // Use executeQuery if no connection
-    }
+    const result = conn ? await conn.query(sql, params) : await executeQuery(sql, params, conn);
     return result.rows ? result.rows[0] : result[0]; // Return the first row or result based on the structure
   } catch (error) {
     logger.error('Error updating calculation:', error); // Log the error for debugging
     throw error;
   }
 };
-const updateCalculationConfigDao = async (id, data, conn) => {
+const updateCalculationConfigDao = async (id, data, conn = null) => {
   return buildAndExecuteUpdateQuery(
     tableName.CALCULATION,
     data,
@@ -1422,16 +1469,11 @@ const updateCalculationConfigDao = async (id, data, conn) => {
   );
 };
 
-const deleteCalculationDao = async (conn, id, data) => {
+const deleteCalculationDao = async (id, data, conn = null) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.CALCULATION, data, id);
 
-    let result;
-    if (conn && conn.query) {
-      result = await conn.query(sql, params); // Use connection to execute query
-    } else {
-      result = await executeQuery(sql, params); // Use executeQuery if no connection
-    }
+    const result = conn ? await conn.query(sql, params) : await executeQuery(sql, params, conn);
 
     return result.rows ? result.rows[0] : result[0]; // Return the first row or result based on the structure
   } catch (error) {
@@ -1440,7 +1482,7 @@ const deleteCalculationDao = async (conn, id, data) => {
   }
 };
 
-export const updateCalculationBalanceDao = async (filters, data, conn) => {
+export const updateCalculationBalanceDao = async (filters, data, conn = null) => {
   try {
     const specialFields = {};
     Object.keys(data).forEach((el) => {
@@ -1452,11 +1494,9 @@ export const updateCalculationBalanceDao = async (filters, data, conn) => {
       filters,
       specialFields,
     );
-    if (conn && conn.query) {
-      const result = await conn.query(sql, params);
-      return result.rows[0];
-    }
-    const result = await executeQuery(sql, params);
+    const result = conn 
+      ? await conn.query(sql, params)
+      : await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
     logger.error('Error updating calculation:', error);
@@ -1465,7 +1505,7 @@ export const updateCalculationBalanceDao = async (filters, data, conn) => {
 };
 
 // Checks if any calculation entry exists for a given date (YYYY-MM-DD)
-const checkCalculationEntryForDateDao = async (date) => {
+const checkCalculationEntryForDateDao = async (date, conn = null) => {
   try {
     // Compare only the date part, ignoring time and timezone
     const sql = `
@@ -1474,7 +1514,7 @@ const checkCalculationEntryForDateDao = async (date) => {
       AND to_char(created_at AT TIME ZONE 'Asia/Kolkata', 'YYYY-MM-DD') = $1
       LIMIT 1
     `;
-    const result = await executeQuery(sql, [date]);
+    const result = conn ? await conn.query(sql, [date]) : await executeQuery(sql, [date], conn);
     return result.rows.length > 0;
   } catch (error) {
     logger.error('Error checking calculation entry for date', error);
@@ -1482,7 +1522,7 @@ const checkCalculationEntryForDateDao = async (date) => {
   }
 };
 
-const getMerchantNetBalanceDao = async (companyId, startDate, endDate) => {
+const getMerchantNetBalanceDao = async (companyId, startDate, endDate, conn = null) => {
   try {
     // Base query to get merchant net balance data with latest records
     let sql = `
@@ -1511,7 +1551,7 @@ const getMerchantNetBalanceDao = async (companyId, startDate, endDate) => {
       WHERE rn = 1
     `;
 
-    const result = await executeQuery(wrappedSql, queryParams);
+    const result = await executeQuery(wrappedSql, queryParams, conn);
     let merchantData = result.rows;
 
     // If no data, return empty array
@@ -1536,10 +1576,13 @@ const getMerchantNetBalanceDao = async (companyId, startDate, endDate) => {
           LIMIT 10
         `;
 
-        const historyResult = await executeQuery(historyQuery, [
+        const historyResult = conn ? await conn.query(historyQuery, [
           merchant.user_id,
           companyId,
-        ]);
+        ]) : await executeQuery(historyQuery, [
+          merchant.user_id,
+          companyId,
+        ], conn);
         const netBalances = historyResult.rows.map((row) =>
           parseFloat(row.net_balance),
         );
@@ -1657,7 +1700,7 @@ const getMerchantNetBalanceDao = async (companyId, startDate, endDate) => {
   }
 };
 
-const getVendorNetBalanceDao = async (companyId, startDate, endDate) => {
+const getVendorNetBalanceDao = async (companyId, startDate, endDate, conn = null) => {
   try {
     // Base query to get vendor net balance data with latest records
     let sql = `
@@ -1686,7 +1729,7 @@ const getVendorNetBalanceDao = async (companyId, startDate, endDate) => {
       WHERE rn = 1
     `;
 
-    const result = await executeQuery(wrappedSql, queryParams);
+    const result = await executeQuery(wrappedSql, queryParams, conn);
     let vendorData = result.rows;
 
     // If no data, return empty array
@@ -1711,10 +1754,13 @@ const getVendorNetBalanceDao = async (companyId, startDate, endDate) => {
           LIMIT 10
         `;
 
-        const historyResult = await executeQuery(historyQuery, [
+        const historyResult = conn ? await conn.query(historyQuery, [
           vendor.user_id,
           companyId,
-        ]);
+        ]) : await executeQuery(historyQuery, [
+          vendor.user_id,
+          companyId,
+        ], conn);
         const netBalances = historyResult.rows.map((row) =>
           parseFloat(row.net_balance),
         );
@@ -1828,7 +1874,7 @@ const getVendorNetBalanceDao = async (companyId, startDate, endDate) => {
 };
 
 // Helper function to get user's role from user_id
-const getUserRoleDao = async (user_id) => {
+const getUserRoleDao = async (user_id, conn = null) => {
   try {
     const query = `
       SELECT r.role
@@ -1837,7 +1883,7 @@ const getUserRoleDao = async (user_id) => {
       WHERE u.id = $1 AND u.is_obsolete = false
     `;
 
-    const result = await executeQuery(query, [user_id]);
+    const result = conn ? await conn.query(query, [user_id]) : await executeQuery(query, [user_id], conn);
     return result.rows[0]?.role || null;
   } catch (error) {
     logger.error('Error getting user role:', error);
@@ -1851,6 +1897,7 @@ const calculatePayinDataDao = async (
   company_id,
   startDate,
   additionalPayinData = null,
+  conn = null,
 ) => {
   try {
     // Get user's role to determine which commission field to use and which table to join
@@ -1903,7 +1950,7 @@ const calculatePayinDataDao = async (
       queryParams = [user_id, company_id, startDate];
     }
 
-    const result = await executeQuery(query, queryParams);
+    const result = conn ? await conn.query(query, queryParams) : await executeQuery(query, queryParams, conn);
 
     const payinData = {
       total_payin_count: 0,
@@ -1934,10 +1981,10 @@ const calculatePayinDataDao = async (
 };
 
 // Helper function to calculate payout data for a user and date range
-const calculatePayoutDataDao = async (user_id, company_id, startDate) => {
+const calculatePayoutDataDao = async (user_id, company_id, startDate, conn = null) => {
   try {
     // Get user's role to determine which commission field to use and which table to join
-    const userRole = await getUserRoleDao(user_id);
+    const userRole = await getUserRoleDao(user_id, conn);
     const commissionField =
       userRole === Role.MERCHANT
         ? 'payout_merchant_commission'
@@ -1989,7 +2036,7 @@ const calculatePayoutDataDao = async (user_id, company_id, startDate) => {
       queryParams = [user_id, company_id, startDate];
     }
 
-    const result = await executeQuery(query, queryParams);
+    const result = conn ? await conn.query(query, queryParams) : await executeQuery(query, queryParams, conn);
 
     const payoutData = {
       total_payout_count: 0,
@@ -2029,6 +2076,7 @@ const calculateSettlementDataDao = async (
   company_id,
   startDate,
   role = null,
+  conn = null,
 ) => {
   try {
     let query;
@@ -2077,7 +2125,7 @@ const calculateSettlementDataDao = async (
       `;
     }
 
-    const result = await executeQuery(query, [user_id, company_id, startDate]);
+    const result = await executeQuery(query, [user_id, company_id, startDate], conn);
 
     const settlementData = {
       total_settlement_count: 0,
@@ -2244,10 +2292,10 @@ const calculateSettlementDataDao = async (
 };
 
 // Helper function to calculate chargeback data for a user and date range
-const calculateChargebackDataDao = async (user_id, company_id, startDate) => {
+const calculateChargebackDataDao = async (user_id, company_id, startDate, conn = null) => {
   try {
     // Get user's role to determine which user_id field to use
-    const userRole = await getUserRoleDao(user_id);
+    const userRole = await getUserRoleDao(user_id, conn);
 
     let whereClause;
     if (userRole === Role.MERCHANT) {
@@ -2268,7 +2316,7 @@ const calculateChargebackDataDao = async (user_id, company_id, startDate) => {
         AND (created_at)::date = $3::date
     `;
 
-    const result = await executeQuery(query, [user_id, company_id, startDate]);
+    const result = conn ? await conn.query(query, [user_id, company_id, startDate]) : await executeQuery(query, [user_id, company_id, startDate], conn);
     const row = result.rows[0];
 
     return {
@@ -2284,10 +2332,10 @@ const calculateChargebackDataDao = async (user_id, company_id, startDate) => {
 // Helper function to calculate adjustment data for a user and date range
 // Only counts entries where specific field amounts are changed on the processing date
 // Returns the difference between current and previous amounts from config.history
-const calculateAdjustmentDataDao = async (user_id, company_id, startDate) => {
+const calculateAdjustmentDataDao = async (user_id, company_id, startDate, conn = null) => {
   try {
     // Get user's role to determine which table to query
-    const userRole = await getUserRoleDao(user_id);
+    const userRole = await getUserRoleDao(user_id, conn);
 
     let query, queryParams;
 
@@ -2313,11 +2361,15 @@ const calculateAdjustmentDataDao = async (user_id, company_id, startDate) => {
           )
       `;
 
-      const payinRecords = await executeQuery(getPayinRecordsQuery, [
+      const payinRecords = conn ? await conn.query(getPayinRecordsQuery, [
         user_id,
         company_id,
         startDate,
-      ]);
+      ]) : await executeQuery(getPayinRecordsQuery, [
+        user_id,
+        company_id,
+        startDate,
+      ], conn);
 
       let totalAdjustmentCount = 0;
       let totalAmountDifference = 0;
@@ -2435,7 +2487,7 @@ const calculateAdjustmentDataDao = async (user_id, company_id, startDate) => {
       `;
       queryParams = [user_id, company_id, startDate];
 
-      const result = await executeQuery(query, queryParams);
+      const result = conn ? await conn.query(query, queryParams) : await executeQuery(query, queryParams, conn);
       const row = result.rows[0];
 
       return {

@@ -52,7 +52,7 @@ export const VALIDATE_PAY_IN_INTENT_GENERATE_ORDER = Joi.object({
     .label('merchantOrderId')
     .required(),
   amount: Joi.number().positive().label('amount').required(),
-  isRazorpay: Joi.boolean().label('isRazorpay').optional(),
+  Razorpay: Joi.boolean().label('Razorpay').optional(),
   cashfree: Joi.boolean().label('cashfree').optional(),
   zentechind: Joi.boolean().label('zentechind').optional(),
 });

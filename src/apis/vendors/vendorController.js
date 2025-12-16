@@ -19,7 +19,6 @@ import {
 } from '../../schemas/vendorSchema.js';
 import { ValidationError, BadRequestError } from '../../utils/appErrors.js';
 import { logger } from '../../utils/logger.js';
-import { transactionWrapper } from '../../utils/db.js';
 // import { BadRequestError } from '../../utils/appErrors.js';
 
 const createVendor = async (req, res) => {
@@ -33,7 +32,7 @@ const createVendor = async (req, res) => {
   payload.created_by = user_id;
   payload.updated_by = user_id;
   // Call the service to create the Vendor
-  const vendor = await transactionWrapper(createVendorService)(payload);
+  const vendor = await createVendorService(payload);
   // Log success message
   // Send a success response to the client
   return sendSuccess(res, { id: vendor.id }, 'Vendor created successfully');
@@ -81,6 +80,7 @@ const getVendorCodes = async (req, res) => {
     excludeDisabledVendor,
     includeSeperateSubVendors,
     includeVendorAdmin,
+    isEnabled,
   } = req.query;
   const filters = { company_id };
   const data = await getVendorsCodeService(
@@ -93,6 +93,7 @@ const getVendorCodes = async (req, res) => {
     excludeDisabledVendor,
     includeSeperateSubVendors,
     includeVendorAdmin,
+    isEnabled,
   );
   // Log success message
   // Send success response
@@ -190,12 +191,12 @@ const getVendorByCode = async (req, res) => {
 };
 
 const linkVendor = async (req, res) => {
-  const { vendorUserId, subVendorUserId } = req.body;
+  const { vendorUserId, subVendorUserId, mediator_payin_commission, mediator_payout_commission } = req.body;
   const { user_id } = req.user;
   if (!vendorUserId || !subVendorUserId) {
     throw new BadRequestError('vendorUserId and subVendorUserId are required');
   }
-  const result = await linkVendorService(vendorUserId, subVendorUserId, user_id);
+  const result = await linkVendorService(vendorUserId, subVendorUserId, user_id, mediator_payin_commission, mediator_payout_commission);
   return sendSuccess(res, result, 'Vendor linked successfully');
 };
 

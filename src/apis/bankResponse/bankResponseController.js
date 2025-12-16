@@ -20,7 +20,6 @@ import {
 } from './bankResponseServices.js';
 import { BadRequestError } from '../../utils/appErrors.js';
 
-import { transactionWrapper } from '../../utils/db.js';
 import { Role } from '../../constants/index.js';
 
 // Ensure Role.BOT is defined in '../../constants/index.js' as:
@@ -251,7 +250,7 @@ const resetBankResponseController = async (req, res) => {
   }
 
   // Call service to handle the reset logic
-  const result = await transactionWrapper(resetBankResponseService)(id, {
+  const result = await resetBankResponseService(id, {
     company_id,
     user_name,
     user_id,
@@ -293,7 +292,7 @@ const importBankResponse = async (req, res) => {
   // Convert S3 Body (ReadableStream) to Buffer
   const pdfBuffer = await streamToBuffer(Body);
 
-  const result = await transactionWrapper(importBankResponseService)(
+  const result = await importBankResponseService(
     {
       ...payload,
       pdfBuffer, // Pass the buffer directly

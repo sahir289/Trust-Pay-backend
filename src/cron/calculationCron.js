@@ -11,6 +11,7 @@ import {
 import { getUsersForCronDao } from '../apis/users/userDao.js';
 import { logger } from '../utils/logger.js';
 import config from '../config/config.js'; 
+import { beginTransaction, commit, getConnection, rollback } from '../utils/db.js';
 // Initialize dayjs plugins
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -21,10 +22,13 @@ const IST = 'Asia/Kolkata';
 let retryCount = 0;
 const MAX_RETRIES = 3; // Total attempts: 1 initial + 2 retries
 
+let calculationCronJob = null;
+// let retryCronJob = null;
+
 // Only run cron jobs in production environment
 if (config?.env === 'production') {
   // Main cron job at midnight
-  cron.schedule(
+  calculationCronJob = cron.schedule(
     '0 0 * * *',
     async () => {
       retryCount = 0; // Reset retry count for new day
@@ -70,20 +74,30 @@ const markExecution = () => {
   logger.info(`Cron execution marked successfully for date: ${currentDate}`);
 };
 
+export const stopCalculationCron = () => {
+  if (calculationCronJob) {
+    calculationCronJob.stop();
+    logger.info('Calculation cron job stopped');
+  }
+};
+
 const collectCalculationData = async () => {
   const executionStartTime = dayjs().tz(IST).format('YYYY-MM-DDTHH:mm:ssZ');
   logger.info(`Starting calculation cron job at: ${executionStartTime}`);
+  let conn;
 
   try {
+    conn = await getConnection();
+    await beginTransaction(conn);
     // Check if entry for current date already exists
     const currentDate = dayjs().tz(IST).format('YYYY-MM-DD');
-    const entryExists = await checkCalculationEntryForDateDao(currentDate);
+    const entryExists = await checkCalculationEntryForDateDao(currentDate, conn);
     if (entryExists) {
       logger.info(`Calculation entry for date ${currentDate} already exists. Skipping cron execution.`);
       return;
     }
 
-    const users = await getUsersForCronDao() || [];
+    const users = await getUsersForCronDao(conn) || [];
     const usersArray = users || [];
 
     // Create IST time in the exact format we want
@@ -92,7 +106,7 @@ const collectCalculationData = async () => {
 
     for (const user of usersArray) {
       try {
-        const calculation = await getCalculationforCronDao(user.id);
+        const calculation = await getCalculationforCronDao(user.id, conn);
         if (calculation.length > 0) {
           const resetData = {
             user_id: calculation[0].user_id,
@@ -116,15 +130,19 @@ const collectCalculationData = async () => {
     logger.info(
       `Cron job executed successfully for all users. Started: ${executionStartTime}, Completed: ${executionEndTime}`,
     );
+    await commit(conn);
   } catch (error) {
+    if (conn) await rollback(conn);
     logger.error('Error while collecting user data:', error?.message);
     throw error; // Re-throw to ensure fallback mechanisms can detect failures
+  } finally {
+    if (conn) conn.release();
   }
 };
 // Function to update the calculation data
 async function processUpdate(data) {
   try {
-    await createCalculationDao(null, data);
+    await createCalculationDao(data);
   } catch (error) {
     logger.error('Error while updating calculation data:', error?.message);
   }

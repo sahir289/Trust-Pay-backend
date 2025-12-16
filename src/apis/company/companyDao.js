@@ -8,7 +8,7 @@ import {
 import { tableName } from '../../constants/index.js';
 import { logger } from '../../utils/logger.js';
 
-const getCompanyDao = async (filters, page, pageSize, sortBy, sortOrder) => {
+const getCompanyDao = async (filters, page, pageSize, sortBy, sortOrder, conn) => {
   try {
     const baseQuery = `SELECT id,first_name,last_name,config FROM "${tableName.COMPANY}" WHERE 1=1`;
     //TODO: columns.Company dynamic search
@@ -20,18 +20,18 @@ const getCompanyDao = async (filters, page, pageSize, sortBy, sortOrder) => {
       sortBy,
       sortOrder,
     );
-    const result = await executeQuery(sql, queryParams);
+    const result = await executeQuery(sql, queryParams, conn);
     return result.rows.length > 0 ? result.rows : result.rows[0];
   } catch (error) {
     logger.error('Error fetching company:', error);
     throw error;
   }
 };
-const getCompanyDetailsByIdDao = async (id) => {
+const getCompanyDetailsByIdDao = async (id, conn = null) => {
   try {
     const baseQuery = `SELECT CONCAT(first_name, ' ', last_name) AS full_name, config ->> 'allowPayAssist' AS allowPayAssist, config ->> 'allowTataPay' AS allowTataPay, config ->> 'allow_clickrr' AS allow_clickrr FROM "${tableName.COMPANY}" WHERE 1 = 1`;
     const [sql, queryParams] = buildSelectQuery(baseQuery, id);
-    const result = await executeQuery(sql, queryParams);
+    const result = await executeQuery(sql, queryParams, conn);
     return result.rows.length > 0 ? result.rows : result.rows[0];
   } catch (error) {
     logger.error('Error fetching company details by ID:', error);
@@ -39,12 +39,12 @@ const getCompanyDetailsByIdDao = async (id) => {
   }
 };
 
-const getClickrrDetailsByCompanyIdDao = async (id) => {
+const getClickrrDetailsByCompanyIdDao = async (id, conn = null) => {
   try {
     const sql = `SELECT config -> 'CLICKRR' ->> 'api_key' AS api_key,
     config -> 'CLICKRR' ->> 'api_secret' AS api_secret FROM "${tableName.COMPANY}" WHERE id = $1`;
     const queryParams = [id];
-    const result = await executeQuery(sql, queryParams);
+    const result = await executeQuery(sql, queryParams, conn);
     return result.rows.length > 0 ? result.rows[0] : result.rows;
   } catch (error) {
     logger.error('Error fetching clickrr details by companyId:', error);
@@ -52,19 +52,33 @@ const getClickrrDetailsByCompanyIdDao = async (id) => {
   }
 };
 
-const getCashfreeAllowByCompanyIdDao = async (id) => {
+const getBepayDetailsByCompanyIdDao = async (id, conn = null) => {
+  try {
+    const sql = `SELECT config -> 'Bepay' ->> 'api_key' AS api_key,
+    config -> 'Bepay' ->> 'api_secret' AS api_secret FROM "${tableName.COMPANY}" WHERE id = $1`;
+    const queryParams = [id];
+    const result = await executeQuery(sql, queryParams, conn);
+    return result.rows.length > 0 ? result.rows[0] : result.rows;
+  } catch (error) {
+    logger.error('Error fetching Bepay details by companyId:', error);
+    throw error;
+  }
+};
+
+const getCashfreeAllowByCompanyIdDao = async (id, conn = null) => {
   try {
     const sql = `
       SELECT 
         CONCAT(first_name, ' ', last_name) AS full_name, 
         COALESCE((config ->> 'allow_cashfree')::boolean, false) AS allow_cashfree,
         COALESCE((config ->> 'allow_zentechind')::boolean, false) AS allow_zentechind,
-        COALESCE((config ->> 'allow_nmplpay')::boolean, false) AS allow_nmplpay
+        COALESCE((config ->> 'allow_nmplpay')::boolean, false) AS allow_nmplpay,
+        COALESCE((config ->> 'allow_razorpay')::boolean, false) AS allow_razorpay
       FROM "${tableName.COMPANY}"
       WHERE id = $1
     `
     const queryParams = [id];
-    const result = await executeQuery(sql, queryParams);
+    const result = await executeQuery(sql, queryParams, conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error fetching company details by ID:', error);
@@ -72,11 +86,11 @@ const getCashfreeAllowByCompanyIdDao = async (id) => {
   }
 };
 
-const getCompanyByIDDao = async (filters) => {
+const getCompanyByIDDao = async (filters, conn = null) => {
   try {
     const baseQuery = `SELECT id,config FROM "${tableName.COMPANY}" WHERE 1=1`;
     const [sql, queryParams] = buildSelectQuery(baseQuery, filters);
-    const result = await executeQuery(sql, queryParams);
+    const result = conn ? await conn.query(sql, queryParams) : await executeQuery(sql, queryParams, conn);
     return result.rows.length > 0 ? result.rows : result.rows[0];
   } catch (error) {
     logger.error('Error fetching company:', error);
@@ -84,25 +98,21 @@ const getCompanyByIDDao = async (filters) => {
   }
 };
 
-const createCompanyDao = async (conn, payload) => {
+const createCompanyDao = async (payload, conn = null) => {
   try {
     const [sql, params] = buildInsertQuery(tableName.COMPANY, payload);
-    if (conn && conn.query) {
-      const result = await conn.query(sql, params);
-      return result.rows[0];
-    }
-    const result = await executeQuery(sql, params);
-    return result.rows;
+    const result = await executeQuery(sql, params, conn);
+    return result.rows[0];
   } catch (error) {
     logger.error('Error fetching company:', error);
     throw error;
   }
 };
 
-const updateCompanyDao = async (id, data) => {
+const updateCompanyDao = async (id, data, conn = null) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.COMPANY, data, id);
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error updating company:', error); // Log the error for debugging
@@ -120,10 +130,10 @@ const updateCompanyConfigDao = async (id, data, conn) => {
   );
 };
 
-const deleteCompanyDao = async (id, data) => {
+const deleteCompanyDao = async (id, data, conn = null) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.COMPANY, data, id);
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error deleting company:', error); // Log the error for debugging
@@ -138,6 +148,7 @@ export {
   deleteCompanyDao,
   getCompanyByIDDao,
   getClickrrDetailsByCompanyIdDao,
+  getBepayDetailsByCompanyIdDao,
   getCashfreeAllowByCompanyIdDao,
   updateCompanyConfigDao,
   getCompanyDetailsByIdDao,

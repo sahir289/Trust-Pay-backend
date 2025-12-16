@@ -679,15 +679,12 @@ const getSettlementByUTRDao = async (utr) => {
   }
 };
 
-const createSettlementDao = async (payload, conn) => {
+const createSettlementDao = async (payload, conn = null) => {
   try {
     const [sql, params] = buildInsertQuery(tableName.SETTLEMENT, payload);
-    let result;
-    if (conn && conn.query) {
-      result = await conn.query(sql, params);
-    } else {
-      result = await executeQuery(sql, params);
-    }
+    const result = conn
+      ? await conn.query(sql, params)
+      : await executeQuery(sql, params);
     // const insertedEntry = result.rows[0];
     // const code = await getUsersNameDao(insertedEntry.user_id);
     // const createdBy = await getUsersNameDao(insertedEntry.created_by);
@@ -708,15 +705,12 @@ const createSettlementDao = async (payload, conn) => {
   }
 };
 
-const updateSettlementDao = async (conn, id, data) => {
+const updateSettlementDao = async (id, data, conn = null) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.SETTLEMENT, data, id);
-    let result;
-    if (conn && conn.query) {
-      result = await conn.query(sql, params); // Use connection to execute query
-    } else {
-      result = await executeQuery(sql, params); // Use executeQuery if no connection
-    }
+    const result = conn
+      ? await conn.query(sql, params)
+      : await executeQuery(sql, params);
   //   const createdBy = await getUsersNameDao(data.updated_by);
   //   let insertedEntry = 
   //   {
@@ -739,15 +733,12 @@ const updateSettlementDao = async (conn, id, data) => {
   }
 };
 
-const deleteSettlementDao = async (conn, id, data) => {
+const deleteSettlementDao = async (id, data, conn = null) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.SETTLEMENT, data, id);
-    let result;
-    if (conn && conn.query) {
-      result = await conn.query(sql, params); // Use connection to execute query
-    } else {
-      result = await executeQuery(sql, params); // Use executeQuery if no connection
-    }
+    const result = conn
+      ? await conn.query(sql, params)
+      : await executeQuery(sql, params);
 
     return result.rows[0];
   } catch (error) {
