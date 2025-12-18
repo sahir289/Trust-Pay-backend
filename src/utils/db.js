@@ -148,38 +148,77 @@ export async function closePool() {
   }
 }
 
+
+// RULE: BEGIN & COMMIT bubble errors.
+// ROLLBACK is best-effort and must never throw.
+
+/**
+ * Starts a database transaction.
+ *
+ * IMPORTANT:
+ * - This function intentionally DOES NOT use try/catch.
+ * - BEGIN is a transaction boundary operation.
+ * - If BEGIN fails (connection dropped, pool issue, DB restart),
+ *   the REAL error must bubble up to the transaction owner (API layer).
+ *
+ * Wrapping or masking BEGIN errors would:
+ * - Hide infrastructure issues
+ * - Break transaction state awareness
+ * - Cause incorrect rollback attempts
+ *
+ * Error handling and recovery MUST be done at the transaction boundary,
+ * not inside this helper.
+ */
 const beginTransaction = async (client) => {
-  try {
-    if (!client || client.released) {
-      throw new InternalServerError('Invalid or released PostgreSQL client');
-    }
-    await client.query('BEGIN');
-    logger.info('Transaction started');
-  } catch (error) {
-    logger.error('Error starting transaction', error);
-    throw new DbError('Failed to start transaction');
-  }
+  await client.query('BEGIN');
+  logger.info('Transaction started');
 };
 
+/**
+ * Commits the current transaction.
+ *
+ * IMPORTANT:
+ * - This function intentionally DOES NOT use try/catch.
+ * - COMMIT is a transaction boundary operation.
+ * - If COMMIT fails, the transaction state is UNKNOWN and the caller
+ *   must decide how to recover.
+ *
+ * We do NOT wrap or replace errors here so that:
+ * - The original PostgreSQL / network error is preserved
+ * - The caller can correctly decide whether rollback is safe
+ * - We avoid double-rollback or cleanup crashes
+ *
+ * All commit failures are handled at the transaction boundary (API layer).
+ */
 const commit = async (client) => {
-  try {
-    await client.query('COMMIT');
-    logger.info('Transaction committed');
-  } catch (error) {
-    logger.error('Error committing transaction', error);
-    throw new DbError('Failed to commit transaction');
-  }
+  await client.query('COMMIT');
+  logger.info('Transaction committed');
 };
 
-const rollback = async (client, throwError = true) => {
+
+/**
+ * Rolls back the current transaction (best-effort cleanup).
+ *
+ * IMPORTANT:
+ * - Rollback is a CLEANUP operation, not business logic.
+ * - This function MUST use try/catch and MUST NEVER throw.
+ *
+ * Reasons:
+ * - The connection may already be closed
+ * - The transaction may already be committed or auto-rolled back
+ * - PostgreSQL may reject ROLLBACK in an invalid state
+ *
+ * Cleanup failures must NEVER crash the application or override
+ * the original error that caused the rollback.
+ *
+ * Rollback errors are logged as warnings and safely ignored.
+ */
+const rollback = async (client) => {
   try {
     await client.query('ROLLBACK');
     logger.info('Transaction rolled back');
   } catch (error) {
-    logger.error('Error rolling back transaction', error);
-    if (throwError) {
-      throw new DbError('Failed to rollback transaction');
-    }
+    logger.warn('Rollback skipped / failed (transaction already closed or connection dead)', error);
   }
 };
 
@@ -189,7 +228,9 @@ export const executeQuery = async (query, queryParams = [], conn = null) => {
     try {
       const isSelect = query.trim().toUpperCase().startsWith('SELECT');
       const pool = isSelect ? readerPool : writerPool;
-      const result = conn ? await conn.query(query, queryParams) : await pool.query(query, queryParams);
+      const result = conn
+        ? await conn.query(query, queryParams)
+        : await pool.query(query, queryParams);
       return result;
     } catch (error) {
       logger.error(`Error while executing query (Attempt ${attempt}):`, error);
@@ -395,7 +436,11 @@ export const buildAndExecuteUpdateQuery = async (
             jsonbSetQuery = `jsonb_set(${jsonbSetQuery}, '{${path}}', ${mergeSnippet})`;
             values.push(stringifyJSON(value));
             index++;
-          } else if (value && typeof value === 'object' && !Array.isArray(value)) {
+          } else if (
+            value &&
+            typeof value === 'object' &&
+            !Array.isArray(value)
+          ) {
             // Recursively process nested objects
             processNestedKeys(value, currentPath);
           } else {
@@ -458,14 +503,14 @@ export const buildAndExecuteUpdateQuery = async (
 export const transactionWrapper =
   (fn) =>
   async (...args) => {
-    let conn;
+    let conn; let committed = false; ;
     try {
       conn = await getConnection();
       await beginTransaction(conn);
 
       const data = await fn(conn, ...args);
 
-      await commit(conn);
+      await commit(conn); committed = true;
       return data;
     } catch (error) {
       // Only attempt rollback if the connection is still valid

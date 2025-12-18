@@ -83,15 +83,15 @@ const _createCheckUtrServiceInternal = async (payload, conn) => {
 };
 
 const createCheckUtrService = async (payload) => {
-  let conn;
+  let conn; let committed = false; ;
   try {
     conn = await getConnection();
     await beginTransaction(conn);
     const result = await _createCheckUtrServiceInternal(payload, conn);
-    await commit(conn);
+    await commit(conn); committed = true;
     return result;
   } catch (error) {
-    if (conn) {
+    if (conn && !committed) {
       await rollback(conn);
     }
     logger.error('error getting while check utr', error);

@@ -61,7 +61,14 @@ const _createChargeBackServiceInternal = async (
       ],
     };
     delete payload.merchant_order_id;
-    const companyData = await getCompanyDao({ id: company_id }, null, null, null, null, conn);
+    const companyData = await getCompanyDao(
+      { id: company_id },
+      null,
+      null,
+      null,
+      null,
+      conn,
+    );
     if (!companyData || !companyData[0]) {
       throw new NotFoundError('Company not found');
     }
@@ -72,7 +79,8 @@ const _createChargeBackServiceInternal = async (
         : { user_ip: [] };
 
     const userIp = PayinDetails[0]?.user_ip?.trim();
-    const isAlreadyBlocked = userIp && companyBlockedUsersObj?.user_ip.includes(userIp);
+    const isAlreadyBlocked =
+      userIp && companyBlockedUsersObj?.user_ip.includes(userIp);
     let updatedCompanyBlockedUsers;
     if (!isAlreadyBlocked && userIp) {
       updatedCompanyBlockedUsers = {
@@ -139,7 +147,10 @@ const _createChargeBackServiceInternal = async (
       },
       conn,
     );
-    const merchantCalculation = await getCalculationforCronDao(MerchantuserId, conn );
+    const merchantCalculation = await getCalculationforCronDao(
+      MerchantuserId,
+      conn,
+    );
     if (!merchantCalculation || !merchantCalculation[0]) {
       throw new NotFoundError('Merchant calculations not found');
     }
@@ -156,7 +167,10 @@ const _createChargeBackServiceInternal = async (
       conn,
     );
     const VendorUserId = data.vendor_user_id;
-    const vendorCalculation = await getCalculationforCronDao(VendorUserId, conn );
+    const vendorCalculation = await getCalculationforCronDao(
+      VendorUserId,
+      conn,
+    );
     if (!vendorCalculation || !vendorCalculation[0]) {
       throw new NotFoundError('Vendor calculations not found');
     }
@@ -172,7 +186,7 @@ const _createChargeBackServiceInternal = async (
       updatedCalculation,
       conn,
     );
-    
+
     await trackVendorsNetBalance(vendorCalculation[0].user_id, response);
     // await notifyAdminsAndUsers({
     //   conn,
@@ -182,7 +196,10 @@ const _createChargeBackServiceInternal = async (
     //   actorUserId: payload.merchant_user_id,
     //   category: 'ChargeBack',
     // });
-    const filterColumns = role === Role.MERCHANT ? merchantColumns.CHARGE_BACK : columns.CHARGE_BACK;
+    const filterColumns =
+      role === Role.MERCHANT
+        ? merchantColumns.CHARGE_BACK
+        : columns.CHARGE_BACK;
     const finalResult = filterResponse(data, filterColumns);
     return finalResult;
   } catch (error) {
@@ -199,30 +216,29 @@ const createChargeBackService = async (
   user_id,
 ) => {
   let conn;
+  let committed = false;
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const data = await _createChargeBackServiceInternal(payload, PayinDetails, role, company_id, user_id, conn);
+    const data = await _createChargeBackServiceInternal(
+      payload,
+      PayinDetails,
+      role,
+      company_id,
+      user_id,
+      conn,
+    );
     await commit(conn);
+    committed = true;
     return data;
   } catch (error) {
-    if (conn) {
-      try {
-        await rollback(conn);
-      } catch (rollbackError) {
-        logger.error('Error during transaction rollback', rollbackError);
-      }
+    if (conn && !committed) {
+      await rollback(conn);
     }
     logger.error('Error in createChargebackService', error);
     throw error;
   } finally {
-    if (conn) {
-      try {
-        conn.release();
-      } catch (releaseError) {
-        logger.error('Error while releasing the connection', releaseError);
-      }
-    }
+    if (conn) conn.release();
   }
 };
 
@@ -393,7 +409,7 @@ const getChargeBacksBySearchService = async (
         : Math.max(1, Math.min(100, parseInt(String(limit), 10) || 10)); // Added upper limit
     let searchTerms;
     if (filters.search) {
-       searchTerms = filters.search
+      searchTerms = filters.search
         .split(',')
         .map((term) => term.trim())
         .filter((term) => term.length > 0);
@@ -557,7 +573,11 @@ const _blockChargebackUserServiceInternal = async (ids, data, conn) => {
     }
 
     const config = { blocked_users: updatedChargebackBlockedUsers };
-    const result = await updateChargeBackDao({ id, company_id }, { config }, conn);
+    const result = await updateChargeBackDao(
+      { id, company_id },
+      { config },
+      conn,
+    );
     return result;
   } catch (error) {
     logger.error('error in _blockChargebackUserServiceInternal', error);
@@ -567,6 +587,7 @@ const _blockChargebackUserServiceInternal = async (ids, data, conn) => {
 
 const blockChargebackUserService = async (ids, data) => {
   let conn;
+  let committed = false;
   try {
     conn = await getConnection();
     await beginTransaction(conn);
@@ -574,9 +595,10 @@ const blockChargebackUserService = async (ids, data) => {
     const result = await _blockChargebackUserServiceInternal(ids, data, conn);
 
     await commit(conn);
+    committed = true;
     return result;
   } catch (error) {
-    if (conn) await rollback(conn);
+    if (conn && !committed) await rollback(conn);
     logger.error('Error in blockChargebackUserService', error);
     throw error;
   } finally {
@@ -584,45 +606,56 @@ const blockChargebackUserService = async (ids, data) => {
   }
 };
 
-const _updateChargeBackServiceInternal = async (ids, payload, chargeBack, conn) => {
+const _updateChargeBackServiceInternal = async (
+  ids,
+  payload,
+  chargeBack,
+  conn,
+) => {
   try {
     const data = await updateChargeBackDao(ids, payload, conn);
     let MerchantuserId = data.merchant_user_id;
-  const merchantCalculation = await getCalculationforCronDao(MerchantuserId, conn);
-  let amount = Number(data.amount - chargeBack.amount);
-  if (data.amount > chargeBack.amount) {
-    amount = Math.abs(amount);
-  } else {
-    amount = -Math.abs(amount);
-  }
-  let merchantId = merchantCalculation[0].id;
-  await updateCalculationBalanceDao(
-    { id: merchantId },
-    {
+    const merchantCalculation = await getCalculationforCronDao(
+      MerchantuserId,
+      conn,
+    );
+    let amount = Number(data.amount - chargeBack.amount);
+    if (data.amount > chargeBack.amount) {
+      amount = Math.abs(amount);
+    } else {
+      amount = -Math.abs(amount);
+    }
+    let merchantId = merchantCalculation[0].id;
+    await updateCalculationBalanceDao(
+      { id: merchantId },
+      {
+        total_chargeback_count: 1,
+        total_chargeback_amount: amount,
+        current_balance: -amount,
+        net_balance: -amount,
+      },
+      conn,
+    );
+    // update vendor calculations
+    let VendorUserId = data.vendor_user_id;
+    const vendorCalculation = await getCalculationforCronDao(
+      VendorUserId,
+      conn,
+    );
+    let VendorId = vendorCalculation[0].id;
+    const updatedCalculation = {
       total_chargeback_count: 1,
       total_chargeback_amount: amount,
       current_balance: -amount,
       net_balance: -amount,
-    },
-    conn,
-  );
-  // update vendor calculations
-  let VendorUserId = data.vendor_user_id;
-  const vendorCalculation = await getCalculationforCronDao(VendorUserId, conn);
-  let VendorId = vendorCalculation[0].id;
-  const updatedCalculation = {
-    total_chargeback_count: 1,
-    total_chargeback_amount: amount,
-    current_balance: -amount,
-    net_balance: -amount,
-  };
-  const response = await updateCalculationBalanceDao(
-    { id: VendorId },
-    updatedCalculation,
-    conn,
-  );
-  
-  await trackVendorsNetBalance(vendorCalculation[0].user_id, response);
+    };
+    const response = await updateCalculationBalanceDao(
+      { id: VendorId },
+      updatedCalculation,
+      conn,
+    );
+
+    await trackVendorsNetBalance(vendorCalculation[0].user_id, response);
     return data;
   } catch (error) {
     logger.error('error in _updateChargeBackServiceInternal', error);
@@ -632,6 +665,7 @@ const _updateChargeBackServiceInternal = async (ids, payload, chargeBack, conn) 
 
 const updateChargeBackService = async (ids, payload) => {
   let conn;
+  let committed = false;
   try {
     const chargebackdata = await getChargebackByIdDao({
       id: ids.id,
@@ -648,27 +682,23 @@ const updateChargeBackService = async (ids, payload) => {
     }
     conn = await getConnection();
     await beginTransaction(conn);
-    const data = await _updateChargeBackServiceInternal(ids, payload, chargeBack, conn);
+    const data = await _updateChargeBackServiceInternal(
+      ids,
+      payload,
+      chargeBack,
+      conn,
+    );
     await commit(conn);
+    committed = true;
     return data;
   } catch (error) {
-    if (conn) {
-      try {
-        await rollback(conn); // Rollback the transaction in case of error
-      } catch (rollbackError) {
-        logger.error('Error during transaction rollback', rollbackError);
-      }
+    if (conn && !committed) {
+      await rollback(conn); // Rollback the transaction in case of error
     }
     logger.error('Error while updating ChargeBack', error);
     throw error;
   } finally {
-    if (conn) {
-      try {
-        conn.release();
-      } catch (releaseError) {
-        logger.error('Error while releasing the connection', releaseError);
-      }
-    }
+    if (conn) conn.release();
   }
 };
 
@@ -692,30 +722,27 @@ const _deleteChargeBackServiceInternal = async (ids, payload, role, conn) => {
 
 const deleteChargeBackService = async (ids, payload, role) => {
   let conn;
+  let committed = false;
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const finalResult = await _deleteChargeBackServiceInternal(ids, payload, role, conn);
+    const finalResult = await _deleteChargeBackServiceInternal(
+      ids,
+      payload,
+      role,
+      conn,
+    );
     await commit(conn);
+    committed = true;
     return finalResult;
   } catch (error) {
-    if (conn) {
-      try {
-        await rollback(conn); // Rollback the transaction in case of error
-      } catch (rollbackError) {
-        logger.error('Error during transaction rollback', rollbackError);
-      }
+    if (conn && !committed) {
+      await rollback(conn); // Rollback the transaction in case of error
     }
     logger.error('Error while deleting ChargeBack', error);
     throw error;
   } finally {
-    if (conn) {
-      try {
-        conn.release();
-      } catch (releaseError) {
-        logger.error('Error while releasing the connection', releaseError);
-      }
-    }
+    if (conn) conn.release();
   }
 };
 

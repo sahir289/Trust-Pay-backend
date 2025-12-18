@@ -30,30 +30,26 @@ const _createUserHierarchyServiceInternal = async (payload, role, conn) => {
 
 const createUserHierarchyService = async (payload, role) => {
   let conn;
+  let committed = false;
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const finalResult = await _createUserHierarchyServiceInternal(payload, role, conn);
+    const finalResult = await _createUserHierarchyServiceInternal(
+      payload,
+      role,
+      conn,
+    );
     await commit(conn);
+    committed = true;
     return finalResult;
   } catch (error) {
-    if (conn) {
-      try {
-        await rollback(conn); // Rollback the transaction in case of error
-      } catch (rollbackError) {
-        logger.error('Error during transaction rollback', rollbackError);
-      }
+    if (conn && !committed) {
+      await rollback(conn); // Rollback the transaction in case of error
     }
     logger.error('Error while creating UserHierarchy', error);
     throw error;
   } finally {
-    if (conn) {
-      try {
-        conn.release(); // Release the connection back to the pool
-      } catch (releaseError) {
-        logger.error('Error while releasing the connection', releaseError);
-      }
-    }
+    if (conn) conn.release();
   }
 };
 
@@ -96,34 +92,36 @@ const _updateUserHierarchyServiceInternal = async (id, payload, role, conn) => {
 
 const updateUserHierarchyService = async (id, payload, role) => {
   let conn;
+  let committed = false;
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const finalResult = await _updateUserHierarchyServiceInternal(id, payload, role, conn);
+    const finalResult = await _updateUserHierarchyServiceInternal(
+      id,
+      payload,
+      role,
+      conn,
+    );
     await commit(conn);
+    committed = true;
     return finalResult;
   } catch (error) {
-    if (conn) {
-      try {
-        await rollback(conn); // Rollback the transaction in case of error
-      } catch (rollbackError) {
-        logger.error('Error during transaction rollback', rollbackError);
-      }
+    if (conn && !committed) {
+      await rollback(conn); // Rollback the transaction in case of error
     }
     logger.error('Error while updating UserHierarchy', error);
     throw error;
   } finally {
-    if (conn) {
-      try {
-        conn.release(); // Release the connection back to the pool
-      } catch (releaseError) {
-        logger.error('Error while releasing the connection', releaseError);
-      }
-    }
+    if (conn) conn.release();
   }
 };
 
-const _deleteUserHierarchyServiceInternal = async (ids, updated_by, role, conn) => {
+const _deleteUserHierarchyServiceInternal = async (
+  ids,
+  updated_by,
+  role,
+  conn,
+) => {
   try {
     const filterColumns =
       role === Role.MERCHANT
@@ -131,7 +129,7 @@ const _deleteUserHierarchyServiceInternal = async (ids, updated_by, role, conn) 
         : columns.USER_HIERARCHY;
     const payload = { is_obsolete: true, updated_by };
     const data = await deleteUserHierarchyDao(ids, payload, conn);
-    const finalResult = await filterResponse(data, filterColumns);
+    const finalResult = filterResponse(data, filterColumns);
     return finalResult;
   } catch (error) {
     logger.error('error in _deleteUserHierarchyServiceInternal', error);
@@ -141,30 +139,27 @@ const _deleteUserHierarchyServiceInternal = async (ids, updated_by, role, conn) 
 
 const deleteUserHierarchyService = async (ids, updated_by, role) => {
   let conn;
+  let committed = false;
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const finalResult = await _deleteUserHierarchyServiceInternal(ids, updated_by, role, conn);
+    const finalResult = await _deleteUserHierarchyServiceInternal(
+      ids,
+      updated_by,
+      role,
+      conn,
+    );
     await commit(conn);
+    committed = true;
     return finalResult;
   } catch (error) {
-    if (conn) {
-      try {
-        await rollback(conn); // Rollback the transaction in case of error
-      } catch (rollbackError) {
-        logger.error('Error during transaction rollback', rollbackError);
-      }
+    if (conn && !committed) {
+      await rollback(conn); // Rollback the transaction in case of error
     }
     logger.error('Error while deleting UserHierarchy', error);
     throw error;
   } finally {
-    if (conn) {
-      try {
-        conn.release(); // Release the connection back to the pool
-      } catch (releaseError) {
-        logger.error('Error while releasing the connection', releaseError);
-      }
-    }
+    if (conn) conn.release();
   }
 };
 

@@ -78,9 +78,17 @@ const getSubVendorParentInfo = async (vendor, conn = null) => {
     );
 
     // Get user hierarchy to find parent
-    const userHierarchys = await getUserHierarchysDao({
-      user_id: vendor.user_id,
-    }, null, null, null, null, null, conn);
+    const userHierarchys = await getUserHierarchysDao(
+      {
+        user_id: vendor.user_id,
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      conn,
+    );
 
     logger.info(
       `Settlement: User hierarchy result: ${JSON.stringify(userHierarchys)}`,
@@ -101,7 +109,16 @@ const getSubVendorParentInfo = async (vendor, conn = null) => {
     );
 
     // Get parent vendor details
-    const parentVendors = await getVendorsDao({ user_id: parentId }, null, null, null, null, null, null, conn);
+    const parentVendors = await getVendorsDao(
+      { user_id: parentId },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      conn,
+    );
     if (!parentVendors || !parentVendors[0]) {
       logger.warn(
         `Settlement: Parent vendor not found for user_id: ${parentId}`,
@@ -143,7 +160,10 @@ const updateParentVendorSettlementCalculation = async (
     );
 
     // Get parent calculation data
-    const parentCalculationData = await getCalculationforCronDao(parentUserId, conn);
+    const parentCalculationData = await getCalculationforCronDao(
+      parentUserId,
+      conn,
+    );
     if (!parentCalculationData[0]) {
       throw new NotFoundError(
         `Settlement: Parent calculation not found for user_id: ${parentUserId}`,
@@ -261,7 +281,15 @@ const getSettlementService = async (
       //   }
       // }
       if (designation === Role.MERCHANT_OPERATIONS) {
-        const userHierarchys = await getUserHierarchysDao({ user_id }, null, null, null, null, null, null);
+        const userHierarchys = await getUserHierarchysDao(
+          { user_id },
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+        );
         if (userHierarchys || userHierarchys.length > 0) {
           const userHierarchy = userHierarchys[0];
           if (userHierarchy?.config?.parent) {
@@ -271,7 +299,15 @@ const getSettlementService = async (
       }
     } else if (role === Role.VENDOR) {
       if (designation === Role.VENDOR_OPERATIONS) {
-        const userHierarchys = await getUserHierarchysDao({ user_id }, null, null, null, null, null, null);
+        const userHierarchys = await getUserHierarchysDao(
+          { user_id },
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+        );
         if (userHierarchys || userHierarchys.length > 0) {
           const userHierarchy = userHierarchys[0];
           if (userHierarchy?.config?.parent) {
@@ -347,7 +383,15 @@ const getSettlementsBySearchService = async (
     // Handle MERCHANT role hierarchy
     if (role === Role.MERCHANT) {
       if (designation === Role.MERCHANT_OPERATIONS) {
-        const userHierarchys = await getUserHierarchysDao({ user_id }, null, null, null, null, null, null);
+        const userHierarchys = await getUserHierarchysDao(
+          { user_id },
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+        );
         if (userHierarchys && userHierarchys.length > 0) {
           const userHierarchy = userHierarchys[0];
           if (userHierarchy?.config?.parent) {
@@ -358,7 +402,15 @@ const getSettlementsBySearchService = async (
     }
     // Handle VENDOR role hierarchy
     else if (role == Role.VENDOR) {
-      const userHierarchys = await getUserHierarchysDao({ user_id }, null, null, null, null, null, null);
+      const userHierarchys = await getUserHierarchysDao(
+        { user_id },
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+      );
       const userHierarchy = userHierarchys?.[0];
 
       const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
@@ -372,7 +424,15 @@ const getSettlementsBySearchService = async (
       filters.user_id = [user_id];
     }
 
-    const userHierarchys = await getUserHierarchysDao({ user_id }, null, null, null, null, null, null);
+    const userHierarchys = await getUserHierarchysDao(
+      { user_id },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+    );
     if (designation == Role.VENDOR_OPERATIONS) {
       const userHierarchy = userHierarchys?.[0];
       const parentID = userHierarchy?.config?.parent;
@@ -469,14 +529,16 @@ const _createSettlementServiceInternal = async (payload, role, conn) => {
 
 const createSettlementService = async (payload, role) => {
   let conn;
+  let committed = false;
   try {
     conn = await getConnection();
     await beginTransaction(conn);
     const result = await _createSettlementServiceInternal(payload, role, conn);
     await commit(conn);
+    committed = true;
     return result;
   } catch (error) {
-    if (conn) await rollback(conn);
+    if (conn && !committed) await rollback(conn);
     logger.error('Error while creating Settlement', error);
     throw error;
   } finally {
@@ -492,7 +554,16 @@ const handleVendorInternalTransferByAdmin = async (
 ) => {
   // Get vendor and calculation data
   const [vendorData, calculationData] = await Promise.all([
-    getVendorsDao({ user_id: payload.user_id }, null, null, null, null, null, null, conn),
+    getVendorsDao(
+      { user_id: payload.user_id },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      conn,
+    ),
     getCalculationforCronDao(payload.user_id, conn),
   ]);
 
@@ -840,9 +911,22 @@ const updateBeneficiaryAccount = async (
 };
 
 // Helper function to handle internal transfer reversal
-const handleInternalTransferReversal = async (settlementData, payload, conn = null) => {
+const handleInternalTransferReversal = async (
+  settlementData,
+  payload,
+  conn = null,
+) => {
   const [vendorData, calculationData] = await Promise.all([
-    getVendorsDao({ user_id: settlementData.user_id }, null, null, null, null, null, null, conn),
+    getVendorsDao(
+      { user_id: settlementData.user_id },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      conn,
+    ),
     getCalculationforCronDao(settlementData.user_id, conn),
   ]);
 
@@ -1048,9 +1132,17 @@ const _updateSettlementServiceInternal = async (ids, payload, conn) => {
     payload.approved_at = new Date();
 
     // Get merchant data to determine role
-    const merchantData = await getMerchantsDao({
-      user_id: settlementData.user_id,
-    }, null, null, null, null, 'ADMIN', conn);
+    const merchantData = await getMerchantsDao(
+      {
+        user_id: settlementData.user_id,
+      },
+      null,
+      null,
+      null,
+      null,
+      'ADMIN',
+      conn,
+    );
     const isMerchant = merchantData.length > 0;
 
     let updatedCalculation;
@@ -1119,7 +1211,7 @@ const _updateSettlementServiceInternal = async (ids, payload, conn) => {
     if (settlementData.status === Status.REVERSED) {
       throw new BadRequestError('Settlement is already reversed');
     }
-    
+
     const merchantData = await getMerchantsDao({
       user_id: settlementData.user_id,
     });
@@ -1229,6 +1321,7 @@ const _updateSettlementServiceInternal = async (ids, payload, conn) => {
 
 const updateSettlementService = async (ids, payload) => {
   let conn;
+  let committed = false;
   try {
     conn = await getConnection();
     await beginTransaction(conn);
@@ -1238,9 +1331,10 @@ const updateSettlementService = async (ids, payload) => {
       conn,
     );
     await commit(conn);
+    committed = true;
     return updateData;
   } catch (error) {
-    if (conn) await rollback(conn);
+    if (conn && !committed) await rollback(conn);
     logger.error('Error while updating Settlement', error);
     throw error;
   } finally {
@@ -1250,6 +1344,7 @@ const updateSettlementService = async (ids, payload) => {
 
 const deleteSettlementService = async (ids) => {
   let conn;
+  let committed = false;
   try {
     conn = await getConnection();
     await beginTransaction(conn);
@@ -1261,9 +1356,10 @@ const deleteSettlementService = async (ids) => {
     );
 
     await commit(conn);
+    committed = true;
     return updatedData;
   } catch (error) {
-    if (conn) await rollback(conn);
+    if (conn && !committed) await rollback(conn);
     logger.error('error getting while deleting settlement', error);
     throw error;
   } finally {

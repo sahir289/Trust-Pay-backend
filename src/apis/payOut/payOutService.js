@@ -405,12 +405,12 @@ const createPayoutService = async (
   userIp,
   fromUI,
 ) => {
-  let conn;
+  let conn; let committed = false; ;
   try {
     conn = await getConnection();
     await beginTransaction(conn);
     const data = await _createPayoutServiceInternal(headers, payload, role, userIp, fromUI, conn);
-    await commit(conn);
+    await commit(conn); committed = true;
     return data;
   } catch (error) {
     if (conn) {
@@ -1066,12 +1066,12 @@ const _updatePayoutServiceInternal = async (ids, payload, role, conn = null) => 
 };
 
 const updatePayoutService = async (ids, payload, role) => {
-  let conn;
+  let conn; let committed = false; ;
   try {
     conn = await getConnection();
     await beginTransaction(conn);
     const data = await _updatePayoutServiceInternal(ids, payload, role, conn);
-    await commit(conn);
+    await commit(conn); committed = true;
     return data;
   } catch (error) {
     if (conn) {
@@ -1385,12 +1385,12 @@ const assignedPayoutService = async (
   updated_by,
   company_id,
 ) => {
-  let conn;
+  let conn; let committed = false; ;
   try {
     conn = await getConnection();
     await beginTransaction(conn);
     const data = await _assignedPayoutServiceInternal(id, payload, updated_by, company_id, conn);
-    await commit(conn);
+    await commit(conn); committed = true;
     return data;
   } catch (error) {
     if (conn) {
@@ -1425,12 +1425,12 @@ const _deletePayoutServiceInternal = async (id, updated_by, role, conn) => {
 };
 
 const deletePayoutService = async (id, updated_by, role) => {
-  let conn;
+  let conn; let committed = false; ;
   try {
     conn = await getConnection();
     await beginTransaction(conn);
     const finalResult = await _deletePayoutServiceInternal(id, updated_by, role, conn);
-    await commit(conn);
+    await commit(conn); committed = true;
     return finalResult;
   } catch (error) {
     if (conn) {
@@ -1439,12 +1439,11 @@ const deletePayoutService = async (id, updated_by, role) => {
       } catch (rollbackError) {
         logger.error(
           'Error during transaction rollback',
-          'error',
           rollbackError,
         );
       }
     }
-    logger.error('Error while deleting Payout', 'error', error);
+    logger.error('Error while deleting Payout', error);
     throw error;
   } finally {
     if (conn) {
@@ -1735,12 +1734,12 @@ const createTataPayBulkPayoutService = async (
     user_id,
   }
 ) => {
-  let conn;
+  let conn; let committed = false; ;
   try {
     conn = await getConnection();
     await beginTransaction(conn);
     const result = await _createTataPayBulkPayoutServiceInternal({ payoutEntries, payoutIds, company_id, user_id }, conn);
-    await commit(conn);
+    await commit(conn); committed = true;
     return result;
   } catch (error) {
     if (conn) {

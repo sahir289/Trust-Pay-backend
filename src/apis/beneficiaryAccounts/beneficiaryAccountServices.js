@@ -173,8 +173,7 @@ const getBeneficiaryAccountBySearchService = async (
       }
     } else if (role === Role.VENDOR) {
       if (designation === Role.VENDOR || designation === Role.VENDOR_ADMIN) {
-        const subVendors =
-          userHierarchy?.config?.siblings?.sub_vendor ?? [];
+        const subVendors = userHierarchy?.config?.siblings?.sub_vendor ?? [];
         if (Array.isArray(subVendors) && subVendors.length > 0) {
           merchant_user_id = [...merchant_user_id, ...subVendors];
           filters.user_id = [merchant_user_id];
@@ -262,7 +261,15 @@ const _getBeneficiaryAccountServiceByBankNameInternal = async (
     if (role == Role.VENDOR) {
       filters.user_id = [user_id];
     }
-    const userHierarchys = await getUserHierarchysDao({ user_id }, null, null, null, null, null, conn);
+    const userHierarchys = await getUserHierarchysDao(
+      { user_id },
+      null,
+      null,
+      null,
+      null,
+      null,
+      conn,
+    );
     if (designation == Role.VENDOR_OPERATIONS) {
       const parentID = userHierarchys[0]?.config?.parent;
       if (parentID) {
@@ -278,7 +285,10 @@ const _getBeneficiaryAccountServiceByBankNameInternal = async (
     );
     return result;
   } catch (error) {
-    logger.error('error in _getBeneficiaryAccountServiceByBankNameInternal', error);
+    logger.error(
+      'error in _getBeneficiaryAccountServiceByBankNameInternal',
+      error,
+    );
     throw error;
   }
 };
@@ -291,6 +301,7 @@ const getBeneficiaryAccountServiceByBankName = async (
   designation,
 ) => {
   let conn;
+  let committed = false;
   try {
     conn = await getConnection();
     await beginTransaction(conn);
@@ -303,28 +314,24 @@ const getBeneficiaryAccountServiceByBankName = async (
       conn,
     );
     await commit(conn);
+    committed = true;
     return result;
   } catch (error) {
-    if (conn) {
-      try {
-        await rollback(conn);
-      } catch (rollbackError) {
-        logger.error('Error during transaction rollback', rollbackError);
-      }
+    if (conn && !committed) {
+      await rollback(conn);
     }
+    logger.error('error getting while getting beneficiary by bank name', error);
     throw error;
   } finally {
-    if (conn) {
-      try {
-        conn.release();
-      } catch (releaseError) {
-        logger.error('Error while releasing the connection', releaseError);
-      }
-    }
+    if (conn) conn.release();
   }
 };
 
-const _createBeneficiaryAccountServiceInternal = async (payload, company_id, conn) => {
+const _createBeneficiaryAccountServiceInternal = async (
+  payload,
+  company_id,
+  conn,
+) => {
   try {
     // Set user_id to created_by if not already set
     payload.user_id = payload.user_id || payload.created_by;
@@ -336,70 +343,70 @@ const _createBeneficiaryAccountServiceInternal = async (payload, company_id, con
     if (!roleObj) throw new BadRequestError('Role not found');
     payload.role_id = roleObj.id;
 
-  // Prepare config based on role
-  if (roleObj.role === Role.ADMIN) {
-    const adminUser = await getUserByCompanyCreatedAtDao(
-      company_id,
-      Role.ADMIN,
-    );
-    if (adminUser) payload.user_id = adminUser.id;
-    payload.config = {
-      type: payload?.type,
-      initial_balance: payload?.initial_balance || 0,
-      closing_balance: payload?.initial_balance || 0,
-      is_enabled: false,
-    };
-    delete payload.type; // Remove type if it's not needed in config
-    delete payload?.initial_balance; // Remove initial_balance if it's not needed in config
-  } else if (roleObj.role === Role.VENDOR) {
-    payload.config = {
-      type: 'Personal',
-      initial_balance: 0,
-      closing_balance: 0,
-      is_enabled: true,
-    };
-    delete payload?.type;
-    delete payload?.initial_balance; // Remove initial_balance if it's not needed in config
-  } else if (roleObj.role === Role.MERCHANT) {
-    payload.config = {
-      type: 'Personal',
-    };
-    delete payload?.type;
-  }
-
-  // Check for duplicates
-  if ([Role.VENDOR, Role.MERCHANT, Role.ADMIN].includes(roleObj.role)) {
-    const filters = { acc_no: payload.acc_no };
-    if (roleObj.role === Role.VENDOR) filters.user_id = payload.user_id;
-    const exists = await getBeneficiaryAccountDao(
-      filters,
-      null,
-      null,
-      roleObj.role,
-      conn,
-    );
-    if (exists.length > 0)
-      throw new BadRequestError(
-        'Beneficiary account already exists for this merchant',
+    // Prepare config based on role
+    if (roleObj.role === Role.ADMIN) {
+      const adminUser = await getUserByCompanyCreatedAtDao(
+        company_id,
+        Role.ADMIN,
       );
-  }
+      if (adminUser) payload.user_id = adminUser.id;
+      payload.config = {
+        type: payload?.type,
+        initial_balance: payload?.initial_balance || 0,
+        closing_balance: payload?.initial_balance || 0,
+        is_enabled: false,
+      };
+      delete payload.type; // Remove type if it's not needed in config
+      delete payload?.initial_balance; // Remove initial_balance if it's not needed in config
+    } else if (roleObj.role === Role.VENDOR) {
+      payload.config = {
+        type: 'Personal',
+        initial_balance: 0,
+        closing_balance: 0,
+        is_enabled: true,
+      };
+      delete payload?.type;
+      delete payload?.initial_balance; // Remove initial_balance if it's not needed in config
+    } else if (roleObj.role === Role.MERCHANT) {
+      payload.config = {
+        type: 'Personal',
+      };
+      delete payload?.type;
+    }
 
-  // Create account
-  const result = await createBeneficiaryAccountDao(payload, conn);
+    // Check for duplicates
+    if ([Role.VENDOR, Role.MERCHANT, Role.ADMIN].includes(roleObj.role)) {
+      const filters = { acc_no: payload.acc_no };
+      if (roleObj.role === Role.VENDOR) filters.user_id = payload.user_id;
+      const exists = await getBeneficiaryAccountDao(
+        filters,
+        null,
+        null,
+        roleObj.role,
+        conn,
+      );
+      if (exists.length > 0)
+        throw new BadRequestError(
+          'Beneficiary account already exists for this merchant',
+        );
+    }
 
-  // Notify users
-  // const vendorUsers = await getUserByRoleDao(company_id, Role.VENDOR);
-  // const vendorUserIds = vendorUsers.map((u) => u.id);
-  // const notifyIds =
-  //   roleObj.role === Role.ADMIN ? vendorUserIds : [payload.user_id];
-  // await notifyAdminsAndUsers({
-  //   conn,
-  //   company_id,
-  //   message: `The new Beneficiary Account with Bank Name ${payload.bank_name} has been created.`,
-  //   payloadUserId: notifyIds,
-  //   actorUserId: payload.updated_by,
-  //   category: 'Beneficiary Account',
-  // });
+    // Create account
+    const result = await createBeneficiaryAccountDao(payload, conn);
+
+    // Notify users
+    // const vendorUsers = await getUserByRoleDao(company_id, Role.VENDOR);
+    // const vendorUserIds = vendorUsers.map((u) => u.id);
+    // const notifyIds =
+    //   roleObj.role === Role.ADMIN ? vendorUserIds : [payload.user_id];
+    // await notifyAdminsAndUsers({
+    //   conn,
+    //   company_id,
+    //   message: `The new Beneficiary Account with Bank Name ${payload.bank_name} has been created.`,
+    //   payloadUserId: notifyIds,
+    //   actorUserId: payload.updated_by,
+    //   category: 'Beneficiary Account',
+    // });
 
     return result;
   } catch (error) {
@@ -410,14 +417,20 @@ const _createBeneficiaryAccountServiceInternal = async (payload, company_id, con
 
 const createBeneficiaryAccountService = async (payload, company_id) => {
   let conn;
+  let committed = false;
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const result = await _createBeneficiaryAccountServiceInternal(payload, company_id, conn);
+    const result = await _createBeneficiaryAccountServiceInternal(
+      payload,
+      company_id,
+      conn,
+    );
     await commit(conn);
+    committed = true;
     return result;
   } catch (error) {
-    if (conn) await rollback(conn);
+    if (conn && !committed) await rollback(conn);
     logger.error('error getting while creating beneficiary account', error);
     throw error;
   } finally {
@@ -427,47 +440,53 @@ const createBeneficiaryAccountService = async (payload, company_id) => {
 
 const _updateBeneficiaryAccountService = async (ids, payload, conn) => {
   try {
-  if (payload.acc_no) {
-    let filters = {};
-    filters.acc_no = payload.acc_no;
-    filters.company_id = ids.company_id;
-    const exists = await checkBeneficiaryAccountExistsDao(filters, conn);
-    if (exists) {
-      throw new BadRequestError('Beneficiary account no. already exists');
+    if (payload.acc_no) {
+      let filters = {};
+      filters.acc_no = payload.acc_no;
+      filters.company_id = ids.company_id;
+      const exists = await checkBeneficiaryAccountExistsDao(filters, conn);
+      if (exists) {
+        throw new BadRequestError('Beneficiary account no. already exists');
+      }
     }
-  }
-  const [banks] = await getBeneficiaryAccountDao({
-    id: ids.id,
-    company_id: ids.company_id,
-  }, null, null, null, conn);
+    const [banks] = await getBeneficiaryAccountDao(
+      {
+        id: ids.id,
+        company_id: ids.company_id,
+      },
+      null,
+      null,
+      null,
+      conn,
+    );
 
-  if (!banks) {
-    throw new BadRequestError('Beneficiary account not found');
-  }
+    if (!banks) {
+      throw new BadRequestError('Beneficiary account not found');
+    }
 
-  const result = await updateBeneficiaryAccountDao(
-    { id: ids.id, company_id: ids.company_id },
-    payload,
-    conn,
-  );
+    const result = await updateBeneficiaryAccountDao(
+      { id: ids.id, company_id: ids.company_id },
+      payload,
+      conn,
+    );
 
-  // let notifyIds = [];
-  // if (role === Role.ADMIN) {
-  // Notify users
-  // const vendorUsers = await getUserByRoleDao(ids.company_id, Role.VENDOR);
-  // const vendorUserIds = vendorUsers.map((u) => u.id);
-  // notifyIds = role === Role.ADMIN ? vendorUserIds : [payload.updated_by];
-  // }
+    // let notifyIds = [];
+    // if (role === Role.ADMIN) {
+    // Notify users
+    // const vendorUsers = await getUserByRoleDao(ids.company_id, Role.VENDOR);
+    // const vendorUserIds = vendorUsers.map((u) => u.id);
+    // notifyIds = role === Role.ADMIN ? vendorUserIds : [payload.updated_by];
+    // }
 
-  // await notifyAdminsAndUsers({
-  //   conn,
-  //   company_id: ids.company_id,
-  //   message: `The Beneficiary Account with Bank Name ${banks.bank_name} has been updated.`,
-  //   payloadUserId: notifyIds,
-  //   actorUserId: payload.updated_by,
-  //   category: 'Beneficiary Account',
-  // });
-  return result;
+    // await notifyAdminsAndUsers({
+    //   conn,
+    //   company_id: ids.company_id,
+    //   message: `The Beneficiary Account with Bank Name ${banks.bank_name} has been updated.`,
+    //   payloadUserId: notifyIds,
+    //   actorUserId: payload.updated_by,
+    //   category: 'Beneficiary Account',
+    // });
+    return result;
   } catch (error) {
     logger.error('error in _updateBeneficiaryAccountService', error);
     throw error;
@@ -476,14 +495,16 @@ const _updateBeneficiaryAccountService = async (ids, payload, conn) => {
 
 const updateBeneficiaryAccountService = async (ids, payload) => {
   let conn;
+  let committed = false;
   try {
     conn = await getConnection();
     await beginTransaction(conn);
     const result = await _updateBeneficiaryAccountService(ids, payload, conn);
     await commit(conn);
+    committed = true;
     return result;
   } catch (error) {
-    if (conn) await rollback(conn);
+    if (conn && !committed) await rollback(conn);
     logger.error('error getting while updating banks', error.message);
     throw error;
   } finally {
@@ -507,16 +528,18 @@ const _deleteBeneficiaryAccountServiceInternal = async (ids, conn) => {
 
 const deleteBeneficiaryAccountService = async (ids) => {
   let conn;
+  let committed = false;
   try {
     conn = await getConnection();
     await beginTransaction(conn);
     const result = await _deleteBeneficiaryAccountServiceInternal(ids, conn);
     await commit(conn);
+    committed = true;
     return result;
   } catch (error) {
-    if (conn) await rollback(conn);
+    if (conn && !committed) await rollback(conn);
     logger.error('error getting while deleting banks', error);
-    throw new Error('Error getting while  deleting banks');
+    throw error;
   } finally {
     if (conn) conn.release();
   }

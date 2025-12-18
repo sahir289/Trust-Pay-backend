@@ -3,9 +3,9 @@ import { createBankHistoryDao } from './bankHistoryDao.js';
 import { logger } from '../../utils/logger.js';
 import { BadRequestError } from '../../utils/appErrors.js';
 
-export const createBankHistoryService = async () => {
+export const createBankHistoryService = async (conn) => {
   try {
-    const banks = await getBankaccountDashBoardReportDao();
+    const banks = await getBankaccountDashBoardReportDao({}, conn);
     if (!Array.isArray(banks)) {
       throw new BadRequestError(
         'Expected an array of bank accounts from getBankaccountDashBoardReportDao',
@@ -18,7 +18,7 @@ export const createBankHistoryService = async () => {
      count: bank.payin_count || 0,
     }));
     const results = await Promise.all(
-      payloads.map((payload) => createBankHistoryDao(payload)),
+      payloads.map((payload) => createBankHistoryDao(payload, conn)),
     );
     return results; 
   } catch (error) {

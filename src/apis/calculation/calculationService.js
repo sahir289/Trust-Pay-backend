@@ -46,7 +46,7 @@ dayjs.extend(timezone);
 
 // Service to fetch calculation data
 const getCalculationService = async (filters, role) => {
-  let conn;
+  let conn; 
   try {
     // Get connection without transaction for read-only operation
     conn = await getConnection();
@@ -84,7 +84,7 @@ const getCalculationService = async (filters, role) => {
 
 // Service to create a new calculation record
 const createCalculationService = async (payload, role) => {
-  let conn;
+  let conn; let committed = false; ;
   try {
     conn = await getConnection();
     await beginTransaction(conn);
@@ -98,10 +98,10 @@ const createCalculationService = async (payload, role) => {
     const data = await createCalculationDao(payload, conn);
     const finalResult = filterResponse(data, filterColumns);
 
-    await commit(conn);
+    await commit(conn); committed = true;
     return finalResult;
   } catch (error) {
-    if (conn) await rollback(conn);
+    if (conn && !committed) await rollback(conn);
     logger.error('Error while creating calculation record:', error);
     throw error;
   } finally {
@@ -111,7 +111,7 @@ const createCalculationService = async (payload, role) => {
 
 // Service to update an existing calculation record
 const updateCalculationService = async (filters, payload, role) => {
-  let conn;
+  let conn; let committed = false; ;
   try {
     conn = await getConnection();
     await beginTransaction(conn);
@@ -125,10 +125,10 @@ const updateCalculationService = async (filters, payload, role) => {
     const data = await updateCalculationDao(filters, payload, conn);
     const finalResult = filterResponse(data, filterColumns);
 
-    await commit(conn);
+    await commit(conn); committed = true;
     return finalResult;
   } catch (error) {
-    if (conn) await rollback(conn);
+    if (conn && !committed) await rollback(conn);
     logger.error('Error while updating calculation record:', error);
     throw error;
   } finally {
@@ -138,7 +138,7 @@ const updateCalculationService = async (filters, payload, role) => {
 
 // Service to mark a calculation record as obsolete (soft delete)
 const deleteCalculationService = async (id, role) => {
-  let conn;
+  let conn; let committed = false; ;
   try {
     conn = await getConnection();
     await beginTransaction(conn);
@@ -153,10 +153,10 @@ const deleteCalculationService = async (id, role) => {
     const data = await deleteCalculationDao(id, userData, conn);
     const finalResult = filterResponse(data, filterColumns);
 
-    await commit(conn);
+    await commit(conn); committed = true;
     return finalResult;
   } catch (error) {
-    if (conn) await rollback(conn);
+    if (conn && !committed) await rollback(conn);
     logger.error('Error while deleting calculation record:', error);
     throw error;
   } finally {
@@ -454,14 +454,11 @@ const calculateVendorWithSubVendorPayoutData = async (
 };
 
 const calculateSuccessRatiosService = async (date, user_ids) => {
-  let conn;
   try {
-    conn = await getConnection();
-
     // Get merchants data using user_ids
     const merchants = await getMerchantsDao({
       user_id: user_ids,
-    }, null, null, null, null, 'ADMIN', conn);
+    });
 
     // Process each merchant in parallel using user_ids
     const successRatiosPromises = user_ids.map(async (userId) => {
@@ -475,15 +472,11 @@ const calculateSuccessRatiosService = async (date, user_ids) => {
   } catch (error) {
     logger.error('Error in calculateSuccessRatiosService:', error);
     throw error;
-  } finally {
-    if (conn) {
-      conn.release();
-    }
   }
 };
 
 const updateCalculationsService = async (filters) => {
-  let conn;
+  let conn; let committed = false; ;
   try {
     conn = await getConnection();
     await beginTransaction(conn);
@@ -1257,10 +1250,10 @@ const updateCalculationsService = async (filters) => {
       // },
     };
 
-    await commit(conn);
+    await commit(conn); committed = true;
     return result;
   } catch (error) {
-    if (conn) await rollback(conn);
+    if (conn && !committed) await rollback(conn);
     logger.error('Error in updateCalculationsService:', error);
     throw error;
   } finally {

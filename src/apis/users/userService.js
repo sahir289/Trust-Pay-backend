@@ -52,7 +52,6 @@ const getUsersService = async (
   user_id,
 ) => {
   try {
-
     const filterColumns =
       role === Role.MERCHANT
         ? merchantColumns.USER
@@ -65,7 +64,11 @@ const getUsersService = async (
 
     let userIdFilter = [];
 
-    if (role === Role.VENDOR || role === Role.SUB_VENDOR || role === Role.MERCHANT) {
+    if (
+      role === Role.VENDOR ||
+      role === Role.SUB_VENDOR ||
+      role === Role.MERCHANT
+    ) {
       const userHierarchyData = await getUserHierarchysDao({ user_id });
       const userHierarchy = userHierarchyData[0];
 
@@ -159,7 +162,11 @@ const getUsersBySearchService = async (
 
     let userIdFilter = [];
 
-    if (role === Role.VENDOR || role === Role.SUB_VENDOR || role === Role.MERCHANT) {
+    if (
+      role === Role.VENDOR ||
+      role === Role.SUB_VENDOR ||
+      role === Role.MERCHANT
+    ) {
       const userHierarchyData = await getUserHierarchysDao({ user_id });
       const userHierarchy = userHierarchyData[0];
 
@@ -212,8 +219,7 @@ const getUsersBySearchService = async (
         }
 
         // Add sub_vendors and their operations
-        const subVendors =
-          userHierarchy?.config?.siblings?.sub_vendors ?? [];
+        const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
         userIdFilter.push(...subVendors);
 
         // Add sub_vendor child.operations
@@ -257,7 +263,6 @@ const getUsersBySearchService = async (
   }
 };
 const getUserByIdService = async (ids, role) => {
-  let conn;
   try {
     const filterColumns =
       role === Role.MERCHANT
@@ -265,27 +270,17 @@ const getUserByIdService = async (ids, role) => {
         : role === Role.VENDOR || role === Role.SUB_VENDOR
           ? vendorColumns.USER
           : columns.USER;
-    conn = await getConnection('reader');
-    const result = await getUserByIdDao(conn, ids);
+    const result = await getUserByIdDao(ids);
 
     const finalResult = filterResponse(result, filterColumns);
     return finalResult;
   } catch (error) {
     logger.error('error getting while getting user by id', error);
     throw error;
-  } finally {
-    if (conn) {
-      try {
-        conn.release();
-      } catch (releaseError) {
-        logger.error('Error while releasing the connection', releaseError);
-      }
-    }
   }
 };
 
 const getUsersByUserNameService = async (username, ids, role) => {
-  let conn;
   try {
     const filterColumns =
       role === Role.MERCHANT
@@ -293,21 +288,12 @@ const getUsersByUserNameService = async (username, ids, role) => {
         : role === Role.VENDOR || role === Role.SUB_VENDOR
           ? vendorColumns.USER
           : columns.USER;
-    conn = await getConnection('reader');
     const data = await getUsersByUserNameDao(ids, username);
     const finalResult = filterResponse(data, filterColumns);
     return finalResult;
   } catch (error) {
     logger.error('error getting while fetching user', error);
     throw error;
-  } finally {
-    if (conn) {
-      try {
-        conn.release();
-      } catch (releaseError) {
-        logger.error('Error while releasing the connection', releaseError);
-      }
-    }
   }
 };
 
@@ -359,12 +345,15 @@ const _createUserServiceInternal = async (payload, conn) => {
       id: payload.designation_id,
     });
     if (userDesignation[0]?.designation == Role.SUB_VENDOR) {
-      const banks = await getBankaccountCheckDao({ user_id: payload.parent_id })
+      const banks = await getBankaccountCheckDao({
+        user_id: payload.parent_id,
+      });
       if (banks) {
         throw new BadRequestError(
           'Parent cannot contain any existing banks. Please remove all banks from the parent before adding a new Vendor.',
-        );      }
-     }
+        );
+      }
+    }
     let unique_id = payload?.unique_admin_id;
     if (userDesignation[0]?.designation == Role.ADMIN) {
       const company = await getCompanyByIDDao({ id: payload.company_id });
@@ -532,7 +521,7 @@ const _createUserServiceInternal = async (payload, conn) => {
           publicKey: merchant?.config ? merchant.config.keys.public : '',
           designation: designation[0]?.designation,
           unique_id,
-          h2h:payload.is_h2h
+          h2h: payload.is_h2h,
         });
 
         if (!data) {
@@ -562,14 +551,18 @@ const _createUserServiceInternal = async (payload, conn) => {
 
 const createUserService = async (payload) => {
   let conn;
+  let committed = false;
   try {
     conn = await getConnection();
     await beginTransaction(conn);
     const User = await _createUserServiceInternal(payload, conn);
     await commit(conn);
+    committed = true;
     return User;
   } catch (error) {
-    if (conn) await rollback(conn);
+    if (conn && !committed) {
+      await rollback(conn);
+    }
     logger.error('Error in createUserService:', error);
     throw error;
   } finally {
@@ -586,14 +579,14 @@ const _userUpdateServiceInternal = async (ids, payload, conn) => {
     //   }
     // }
     const User = await updateUserDao(ids, payload, conn);
-  // await notifyAdminsAndUsers({
-  //   conn,
-  //   company_id: ids.company_id,
-  //   message: `User with username: ${User.user_name} has been updated.`,
-  //   payloadUserId: payload.updated_by,
-  //   actorUserId: payload.updated_by,
-  //   category: 'User',
-  // });
+    // await notifyAdminsAndUsers({
+    //   conn,
+    //   company_id: ids.company_id,
+    //   message: `User with username: ${User.user_name} has been updated.`,
+    //   payloadUserId: payload.updated_by,
+    //   actorUserId: payload.updated_by,
+    //   category: 'User',
+    // });
     return User;
   } catch (error) {
     logger.error('error in _userUpdateServiceInternal', error);
@@ -603,22 +596,22 @@ const _userUpdateServiceInternal = async (ids, payload, conn) => {
 
 const userUpdateService = async (ids, payload) => {
   let conn;
+  let committed = false;
   try {
     conn = await getConnection();
     await beginTransaction(conn);
     const User = await _userUpdateServiceInternal(ids, payload, conn);
     await commit(conn);
+    committed = true;
     return User;
   } catch (error) {
-    if (conn) {
+    if (conn && !committed) {
       await rollback(conn);
     }
     logger.error('error getting while updating user', error);
     throw error;
   } finally {
-    if (conn) {
-      conn.release();
-    }
+    if (conn) conn.release();
   }
 };
 

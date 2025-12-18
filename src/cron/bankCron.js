@@ -21,27 +21,26 @@ import { createBankHistoryService } from '../apis/bankHistory/bankHistorySevice.
 const collectBankData = async (timezone = 'Asia/Kolkata') => {
   const startTime = moment().tz(timezone, true);
   let conn;
+  let committed = false;
   try {
     conn = await getConnection('writer');
     //added payin_count to update everyday
-    await createBankHistoryService();
+    await createBankHistoryService(conn);
     const sql =
       'UPDATE public."BankAccount" SET today_balance = 0 , payin_count = 0 ';
     await conn.query(sql);
+    await conn.commit();
+    committed = true;
     logger.info(
       'Successfully updated today_balance for all bank accounts.',
       startTime,
     );
   } catch (error) {
+    if (conn && !committed) await conn.rollback();
     logger.error('Error while updating bank account data:', error?.message);
   } finally {
-    if (conn) {
-      try {
-        conn.release();
-      } catch (releaseError) {
-        logger.error('Error releasing DB connection:', releaseError?.message);
-      }
-    }
+    if (conn) conn.release();
   }
 };
+
 export default collectBankData;

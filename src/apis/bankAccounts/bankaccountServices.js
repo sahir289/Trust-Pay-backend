@@ -249,7 +249,7 @@ const createBankaccountService = async (
   user_id,
   // company_id,
 ) => {
-  let conn;
+  let conn; let committed = false; ;
   try {
     conn = await getConnection();
     await beginTransaction(conn);
@@ -260,10 +260,10 @@ const createBankaccountService = async (
       conn,
       // company_id,
     );
-    await commit(conn);
+    await commit(conn); committed = true;
     return result;
   } catch (error) {
-    if (conn) await rollback(conn);
+    if (conn && !committed) await rollback(conn);
     logger.error('error getting while  creating banks', error.message);
     throw error;
   } finally {
@@ -485,15 +485,15 @@ const _activeInactiveBankAccountServiceInternal = async (ids, payload, conn) => 
 };
 
 const activeInactiveBankAccountService = async (ids, payload) => {
-  let conn;
+  let conn; let committed = false; ;
   try {
     conn = await getConnection();
     await beginTransaction(conn);
     const result = await _activeInactiveBankAccountServiceInternal(ids, payload, conn);
-    await commit(conn);
+    await commit(conn); committed = true;
     return result;
   } catch (error) {
-    if (conn) await rollback(conn);
+    if (conn && !committed) await rollback(conn);
     logger.error('error getting while updating banks', error);
     throw error;
   } finally {

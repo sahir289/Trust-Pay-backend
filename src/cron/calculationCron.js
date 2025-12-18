@@ -84,7 +84,7 @@ export const stopCalculationCron = () => {
 const collectCalculationData = async () => {
   const executionStartTime = dayjs().tz(IST).format('YYYY-MM-DDTHH:mm:ssZ');
   logger.info(`Starting calculation cron job at: ${executionStartTime}`);
-  let conn;
+  let conn; let committed = false; ;
 
   try {
     conn = await getConnection();
@@ -130,9 +130,9 @@ const collectCalculationData = async () => {
     logger.info(
       `Cron job executed successfully for all users. Started: ${executionStartTime}, Completed: ${executionEndTime}`,
     );
-    await commit(conn);
+    await commit(conn); committed = true;
   } catch (error) {
-    if (conn) await rollback(conn);
+    if (conn && !committed) await rollback(conn);
     logger.error('Error while collecting user data:', error?.message);
     throw error; // Re-throw to ensure fallback mechanisms can detect failures
   } finally {
