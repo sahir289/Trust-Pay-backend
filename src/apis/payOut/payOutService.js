@@ -1,4 +1,3 @@
-/* eslint-disable no-unused-vars */
 import { v4 as uuidv4 } from 'uuid';
 import { BadRequestError, NotFoundError } from '../../utils/appErrors.js';
 import { Buffer } from 'buffer';
@@ -55,7 +54,11 @@ import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import { updateCalculationBalanceDao } from '../calculation/calculationDao.js';
 import { logger } from '../../utils/logger.js';
 // Import RabbitMQ for bulk status updates
-import { publishToDirectQueue, getRabbitChannel, connectRabbitMQ } from '../../utils/rabbitmq.js';
+import {
+  publishToDirectQueue,
+  getRabbitChannel,
+  connectRabbitMQ,
+} from '../../utils/rabbitmq.js';
 // import { updatePayout } from '../../utils/sockets.js';
 import { newTableEntry } from '../../utils/sockets.js';
 import { checkLockEdit } from '../../utils/advisoryLock.js';
@@ -74,7 +77,6 @@ import { createTataPayPayout } from '../../tatapay/tatapay.js';
 // Helper function to check if vendor is sub-vendor and get parent info
 const getSubVendorParentInfo = async (vendor) => {
   try {
-
     // Check is_owned config
     const isOwned = vendor.config?.is_owned;
     if (isOwned === true || isOwned === 'true') {
@@ -89,9 +91,17 @@ const getSubVendorParentInfo = async (vendor) => {
     // );
 
     // Get user hierarchy to find parent
-    const userHierarchys = await getUserHierarchysDao({
-      user_id: vendor.user_id,
-    }, null, null, null, null, null, null);
+    const userHierarchys = await getUserHierarchysDao(
+      {
+        user_id: vendor.user_id,
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+    );
 
     // logger.info(`User hierarchy result: ${JSON.stringify(userHierarchys)}`);
 
@@ -326,10 +336,8 @@ const _createPayoutServiceInternal = async (
       }
     }
 
-    const {
-      allow_clickrr,
-      clickrr_auto_approval_limit,
-    } = details[0]?.config || {};
+    const { allow_clickrr, clickrr_auto_approval_limit } =
+      details[0]?.config || {};
 
     if (allow_clickrr) {
       const ids = { id: data.id, company_id: payload.company_id };
@@ -352,7 +360,12 @@ const _createPayoutServiceInternal = async (
         // specific to clickrr max payout limit
         const updatedPayload = { config: { method: 'CLICKRR' } };
         // Use the DAO directly since we're already in a transaction
-        updatedData = await _updatePayoutServiceInternal(ids, updatedPayload, role, conn);
+        updatedData = await _updatePayoutServiceInternal(
+          ids,
+          updatedPayload,
+          role,
+          conn,
+        );
         data = updatedData;
       }
     }
@@ -398,22 +411,25 @@ const _createPayoutServiceInternal = async (
   }
 };
 
-const createPayoutService = async (
-  headers,
-  payload,
-  role,
-  userIp,
-  fromUI,
-) => {
-  let conn; let committed = false; ;
+const createPayoutService = async (headers, payload, role, userIp, fromUI) => {
+  let conn;
+  let committed = false;
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const data = await _createPayoutServiceInternal(headers, payload, role, userIp, fromUI, conn);
-    await commit(conn); committed = true;
+    const data = await _createPayoutServiceInternal(
+      headers,
+      payload,
+      role,
+      userIp,
+      fromUI,
+      conn,
+    );
+    await commit(conn);
+    committed = true;
     return data;
   } catch (error) {
-    if (conn) {
+    if (conn && !committed) {
       await rollback(conn);
     }
     logger.error('Error in createPayoutService', error.message);
@@ -448,7 +464,15 @@ const getPayoutsService = async (
     let merchant_user_id = role === Role.MERCHANT ? [user_id] : [];
 
     if (role === Role.MERCHANT) {
-      const userHierarchys = await getUserHierarchysDao({ user_id }, null, null, null, null, null, null);
+      const userHierarchys = await getUserHierarchysDao(
+        { user_id },
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+      );
       const userHierarchy = userHierarchys?.[0];
 
       if (designation === Role.MERCHANT && userHierarchy) {
@@ -465,9 +489,17 @@ const getPayoutsService = async (
       } else if (designation === Role.MERCHANT_OPERATIONS && userHierarchy) {
         const parentID = userHierarchy?.config?.parent;
         if (parentID) {
-          const parentHierarchys = await getUserHierarchysDao({
-            user_id: parentID,
-          }, null, null, null, null, null, null);
+          const parentHierarchys = await getUserHierarchysDao(
+            {
+              user_id: parentID,
+            },
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+          );
           const parentHierarchy = parentHierarchys?.[0];
           const subMerchants =
             parentHierarchy?.config?.siblings?.sub_merchants ?? [];
@@ -478,7 +510,15 @@ const getPayoutsService = async (
       }
     } else if (role === Role.VENDOR || role === Role.SUB_VENDOR) {
       if (designation === Role.VENDOR || designation === Role.VENDOR_ADMIN) {
-        const userHierarchys = await getUserHierarchysDao({ user_id }, null, null, null, null, null, null);
+        const userHierarchys = await getUserHierarchysDao(
+          { user_id },
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+        );
         const userHierarchy = userHierarchys?.[0];
         const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
         if (Array.isArray(subVendors) && subVendors.length > 0) {
@@ -494,13 +534,29 @@ const getPayoutsService = async (
       } else if (designation === Role.SUB_VENDOR) {
         filters.vendor_id = await fetchVendorIds([user_id]);
       } else if (designation === Role.VENDOR_OPERATIONS) {
-        const userHierarchys = await getUserHierarchysDao({ user_id }, null, null, null, null, null, null);
+        const userHierarchys = await getUserHierarchysDao(
+          { user_id },
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+        );
         const userHierarchy = userHierarchys?.[0];
         const parentID = userHierarchy?.config?.parent;
         if (parentID) {
-          const parentHierarchys = await getUserHierarchysDao({
-            user_id: parentID,
-          }, null, null, null, null, null, null);
+          const parentHierarchys = await getUserHierarchysDao(
+            {
+              user_id: parentID,
+            },
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+          );
           const parentHierarchy = parentHierarchys?.[0];
           const subVendors =
             parentHierarchy?.config?.siblings?.sub_vendors ?? [];
@@ -548,7 +604,15 @@ const getPayoutsBySearchService = async (
     let merchant_user_id = role === Role.MERCHANT ? [user_id] : [];
 
     if (role === Role.MERCHANT) {
-      const userHierarchys = await getUserHierarchysDao({ user_id }, null, null, null, null, null, null);
+      const userHierarchys = await getUserHierarchysDao(
+        { user_id },
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+      );
       const userHierarchy = userHierarchys?.[0];
 
       if (designation === Role.MERCHANT && userHierarchy) {
@@ -565,9 +629,17 @@ const getPayoutsBySearchService = async (
       } else if (designation === Role.MERCHANT_OPERATIONS && userHierarchy) {
         const parentID = userHierarchy?.config?.parent;
         if (parentID) {
-          const parentHierarchys = await getUserHierarchysDao({
-            user_id: parentID,
-          }, null, null, null, null, null, null);
+          const parentHierarchys = await getUserHierarchysDao(
+            {
+              user_id: parentID,
+            },
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+          );
           const parentHierarchy = parentHierarchys?.[0];
           const subMerchants =
             parentHierarchy?.config?.siblings?.sub_merchants ?? [];
@@ -578,7 +650,15 @@ const getPayoutsBySearchService = async (
       }
     } else if (role === Role.VENDOR) {
       if (designation === Role.VENDOR || designation === Role.VENDOR_ADMIN) {
-        const userHierarchys = await getUserHierarchysDao({ user_id }, null, null, null, null, null, null);
+        const userHierarchys = await getUserHierarchysDao(
+          { user_id },
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+        );
         const userHierarchy = userHierarchys?.[0];
 
         const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
@@ -591,13 +671,29 @@ const getPayoutsBySearchService = async (
       } else if (designation === Role.SUB_VENDOR) {
         filters.vendor_id = await fetchVendorIds([user_id]);
       } else if (designation === Role.VENDOR_OPERATIONS) {
-        const userHierarchys = await getUserHierarchysDao({ user_id }, null, null, null, null, null, null);
+        const userHierarchys = await getUserHierarchysDao(
+          { user_id },
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+        );
         const userHierarchy = userHierarchys?.[0];
         const parentID = userHierarchy?.config?.parent;
         if (parentID) {
-          const parentHierarchys = await getUserHierarchysDao({
-            user_id: parentID,
-          }, null, null, null, null, null, null);
+          const parentHierarchys = await getUserHierarchysDao(
+            {
+              user_id: parentID,
+            },
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+          );
           const parentHierarchy = parentHierarchys?.[0];
           const subVendors =
             parentHierarchy?.config?.siblings?.sub_vendors ?? [];
@@ -614,9 +710,17 @@ const getPayoutsBySearchService = async (
       if (vendorDetails.length === 0) {
         return;
       }
-      const parentHierarchys = await getUserHierarchysDao({
-        user_id: vendorDetails[0].user_id,
-      }, null, null, null, null, null, null);
+      const parentHierarchys = await getUserHierarchysDao(
+        {
+          user_id: vendorDetails[0].user_id,
+        },
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+      );
       const subVendors =
         parentHierarchys[0]?.config?.siblings?.sub_vendors ?? [];
       const userIdFilter = [
@@ -659,7 +763,12 @@ const getPayoutsBySearchService = async (
   }
 };
 
-const _updatePayoutServiceInternal = async (ids, payload, role, conn = null) => {
+const _updatePayoutServiceInternal = async (
+  ids,
+  payload,
+  role,
+  conn = null,
+) => {
   try {
     const filterColumns =
       role === Role.MERCHANT
@@ -668,7 +777,11 @@ const _updatePayoutServiceInternal = async (ids, payload, role, conn = null) => 
           ? vendorColumns.PAYOUT
           : columns.PAYOUT;
 
-    if (!payload?.config?.method === Method.CLICKRR && !payload?.config?.method === Method.PAYASSIST && !payload?.config?.method === Method.TATAPAY)
+    if (
+      !payload?.config?.method === Method.CLICKRR &&
+      !payload?.config?.method === Method.PAYASSIST &&
+      !payload?.config?.method === Method.TATAPAY
+    )
       await checkLockEdit(ids.id, false, conn);
 
     // Early validation for UTR uniqueness
@@ -896,7 +1009,11 @@ const _updatePayoutServiceInternal = async (ids, payload, role, conn = null) => 
       throw new BadRequestError('Bank account is blocked');
     }
 
-    const vendorArr = await getVendorByIdDao(bankData.user_id, ids.company_id, conn);
+    const vendorArr = await getVendorByIdDao(
+      bankData.user_id,
+      ids.company_id,
+      conn,
+    );
     const vendor = vendorArr[0];
     if (!vendor) {
       throw new NotFoundError('Vendor not found!');
@@ -913,13 +1030,14 @@ const _updatePayoutServiceInternal = async (ids, payload, role, conn = null) => 
     );
 
     const payoutExists = await getPayoutByIdDao(ids.id, ids.company_id, conn);
-    
+
     // Only block update if status is the same AND it's a terminal status without additional updates
     // Allow updates for: status changes, UTR updates, config updates, etc.
     if (
-      payoutExists && 
+      payoutExists &&
       payoutExists?.status === data?.status &&
-      (payoutExists.status === Status.APPROVED || payoutExists.status === Status.REJECTED) &&
+      (payoutExists.status === Status.APPROVED ||
+        payoutExists.status === Status.REJECTED) &&
       !data.utr_id && // No new UTR being added
       !data.config && // No config updates
       !data.bank_acc_id // No bank account updates
@@ -1066,15 +1184,17 @@ const _updatePayoutServiceInternal = async (ids, payload, role, conn = null) => 
 };
 
 const updatePayoutService = async (ids, payload, role) => {
-  let conn; let committed = false; ;
+  let conn;
+  let committed = false;
   try {
     conn = await getConnection();
     await beginTransaction(conn);
     const data = await _updatePayoutServiceInternal(ids, payload, role, conn);
-    await commit(conn); committed = true;
+    await commit(conn);
+    committed = true;
     return data;
   } catch (error) {
-    if (conn) {
+    if (conn && !committed) {
       await rollback(conn);
     }
     logger.error('Error in updatePayoutService:', error.message);
@@ -1191,50 +1311,50 @@ const processEkoPayout = async (singleWithdrawData, payload) => {
   }
 };
 
-const activateEkoService = async (req, res) => {
-  const key = config?.ekoAccessKey;
-  const encodedKey = Buffer.from(key).toString('base64');
+// const activateEkoService = async (req, res) => {
+//   const key = config?.ekoAccessKey;
+//   const encodedKey = Buffer.from(key).toString('base64');
 
-  const secretKeyTimestamp = Date.now();
-  const secretKey = crypto
-    .createHmac('sha256', encodedKey)
-    .update(secretKeyTimestamp.toString())
-    .digest('base64');
+//   const secretKeyTimestamp = Date.now();
+//   const secretKey = crypto
+//     .createHmac('sha256', encodedKey)
+//     .update(secretKeyTimestamp.toString())
+//     .digest('base64');
 
-  const encodedParams = new URLSearchParams();
-  encodedParams.set('service_code', config?.ekoServiceCode);
-  encodedParams.set('user_code', config?.ekoUserCode);
-  encodedParams.set('initiator_id', config?.ekoInitiatorId);
+//   const encodedParams = new URLSearchParams();
+//   encodedParams.set('service_code', config?.ekoServiceCode);
+//   encodedParams.set('user_code', config?.ekoUserCode);
+//   encodedParams.set('initiator_id', config?.ekoInitiatorId);
 
-  const url = config?.ekoPaymentsActivateUrl;
-  const options = {
-    method: 'PUT',
-    headers: {
-      accept: 'application/json',
-      developer_key: config?.ekoDeveloperKey,
-      'secret-key': secretKey,
-      'secret-key-timestamp': secretKeyTimestamp,
-      'content-type': 'application/x-www-form-urlencoded',
-    },
-    body: encodedParams,
-  };
-  try {
-    const response = await fetch(url, options);
-    const responseText = await response.text();
+//   const url = config?.ekoPaymentsActivateUrl;
+//   const options = {
+//     method: 'PUT',
+//     headers: {
+//       accept: 'application/json',
+//       developer_key: config?.ekoDeveloperKey,
+//       'secret-key': secretKey,
+//       'secret-key-timestamp': secretKeyTimestamp,
+//       'content-type': 'application/x-www-form-urlencoded',
+//     },
+//     body: encodedParams,
+//   };
+//   try {
+//     const response = await fetch(url, options);
+//     const responseText = await response.text();
 
-    let parsedData;
-    try {
-      parsedData = JSON.parse(responseText);
-    } catch (err) {
-      logger.error(err);
-      parsedData = responseText;
-    }
+//     let parsedData;
+//     try {
+//       parsedData = JSON.parse(responseText);
+//     } catch (err) {
+//       logger.error(err);
+//       parsedData = responseText;
+//     }
 
-    return parsedData;
-  } catch (error) {
-    logger.error(error);
-  }
-};
+//     return parsedData;
+//   } catch (error) {
+//     logger.error(error);
+//   }
+// };
 
 const createEkoWithdraw = async (payload, client_ref_id) => {
   const newObj = {
@@ -1299,7 +1419,7 @@ const createEkoWithdraw = async (payload, client_ref_id) => {
   }
 };
 
-const ekoPayoutStatus = async (id, res) => {
+const ekoPayoutStatus = async (id) => {
   // const {id} = req.params; // here id wil be client_ref_id (unique)
   const key = config?.ekoAccessKey;
   const encodedKey = Buffer.from(key).toString('base64');
@@ -1379,21 +1499,24 @@ const _assignedPayoutServiceInternal = async (
   }
 };
 
-const assignedPayoutService = async (
-  id,
-  payload,
-  updated_by,
-  company_id,
-) => {
-  let conn; let committed = false; ;
+const assignedPayoutService = async (id, payload, updated_by, company_id) => {
+  let conn;
+  let committed = false;
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const data = await _assignedPayoutServiceInternal(id, payload, updated_by, company_id, conn);
-    await commit(conn); committed = true;
+    const data = await _assignedPayoutServiceInternal(
+      id,
+      payload,
+      updated_by,
+      company_id,
+      conn,
+    );
+    await commit(conn);
+    committed = true;
     return data;
   } catch (error) {
-    if (conn) {
+    if (conn && !committed) {
       await rollback(conn);
     }
     logger.error('Error while vendor assigning to Payout', error);
@@ -1425,38 +1548,28 @@ const _deletePayoutServiceInternal = async (id, updated_by, role, conn) => {
 };
 
 const deletePayoutService = async (id, updated_by, role) => {
-  let conn; let committed = false; ;
+  let conn;
+  let committed = false;
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const finalResult = await _deletePayoutServiceInternal(id, updated_by, role, conn);
-    await commit(conn); committed = true;
+    const finalResult = await _deletePayoutServiceInternal(
+      id,
+      updated_by,
+      role,
+      conn,
+    );
+    await commit(conn);
+    committed = true;
     return finalResult;
   } catch (error) {
-    if (conn) {
-      try {
-        await rollback(conn); // Rollback the transaction in case of error
-      } catch (rollbackError) {
-        logger.error(
-          'Error during transaction rollback',
-          rollbackError,
-        );
-      }
+    if (conn && !committed) {
+      await rollback(conn);
     }
     logger.error('Error while deleting Payout', error);
     throw error;
   } finally {
-    if (conn) {
-      try {
-        conn.release(); // Release the connection back to the pool
-      } catch (releaseError) {
-        logger.error(
-          'Error while releasing the connection',
-          'error',
-          releaseError,
-        );
-      }
-    }
+    if (conn) conn.release();
   }
 };
 
@@ -1574,12 +1687,7 @@ const checkPayOutStatusService = async (
  * @returns {Promise<Object>} - Service response
  */
 const _createTataPayBulkPayoutServiceInternal = async (
-  {
-    payoutEntries,
-    payoutIds,
-    company_id,
-    user_id,
-  },
+  { payoutEntries, payoutIds, company_id, user_id },
   conn,
 ) => {
   try {
@@ -1597,29 +1705,32 @@ const _createTataPayBulkPayoutServiceInternal = async (
         'DESC',
         null,
       );
-      
+
       if (!payouts || payouts.length === 0) {
-        throw new BadRequestError('No valid payout records found for the provided IDs');
+        throw new BadRequestError(
+          'No valid payout records found for the provided IDs',
+        );
       }
-      
+
       return payouts;
     };
-    
+
     // Function to update payout status in bulk
-    const updatePayoutStatusBulk = async (payoutIds, payload ) => {
+    const updatePayoutStatusBulk = async (payoutIds, payload) => {
       try {
         // Update payout records in database
         for (const payoutId of payoutIds) {
           await updatePayoutDao(
             { id: payoutId }, // ids parameter
-            { // payload parameter
+            {
+              // payload parameter
               ...payload,
               updated_at: new Date().toISOString(),
             },
             conn,
           );
         }
-        
+
         logger.info('Bulk payout status updated successfully:', {
           payoutIds,
           count: payoutIds.length,
@@ -1629,24 +1740,26 @@ const _createTataPayBulkPayoutServiceInternal = async (
         throw error;
       }
     };
-    
+
     // RabbitMQ instance with fallback to direct database updates
     const rabbitMQ = {
       sendMessage: async (queueName, data) => {
         try {
           // Attempt to get RabbitMQ channel
           let channel = await getRabbitChannel();
-          
+
           if (!channel || channel.connection.closed) {
-            logger.warn('RabbitMQ channel not available, attempting to reconnect...');
+            logger.warn(
+              'RabbitMQ channel not available, attempting to reconnect...',
+            );
             await connectRabbitMQ();
             channel = await getRabbitChannel();
           }
-          
+
           if (channel) {
             // Publish to RabbitMQ queue
             const published = await publishToDirectQueue(queueName, data);
-            
+
             if (published) {
               logger.info(`RabbitMQ message sent to ${queueName}:`, {
                 totalUpdates: data.individualUpdates?.length || 0,
@@ -1655,14 +1768,18 @@ const _createTataPayBulkPayoutServiceInternal = async (
               return;
             }
           }
-          
+
           // Fallback to direct database update if RabbitMQ fails
-          logger.warn('RabbitMQ publish failed, falling back to direct database update');
+          logger.warn(
+            'RabbitMQ publish failed, falling back to direct database update',
+          );
           throw new Error('RabbitMQ publish failed');
-          
         } catch (error) {
-          logger.error('RabbitMQ error, performing direct database update:', error.message);
-          
+          logger.error(
+            'RabbitMQ error, performing direct database update:',
+            error.message,
+          );
+
           // Fallback: directly update the database
           if (data.individualUpdates) {
             for (const update of data.individualUpdates) {
@@ -1677,31 +1794,38 @@ const _createTataPayBulkPayoutServiceInternal = async (
                   rejected_at: update.rejected_at,
                   updated_at: new Date().toISOString(),
                 };
-                
+
                 // Remove undefined fields to avoid database issues
-                Object.keys(updatePayload).forEach(key => {
+                Object.keys(updatePayload).forEach((key) => {
                   if (updatePayload[key] === undefined) {
                     delete updatePayload[key];
                   }
                 });
-                
+
                 await updatePayoutDao(
                   { id: update.payoutId }, // ids parameter
                   updatePayload, // payload parameter
                   conn,
                 );
-                
-                logger.info(`Direct database update completed for payout ID: ${update.payoutId}`);
+
+                logger.info(
+                  `Direct database update completed for payout ID: ${update.payoutId}`,
+                );
               } catch (updateError) {
-                logger.error(`Failed to update payout ID ${update.payoutId}:`, updateError.message);
+                logger.error(
+                  `Failed to update payout ID ${update.payoutId}:`,
+                  updateError.message,
+                );
               }
             }
-            logger.info('Direct database update completed for all bulk payout status updates');
+            logger.info(
+              'Direct database update completed for all bulk payout status updates',
+            );
           }
         }
       },
     };
-    
+
     // Call TataPay bulk payout function
     const result = await createTataPayBulkPayout(
       payoutEntries || payoutIds,
@@ -1710,7 +1834,7 @@ const _createTataPayBulkPayoutServiceInternal = async (
       updatePayoutStatusBulk,
       rabbitMQ,
     );
-    
+
     logger.info('TataPay bulk payout service completed:', {
       company_id,
       user_id,
@@ -1718,7 +1842,7 @@ const _createTataPayBulkPayoutServiceInternal = async (
       successpayout: result.data.successpayout,
       skippayout: result.data.skippayout,
     });
-    
+
     return result;
   } catch (error) {
     logger.error('error in _createTataPayBulkPayoutServiceInternal', error);
@@ -1726,23 +1850,26 @@ const _createTataPayBulkPayoutServiceInternal = async (
   }
 };
 
-const createTataPayBulkPayoutService = async (
-  {
-    payoutEntries,
-    payoutIds,
-    company_id,
-    user_id,
-  }
-) => {
-  let conn; let committed = false; ;
+const createTataPayBulkPayoutService = async ({
+  payoutEntries,
+  payoutIds,
+  company_id,
+  user_id,
+}) => {
+  let conn;
+  let committed = false;
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const result = await _createTataPayBulkPayoutServiceInternal({ payoutEntries, payoutIds, company_id, user_id }, conn);
-    await commit(conn); committed = true;
+    const result = await _createTataPayBulkPayoutServiceInternal(
+      { payoutEntries, payoutIds, company_id, user_id },
+      conn,
+    );
+    await commit(conn);
+    committed = true;
     return result;
   } catch (error) {
-    if (conn) {
+    if (conn && !committed) {
       await rollback(conn);
     }
     logger.error('TataPay bulk payout service error:', {
@@ -1754,9 +1881,7 @@ const createTataPayBulkPayoutService = async (
     });
     throw error;
   } finally {
-    if (conn) {
-      conn.release();
-    }
+    if (conn) conn.release();
   }
 };
 
