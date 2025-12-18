@@ -859,6 +859,7 @@ const createBankResponseService = async (
       }
 
       await commit(conn);
+      committed = true;
 
       // const bankDetails = await getBankaccountDao(
       //   { id: botRes?.bank_id, company_id: companyId },
@@ -904,7 +905,6 @@ const createBankResponseService = async (
     if (conn && !committed) {
       await rollback(conn);
     }
-
     logger.error('Error in createBankResponseService:', error.message);
     throw error;
   } finally {
@@ -1150,7 +1150,7 @@ const createBankResponseWebHookService = async (
       }
 
       await commit(conn);
-
+      committed = true;
       // const bankDetails = await getBankaccountDao(
       //   { id: botRes?.bank_id, company_id: companyId },
       //   null,
