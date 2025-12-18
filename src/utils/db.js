@@ -55,10 +55,12 @@ export const createPool = (connectionString, name) => {
             // ca: fs.readFileSync(path.join(__dirname, 'ap-south-1-bundle.pem')).toString(),
           }
         : { rejectUnauthorized: false },
-    max: 20,
+    max: 60,
+    min: 10,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 10000,
     keepAlive: true,
+    maxUses: 7500,
   });
 
   pool.on('connect', (client) => {

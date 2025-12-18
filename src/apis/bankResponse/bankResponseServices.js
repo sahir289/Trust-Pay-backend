@@ -158,10 +158,10 @@ const createBankResponseService = async (
   name,
   // user_id,
 ) => {
-  let localConn;
+  let conn;
+  let committed = false;
   try {
-    localConn = await getConnection();
-    await beginTransaction(localConn);
+    conn = await getConnection();
 
     const splitData = payload.split(' ');
     const amount = parseFloat(splitData[0]);
@@ -182,7 +182,7 @@ const createBankResponseService = async (
         company_id: companyId,
         bank_used_for: 'PayIn',
       },
-      localConn,
+      conn,
     );
     if (!bankCompanyCheck) {
       throw new NotFoundError('Bank account does not exist for this company');
@@ -239,20 +239,20 @@ const createBankResponseService = async (
           company_id,
         },
         null,
-        localConn,
+        conn,
       );
       if (!utrAlreadyExist) {
         utrAlreadyExist = await getCheckBankResponseDao(
           { utr, company_id },
           null,
-          localConn,
+          conn,
         );
       }
     } else {
       utrAlreadyExist = await getCheckBankResponseDao(
         { utr, company_id },
         null,
-        localConn,
+        conn,
       );
     }
     const isRepeated = utrAlreadyExist;
@@ -292,9 +292,9 @@ const createBankResponseService = async (
 
     // Use a transaction for all DB operations for a single entry
     try {
-      // localConn = await getConnection();
       // Transaction already started at function beginning
-      botRes = await createBankResponseDao(updatedData, localConn);
+      await beginTransaction(conn);
+      botRes = await createBankResponseDao(updatedData, conn);
       // await sendNotification(updatedData.status.replace('/', ''), {
       //   id: botRes.id,
       //   utr: botRes.utr,
@@ -305,8 +305,8 @@ const createBankResponseService = async (
       // });
 
       if (updatedData.status === '/repeated') {
-        await commit(localConn);
-        // if (shouldRelease) localConn.release();
+        await commit(conn);
+        // if (shouldRelease) conn.release();
         if (isValidAmountCode) {
           return {
             message: `Entry with REPEATED AMOUNT CODE: ${upi_short_code} Added`,
@@ -323,7 +323,7 @@ const createBankResponseService = async (
             id: botRes?.bank_id,
             company_id: companyId,
           },
-          localConn,
+          conn,
         );
         if (
           isNaN(bankDetails[0].balance) ||
@@ -342,19 +342,19 @@ const createBankResponseService = async (
             payin_count: parseFloat(bankDetails[0].payin_count + 1),
           },
           null,
-          localConn,
+          conn,
         );
         await _updateBankaccountInternal(
           { id: botRes?.bank_id, company_id: companyId },
           { latest_balance: res.today_balance },
           role,
-          localConn,
+          conn,
         );
         vendor = await getVendorsBankReponseDao(
           {
             user_id: bankDetails[0].user_id,
           },
-          localConn,
+          conn,
         );
         if (isNaN(vendor[0].balance)) {
           throw new BadRequestError('Invalid amount or commission');
@@ -364,7 +364,7 @@ const createBankResponseService = async (
           {
             balance: parseFloat(vendor[0].balance) + parseFloat(botRes.amount),
           },
-          localConn,
+          conn,
         );
         const payinVendorCommission = calculateCommission(
           botRes.amount,
@@ -377,7 +377,7 @@ const createBankResponseService = async (
 
         const subVendorParentInfo = await getSubVendorParentInfo(
           vendor[0],
-          localConn,
+          conn,
         );
         if (subVendorParentInfo) {
           // Calculate parent commission
@@ -385,7 +385,7 @@ const createBankResponseService = async (
             subVendorParentInfo.parentUserId,
             Number(botRes.amount),
             Number(vendor[0].config?.mediator_payin_commission) || 0,
-            localConn,
+            conn,
           );
           totalVendorCommission = payinVendorCommission + parentCommission;
           logger.info(
@@ -399,7 +399,7 @@ const createBankResponseService = async (
             payinCommission: payinVendorCommission,
             amount: botRes.amount,
           },
-          localConn,
+          conn,
         );
       }
       let duration;
@@ -410,7 +410,7 @@ const createBankResponseService = async (
             upi_short_code: upi_short_code,
             company_id: companyId,
           },
-          localConn,
+          conn,
         );
       } else {
         checkPayInUtr = await getPayInsBankResDao(
@@ -418,7 +418,7 @@ const createBankResponseService = async (
             user_submitted_utr: utr,
             company_id: companyId,
           },
-          localConn,
+          conn,
         );
       }
       if (checkPayInUtr?.length > 0) {
@@ -433,14 +433,14 @@ const createBankResponseService = async (
               company_id,
             },
             null,
-            localConn,
+            conn,
           );
           const botUtrIsUsed =
             getDataByUtr.rows.length > 1 &&
             getDataByUtr.some((item) => item.is_used);
           if (!acceptedStatus.includes(payInUtr.status) && botUtrIsUsed) {
-            await commit(localConn);
-            // if (shouldRelease) localConn.release();
+            await commit(conn);
+            // if (shouldRelease) conn.release();
             return {
               message: `The entry is already ${payInUtr.status} with UTR`,
             };
@@ -451,7 +451,7 @@ const createBankResponseService = async (
             id: bank_id,
             company_id,
           },
-          localConn,
+          conn,
         );
 
         if (
@@ -460,8 +460,8 @@ const createBankResponseService = async (
             isBankExist[0]?.freezed === 'true') &&
           role !== Role.ADMIN
         ) {
-          await commit(localConn);
-          // if (shouldRelease) localConn.release();
+          await commit(conn);
+          // if (shouldRelease) conn.release();
           return {
             message: `Entry Created Successfully. But as Bank Account is freezed entry is not paired. Please contact admin`,
           };
@@ -474,8 +474,8 @@ const createBankResponseService = async (
               upi_short_code !== payInUtr.upi_short_code) ||
             (isValidAmountCode && upi_short_code !== payInUtr.upi_short_code)
           ) {
-            await commit(localConn);
-            // if (shouldRelease) localConn.release();
+            await commit(conn);
+            // if (shouldRelease) conn.release();
             if (isValidAmountCode && payInUtr.upi_short_code) {
               return {
                 message: `⛔ Amount Code: ${upi_short_code} does not match with User Submitted Amount Code: ${payInUtr.upi_short_code}`,
@@ -500,23 +500,23 @@ const createBankResponseService = async (
             payInUtr.id,
             payInData,
             { utr: botRes.utr, amount: botRes.amount }, //temperary
-            localConn,
+            conn,
           );
 
           const merchantData = await getMerchantsBankResponseDao(
             {
               id: payInUtr.merchant_id,
             },
-            localConn,
+            conn,
           );
 
-          await updateBotResponseDao(botRes.id, { is_used: true }, localConn);
+          await updateBotResponseDao(botRes.id, { is_used: true }, conn);
           const currentPayinBank = await getBankaccountDashBoardReportDao(
             {
               id: payInUtr.bank_acc_id,
               company_id: companyId,
             },
-            localConn,
+            conn,
           );
           if (updatePayInDataRes) {
             const obj = {
@@ -569,8 +569,8 @@ const createBankResponseService = async (
           //   bank_response_id: botRes.id,
           //   merchant_order_id: updatePayInDataRes?.merchant_order_id,
           // });
-          await commit(localConn);
-          // if (shouldRelease) localConn.release();
+          await commit(conn);
+          // if (shouldRelease) conn.release();
           return {
             message: `Bank Mismatch with ${updatePayInDataRes?.merchant_order_id}`,
           };
@@ -583,18 +583,18 @@ const createBankResponseService = async (
             company_id,
           },
           null,
-          localConn,
+          conn,
         );
         if (existingResponse?.length > 0) {
-          await commit(localConn);
-          // if (shouldRelease) localConn.release();
+          await commit(conn);
+          // if (shouldRelease) conn.release();
           return { message: `The UTR already exists` };
         }
         const merchantData = await getMerchantsBankResponseDao(
           {
             id: payInUtr.merchant_id,
           },
-          localConn,
+          conn,
         );
         const payinMerchantCommission = calculateCommission(
           botRes.amount,
@@ -605,13 +605,13 @@ const createBankResponseService = async (
             id: payInUtr.bank_acc_id,
             company_id,
           },
-          localConn,
+          conn,
         );
         const vendorData = await getVendorsBankReponseDao(
           {
             user_id: bankAccountDetails[0].user_id,
           },
-          localConn,
+          conn,
         );
         const payinVendorCommission = calculateCommission(
           botRes.amount,
@@ -630,8 +630,8 @@ const createBankResponseService = async (
               upi_short_code !== payInUtr.upi_short_code) ||
             (isValidAmountCode && upi_short_code !== payInUtr.upi_short_code)
           ) {
-            await commit(localConn);
-            // if (shouldRelease) localConn.release();
+            await commit(conn);
+            // if (shouldRelease) conn.release();
             if (isValidAmountCode && payInUtr.upi_short_code) {
               return {
                 message: `⛔ Amount Code: ${upi_short_code} does not match with User Submitted Amount Code: ${payInUtr.upi_short_code}`,
@@ -652,7 +652,7 @@ const createBankResponseService = async (
 
           const subVendorParentInfo = await getSubVendorParentInfo(
             vendorData[0],
-            localConn,
+            conn,
           );
           if (subVendorParentInfo) {
             // Calculate parent commission
@@ -660,7 +660,7 @@ const createBankResponseService = async (
             //   subVendorParentInfo.parentUserId,
             //   Number(botRes.amount),
             //   Number(subVendorParentInfo.parentVendor.payin_commission),
-            //   localConn,
+            //   conn,
             // );
 
             totalVendorCommission = payinVendorCommission + parentCommission;
@@ -698,9 +698,9 @@ const createBankResponseService = async (
             payInUtr.id,
             payInData,
             { utr: botRes.utr, amount: botRes.amount }, //temperary
-            localConn,
+            conn,
           );
-          await updateBotResponseDao(botRes.id, { is_used: true }, localConn);
+          await updateBotResponseDao(botRes.id, { is_used: true }, conn);
 
           const obj = {
             id: updatePayin.id,
@@ -753,10 +753,10 @@ const createBankResponseService = async (
               payinCommission: payinMerchantCommission,
               amount: botRes.amount,
             },
-            localConn,
+            conn,
           );
-          await commit(localConn);
-          // if (shouldRelease) localConn.release();
+          await commit(conn);
+          // if (shouldRelease) conn.release();
           return {
             message: `UTR ${utr} matches the User Submitted UTR: ${payInUtr.user_submitted_utr} and the payment was successful.`,
           };
@@ -767,8 +767,8 @@ const createBankResponseService = async (
               upi_short_code !== payInUtr.upi_short_code) ||
             (isValidAmountCode && upi_short_code !== payInUtr.upi_short_code)
           ) {
-            await commit(localConn);
-            // if (shouldRelease) localConn.release();
+            await commit(conn);
+            // if (shouldRelease) conn.release();
             if (isValidAmountCode && payInUtr.upi_short_code) {
               return {
                 message: `⛔ Amount Code: ${upi_short_code} does not match with User Submitted Amount Code: ${payInUtr.upi_short_code}`,
@@ -795,9 +795,9 @@ const createBankResponseService = async (
             payInUtr.id,
             payInData,
             { utr: botRes.utr, amount: botRes.amount }, //temperary
-            localConn,
+            conn,
           );
-          await updateBotResponseDao(botRes.id, { is_used: true }, localConn);
+          await updateBotResponseDao(botRes.id, { is_used: true }, conn);
           if (updatePayInDataRes) {
             const obj = {
               id: updatePayInDataRes.id,
@@ -850,15 +850,15 @@ const createBankResponseService = async (
           //   bank_response_id: botRes.id,
           //   merchant_order_id: updatePayInDataRes?.merchant_order_id,
           // });
-          await commit(localConn);
-          // if (shouldRelease) localConn.release();
+          await commit(conn);
+          // if (shouldRelease) conn.release();
           return {
             message: `Entry is in Dispute with ${updatePayInDataRes?.merchant_order_id}`,
           };
         }
       }
 
-      await commit(localConn);
+      await commit(conn);
 
       // const bankDetails = await getBankaccountDao(
       //   { id: botRes?.bank_id, company_id: companyId },
@@ -901,24 +901,14 @@ const createBankResponseService = async (
       throw err;
     }
   } catch (error) {
-    if (localConn) {
-      try {
-        await rollback(localConn);
-      } catch (rollbackErr) {
-        logger.error('Error during rollback:', rollbackErr);
-      }
+    if (conn && !committed) {
+      await rollback(conn);
     }
 
     logger.error('Error in createBankResponseService:', error.message);
     throw error;
   } finally {
-    if (localConn) {
-      try {
-        if (localConn) localConn.release();
-      } catch (releaseErr) {
-        logger.error('Error releasing connection:', releaseErr);
-      }
-    }
+    if (conn) conn.release();
   }
 };
 
@@ -929,9 +919,10 @@ const createBankResponseWebHookService = async (
   name,
   // user_id,
 ) => {
-  let localConn;
+  let conn;
+  let committed = false;
   try {
-    localConn = await getConnection();
+    conn = await getConnection();
 
     const splitData = payload.split(' ');
     const amount = parseFloat(splitData[0]);
@@ -999,20 +990,20 @@ const createBankResponseWebHookService = async (
           company_id,
         },
         null,
-        localConn,
+        conn,
       );
       if (!utrAlreadyExist) {
         utrAlreadyExist = await getCheckBankResponseDao(
           { utr, company_id },
           null,
-          localConn,
+          conn,
         );
       }
     } else {
       utrAlreadyExist = await getCheckBankResponseDao(
         { utr, company_id },
         null,
-        localConn,
+        conn,
       );
     }
     const isRepeated = utrAlreadyExist;
@@ -1052,9 +1043,9 @@ const createBankResponseWebHookService = async (
 
     // Use a transaction for all DB operations for a single entry
     try {
-      // localConn = await getConnection();
-      await beginTransaction(localConn);
-      botRes = await createBankResponseDao(updatedData, localConn);
+      // conn = await getConnection();
+      await beginTransaction(conn);
+      botRes = await createBankResponseDao(updatedData, conn);
       // await sendNotification(updatedData.status.replace('/', ''), {
       //   id: botRes.id,
       //   utr: botRes.utr,
@@ -1065,8 +1056,8 @@ const createBankResponseWebHookService = async (
       // });
 
       if (updatedData.status === '/repeated') {
-        await commit(localConn);
-        // if (shouldRelease) localConn.release();
+        await commit(conn);
+        // if (shouldRelease) conn.release();
         if (isValidAmountCode) {
           return {
             message: `Entry with REPEATED AMOUNT CODE: ${upi_short_code} Added`,
@@ -1098,13 +1089,13 @@ const createBankResponseWebHookService = async (
               parseFloat(botRes.amount),
             payin_count: parseFloat(bankDetails[0].payin_count + 1),
           },
-          localConn,
+          conn,
         );
         await _updateBankaccountInternal(
           { id: botRes?.bank_id, company_id: companyId },
           { latest_balance: res.today_balance },
           role,
-          localConn,
+          conn,
         );
         vendor = await getVendorsBankReponseDao({
           user_id: bankDetails[0].user_id,
@@ -1117,7 +1108,7 @@ const createBankResponseWebHookService = async (
           {
             balance: parseFloat(vendor[0].balance) + parseFloat(botRes.amount),
           },
-          localConn,
+          conn,
         );
         const payinVendorCommission = calculateCommission(
           botRes.amount,
@@ -1130,7 +1121,7 @@ const createBankResponseWebHookService = async (
 
         const subVendorParentInfo = await getSubVendorParentInfo(
           vendor[0],
-          localConn,
+          conn,
         );
         if (subVendorParentInfo) {
           // Calculate parent commission
@@ -1138,7 +1129,7 @@ const createBankResponseWebHookService = async (
           //   subVendorParentInfo.parentUserId,
           //   Number(botRes.amount),
           //   Number(subVendorParentInfo.parentVendor.payin_commission),
-          //   localConn,
+          //   conn,
           // );
 
           totalVendorCommission = payinVendorCommission + parentCommission;
@@ -1154,11 +1145,11 @@ const createBankResponseWebHookService = async (
             payinCommission: payinVendorCommission,
             amount: botRes.amount,
           },
-          localConn,
+          conn,
         );
       }
 
-      await commit(localConn);
+      await commit(conn);
 
       // const bankDetails = await getBankaccountDao(
       //   { id: botRes?.bank_id, company_id: companyId },
@@ -1201,24 +1192,14 @@ const createBankResponseWebHookService = async (
       throw err;
     }
   } catch (error) {
-    if (localConn) {
-      try {
-        await rollback(localConn);
-      } catch (rollbackErr) {
-        logger.error('Error during rollback:', rollbackErr);
-      }
+    if (conn && !committed) {
+      await rollback(conn);
     }
 
-    logger.error('Error in createBankResponseService:', error.message);
+    logger.error('Error in createBankResponseService:', error);
     throw error;
   } finally {
-    if (localConn) {
-      try {
-        if (localConn) localConn.release();
-      } catch (releaseErr) {
-        logger.error('Error releasing connection:', releaseErr);
-      }
-    }
+    if (conn) conn.release();
   }
 };
 
