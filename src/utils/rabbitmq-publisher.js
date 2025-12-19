@@ -32,10 +32,10 @@ async function publishWithRetry(channel, queue, message, attempts = MAX_PUBLISH_
       if (ok) return true;
 
       // Buffer full, wait before retry
-      logger.warn(`[Publisher] Buffer full, retrying in ${RETRY_DELAY_MS}ms...`);
+      logger.warn(`Publisher - Buffer full, retrying in ${RETRY_DELAY_MS}ms...`);
       await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
     } catch (error) {
-      logger.error(`[Publisher] Attempt ${i + 1}/${attempts} failed:`, error.message);
+      logger.error(`Publisher - Attempt ${i + 1}/${attempts} failed:`, error.message);
       
       if (i < attempts - 1) {
         await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS * (i + 1)));
@@ -49,7 +49,7 @@ async function publishWithRetry(channel, queue, message, attempts = MAX_PUBLISH_
  * Fallback to database when RabbitMQ fails
  */
 async function fallbackToDatabase(responseData) {
-  logger.warn('[Publisher] Using database fallback');
+  logger.warn('Publisher - Using database fallback');
   
   try {
     await createBankResponseService(
@@ -58,10 +58,10 @@ async function fallbackToDatabase(responseData) {
       responseData.role,
       responseData.name
     );
-    logger.info('[Publisher] ✅ Saved to database');
+    logger.info('Publisher - Saved to database');
     return true;
   } catch (error) {
-    logger.error('[Publisher] ❌ Database fallback failed:', error.message);
+    logger.error('Publisher - Database fallback failed:', error.message);
     throw error;
   }
 }

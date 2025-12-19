@@ -51,16 +51,16 @@ async function setupQueueTopology(ch) {
   try {
     // Try to check if queue exists first
     const queueInfo = await ch.checkQueue(QUEUE_NAME);
-    logger.info(`[Consumer] Queue exists (${queueInfo.messageCount} messages, ${queueInfo.consumerCount} consumers)`);
+    logger.info(`Consumer - Queue exists (${queueInfo.messageCount} messages, ${queueInfo.consumerCount} consumers)`);
     
     // Queue exists, just set prefetch
     await ch.prefetch(PREFETCH_COUNT);
-    logger.info(`[Consumer] Using existing queue configuration, Prefetch=${PREFETCH_COUNT}`);
+    logger.info(`Consumer - Using existing queue configuration, Prefetch=${PREFETCH_COUNT}`);
     
   } catch (checkError) {
     // Queue doesn't exist, create it with DLX
     if (checkError.message.includes('NOT_FOUND')) {
-      logger.info('[Consumer] Queue not found, creating with DLX configuration...');
+      logger.info('Consumer - Queue not found, creating with DLX configuration...');
       
       // Setup Dead Letter Exchange
       await ch.assertExchange(DLX_NAME, 'direct', { durable: true });
@@ -81,7 +81,7 @@ async function setupQueueTopology(ch) {
       // Set prefetch for concurrent processing
       await ch.prefetch(PREFETCH_COUNT);
 
-      logger.info(`[Consumer] Topology initialized: Queue=${QUEUE_NAME}, Prefetch=${PREFETCH_COUNT}`);
+      logger.info(`Consumer - Topology initialized: Queue=${QUEUE_NAME}, Prefetch=${PREFETCH_COUNT}`);
     } else {
       throw checkError;
     }
@@ -109,7 +109,7 @@ async function processMessage(msg) {
       throw new Error('Invalid message structure: missing required fields');
     }
 
-    logger.info(`[Consumer] Processing message (attempt ${retryCount + 1}/${MAX_RETRIES + 1})`);
+    logger.info(`Consumer - Processing message (attempt ${retryCount + 1}/${MAX_RETRIES + 1})`);
 
     await createBankResponseService(
       data.payload,
@@ -119,12 +119,12 @@ async function processMessage(msg) {
     );
 
     channel.ack(msg);
-    logger.info('[Consumer] ✅ Message processed successfully');
+    logger.info('Consumer - Message processed successfully');
 
   } catch (error) {
     const shouldRetry = isRetryableError(error) && retryCount < MAX_RETRIES;
 
-    logger.error('[Consumer] Processing failed:', {
+    logger.error('Consumer - Processing failed:', {
       error: error.message,
       retryCount,
       willRetry: shouldRetry,
@@ -140,11 +140,11 @@ async function processMessage(msg) {
         },
       });
       channel.ack(msg);
-      logger.warn(`[Consumer] Message requeued (retry ${retryCount + 1}/${MAX_RETRIES})`);
+      logger.warn(`Consumer - Message requeued (retry ${retryCount + 1}/${MAX_RETRIES})`);
     } else {
       // Send to DLQ or reject permanently
       channel.nack(msg, false, false);
-      logger.error('[Consumer] ❌ Message sent to DLQ after max retries');
+      logger.error('Consumer - Message sent to DLQ after max retries');
     }
   }
 }
@@ -157,7 +157,7 @@ export async function startBankResponseWorker() {
     throw new Error('Worker is shutting down');
   }
 
-  logger.info('[Consumer] 🚀 Starting Bank Response Worker...');
+  logger.info('Consumer - Starting Bank Response Worker...');
 
   try {
     // Get dedicated consumer channel
@@ -178,11 +178,11 @@ export async function startBankResponseWorker() {
 
     consumerTag = result.consumerTag;
     
-    logger.info(`[Consumer] ✅ Worker started (tag: ${consumerTag})`);
-    logger.info(`[Consumer] ⏳ Waiting for messages in queue: ${QUEUE_NAME}`);
+    logger.info(`Consumer - Worker started (tag: ${consumerTag})`);
+    logger.info(`Consumer - Waiting for messages in queue: ${QUEUE_NAME}`);
 
   } catch (error) {
-    logger.error('[Consumer] ❌ Worker startup failed:', error.message);
+    logger.error('Consumer - Worker startup failed:', error.message);
     throw error;
   }
 }

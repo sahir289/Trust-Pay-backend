@@ -62,7 +62,7 @@ class RabbitMQConnection {
       this.reconnectAttempts = 0;
       this.isConnecting = false;
       
-      logger.info(`[${this.connectionName}] ✅ Connected to RabbitMQ`);
+      logger.info(`[${this.connectionName}] Connected to RabbitMQ`);
       
       return this.connection;
     } catch (error) {
