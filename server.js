@@ -8,7 +8,8 @@ import { closePool } from './src/utils/db.js';
 import { closeRabbitMQ } from './src/utils/rabbitmq.js';
 import {
   shutdownWorker,
-  startBankResponseWorker,
+  startBankResponseHandler,
+  // startBankResponseWorker,
 } from './src/worker/consume-bank-response-worker.js';
 import { closeRedis } from './src/utils/redisClient.js';
 import { stopNotifyCron } from './src/cron/notifyCron.js';
@@ -147,13 +148,8 @@ process.on('unhandledRejection', (reason) => {
   gracefulShutdown('Unhandled Rejection', err);
 });
 
-try {
-  await startBankResponseWorker();
-} catch (err) {
-  logger.error('Failed to start Bank Response Worker:', err);
-}
-
 server.listen(PORT, onListening);
+startBankResponseHandler();
 server.on('error', onError);
 
 // migrateUsersToES();

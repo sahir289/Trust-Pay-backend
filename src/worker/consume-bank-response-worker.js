@@ -186,3 +186,11 @@ export async function startBankResponseWorker() {
 
   logger.info('Waiting for messages...');
 }
+
+export const startBankResponseHandler = async () => {
+  try {
+    await startBankResponseWorker();
+  } catch (err) {
+    logger.error('Failed to start Bank Response Worker:', err);
+  }
+};
