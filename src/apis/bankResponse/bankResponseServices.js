@@ -66,7 +66,7 @@ import PDFParser from 'pdf2json';
 import { calculateDuration } from '../../helpers/index.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import { trackVendorsNetBalance } from '../../utils/trackVendorsNetBalance.js';
-import { acquireUTRLock } from '../../utils/advisoryLock.js';
+// import { acquireUTRLock } from '../../utils/advisoryLock.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 
 const processingSet = new Set();
@@ -184,11 +184,11 @@ const createBankResponseService = async (
     await beginTransaction(conn);
 
     // Database-level lock to prevent race condition with concurrent requests
-    const lockAcquired = await acquireUTRLock(utr, conn);
-    if (!lockAcquired) {
-      logger.warn(`UTR ${utr} is already locked - concurrent processing detected`);
-      return { message: `UTR ${utr} is being processed by another request. Please try again.` };
-    }
+    // const lockAcquired = await acquireUTRLock(utr, conn);
+    // if (!lockAcquired) {
+    //   logger.warn(`UTR ${utr} is already locked - concurrent processing detected`);
+    //   return { message: `UTR ${utr} is being processed by another request. Please try again.` };
+    // }
 
     // Early validation (synchronous)
     const isValidAmount = amount >= 1 && amount <= 500000;
