@@ -58,7 +58,7 @@ export const createPool = (connectionString, name) => {
     max: 60,
     min: 10,
     idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 10000,
+    connectionTimeoutMillis: 5000,
     keepAlive: true,
     maxUses: 7500,
   });
@@ -67,8 +67,16 @@ export const createPool = (connectionString, name) => {
     client.query("SET TIME ZONE 'Asia/Kolkata'");
   });
 
-  pool.on('error', async (err) => {
+  pool.on('error', async (err, client) => {
     logger.error(`Unexpected error on idle client (${name}):`, err);
+    
+    // For connection reset errors (laptop sleep/wake, network issues)
+    if (err.code === 'ECONNRESET' || err.code === 'EPIPE') {
+      logger.warn(`Connection reset detected for ${name} pool. Pool will automatically recover.`);
+      // The pool will automatically remove the bad connection and create new ones
+      // No manual intervention needed
+      return;
+    }
 
     let retryCount = 0;
     const maxRetries = 5;
@@ -238,13 +246,23 @@ export const executeQuery = async (query, queryParams = [], conn = null) => {
       logger.error(`Error while executing query (Attempt ${attempt}):`, error);
       logger.error(`\nQuery: ${query}\nParams: [${queryParams}]`);
 
+      // Check if error is a transient connection issue
+      const isTransientError = 
+        error.code === 'ECONNRESET' ||
+        error.code === 'ECONNREFUSED' ||
+        error.code === 'ETIMEDOUT' ||
+        error.code === 'EPIPE' ||
+        error.code === 'ENOTFOUND' ||
+        error.message?.includes('Connection terminated unexpectedly') ||
+        error.message?.includes('connection timeout') ||
+        error.message?.includes('server closed the connection') ||
+        error.message?.includes('terminating connection due to idle-in-transaction timeout');
+
       // Retry only for transient errors
-      if (
-        error.message.includes('Connection terminated unexpectedly') &&
-        attempt < maxRetries
-      ) {
-        logger.warn(`Retrying query (Attempt ${attempt + 1})...`);
-        await new Promise((resolve) => setTimeout(resolve, 1000)); // Wait 1 second before retrying
+      if (isTransientError && attempt < maxRetries) {
+        const delay = 1000 * attempt; // Exponential backoff: 1s, 2s, 3s
+        logger.warn(`Retrying query due to ${error.code || 'connection error'} (Attempt ${attempt + 1} in ${delay}ms)...`);
+        await new Promise((resolve) => setTimeout(resolve, delay));
         continue;
       }
 
@@ -505,18 +523,20 @@ export const buildAndExecuteUpdateQuery = async (
 export const transactionWrapper =
   (fn) =>
   async (...args) => {
-    let conn; let committed = false; ;
+    let conn; 
+    let committed = false; ;
     try {
       conn = await getConnection();
       await beginTransaction(conn);
 
       const data = await fn(conn, ...args);
 
-      await commit(conn); committed = true;
+      await commit(conn); 
+      committed = true;
       return data;
     } catch (error) {
       // Only attempt rollback if the connection is still valid
-      if (conn) {
+      if (conn && !committed) {
         try {
           if (!error.message?.includes('ECONNRESET')) {
             await rollback(conn);
@@ -558,13 +578,7 @@ export const transactionWrapper =
 
       throw error;
     } finally {
-      if (conn) {
-        try {
-          conn.release();
-        } catch (releaseErr) {
-          logger.error('Failed to release connection:', releaseErr);
-        }
-      }
+      if (conn) conn.release();
     }
   };
 

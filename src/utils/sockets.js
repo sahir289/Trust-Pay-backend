@@ -314,16 +314,16 @@ const initializeSocket = (server) => {
           `[SOCKET] User login event received for userId: ${userId}, sessionId: ${sessionId}, socketId: ${socket.id}`,
         ),
       );
-      logger.log(
-        chalk.cyan(
-          `[SOCKET] Config origins: Front=${config?.reactFrontOrigin}, Payment=${config?.reactPaymentOrigin}`,
-        ),
-      );
-      logger.log(
-        chalk.yellow(
-          `[SOCKET] Socket origin: ${socket.handshake.headers.origin || 'N/A'}, Referer: ${socket.handshake.headers.referer || 'N/A'}`,
-        ),
-      );
+      // logger.log(
+      //   chalk.cyan(
+      //     `[SOCKET] Config origins: Front=${config?.reactFrontOrigin}, Payment=${config?.reactPaymentOrigin}`,
+      //   ),
+      // );
+      // logger.log(
+      //   chalk.yellow(
+      //     `[SOCKET] Socket origin: ${socket.handshake.headers.origin || 'N/A'}, Referer: ${socket.handshake.headers.referer || 'N/A'}`,
+      //   ),
+      // );
 
       // Store socket metadata for better tracking - ensure binding happens only once
       if (!socket.userId) {

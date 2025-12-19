@@ -6,7 +6,10 @@ import { initializeSocket } from './src/utils/sockets.js';
 import { logger } from './src/utils/logger.js';
 import { closePool } from './src/utils/db.js';
 import { closeRabbitMQ } from './src/utils/rabbitmq.js';
-import { startBankResponseWorker } from './src/worker/consume-bank-response-worker.js';
+import {
+  shutdownWorker,
+  startBankResponseWorker,
+} from './src/worker/consume-bank-response-worker.js';
 import { closeRedis } from './src/utils/redisClient.js';
 import { stopNotifyCron } from './src/cron/notifyCron.js';
 import { stopCalculationCron } from './src/cron/calculationCron.js';
@@ -37,7 +40,8 @@ const normalizePort = (val) => {
 
 const port = normalizePort(PORT);
 const onError = (error) => {
-  if (error.syscall !== 'listen') return gracefulShutdown('Server error', error);
+  if (error.syscall !== 'listen')
+    return gracefulShutdown('Server error', error);
   switch (error.code) {
     case 'EACCES':
       error.message = `${port} requires elevated privileges`;
@@ -69,12 +73,15 @@ async function gracefulShutdown(label, err) {
   if (shuttingDown) return;
   shuttingDown = true;
   const styledMessageError = chalk.bold.red(`${label}`);
-  
+
   // console the error in stderr (synchronously) so PM2 always captures it
   if (err) console.error(`${label}:`, err);
 
   if (err) {
-    logger.error(styledMessageError, { message: err.message, stack: err.stack }); 
+    logger.error(styledMessageError, {
+      message: err.message,
+      stack: err.stack,
+    });
   } else {
     logger.warn(styledMessageError);
   }
@@ -89,10 +96,11 @@ async function gracefulShutdown(label, err) {
     stopGatherAllDataCron();
     stopCheckNetbalanceCron();
     stopSuccessRatioCron();
-    
+
     await Promise.allSettled([
       new Promise((res) => server.close(res)),
       closePool(),
+      shutdownWorker(label),
       closeRabbitMQ(),
       closeRedis(),
       new Promise((res) => logger.on('finish', res)).then(() => logger.end()),
@@ -107,19 +115,45 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT received'));
 // docker / kubernetes or PM2 stop
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM received'));
 
-process.on('uncaughtException', (err) =>
-  gracefulShutdown('Uncaught Exception', err),
-);
+process.on('uncaughtException', (err) => {
+  // Don't shutdown on recoverable connection errors - they auto-retry
+  if (
+    err.code === 'ECONNRESET' ||
+    err.code === 'EPIPE' ||
+    err.code === 'ETIMEDOUT'
+  ) {
+    logger.error('Connection error (will auto-retry):', err);
+    return;
+  }
+  gracefulShutdown('Uncaught Exception', err);
+});
 
-process.on('unhandledRejection', (reason) =>
-  gracefulShutdown(
-    'Unhandled Rejection',
-    reason instanceof Error ? reason : new Error(String(reason)), 
-  ),
-);
+process.on('unhandledRejection', (reason) => {
+  const err = reason instanceof Error ? reason : new Error(String(reason));
+
+  // Don't shutdown on recoverable connection errors - they auto-retry
+  if (
+    err.code === 'ECONNRESET' ||
+    err.code === 'EPIPE' ||
+    err.code === 'ETIMEDOUT'
+  ) {
+    logger.error(
+      'Unhandled Rejection (connection error, will auto-retry):',
+      err,
+    );
+    return;
+  }
+
+  gracefulShutdown('Unhandled Rejection', err);
+});
+
+try {
+  await startBankResponseWorker();
+} catch (err) {
+  logger.error('Failed to start Bank Response Worker:', err);
+}
 
 server.listen(PORT, onListening);
-startBankResponseWorker();
 server.on('error', onError);
 
 // migrateUsersToES();

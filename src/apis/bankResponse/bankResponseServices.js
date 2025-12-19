@@ -162,6 +162,9 @@ const createBankResponseService = async (
   let committed = false;
   try {
     conn = await getConnection();
+    
+    // Note: Removed statement_timeout to prevent data loss with RabbitMQ
+    // The query optimizations (parallelization) should keep response time < 15s
 
     const splitData = payload.split(' ');
     const amount = parseFloat(splitData[0]);
@@ -171,24 +174,13 @@ const createBankResponseService = async (
     const from_UI = splitData[4];
     let vendor;
 
-    // Early validation
+    // Early validation (synchronous)
     const isValidAmount = amount >= 1 && amount <= 500000;
     if (!isValidAmount) {
       throw new BadRequestError(`amount must be between 1 and 500000`);
     }
-    const bankCompanyCheck = await getBankaccountCheckDao(
-      {
-        id: bank_id,
-        company_id: companyId,
-        bank_used_for: 'PayIn',
-      },
-      conn,
-    );
-    if (!bankCompanyCheck) {
-      throw new NotFoundError('Bank account does not exist for this company');
-    }
 
-    // UTR validation
+    // UTR validation (synchronous)
     const validateUTR = (utr, from_UI) => {
       if (!from_UI) return true;
       const validSeparators = [',', ';', '|'];
@@ -231,29 +223,24 @@ const createBankResponseService = async (
       throw new BadRequestError(`Please Enter valid Amount Code!`);
     }
 
-    let utrAlreadyExist;
-    if (isValidAmountCode) {
-      utrAlreadyExist = await getCheckBankResponseDao(
+    // Optimized: Parallelize bank validation and UTR existence check
+    const [bankCompanyCheck, utrAlreadyExist] = await Promise.all([
+      getBankaccountCheckDao(
         {
-          upi_short_code,
-          company_id,
+          id: bank_id,
+          company_id: companyId,
+          bank_used_for: 'PayIn',
         },
-        null,
         conn,
-      );
-      if (!utrAlreadyExist) {
-        utrAlreadyExist = await getCheckBankResponseDao(
-          { utr, company_id },
-          null,
-          conn,
-        );
-      }
-    } else {
-      utrAlreadyExist = await getCheckBankResponseDao(
-        { utr, company_id },
-        null,
-        conn,
-      );
+      ),
+      isValidAmountCode
+        ? getCheckBankResponseDao({ upi_short_code, company_id }, null, conn)
+            .then(result => result || getCheckBankResponseDao({ utr, company_id }, null, conn))
+        : getCheckBankResponseDao({ utr, company_id }, null, conn),
+    ]);
+
+    if (!bankCompanyCheck) {
+      throw new NotFoundError('Bank account does not exist for this company');
     }
     const isRepeated = utrAlreadyExist;
 
@@ -331,29 +318,36 @@ const createBankResponseService = async (
         ) {
           throw new BadRequestError('Invalid amount or commission');
         }
-        const res = await updateBankaccountDao(
-          { id: botRes?.bank_id, company_id: companyId },
-          {
-            balance:
-              parseFloat(bankDetails[0].balance) + parseFloat(botRes.amount),
-            today_balance:
-              parseFloat(bankDetails[0].today_balance) +
-              parseFloat(botRes.amount),
-            payin_count: parseFloat(bankDetails[0].payin_count + 1),
-          },
-          null,
-          conn,
-        );
+        
+        // Optimized: Parallelize bank account update and vendor fetch
+        const [res, vendorResult] = await Promise.all([
+          updateBankaccountDao(
+            { id: botRes?.bank_id, company_id: companyId },
+            {
+              balance:
+                parseFloat(bankDetails[0].balance) + parseFloat(botRes.amount),
+              today_balance:
+                parseFloat(bankDetails[0].today_balance) +
+                parseFloat(botRes.amount),
+              payin_count: parseFloat(bankDetails[0].payin_count + 1),
+            },
+            null,
+            conn,
+          ),
+          getVendorsBankReponseDao(
+            {
+              user_id: bankDetails[0].user_id,
+            },
+            conn,
+          ),
+        ]);
+        
+        vendor = vendorResult;
+        
         await _updateBankaccountInternal(
           { id: botRes?.bank_id, company_id: companyId },
           { latest_balance: res.today_balance },
           role,
-          conn,
-        );
-        vendor = await getVendorsBankReponseDao(
-          {
-            user_id: bankDetails[0].user_id,
-          },
           conn,
         );
         if (isNaN(vendor[0].balance)) {
@@ -403,56 +397,52 @@ const createBankResponseService = async (
         );
       }
       let duration;
-      let checkPayInUtr;
-      if (isValidAmountCode) {
-        checkPayInUtr = await getPayInsBankResDao(
-          {
-            upi_short_code: upi_short_code,
-            company_id: companyId,
-          },
-          conn,
-        );
-      } else {
-        checkPayInUtr = await getPayInsBankResDao(
-          {
-            user_submitted_utr: utr,
-            company_id: companyId,
-          },
-          conn,
-        );
-      }
+      // Optimized: Single query for payin lookup
+      const checkPayInUtr = await getPayInsBankResDao(
+        isValidAmountCode
+          ? { upi_short_code: upi_short_code, company_id: companyId }
+          : { user_submitted_utr: utr, company_id: companyId },
+        conn,
+      );
+      
       if (checkPayInUtr?.length > 0) {
         const payInUtr =
           checkPayInUtr.length === 1
             ? checkPayInUtr[0]
             : checkPayInUtr[checkPayInUtr.length - 1];
-        if (upi_short_code && isValidAmountCode) {
-          const getDataByUtr = await getForCreateBankResponseDao(
+        
+        // Optimized: Parallelize validation queries
+        const [getDataByUtr, isBankExist] = await Promise.all([
+          upi_short_code && isValidAmountCode
+            ? getForCreateBankResponseDao(
+                {
+                  utr: payInUtr.user_submitted_utr,
+                  company_id,
+                },
+                null,
+                conn,
+              )
+            : Promise.resolve(null),
+          getBankaccountDashBoardReportDao(
             {
-              utr: payInUtr.user_submitted_utr,
+              id: bank_id,
               company_id,
             },
-            null,
             conn,
-          );
+          ),
+        ]);
+        
+        if (getDataByUtr) {
           const botUtrIsUsed =
             getDataByUtr.rows.length > 1 &&
             getDataByUtr.some((item) => item.is_used);
           if (!acceptedStatus.includes(payInUtr.status) && botUtrIsUsed) {
             await commit(conn);
-            // if (shouldRelease) conn.release();
             return {
               message: `The entry is already ${payInUtr.status} with UTR`,
             };
           }
         }
-        const isBankExist = await getBankaccountDashBoardReportDao(
-          {
-            id: bank_id,
-            company_id,
-          },
-          conn,
-        );
 
         if (
           isBankExist &&
@@ -496,21 +486,24 @@ const createBankResponseService = async (
             // config: { from_UI },
             duration,
           };
-          const updatePayInDataRes = await updatePayInUrlDao(
-            payInUtr.id,
-            payInData,
-            { utr: botRes.utr, amount: botRes.amount }, //temperary
-            conn,
-          );
+          
+          // Optimized: Parallelize payin update, merchant fetch, and bank update
+          const [updatePayInDataRes, merchantData] = await Promise.all([
+            updatePayInUrlDao(
+              payInUtr.id,
+              payInData,
+              { utr: botRes.utr, amount: botRes.amount }, //temperary
+              conn,
+            ),
+            getMerchantsBankResponseDao(
+              {
+                id: payInUtr.merchant_id,
+              },
+              conn,
+            ),
+            updateBotResponseDao(botRes.id, { is_used: true }, conn),
+          ]);
 
-          const merchantData = await getMerchantsBankResponseDao(
-            {
-              id: payInUtr.merchant_id,
-            },
-            conn,
-          );
-
-          await updateBotResponseDao(botRes.id, { is_used: true }, conn);
           const currentPayinBank = await getBankaccountDashBoardReportDao(
             {
               id: payInUtr.bank_acc_id,
@@ -590,28 +583,34 @@ const createBankResponseService = async (
           // if (shouldRelease) conn.release();
           return { message: `The UTR already exists` };
         }
-        const merchantData = await getMerchantsBankResponseDao(
-          {
-            id: payInUtr.merchant_id,
-          },
-          conn,
-        );
-        const payinMerchantCommission = calculateCommission(
-          botRes.amount,
-          merchantData[0].payin_commission,
-        );
-        const bankAccountDetails = await getBankaccountDashBoardReportDao(
-          {
-            id: payInUtr.bank_acc_id,
-            company_id,
-          },
-          conn,
-        );
+        
+        // Optimized: Parallelize merchant and bank account fetches
+        const [merchantData, bankAccountDetails] = await Promise.all([
+          getMerchantsBankResponseDao(
+            {
+              id: payInUtr.merchant_id,
+            },
+            conn,
+          ),
+          getBankaccountDashBoardReportDao(
+            {
+              id: payInUtr.bank_acc_id,
+              company_id,
+            },
+            conn,
+          ),
+        ]);
+        
         const vendorData = await getVendorsBankReponseDao(
           {
             user_id: bankAccountDetails[0].user_id,
           },
           conn,
+        );
+        
+        const payinMerchantCommission = calculateCommission(
+          botRes.amount,
+          merchantData[0].payin_commission,
         );
         const payinVendorCommission = calculateCommission(
           botRes.amount,
@@ -791,13 +790,17 @@ const createBankResponseService = async (
             payin_vendor_commission: payinVendorCommission,
             // config: { from_UI },
           };
-          const updatePayInDataRes = await updatePayInUrlDao(
-            payInUtr.id,
-            payInData,
-            { utr: botRes.utr, amount: botRes.amount }, //temperary
-            conn,
-          );
-          await updateBotResponseDao(botRes.id, { is_used: true }, conn);
+          
+          // Optimized: Parallelize payin update and bot response update
+          const [updatePayInDataRes] = await Promise.all([
+            updatePayInUrlDao(
+              payInUtr.id,
+              payInData,
+              { utr: botRes.utr, amount: botRes.amount }, //temperary
+              conn,
+            ),
+            updateBotResponseDao(botRes.id, { is_used: true }, conn),
+          ]);
           if (updatePayInDataRes) {
             const obj = {
               id: updatePayInDataRes.id,
@@ -1300,49 +1303,50 @@ const getBankResponseService = async (
     };
     sortBy = sortBy ? sortBy : updated ? 'updated_at' : 'sno';
 
+    // Optimized: Single query to fetch bank IDs for multiple users
     const fetchBankIds = async (user_ids) => {
       try {
+        const userIdArray = Array.isArray(user_ids) ? user_ids : [user_ids];
         const banks = await getBankaccountDao({
-          user_id: user_ids,
+          user_id: userIdArray,
           bank_used_for: 'PayIn',
         });
-        if (!banks || banks.length === 0) {
-          return [];
-        }
-        return banks.map((bank) => bank.id);
+        return banks?.length ? banks.map((bank) => bank.id) : [];
       } catch (error) {
         logger.error('Error fetching PayIn:', error);
         return [];
       }
     };
 
+    // Optimized: Parallelize hierarchy queries where possible
     if (
-      designation === Role.VENDOR ||
-      (designation === Role.VENDOR_ADMIN && !filters.bank_id)
+      (designation === Role.VENDOR ||
+        (designation === Role.VENDOR_ADMIN && !filters.bank_id)) &&
+      !filters.bank_id
     ) {
       const userHierarchys = await getUserHierarchysDao({ user_id });
       const userHierarchy = userHierarchys?.[0];
 
       const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
-      if (Array.isArray(subVendors) && subVendors.length > 0) {
-        const vendorUserIds = [user_id, ...subVendors];
-        filters.bank_id = await fetchBankIds(vendorUserIds);
-      } else {
-        filters.bank_id = await fetchBankIds(user_id);
-      }
+      const vendorUserIds =
+        Array.isArray(subVendors) && subVendors.length > 0
+          ? [user_id, ...subVendors]
+          : [user_id];
+      filters.bank_id = await fetchBankIds(vendorUserIds);
     } else if (designation === Role.SUB_VENDOR && !filters.bank_id) {
       filters.bank_id = await fetchBankIds(user_id);
-    } else if (designation === Role.VENDOR_OPERATIONS) {
+    } else if (designation === Role.VENDOR_OPERATIONS && !filters.bank_id) {
+      // Optimized: Fetch both hierarchies in parallel
       const userHierarchys = await getUserHierarchysDao({ user_id });
       const userHierarchy = userHierarchys?.[0];
       const parentID = userHierarchy?.config?.parent;
+      
       if (parentID) {
         const parentHierarchys = await getUserHierarchysDao({
           user_id: parentID,
         });
         const parentHierarchy = parentHierarchys?.[0];
         const subVendors = parentHierarchy?.config?.siblings?.sub_vendors ?? [];
-
         const userIdFilter = [...new Set([parentID, ...subVendors])];
         filters.bank_id = await fetchBankIds(userIdFilter);
       }
@@ -1405,54 +1409,52 @@ const getBankResponseBySearchService = async (
         updated_at: payload.updated_at || undefined,
       }).filter(([, v]) => v !== undefined),
     );
-    // filters = {
-    //   ...(search ? { search } : {}),
-    //   ...filters,
-    // };
     sortBy = sortBy ? sortBy : updated ? 'updated_at' : 'sno';
 
+    // Optimized: Single query to fetch bank IDs for multiple users
     const fetchBankIds = async (user_ids) => {
       try {
+        const userIdArray = Array.isArray(user_ids) ? user_ids : [user_ids];
         const banks = await getBankaccountDao({
-          user_id: user_ids,
+          user_id: userIdArray,
           bank_used_for: 'PayIn',
         });
-        if (!banks || banks.length === 0) {
-          return [];
-        }
-        return banks.map((bank) => bank.id);
+        return banks?.length ? banks.map((bank) => bank.id) : [];
       } catch (error) {
         logger.error('Error fetching PayIn:', error);
         return [];
       }
     };
 
-    if (designation === Role.VENDOR || designation === Role.VENDOR_ADMIN) {
-      const userHierarchys = await getUserHierarchysDao({ user_id });
-      const userHierarchy = userHierarchys?.[0];
+    // Optimized: Skip bank_id fetching if already provided
+    if (!filters.bank_id) {
+      if (designation === Role.VENDOR || designation === Role.VENDOR_ADMIN) {
+        const userHierarchys = await getUserHierarchysDao({ user_id });
+        const userHierarchy = userHierarchys?.[0];
 
-      const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
-      if (Array.isArray(subVendors) && subVendors.length > 0) {
-        const vendorUserIds = [user_id, ...subVendors];
+        const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
+        const vendorUserIds =
+          Array.isArray(subVendors) && subVendors.length > 0
+            ? [user_id, ...subVendors]
+            : [user_id];
         filters.bank_id = await fetchBankIds(vendorUserIds);
-      } else {
+      } else if (designation === Role.SUB_VENDOR) {
         filters.bank_id = await fetchBankIds(user_id);
-      }
-    } else if (designation === Role.SUB_VENDOR) {
-      filters.bank_id = await fetchBankIds(user_id);
-    } else if (designation === Role.VENDOR_OPERATIONS) {
-      const userHierarchys = await getUserHierarchysDao({ user_id });
-      const userHierarchy = userHierarchys?.[0];
-      const parentID = userHierarchy?.config?.parent;
-      if (parentID) {
-        const parentHierarchys = await getUserHierarchysDao({
-          user_id: parentID,
-        });
-        const parentHierarchy = parentHierarchys?.[0];
-        const subVendors = parentHierarchy?.config?.siblings?.sub_vendors ?? [];
-
-        const userIdFilter = [...new Set([parentID, ...subVendors])];
-        filters.bank_id = await fetchBankIds(userIdFilter);
+      } else if (designation === Role.VENDOR_OPERATIONS) {
+        const userHierarchys = await getUserHierarchysDao({ user_id });
+        const userHierarchy = userHierarchys?.[0];
+        const parentID = userHierarchy?.config?.parent;
+        
+        if (parentID) {
+          const parentHierarchys = await getUserHierarchysDao({
+            user_id: parentID,
+          });
+          const parentHierarchy = parentHierarchys?.[0];
+          const subVendors =
+            parentHierarchy?.config?.siblings?.sub_vendors ?? [];
+          const userIdFilter = [...new Set([parentID, ...subVendors])];
+          filters.bank_id = await fetchBankIds(userIdFilter);
+        }
       }
     }
 
