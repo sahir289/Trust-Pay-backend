@@ -81,11 +81,11 @@ export async function publishBankResponse(responseData) {
     const published = await publishWithRetry(channel, BANK_RESPONSE_QUEUE, message);
 
     if (!published) {
-      logger.error('[Publisher] Failed after retries, using database fallback');
+      logger.error('[Publisher] - Failed after retries, using database fallback');
       return await fallbackToDatabase(responseData);
     }
 
-    logger.info('[Publisher] ✅ Published to queue');
+    logger.info('[Publisher] - Published to queue');
     return true;
 
   } catch (error) {

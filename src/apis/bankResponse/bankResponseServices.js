@@ -160,19 +160,26 @@ const createBankResponseService = async (
 ) => {
   let conn;
   let committed = false;
+  const processingSet = new Set();
+
+  const splitData = payload.split(' ');
+  const amount = parseFloat(splitData[0]);
+  const upi_short_code = splitData.length > 1 ? splitData[1] : '';
+  const utr = splitData[2];
+  const bank_id = splitData[3];
+  const from_UI = splitData[4];
+  let vendor;
   try {
     conn = await getConnection();
-    
+
     // Note: Removed statement_timeout to prevent data loss with RabbitMQ
     // The query optimizations (parallelization) should keep response time < 15s
 
-    const splitData = payload.split(' ');
-    const amount = parseFloat(splitData[0]);
-    const upi_short_code = splitData.length > 1 ? splitData[1] : '';
-    const utr = splitData[2];
-    const bank_id = splitData[3];
-    const from_UI = splitData[4];
-    let vendor;
+    if (processingSet.has(utr)) {
+      logger.warn(`Duplicate concurrent add data skipped for ${utr}`);
+      return;
+    }
+    processingSet.add(utr);
 
     // Early validation (synchronous)
     const isValidAmount = amount >= 1 && amount <= 500000;
@@ -234,8 +241,15 @@ const createBankResponseService = async (
         conn,
       ),
       isValidAmountCode
-        ? getCheckBankResponseDao({ upi_short_code, company_id }, null, conn)
-            .then(result => result || getCheckBankResponseDao({ utr, company_id }, null, conn))
+        ? getCheckBankResponseDao(
+            { upi_short_code, company_id },
+            null,
+            conn,
+          ).then(
+            (result) =>
+              result ||
+              getCheckBankResponseDao({ utr, company_id }, null, conn),
+          )
         : getCheckBankResponseDao({ utr, company_id }, null, conn),
     ]);
 
@@ -318,7 +332,7 @@ const createBankResponseService = async (
         ) {
           throw new BadRequestError('Invalid amount or commission');
         }
-        
+
         // Optimized: Parallelize bank account update and vendor fetch
         const [res, vendorResult] = await Promise.all([
           updateBankaccountDao(
@@ -341,9 +355,9 @@ const createBankResponseService = async (
             conn,
           ),
         ]);
-        
+
         vendor = vendorResult;
-        
+
         await _updateBankaccountInternal(
           { id: botRes?.bank_id, company_id: companyId },
           { latest_balance: res.today_balance },
@@ -404,13 +418,13 @@ const createBankResponseService = async (
           : { user_submitted_utr: utr, company_id: companyId },
         conn,
       );
-      
+
       if (checkPayInUtr?.length > 0) {
         const payInUtr =
           checkPayInUtr.length === 1
             ? checkPayInUtr[0]
             : checkPayInUtr[checkPayInUtr.length - 1];
-        
+
         // Optimized: Parallelize validation queries
         const [getDataByUtr, isBankExist] = await Promise.all([
           upi_short_code && isValidAmountCode
@@ -431,7 +445,7 @@ const createBankResponseService = async (
             conn,
           ),
         ]);
-        
+
         if (getDataByUtr) {
           const botUtrIsUsed =
             getDataByUtr.rows.length > 1 &&
@@ -486,7 +500,7 @@ const createBankResponseService = async (
             // config: { from_UI },
             duration,
           };
-          
+
           // Optimized: Parallelize payin update, merchant fetch, and bank update
           const [updatePayInDataRes, merchantData] = await Promise.all([
             updatePayInUrlDao(
@@ -583,7 +597,7 @@ const createBankResponseService = async (
           // if (shouldRelease) conn.release();
           return { message: `The UTR already exists` };
         }
-        
+
         // Optimized: Parallelize merchant and bank account fetches
         const [merchantData, bankAccountDetails] = await Promise.all([
           getMerchantsBankResponseDao(
@@ -600,14 +614,14 @@ const createBankResponseService = async (
             conn,
           ),
         ]);
-        
+
         const vendorData = await getVendorsBankReponseDao(
           {
             user_id: bankAccountDetails[0].user_id,
           },
           conn,
         );
-        
+
         const payinMerchantCommission = calculateCommission(
           botRes.amount,
           merchantData[0].payin_commission,
@@ -790,7 +804,7 @@ const createBankResponseService = async (
             payin_vendor_commission: payinVendorCommission,
             // config: { from_UI },
           };
-          
+
           // Optimized: Parallelize payin update and bot response update
           const [updatePayInDataRes] = await Promise.all([
             updatePayInUrlDao(
@@ -911,6 +925,7 @@ const createBankResponseService = async (
     logger.error('Error in createBankResponseService:', error.message);
     throw error;
   } finally {
+    processingSet.delete(utr);
     if (conn) conn.release();
   }
 };
@@ -1340,7 +1355,7 @@ const getBankResponseService = async (
       const userHierarchys = await getUserHierarchysDao({ user_id });
       const userHierarchy = userHierarchys?.[0];
       const parentID = userHierarchy?.config?.parent;
-      
+
       if (parentID) {
         const parentHierarchys = await getUserHierarchysDao({
           user_id: parentID,
@@ -1444,7 +1459,7 @@ const getBankResponseBySearchService = async (
         const userHierarchys = await getUserHierarchysDao({ user_id });
         const userHierarchy = userHierarchys?.[0];
         const parentID = userHierarchy?.config?.parent;
-        
+
         if (parentID) {
           const parentHierarchys = await getUserHierarchysDao({
             user_id: parentID,
