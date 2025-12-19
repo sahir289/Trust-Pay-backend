@@ -66,7 +66,10 @@ import PDFParser from 'pdf2json';
 import { calculateDuration } from '../../helpers/index.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import { trackVendorsNetBalance } from '../../utils/trackVendorsNetBalance.js';
+import { acquireUTRLock } from '../../utils/advisoryLock.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
+
+const processingSet = new Set();
 
 // Helper function to check if vendor is sub-vendor and get parent info
 const getSubVendorParentInfo = async (vendor, conn = null) => {
@@ -160,7 +163,6 @@ const createBankResponseService = async (
 ) => {
   let conn;
   let committed = false;
-  const processingSet = new Set();
 
   const splitData = payload.split(' ');
   const amount = parseFloat(splitData[0]);
@@ -169,17 +171,24 @@ const createBankResponseService = async (
   const bank_id = splitData[3];
   const from_UI = splitData[4];
   let vendor;
+  
+  // Check for concurrent duplicate UTR immediately (in-memory check)
+  if (processingSet.has(utr)) {
+    logger.warn(`Duplicate concurrent add data skipped for ${utr}`);
+    return { message: `Duplicate UTR ${utr} already being processed` };
+  }
+  processingSet.add(utr);
+  
   try {
     conn = await getConnection();
+    await beginTransaction(conn);
 
-    // Note: Removed statement_timeout to prevent data loss with RabbitMQ
-    // The query optimizations (parallelization) should keep response time < 15s
-
-    if (processingSet.has(utr)) {
-      logger.warn(`Duplicate concurrent add data skipped for ${utr}`);
-      return;
+    // Database-level lock to prevent race condition with concurrent requests
+    const lockAcquired = await acquireUTRLock(utr, conn);
+    if (!lockAcquired) {
+      logger.warn(`UTR ${utr} is already locked - concurrent processing detected`);
+      return { message: `UTR ${utr} is being processed by another request. Please try again.` };
     }
-    processingSet.add(utr);
 
     // Early validation (synchronous)
     const isValidAmount = amount >= 1 && amount <= 500000;
@@ -294,7 +303,6 @@ const createBankResponseService = async (
     // Use a transaction for all DB operations for a single entry
     try {
       // Transaction already started at function beginning
-      await beginTransaction(conn);
       botRes = await createBankResponseDao(updatedData, conn);
       // await sendNotification(updatedData.status.replace('/', ''), {
       //   id: botRes.id,
