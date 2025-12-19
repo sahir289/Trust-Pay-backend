@@ -1,15 +1,15 @@
-import { connectRabbitMQ, getRabbitChannel } from '../utils/rabbitmq.js';
 import config from '../config/config.js';
 import { createBankResponseService } from '../apis/bankResponse/bankResponseServices.js';
 import { logger } from '../utils/logger.js';
 import chalk from 'chalk';
+import { connectRabbitMQ, getRabbitChannel } from '../utils/rabbitmq.js';
 
 const MAIN_QUEUE = config.rabbitmq.bankResponseQueue;
 const DLX = 'failed_bank_responses_dlx';
 const DLQ = 'failed_bank_responses_dlq';
 
 const MAX_RETRIES = 3;
-const PREFETCH_COUNT = 5;
+const PREFETCH_COUNT = config.rabbitmq.prefetchCount || 10;
 
 let channel;
 let consumerTag;
@@ -20,16 +20,22 @@ let isShuttingDown = false;
  */
 async function setupTopology(ch) {
   try {
-    await ch.assertExchange(DLX, 'direct', { durable: true });
-
-    await ch.assertQueue(DLQ, { durable: true });
-    await ch.bindQueue(DLQ, DLX, 'failed');
-
-    await ch.assertQueue(MAIN_QUEUE, {
-      durable: true,
-      deadLetterExchange: DLX,
-      deadLetterRoutingKey: 'failed',
-    });
+    // Check if queue exists first
+    try {
+      await ch.checkQueue(MAIN_QUEUE);
+      logger.info(`Queue ${MAIN_QUEUE} already exists, using existing config`);
+    } catch (err) {
+      // Queue doesn't exist, create it with DLX
+      await ch.assertExchange(DLX, 'direct', { durable: true });
+      await ch.assertQueue(DLQ, { durable: true });
+      await ch.bindQueue(DLQ, DLX, 'failed');
+      await ch.assertQueue(MAIN_QUEUE, {
+        durable: true,
+        deadLetterExchange: DLX,
+        deadLetterRoutingKey: 'failed',
+      });
+      logger.info('Created queue with DLX configuration', err);
+    }
 
     ch.prefetch(PREFETCH_COUNT);
 
