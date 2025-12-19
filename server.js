@@ -9,8 +9,7 @@ import { closeRabbitMQ } from './src/utils/rabbitmq.js';
 import {
   shutdownWorker,
   startBankResponseHandler,
-  // startBankResponseWorker,
-} from './src/worker/consume-bank-response-worker.js';
+} from './src/worker/bank-response-worker.js';
 import { closeRedis } from './src/utils/redisClient.js';
 import { stopNotifyCron } from './src/cron/notifyCron.js';
 import { stopCalculationCron } from './src/cron/calculationCron.js';
