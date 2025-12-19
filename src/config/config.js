@@ -81,6 +81,16 @@ function config(Env) {
       apiKey: Env?.CLICKRR_API_KEY,
       apiSecret: Env?.CLICKRR_API_SECRET,
     },
+    payAssist : {
+      baseUrl: Env?.PAY_ASSIST_API_URL,
+    },
+    tataPay : {
+      baseUrl: Env?.TATA_PAY_BASE_API_URL,
+      bulkUrl: Env?.TATA_PAY_BULK_API_URL,
+    },
+    rupeeFlow : {
+      baseUrl: Env?.RUPEE_FLOW_BASE_API_URL,
+    },
     openStreetApi:{
       openStreetMapUrl: Env?.OPEN_STREET_MAP_URL,
       openStreetMapExtraParams :Env?.OPEN_STREET_MAP_EXTRA_PARAMS
