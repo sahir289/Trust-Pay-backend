@@ -144,6 +144,6 @@ export const startBankResponseWorker = async (processFn) => {
     );
   } catch (err) {
     logger.error('[RabbitMQ Worker] Failed to start:', err);
-    setTimeout(() => startBankResponseWorker(processFn), 5000);
+    setTimeout(async () => await startBankResponseWorker(processFn), 5000);
   }
 };

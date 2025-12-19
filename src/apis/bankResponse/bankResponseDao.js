@@ -763,10 +763,16 @@ const getBankResponseDaoAll = async (
     let values = [];
     let bankId;
     let bankDetails;
-    if (filters?.bank_id) {
+    
+    // Optimized: Only fetch bank details if needed for merchant_added filtering
+    if (filters?.bank_id && start_date && end_date) {
       bankId = filters?.bank_id;
-      bankDetails = await getBankaccountDao({ id: bankId }, null, null);
+      // Only fetch if single bank_id (not array)
+      if (!Array.isArray(bankId)) {
+        bankDetails = await getBankaccountDao({ id: bankId }, null, null, null, null, conn);
+      }
     }
+    
     // Use DISTINCT ON to avoid duplicate rows for same BankResponse.sno
     const selectCols = columns.length
       ? `DISTINCT ON ("BankResponse".sno) ${columns.map((col) => `"BankResponse".${col}`).join(', ')}`
@@ -785,6 +791,7 @@ const getBankResponseDaoAll = async (
       start = dayjs.tz(`${start_date} 00:00:00`, IST).utc().format(); // UTC ISO string
       end = dayjs.tz(`${end_date} 23:59:59.999`, IST).utc().format();
     }
+
     let baseQueryDate = `
       WITH filtered_accounts AS (
         SELECT 
@@ -808,7 +815,7 @@ const getBankResponseDaoAll = async (
         ON "BankResponse".bank_id = "BankAccount".id
       LEFT JOIN "Vendor" 
         ON "BankAccount".user_id = "Vendor".user_id
-          LEFT JOIN "Payin"
+      LEFT JOIN "Payin"
         ON "BankResponse".id = "Payin".bank_response_id
         AND "BankResponse".is_used = true
       LEFT JOIN "Merchant"
@@ -844,6 +851,7 @@ const getBankResponseDaoAll = async (
         );
       }
     }
+    
     if (filters.userId) {
       let userIdsArray;
       try {
@@ -855,6 +863,7 @@ const getBankResponseDaoAll = async (
         logger.error('Invalid userId format:', error);
         throw new Error('Invalid userId format');
       }
+
       baseQueryVendor = `
       SELECT DISTINCT ON (br.sno)
       br.created_at,
@@ -875,7 +884,7 @@ const getBankResponseDaoAll = async (
       ON br.id = "Payin".bank_response_id
       LEFT JOIN "Merchant"
       ON "Payin".merchant_id = "Merchant".id
-      WHERE ba.user_id = ANY($1)
+      WHERE ba.user_id = ANY($1) AND br.is_obsolete = false
       `;
 
       values = [userIdsArray];
@@ -921,6 +930,11 @@ const getBankResponseDaoAll = async (
       } else {
         baseQueryVendor += ` AND br.status IN ('/success', '/freezed', '/internalTransfer')`;
       }
+      
+      // Add sorting and pagination
+      baseQueryVendor += ` ORDER BY br.sno DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+      const offset = (page - 1) * pageSize;
+      values.push(Number(pageSize), offset);
     }
 
     if (filters.search) {
@@ -958,24 +972,9 @@ const getBankResponseDaoAll = async (
       baseQueryDate += ' WHERE ' + whereConditions.join(' AND ');
     }
     const queryIs =
-      start && end && bankDetails && bankDetails[0]?.config?.merchant_added
+      start && end && bankDetails?.[0]?.config?.merchant_added
         ? baseQueryDate
         : baseQuery;
-
-    // const validSortColumns = [
-    //   'created_at',
-    //   'updated_at',
-    //   'id',
-    //   'bank_id',
-    //   'company_id',
-    //   'status',
-    //   'amount',
-    //   'sno',
-    // ];
-    // const safeSortBy = validSortColumns.includes(sortBy)
-    //   ? sortBy
-    //   : 'created_at';
-    // const safeSortOrder = sortOrder && sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
 
     let result;
     if (filters.userId && filters.userId.length > 0) {
