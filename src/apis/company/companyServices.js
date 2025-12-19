@@ -11,6 +11,7 @@ import { getRoleDao } from '../roles/rolesDao.js';
 import { RoleIs, DesignationIs } from '../../constants/index.js';
 import { getDesignationDao } from '../designation/designationDao.js';
 import { logger } from '../../utils/logger.js';
+import config from '../../config/config.js';
 
 const getCompanyService = async (id) => {
   try {
@@ -60,8 +61,9 @@ const _createCompanyServiceInternal = async (payload) => {
       allow_razorpay: false,
       allowTataPay: false,
       allow_clickrr: false,
+      allowRupeeFlow: false,
       PAY_ASSIST: {
-        walletsPayoutsUrl: 'https://payassist.co.in/apiPayout',
+        walletsPayoutsUrl: config.payAssist.baseUrl || '',
         walletsPayoutsAgentCode: '',
         walletsPayoutsAgent: '',
         walletsPayoutsApiKey: '',
@@ -69,14 +71,20 @@ const _createCompanyServiceInternal = async (payload) => {
       },
       TATA_PAY: {
         defaultBankId: '',
-        walletsPayoutsUrl: 'http://13.234.69.235:5000/api/auth',
-        walletsBulkPayoutsUrl: 'http://13.234.69.235:5000/api/auth/Bulk_Create_Payout',
+        walletsPayoutsUrl: config.tataPay.baseUrl || '',
+        walletsBulkPayoutsUrl: config.tataPay.bulkUrl || '',
         walletsPayoutsApiKey: '',
       },
       CLICKRR: {
         api_key: '',
         api_secret: '',
         defaultBankId: '',
+      },
+      RUPEE_FLOW: {
+        defaultBankId: '',
+        walletsPayoutsUrl: config.rupeeFlow.baseUrl || '',
+        clientId: '',
+        clientSecret: '',
       },
     };
 

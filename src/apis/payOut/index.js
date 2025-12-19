@@ -22,6 +22,7 @@ import {
 // Import balance functions from separate files
 import { getPayAssistWalletBalance } from '../../payassist/payassist.js';
 import { getTataPayWalletBalance } from '../../tatapay/tatapay.js';
+import { getRupeeFlowWalletBalance, initiateRupeeFlowPayout } from '../../rupeeflow/rupeeflow.js';
 const router = express.Router();
 
 /**
@@ -281,6 +282,18 @@ router.post(
 router.post(
   '/tatapay-callback',
   tryCatchHandler(tataPayTransactionStatusCallback),
+);
+
+router.post(
+  '/rupeeflow',
+  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  tryCatchHandler(initiateRupeeFlowPayout),
+);
+
+router.get(
+  '/rupeeflow/wallet-balance',
+  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  tryCatchHandler(getRupeeFlowWalletBalance),
 );
 
 /**
