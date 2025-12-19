@@ -60,6 +60,7 @@ const _createCompanyServiceInternal = async (payload) => {
       allow_razorpay: false,
       allowTataPay: false,
       allow_clickrr: false,
+      allowRupeeFlow: false,
       PAY_ASSIST: {
         walletsPayoutsUrl: 'https://payassist.co.in/apiPayout',
         walletsPayoutsAgentCode: '',
@@ -70,13 +71,20 @@ const _createCompanyServiceInternal = async (payload) => {
       TATA_PAY: {
         defaultBankId: '',
         walletsPayoutsUrl: 'http://13.234.69.235:5000/api/auth',
-        walletsBulkPayoutsUrl: 'http://13.234.69.235:5000/api/auth/Bulk_Create_Payout',
+        walletsBulkPayoutsUrl:
+          'http://13.234.69.235:5000/api/auth/Bulk_Create_Payout',
         walletsPayoutsApiKey: '',
       },
       CLICKRR: {
         api_key: '',
         api_secret: '',
         defaultBankId: '',
+      },
+      RUPEE_FLOW: {
+        defaultBankId: '',
+        walletsPayoutsUrl: 'https://api.rupeeflow.co',
+        clientId: '',
+        clientSecret: '',
       },
     };
 
