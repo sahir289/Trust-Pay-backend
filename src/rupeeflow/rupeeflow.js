@@ -163,13 +163,14 @@ export const createRupeeFlowPayout = async (
       throw new Error('Payout method missing in payload');
     }
 
-    // Generate unique ID and check if it exists in database
-    let uniqueId = nanoid(20);
+    // Generate unique ID with TXN prefix and timestamp (e.g., TXN3728662222)
+    const timestamp = Date.now().toString();
+    let uniqueId = `TXN${timestamp}${nanoid(8)}`;
     const existingPayout = await getPayoutByTxnId(uniqueId);
     
     // If a payout with this txnid already exists, generate a new one
     if (existingPayout) {
-      uniqueId = nanoid(20);
+      uniqueId = `TXN${Date.now().toString()}${nanoid(8)}`;
       logger.info('Generated duplicate uniqueId, regenerated new one:', {
         oldId: existingPayout.config?.txnid,
         newId: uniqueId,
