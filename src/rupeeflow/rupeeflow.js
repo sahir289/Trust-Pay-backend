@@ -165,12 +165,12 @@ export const createRupeeFlowPayout = async (
 
     // Generate unique ID with TXN prefix and timestamp (e.g., TXN3728662222)
     const timestamp = Date.now().toString();
-    let uniqueId = `TXN${timestamp}${nanoid(8)}`;
+    let uniqueId = `TXN${timestamp}${nanoid(2)}`;
     const existingPayout = await getPayoutByTxnId(uniqueId);
     
     // If a payout with this txnid already exists, generate a new one
     if (existingPayout) {
-      uniqueId = `TXN${Date.now().toString()}${nanoid(8)}`;
+      uniqueId = `TXN${Date.now().toString()}${nanoid(2)}`;
       logger.info('Generated duplicate uniqueId, regenerated new one:', {
         oldId: existingPayout.config?.txnid,
         newId: uniqueId,
@@ -234,11 +234,10 @@ export const createRupeeFlowPayout = async (
     // Apply status to payload
     if (status === 'COMPLETED' || status === 'SUCCESS') {
       payload.status = Status.APPROVED;
-      payload.utr_id = orderId || '';
+      payload.utr_id = payload.utr_id || '';
       payload.approved_at = new Date().toISOString();
     } else if (status === 'PROCESSING' || status === 'PENDING') {
       payload.status = Status.PENDING;
-      payload.utr_id = orderId || '';
     } else {
       payload.status = Status.REJECTED;
       payload.rejected_reason = checkRupeeFlow.rejected_reason || 'Transaction failed';
