@@ -51,6 +51,12 @@ export const initiateRupeeFlowPayout = async (payload, company_id, uniqueId) => 
     ],
   };
 
+  logger.info('Initiating RupeeFlow payout with payload:', {
+    company_id,
+    merchant_order_id: payload?.merchant_order_id,
+    data: newPayload,
+  });
+
   try {
     const rupeeFlowWalletBalance = await getRupeeFlowWalletBalance({ company_id });
     if (rupeeFlowWalletBalance.data.walletBalance < newPayload.data[0].amount) {

@@ -939,6 +939,9 @@ const _updatePayoutServiceInternal = async (
       );
       payload = updatedPayload;
     } else if (payload?.config?.method === Method.RUPEEFLOW) {
+      if (!Number.isInteger(singleWithdrawData.amount)) {
+        throw new BadRequestError('Amount must be in positive values');
+      }
       const method = payload.config.method;
 
       const [company] = await getCompanyByIDDao({ id: ids.company_id }, conn);
