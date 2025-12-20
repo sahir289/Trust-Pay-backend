@@ -8,7 +8,14 @@ import {
 import { tableName } from '../../constants/index.js';
 import { logger } from '../../utils/logger.js';
 
-const getCompanyDao = async (filters, page, pageSize, sortBy, sortOrder, conn) => {
+const getCompanyDao = async (
+  filters,
+  page,
+  pageSize,
+  sortBy,
+  sortOrder,
+  conn,
+) => {
   try {
     const baseQuery = `SELECT id,first_name,last_name,config FROM "${tableName.COMPANY}" WHERE 1=1`;
     //TODO: columns.Company dynamic search
@@ -27,9 +34,10 @@ const getCompanyDao = async (filters, page, pageSize, sortBy, sortOrder, conn) =
     throw error;
   }
 };
+
 const getCompanyDetailsByIdDao = async (id, conn = null) => {
   try {
-    const baseQuery = `SELECT CONCAT(first_name, ' ', last_name) AS full_name, config ->> 'allowPayAssist' AS allowPayAssist, config ->> 'allowTataPay' AS allowTataPay, config ->> 'allow_clickrr' AS allow_clickrr FROM "${tableName.COMPANY}" WHERE 1 = 1`;
+    const baseQuery = `SELECT CONCAT(first_name, ' ', last_name) AS full_name, config ->> 'allowPayAssist' AS allowPayAssist, config ->> 'allowTataPay' AS allowTataPay, config ->> 'allow_clickrr' AS allow_clickrr, config ->> 'allowRupeeFlow' AS allowRupeeFlow FROM "${tableName.COMPANY}" WHERE 1 = 1`;
     const [sql, queryParams] = buildSelectQuery(baseQuery, id);
     const result = await executeQuery(sql, queryParams, conn);
     return result.rows.length > 0 ? result.rows : result.rows[0];
@@ -76,7 +84,7 @@ const getCashfreeAllowByCompanyIdDao = async (id, conn = null) => {
         COALESCE((config ->> 'allow_razorpay')::boolean, false) AS allow_razorpay
       FROM "${tableName.COMPANY}"
       WHERE id = $1
-    `
+    `;
     const queryParams = [id];
     const result = await executeQuery(sql, queryParams, conn);
     return result.rows[0];
