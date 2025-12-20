@@ -1,7 +1,9 @@
 import { Server } from 'socket.io';
+import { createAdapter } from '@socket.io/redis-adapter';
 import config from '../config/config.js';
 import chalk from 'chalk';
 import { logger } from './logger.js';
+import redisClient from './redisClient.js';
 // import {
 //   getBankaccountDao,
 //   updateBankaccountDao,
@@ -11,7 +13,7 @@ import { logger } from './logger.js';
 const userSockets = new Map();
 let ioInstance = null;
 
-const initializeSocket = (server) => {
+const initializeSocket = async (server) => {
   ioInstance = new Server(server, {
     transports: ['websocket', 'polling'],
     cors: {
@@ -19,6 +21,21 @@ const initializeSocket = (server) => {
       methods: ['GET', 'POST'],
     },
   });
+
+  // Configure Redis adapter for PM2 cluster mode
+  try {
+    // Create a duplicate client for Socket.IO (Socket.IO needs its own connection)
+    const pubClient = redisClient.duplicate();
+    const subClient = redisClient.duplicate();
+
+    await Promise.all([pubClient.connect(), subClient.connect()]);
+
+    ioInstance.adapter(createAdapter(pubClient, subClient));
+    logger.info('[SOCKET] Redis adapter configured for PM2 cluster mode');
+  } catch (error) {
+    logger.error('[SOCKET] Failed to setup Redis adapter:', error);
+    logger.warn('[SOCKET] Socket.IO running without Redis adapter - will NOT work in cluster mode!');
+  }
 
   ioInstance.on('connection', (socket) => {
     socket.on('connect', () => {

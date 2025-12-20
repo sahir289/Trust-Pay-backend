@@ -21,7 +21,8 @@ import { stopSuccessRatioCron } from './src/cron/successRatioCron.js';
 
 const server = createServer(app);
 
-initializeSocket(server);
+// Initialize Socket.IO with Redis adapter (async)
+await initializeSocket(server);
 
 const PORT = config?.port || 8090;
 
