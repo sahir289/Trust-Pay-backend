@@ -111,7 +111,7 @@ async function gracefulShutdown(label, err) {
       shutdownWorker(label),
       closeRabbitMQ(),
       closeRedis(),
-      new Promise((res) => logger.on('finish', res)).then(() => logger.end()),
+      logger.close(), // Flush logger before exit
     ]);
   } finally {
     process.exit(err ? 1 : 0);

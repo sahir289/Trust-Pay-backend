@@ -41,6 +41,9 @@ function config(Env) {
     ocr: {
       url: Env?.OCR_URL,
     },
+    redis: {
+      url: Env?.REDIS_URL || 'redis://localhost:6379',
+    },
     rateLimiter: {
       points: parseInt(Env?.RATE_LIMIT_POINTS) || 300, // Increased to 300 req/min (5 req/sec)
       duration: parseInt(Env?.RATE_LIMIT_DURATION) || 60,

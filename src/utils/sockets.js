@@ -1,17 +1,14 @@
 import { Server } from 'socket.io';
 import { createAdapter } from '@socket.io/redis-adapter';
+import { createClient } from 'redis'; // Official redis package for Socket.IO
 import config from '../config/config.js';
 import chalk from 'chalk';
 import { logger } from './logger.js';
-import redisClient from './redisClient.js';
-// import {
-//   getBankaccountDao,
-//   updateBankaccountDao,
-// } from '../apis/bankAccounts/bankaccountDao.js';
-// import { getUserByIdDao } from '../apis/users/userDao.js';
 
 const userSockets = new Map();
 let ioInstance = null;
+let socketRedisPub = null; // Separate Redis clients for Socket.IO only
+let socketRedisSub = null;
 
 const initializeSocket = async (server) => {
   ioInstance = new Server(server, {
@@ -22,22 +19,25 @@ const initializeSocket = async (server) => {
     },
   });
 
-  // Configure Redis adapter for PM2 cluster mode
+  // Configure Redis adapter for PM2 cluster mode 
+  // (Separate from ioredis used in business logic)
   try {
-    // Create a duplicate client for Socket.IO (Socket.IO needs its own connection)
-    const pubClient = redisClient.duplicate();
-    const subClient = redisClient.duplicate();
+    const redisUrl = config.redis?.url || 'redis://localhost:6379';
+    
+    // Create dedicated Redis clients for Socket.IO adapter
+    socketRedisPub = createClient({ url: redisUrl });
+    socketRedisSub = socketRedisPub.duplicate();
 
     // Connect both clients
-    await Promise.all([pubClient.connect(), subClient.connect()]);
+    await Promise.all([socketRedisPub.connect(), socketRedisSub.connect()]);
 
     // Setup adapter
-    ioInstance.adapter(createAdapter(pubClient, subClient));
+    ioInstance.adapter(createAdapter(socketRedisPub, socketRedisSub));
     logger.info('[SOCKET] Redis adapter configured for PM2 cluster mode');
 
     // Handle Redis adapter errors
-    pubClient.on('error', (err) => logger.error('[SOCKET] Redis pub client error:', err));
-    subClient.on('error', (err) => logger.error('[SOCKET] Redis sub client error:', err));
+    socketRedisPub.on('error', (err) => logger.error('[SOCKET] Redis pub client error:', err));
+    socketRedisSub.on('error', (err) => logger.error('[SOCKET] Redis sub client error:', err));
   } catch (error) {
     logger.error('[SOCKET] Failed to setup Redis adapter:', error);
     logger.warn('[SOCKET] Socket.IO running without Redis adapter - will NOT work in cluster mode!');
@@ -808,6 +808,20 @@ export const shutdownSocket = async () => {
     });
 
     ioInstance = null;
+  }
+
+  // Close Socket.IO dedicated Redis clients
+  try {
+    if (socketRedisPub?.isOpen) {
+      await socketRedisPub.quit();
+      logger.info('[SOCKET] Redis pub client closed');
+    }
+    if (socketRedisSub?.isOpen) {
+      await socketRedisSub.quit();
+      logger.info('[SOCKET] Redis sub client closed');
+    }
+  } catch (err) {
+    logger.error('[SOCKET] Error closing Redis clients:', err);
   }
 };
 

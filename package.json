@@ -63,6 +63,7 @@
     "qrcode": "^1.5.4",
     "rate-limiter-flexible": "^7.2.0",
     "razorpay": "^2.9.5",
+    "redis": "^5.10.0",
     "socket.io": "^4.8.1",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
