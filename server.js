@@ -2,7 +2,7 @@ import app from './src/app.js';
 import { createServer } from 'http';
 import chalk from 'chalk';
 import config from './src/config/config.js';
-import { initializeSocket } from './src/utils/sockets.js';
+import { initializeSocket, shutdownSocket } from './src/utils/sockets.js';
 import { logger } from './src/utils/logger.js';
 import { closePool, getPoolStats, checkDatabaseHealth } from './src/utils/db.js';
 import { closeRabbitMQ } from './src/utils/rabbitmq.js';
@@ -106,6 +106,7 @@ async function gracefulShutdown(label, err) {
 
     await Promise.allSettled([
       new Promise((res) => server.close(res)),
+      shutdownSocket(),
       closePool(),
       shutdownWorker(label),
       closeRabbitMQ(),

@@ -28,10 +28,16 @@ const initializeSocket = async (server) => {
     const pubClient = redisClient.duplicate();
     const subClient = redisClient.duplicate();
 
+    // Connect both clients
     await Promise.all([pubClient.connect(), subClient.connect()]);
 
+    // Setup adapter
     ioInstance.adapter(createAdapter(pubClient, subClient));
     logger.info('[SOCKET] Redis adapter configured for PM2 cluster mode');
+
+    // Handle Redis adapter errors
+    pubClient.on('error', (err) => logger.error('[SOCKET] Redis pub client error:', err));
+    subClient.on('error', (err) => logger.error('[SOCKET] Redis sub client error:', err));
   } catch (error) {
     logger.error('[SOCKET] Failed to setup Redis adapter:', error);
     logger.warn('[SOCKET] Socket.IO running without Redis adapter - will NOT work in cluster mode!');
@@ -490,23 +496,8 @@ const initializeSocket = async (server) => {
         // Add this socket to our tracking map - only track the new socket
         userSockets.set(userId, [socket.id]);
 
-        // Ultra-aggressive cleanup - INSTANT socket operations
-        setTimeout(async () => {
-          try {
-            // Force logout other sessions immediately for maximum aggressiveness
-            await forceLogoutUser(userId, null, sessionId);
-
-            logger.log(
-              chalk.bgMagenta.white(
-                `[SOCKET] Instant socket cleanup completed for user ${userId}`,
-              ),
-            );
-          } catch (cleanupError) {
-            logger.error(
-              `[SOCKET] Error in socket cleanup: ${cleanupError.message}`,
-            );
-          }
-        }, 10); // 10ms ultra-fast cleanup
+        // Note: Removed ultra-aggressive cleanup timeout
+        // The instant pre-termination logic above already handles this
 
         const loginMessage = chalk.bold.green(
           `[SOCKET] User ${userId} logged in with socket ${socket.id}, ${userActiveSockets.length} old sessions terminated`,
@@ -591,7 +582,7 @@ const initializeSocket = async (server) => {
   const lastCleanupState = new Map(); // Track last state to prevent spam logging
   const lastCleanupAction = new Map(); // Track when actual cleanup actions occurred
 
-  setInterval(async () => {
+  const cleanupInterval = setInterval(async () => {
     try {
       if (!ioInstance) return;
 
@@ -786,6 +777,38 @@ const initializeSocket = async (server) => {
       logger.error(`[SOCKET] Error in cleanup: ${error.message}`);
     }
   }, 5000); // Check every 5 seconds
+
+  // Store cleanup interval for graceful shutdown
+  if (!ioInstance._cleanupInterval) {
+    ioInstance._cleanupInterval = cleanupInterval;
+  }
+};
+
+export const shutdownSocket = async () => {
+  if (ioInstance) {
+    // Clear cleanup interval
+    if (ioInstance._cleanupInterval) {
+      clearInterval(ioInstance._cleanupInterval);
+    }
+
+    // Close all connections
+    const allSockets = await ioInstance.fetchSockets();
+    await Promise.all(
+      allSockets.map((socket) =>
+        socket.disconnect(true).catch((err) => logger.error('[SOCKET] Disconnect error:', err))
+      )
+    );
+
+    // Close Socket.IO server
+    await new Promise((resolve) => {
+      ioInstance.close(() => {
+        logger.info('[SOCKET] Socket.IO server closed');
+        resolve();
+      });
+    });
+
+    ioInstance = null;
+  }
 };
 
 const forceLogoutUser = async (
