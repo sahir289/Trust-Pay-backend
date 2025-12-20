@@ -4,8 +4,11 @@ import { Method, Status } from '../constants/index.js';
 import { BadRequestError } from '../utils/appErrors.js';
 import { logger } from '../utils/logger.js';
 import { sendSuccess } from '../utils/responseHandlers.js';
-import { nanoid } from 'nanoid';
+import { customAlphabet } from 'nanoid';
 import { getPayoutByTxnId } from '../apis/payOut/payOutDao.js';
+
+// Create alphanumeric-only nanoid
+const nanoid = customAlphabet('0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz', 20);
 
 /**
  * Get RupeeFlow API configuration
