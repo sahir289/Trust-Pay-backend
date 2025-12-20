@@ -201,33 +201,40 @@ class Logger {
       silent: false,
     });
 
-    // Add console transport ONLY in non-production environments
-    if (!isProduction) {
-      this.#logger.add(
-        new winston.transports.Console({
-          format: format.combine(
-            format.colorize(),
-            format.timestamp({
-              format: () => {
-                const options = {
-                  weekday: 'short',
-                  year: 'numeric',
-                  month: 'short',
-                  day: 'numeric',
-                  hour: '2-digit',
-                  minute: '2-digit',
-                  second: '2-digit',
-                  hour12: false,
-                  timeZone: 'Asia/Kolkata',
-                };
-                return new Date()
-                  .toLocaleString('en-US', options)
-                  .replace(',', '');
-              },
-            }),
-            format.metadata({
-              fillExcept: ['message', 'level', 'timestamp', 'stack'],
-            }),
+    // Add console transport for all environments
+    // Production: Simple JSON format for PM2 logs
+    // Development: Colorized with detailed timestamps
+    const consoleFormat = isProduction
+      ? format.combine(
+          format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+          format.printf(({ timestamp, level, message, ...meta }) => {
+            const metaStr = Object.keys(meta).length ? JSON.stringify(meta) : '';
+            return `${timestamp}: [${level}] ${message} ${metaStr}`;
+          })
+        )
+      : format.combine(
+          format.colorize(),
+          format.timestamp({
+            format: () => {
+              const options = {
+                weekday: 'short',
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit',
+                hour12: false,
+                timeZone: 'Asia/Kolkata',
+              };
+              return new Date()
+                .toLocaleString('en-US', options)
+                .replace(',', '');
+            },
+          }),
+          format.metadata({
+            fillExcept: ['message', 'level', 'timestamp', 'stack'],
+          }),
             format.printf(({ timestamp, level, message, metadata }) => {
               const typeChalk =
                 level === 'error'
@@ -253,11 +260,14 @@ class Logger {
               })();
 
               return `[${typeChalk}] [${timestamp}] ${message} ${metaString}`.trim();
-            }),
-          ),
-        }),
-      );
-    }
+            })
+          );
+
+    this.#logger.add(
+      new winston.transports.Console({
+        format: consoleFormat,
+      })
+    );
 
     // Handle uncaught transport errors gracefully
     this.#logger.on('error', (error) => {
