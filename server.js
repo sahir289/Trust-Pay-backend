@@ -4,7 +4,7 @@ import chalk from 'chalk';
 import config from './src/config/config.js';
 import { initializeSocket } from './src/utils/sockets.js';
 import { logger } from './src/utils/logger.js';
-import { closePool } from './src/utils/db.js';
+import { closePool, getPoolStats, checkDatabaseHealth } from './src/utils/db.js';
 import { closeRabbitMQ } from './src/utils/rabbitmq.js';
 import {
   shutdownWorker,
@@ -65,6 +65,12 @@ const onListening = () => {
   const docsUrl = `http://localhost:${PORT}/v1/api-docs`;
   const styledMessage = chalk.bold.yellow(`API docs available at ${docsUrl}`);
   logger.log(styledMessage);
+  
+  // Signal PM2 that the app is ready
+  if (process.send) {
+    process.send('ready');
+    logger.info('PM2 ready signal sent');
+  }
 };
 
 let shuttingDown = false;
@@ -150,5 +156,65 @@ process.on('unhandledRejection', (reason) => {
 server.listen(PORT, onListening);
 startBankResponseHandler();
 server.on('error', onError);
+
+// Database Pool Monitoring - Only in production
+if (config?.env === 'production') {
+  // Database Pool Monitoring - Check every 60 seconds
+  setInterval(() => {
+    try {
+      const stats = getPoolStats();
+      
+      // Validate stats exist
+      if (!stats || !stats.writer || !stats.reader) {
+        logger.warn('DATABASE_ALERT: Pool stats unavailable');
+        return;
+      }
+      
+      // Alert if connection wait queue is building up (> 5 waiting connections)
+      if (stats.writer.waiting > 5 || stats.reader.waiting > 5) {
+        logger.error('DATABASE_ALERT: High connection wait queue!', stats);
+      }
+      
+      // Calculate pool utilization (prevent division by zero)
+      const writerUtilization = stats.writer.total > 0 
+        ? ((stats.writer.total - stats.writer.idle) / stats.writer.total) * 100 
+        : 0;
+      const readerUtilization = stats.reader.total > 0 
+        ? ((stats.reader.total - stats.reader.idle) / stats.reader.total) * 100 
+        : 0;
+      
+      // Alert if pool utilization is too high (> 80%)
+      if (writerUtilization > 80) {
+        logger.warn(`DATABASE_ALERT: High writer pool usage: ${writerUtilization.toFixed(1)}%`, {
+          active: stats.writer.total - stats.writer.idle,
+          total: stats.writer.total,
+          waiting: stats.writer.waiting,
+        });
+      }
+      
+      if (readerUtilization > 80) {
+        logger.warn(`DATABASE_ALERT: High reader pool usage: ${readerUtilization.toFixed(1)}%`, {
+          active: stats.reader.total - stats.reader.idle,
+          total: stats.reader.total,
+          waiting: stats.reader.waiting,
+        });
+      }
+    } catch (error) {
+      logger.error('DATABASE_ALERT: Pool monitoring error:', error);
+    }
+  }, 60000); // Every 60 seconds
+
+  // Database Health Check - Check every 5 minutes
+  setInterval(async () => {
+    try {
+      const health = await checkDatabaseHealth();
+      if (health.status === 'unhealthy') {
+        logger.error('DATABASE_ALERT: Health check failed!', health);
+      }
+    } catch (error) {
+      logger.error('DATABASE_ALERT: Health check threw error:', error);
+    }
+  }, 300000); // Every 5 minutes
+}
 
 // migrateUsersToES();

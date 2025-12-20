@@ -10,7 +10,7 @@ import {
 } from './middlewares/requestExtension.js';
 import apis from './apis/index.js';
 import errorHandler from './middlewares/errorHandler.js';
-// import config from './config/config.js';
+import config from './config/config.js';
 import '../src/cron/gatherAllData.js';
 
 const app = express();
@@ -29,10 +29,36 @@ app.use(
 app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
 app.use(express.static('public'));
 app.use(methodOverride());
+
+// const corsWhitelist = process.env.CORS_WHITELIST
+//   ? process.env.CORS_WHITELIST.split(',').map(url => url.trim())
+//   : [
+//       config.reactFrontOrigin,
+//       config.reactPaymentOrigin,
+//     ].filter(Boolean);
+
+const corsWhitelist = [
+  config.reactFrontOrigin,
+  config.reactPaymentOrigin,
+].filter(Boolean);
+
 app.use(
   cors({
-    origin: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Allowed methods
+    origin: (origin, callback) => {
+      // Allow requests with no origin (mobile apps, curl, postman)
+      if (!origin) return callback(null, true);
+
+      // In development, allow all
+      if (config?.env !== 'production') return callback(null, true);
+
+      // In production, check whitelist
+      if (corsWhitelist.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS policy'));
+      }
+    },
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     credentials: true,
   }),
 );
@@ -40,7 +66,8 @@ app.use(express.json());
 
 app.use(addLogIdInRequest);
 app.use(apis);
-app.use(timeout('20s'));
+// Timeout: 10s for production, 30s for development (calculations can be slow)
+app.use(timeout(config?.env === 'production' ? '20s' : '30s'));
 
 app.use(errorHandler);
 app.use(methodNotFound);

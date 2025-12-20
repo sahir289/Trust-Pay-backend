@@ -42,7 +42,7 @@ function config(Env) {
       url: Env?.OCR_URL,
     },
     rateLimiter: {
-      points: parseInt(Env?.RATE_LIMIT_POINTS) || 20,
+      points: parseInt(Env?.RATE_LIMIT_POINTS) || 300, // Increased to 300 req/min (5 req/sec)
       duration: parseInt(Env?.RATE_LIMIT_DURATION) || 60,
       blockDuration: parseInt(Env?.RATE_LIMIT_BLOCK_DURATION) || 30,
     },

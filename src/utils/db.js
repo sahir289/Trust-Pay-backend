@@ -55,17 +55,24 @@ export const createPool = (connectionString, name) => {
             // ca: fs.readFileSync(path.join(__dirname, 'ap-south-1-bundle.pem')).toString(),
           }
         : { rejectUnauthorized: false },
-    max: 60,
-    min: 10,
+    max: config.env === 'production' ? 60 : 10, // 10 for dev, 60 for prod
+    min: config.env === 'production' ? 10 : 2, // 2 for dev, 10 for prod
     idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 5000,
+    connectionTimeoutMillis: config.env === 'production' ? 5000 : 10000, // More lenient in dev
     keepAlive: true,
     maxUses: 7500,
   });
 
-  pool.on('connect', (client) => {
-    client.query("SET TIME ZONE 'Asia/Kolkata'");
+  pool.on('connect', async (client) => {
+    try {
+      await client.query("SET TIME ZONE 'Asia/Kolkata'");
+    } catch (err) {
+      logger.error(`Failed to set timezone for ${name}:`, err);
+      throw err; // Reject the connection if timezone can't be set
+    }
   });
+
+  let reconnecting = false; // Prevent multiple simultaneous reconnection attempts
 
   pool.on('error', async (err, client) => {
     logger.error(`Unexpected error on idle client (${name}):`, err);
@@ -78,6 +85,13 @@ export const createPool = (connectionString, name) => {
       return;
     }
 
+    // Prevent multiple concurrent reconnection attempts
+    if (reconnecting) {
+      logger.warn(`Reconnection already in progress for ${name}, skipping duplicate attempt`);
+      return;
+    }
+
+    reconnecting = true;
     let retryCount = 0;
     const maxRetries = 5;
     const baseDelay = config.env === 'production' ? 5000 : 2000;
@@ -94,6 +108,7 @@ export const createPool = (connectionString, name) => {
         const newClient = await pool.connect();
         newClient.release();
         logger.info(`${name} Database reconnected successfully!`);
+        reconnecting = false;
         return;
       } catch (retryErr) {
         logger.error(
@@ -107,12 +122,55 @@ export const createPool = (connectionString, name) => {
     logger.error(
       `All reconnection attempts failed. ${name}. The database remains unreachable.`,
     );
+    reconnecting = false;
   });
   return pool;
 };
 
 const writerPool = createPool(config?.databaseWriterUrl, 'Writer');
 const readerPool = createPool(config?.databaseReaderUrl, 'Reader');
+
+/**
+ * Get current pool statistics for monitoring
+ */
+export const getPoolStats = () => {
+  return {
+    writer: {
+      total: writerPool.totalCount,
+      idle: writerPool.idleCount,
+      waiting: writerPool.waitingCount,
+    },
+    reader: {
+      total: readerPool.totalCount,
+      idle: readerPool.idleCount,
+      waiting: readerPool.waitingCount,
+    },
+  };
+};
+
+/**
+ * Check database health
+ */
+export const checkDatabaseHealth = async () => {
+  try {
+    const client = await writerPool.connect();
+    await client.query('SELECT 1');
+    client.release();
+    return {
+      status: 'healthy',
+      timestamp: new Date().toISOString(),
+      pools: getPoolStats(),
+    };
+  } catch (error) {
+    logger.error('Database health check failed:', error);
+    return {
+      status: 'unhealthy',
+      error: error.message,
+      timestamp: new Date().toISOString(),
+      pools: getPoolStats(),
+    };
+  }
+};
 
 /**
  * getConnection
@@ -125,16 +183,24 @@ const getConnection = async (type = 'writer') => {
   for (let retryCount = 0; retryCount < maxRetries; retryCount++) {
     try {
       const pool = type === 'reader' ? readerPool : writerPool;
-      const client = await pool.connect();
-      logger.info(chalk.bgCyanBright('Database connected successfully'));
+      
+      // Add connection timeout (30 seconds)
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Connection acquisition timeout')), 30000)
+      );
+      
+      const client = await Promise.race([pool.connect(), timeoutPromise]);
+      
+      // Only log in development or on first connection
+      if (config.env !== 'production' || retryCount > 0) {
+        logger.info('Database connected successfully');
+      }
       return client;
     } catch (error) {
       const delay = baseDelay * Math.pow(2, retryCount);
       logger.error(`Error fetching database connection:`, error);
       logger.warn(
-        chalk.yellow(
-          `DB connection failed (Attempt ${retryCount + 1}). Retrying in ${delay / 1000}s...`,
-        ),
+        `DB connection failed (Attempt ${retryCount + 1}). Retrying in ${delay / 1000}s...`,
       );
       await new Promise((resolve) => setTimeout(resolve, delay));
     }
@@ -253,6 +319,7 @@ export const executeQuery = async (query, queryParams = [], conn = null) => {
         error.code === 'ETIMEDOUT' ||
         error.code === 'EPIPE' ||
         error.code === 'ENOTFOUND' ||
+        error.message?.includes('Database connection error') || // DbError from getConnection
         error.message?.includes('Connection terminated unexpectedly') ||
         error.message?.includes('connection timeout') ||
         error.message?.includes('server closed the connection') ||
@@ -298,6 +365,10 @@ export const buildSelectQuery = (
 
     if (key.startsWith('config_') && key.endsWith('_contains')) {
       const variablePart = key.replace('config_', '').replace('_contains', '');
+      // Validate variablePart to prevent SQL injection (only allow alphanumeric and underscore)
+      if (!/^[a-zA-Z0-9_]+$/.test(variablePart)) {
+        throw new Error(`Invalid config field name: ${variablePart}`);
+      }
       const jsonColumn = `
         COALESCE(
           CASE 
@@ -521,65 +592,81 @@ export const buildAndExecuteUpdateQuery = async (
 };
 
 export const transactionWrapper =
-  (fn) =>
+  (fn, maxDeadlockRetries = 3) =>
   async (...args) => {
     let conn; 
-    let committed = false; ;
-    try {
-      conn = await getConnection();
-      await beginTransaction(conn);
+    let committed = false;
+    let deadlockAttempts = 0;
+    
+    const executeWithRetry = async () => {
+      try {
+        conn = await getConnection();
+        // Set statement timeout for this transaction (60 seconds)
+        await conn.query("SET LOCAL statement_timeout = '60s'");
+        await beginTransaction(conn);
 
-      const data = await fn(conn, ...args);
+        const data = await fn(conn, ...args);
 
-      await commit(conn); 
-      committed = true;
-      return data;
-    } catch (error) {
-      // Only attempt rollback if the connection is still valid
-      if (conn && !committed) {
-        try {
-          if (!error.message?.includes('ECONNRESET')) {
-            await rollback(conn);
-            logger.error('Transaction rolled back due to error:', error);
-          } else {
-            logger.error('Connection reset detected, skipping rollback');
-          }
-        } catch (rollbackError) {
-          logger.error(
-            'Rollback failed (likely due to closed connection):',
-            rollbackError,
-          );
-        }
-      }
-
-      // Check for retry able deadlock/serialization errors
-      const isDeadlock =
-        error.message &&
-        (error.message.includes('deadlock') ||
-          error.message.includes('could not serialize access') ||
-          error.message.includes('canceling statement due to lock timeout') ||
-          error.message.includes('lock timeout') ||
-          ['40P01', '40001', '55P03'].includes(error.code));
-
-      if (isDeadlock) {
-        logger.warn('Deadlock detected. Retrying transaction...');
-        if (conn) {
+        await commit(conn); 
+        committed = true;
+        return data;
+      } catch (error) {
+        // Only attempt rollback if the connection is still valid
+        if (conn && !committed) {
           try {
-            conn.release();
-          } catch {
-            logger.error('Failed to release connection after deadlock:', error);
+            if (!error.message?.includes('ECONNRESET')) {
+              await rollback(conn);
+              logger.error('Transaction rolled back due to error:', error);
+            } else {
+              logger.error('Connection reset detected, skipping rollback');
+            }
+          } catch (rollbackError) {
+            logger.error(
+              'Rollback failed (likely due to closed connection):',
+              rollbackError,
+            );
           }
-          conn = null;
         }
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-        // Retry the same transaction ONCE if we detected a deadlock
-        return await transactionWrapper(fn)(...args);
-      }
 
-      throw error;
-    } finally {
-      if (conn) conn.release();
-    }
+        // Check for retry able deadlock/serialization errors
+        const isDeadlock =
+          error.message &&
+          (error.message.includes('deadlock') ||
+            error.message.includes('could not serialize access') ||
+            error.message.includes('canceling statement due to lock timeout') ||
+            error.message.includes('lock timeout') ||
+            ['40P01', '40001', '55P03'].includes(error.code));
+
+        if (isDeadlock) {
+          deadlockAttempts++;
+          if (deadlockAttempts >= maxDeadlockRetries) {
+            logger.error(`Max deadlock retries (${maxDeadlockRetries}) exceeded. Giving up.`);
+            throw error;
+          }
+          
+          logger.warn(`Deadlock detected. Retry ${deadlockAttempts}/${maxDeadlockRetries}...`);
+          if (conn) {
+            try {
+              conn.release();
+            } catch {
+              logger.error('Failed to release connection after deadlock:', error);
+            }
+            conn = null;
+          }
+          // Add jitter (500ms - 1500ms) to prevent thundering herd
+          const jitter = Math.random() * 1000 + 500;
+          await new Promise((resolve) => setTimeout(resolve, jitter));
+          // Retry the transaction
+          return await executeWithRetry();
+        }
+
+        throw error;
+      } finally {
+        if (conn) conn.release();
+      }
+    };
+    
+    return await executeWithRetry();
   };
 
 /**
@@ -628,11 +715,26 @@ export const transactionWrapper =
  * JOIN "User" ON "Merchant".user_id = "User".user_id
  * LEFT JOIN "Designation" ON "User".designation_id = "Designation".id
  */
+/**
+ * Validate column/table name to prevent SQL injection
+ */
+const isValidIdentifier = (name) => /^[a-zA-Z_][a-zA-Z0-9_]*$/.test(name);
+
 export const buildJoinQuery = (table, columns = '*', joins = []) => {
+  // Validate table name
+  if (!isValidIdentifier(table)) {
+    throw new Error(`Invalid table name: ${table}`);
+  }
+  
   let selectCols =
     columns === '*'
       ? [`"${table}".*`]
-      : columns.map((col) => `"${table}".${col}`);
+      : columns.map((col) => {
+          if (!isValidIdentifier(col)) {
+            throw new Error(`Invalid column name: ${col}`);
+          }
+          return `"${table}".${col}`;
+        });
   let joinClauses = [];
 
   for (const join of joins) {
@@ -644,15 +746,30 @@ export const buildJoinQuery = (table, columns = '*', joins = []) => {
       columns = [],
       columnAs = [],
     } = join;
+    
+    // Validate join table name
+    if (!isValidIdentifier(jTable)) {
+      throw new Error(`Invalid join table name: ${jTable}`);
+    }
+    
     const referenceTable = rTable || table;
+    if (rTable && !isValidIdentifier(rTable)) {
+      throw new Error(`Invalid reference table name: ${rTable}`);
+    }
 
     // Auto-generate ON condition
     let onCondition = '';
     if (keys) {
       if (typeof keys === 'string') {
+        if (!isValidIdentifier(keys)) {
+          throw new Error(`Invalid key name: ${keys}`);
+        }
         // If keys is a string, use the same key for both tables
         onCondition = `"${referenceTable}".${keys} = "${jTable}".${keys}`;
       } else if (Array.isArray(keys) && keys.length === 2) {
+        if (!isValidIdentifier(keys[0]) || !isValidIdentifier(keys[1])) {
+          throw new Error(`Invalid key names: ${keys.join(', ')}`);
+        }
         // If keys is an array, assume different keys for each table
         onCondition = `"${referenceTable}".${keys[0]} = "${jTable}".${keys[1]}`;
       }
@@ -660,9 +777,13 @@ export const buildJoinQuery = (table, columns = '*', joins = []) => {
 
     // Add selected columns
     for (const col of columns) {
+      if (!isValidIdentifier(col)) {
+        throw new Error(`Invalid column name: ${col}`);
+      }
       selectCols.push(`"${jTable}".${col}`);
     }
     for (const colAs of columnAs) {
+      // columnAs can have aliases, so we don't validate them (they're developer-defined)
       selectCols.push(colAs);
     }
 
@@ -684,22 +805,15 @@ const executePaginatedQuery = async ({
   const pageNum = parseInt(page, 10) || 1;
   const limitNum = parseInt(limit, 10) || 10;
   const offset = (pageNum - 1) * limitNum;
-  logger.info(typeof offset, offset, pageNum, 'offset');
 
   // Base query params include limit and offset
   const validParams = params.filter((param) => param !== undefined);
   const baseQueryParams = [...validParams, limitNum, offset];
-  logger.info(baseQueryParams, 'baseQueryParams');
   // Count query params exclude limit and offset
   const countQueryParams = [...params];
 
   const limitPlaceholder = `$${baseQueryParams.length - 1 + 1}`; // Correct index
   const offsetPlaceholder = `$${baseQueryParams.length + 1}`;
-
-  logger.info(
-    `${baseQuery} LIMIT $${limitPlaceholder.length - 1} OFFSET $${offsetPlaceholder.length}`,
-    '-------',
-  );
 
   const [result, countResult] = await Promise.all([
     executeQuery(
