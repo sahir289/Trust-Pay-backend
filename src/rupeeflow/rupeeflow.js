@@ -234,11 +234,10 @@ export const createRupeeFlowPayout = async (
     // Apply status to payload
     if (status === 'COMPLETED' || status === 'SUCCESS') {
       payload.status = Status.APPROVED;
-      payload.utr_id = orderId || '';
+      payload.utr_id = payload.utr_id || '';
       payload.approved_at = new Date().toISOString();
     } else if (status === 'PROCESSING' || status === 'PENDING') {
       payload.status = Status.PENDING;
-      payload.utr_id = orderId || '';
     } else {
       payload.status = Status.REJECTED;
       payload.rejected_reason = checkRupeeFlow.rejected_reason || 'Transaction failed';
