@@ -393,7 +393,7 @@ export async function startBulkPayoutWorker() {
       }, 300000);
     }
     
-    logger.info(`[BulkPayout] ✅ Worker started (tag: ${consumerTag}), Prefetch=${PREFETCH_COUNT}`);
+    logger.info(`[BulkPayout] Worker started (tag: ${consumerTag}), Prefetch=${PREFETCH_COUNT}`);
 
   } catch (error) {
     logger.error('[BulkPayout] Startup failed:', {
@@ -450,7 +450,7 @@ export async function shutdownBulkPayoutWorker(signal) {
     await bulkPayoutConnection.close();
     
     logger.info('[BulkPayout] Final metrics:', metrics);
-    logger.info('[BulkPayout] ✅ Shutdown complete');
+    logger.info('[BulkPayout] Shutdown complete');
 
   } catch (error) {
     logger.error('[BulkPayout] Shutdown error:', error.message);
