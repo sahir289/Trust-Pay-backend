@@ -1,5 +1,4 @@
 /**
- * Bulk Payout Status Update Consumer - Enterprise Grade
  * 
  * Battle-tested patterns for zero data loss:
  * - Message ACK only after successful DB commit
@@ -9,8 +8,6 @@
  * - Conservative prefetch to prevent OOM
  * - Comprehensive monitoring and alerting
  * 
- * @author Trust Pay Engineering Team
- * @version 2.0.0
  */
 
 // import { Buffer } from 'buffer';
