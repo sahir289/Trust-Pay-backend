@@ -22,8 +22,9 @@ import { updatePayoutDao } from '../apis/payOut/payOutDao.js';
 const QUEUE_NAME = 'bulk_payout_status_update';
 const DLX_NAME = 'bulk_payout.dlx';
 const DLQ_NAME = 'bulk_payout.dlq';
-const PREFETCH_COUNT = 5; // Conservative - each message can have 50+ DB updates
+const PREFETCH_COUNT = 3; // Safe for DB: 3 msgs × 5 batches × 10 parallel = max 150 connections (within pool limit)
 const MAX_RETRIES = 3;
+const BATCH_SIZE = 10; // Process 10 updates in parallel per batch
 
 // Dedicated connection for this worker
 const bulkPayoutConnection = new RabbitMQConnection('bulk-payout-worker');
@@ -84,9 +85,23 @@ async function processMessage(msg) {
   metrics.messagesProcessed++;
   metrics.lastProcessedAt = new Date().toISOString();
 
+  let content;
   try {
-    const content = JSON.parse(msg.content.toString());
+    content = JSON.parse(msg.content.toString());
+  } catch (parseError) {
+    logger.error('[BulkPayout] JSON parse failed - sending to DLQ:', parseError.message);
+    metrics.messagesToDLQ++;
+    if (channel) {
+      try {
+        channel.nack(msg, false, false);
+      } catch (nackError) {
+        logger.error('[BulkPayout] Failed to nack invalid JSON:', nackError.message);
+      }
+    }
+    return;
+  }
 
+  try {
     // Validate message structure
     if (!content?.individualUpdates || !Array.isArray(content.individualUpdates)) {
       logger.error('[BulkPayout] Invalid message structure - sending to DLQ');
@@ -98,40 +113,54 @@ async function processMessage(msg) {
     const updateCount = content.individualUpdates.length;
     logger.info(`[BulkPayout] Processing ${updateCount} updates (attempt ${retryCount + 1}/${MAX_RETRIES + 1})`);
 
-    // Process updates sequentially (prevents DB deadlocks)
+    // Process updates in parallel batches for speed
     let successCount = 0;
-    // let failureCount = 0;
     const failures = [];
+    let hasRetryableError = false; // Track if any retryable error occurred
 
-    for (const update of content.individualUpdates) {
-      try {
-        if (!update.payoutId) {
-          // failureCount++;
-          failures.push({ payoutId: null, reason: 'Missing payoutId' });
-          continue;
+    // Split into batches to avoid overwhelming DB
+    for (let i = 0; i < content.individualUpdates.length; i += BATCH_SIZE) {
+      const batch = content.individualUpdates.slice(i, i + BATCH_SIZE);
+      
+      const results = await Promise.allSettled(
+        batch.map(async (update) => {
+          if (!update.payoutId) {
+            throw new Error('Missing payoutId');
+          }
+
+          return updatePayoutDao([update.payoutId], {
+            status: update.status,
+            bank_acc_id: update.bank_acc_id,
+            config: update.config,
+            approved_at: update.approved_at,
+            updated_at: new Date().toISOString(),
+          });
+        })
+      );
+
+      // Process results - collect ALL errors before deciding to retry
+      results.forEach((result, idx) => {
+        const update = batch[idx];
+        if (result.status === 'fulfilled') {
+          successCount++;
+        } else {
+          failures.push({
+            payoutId: update?.payoutId || null,
+            reason: result.reason?.message || 'Unknown error',
+          });
+          
+          // Check if this is a retryable error (DB timeout, connection error, etc.)
+          if (isRetryableError(result.reason)) {
+            hasRetryableError = true;
+          }
         }
+      });
+    }
 
-        await updatePayoutDao([update.payoutId], {
-          status: update.status,
-          bank_acc_id: update.bank_acc_id,
-          config: update.config,
-          approved_at: update.approved_at,
-          updated_at: new Date().toISOString(),
-        });
-
-        successCount++;
-      } catch (updateError) {
-        // failureCount++;
-        failures.push({
-          payoutId: update.payoutId,
-          reason: updateError.message,
-        });
-        
-        // If retryable DB error, propagate to retry entire batch
-        if (isRetryableError(updateError)) {
-          throw updateError;
-        }
-      }
+    // If ANY retryable error occurred, throw to trigger message retry
+    // This ensures all-or-nothing processing (no partial ACKs on retryable errors)
+    if (hasRetryableError) {
+      throw new Error(`Retryable errors detected in batch (${failures.length} failures). Retrying entire message.`);
     }
 
     const duration = Date.now() - startTime;
@@ -174,7 +203,8 @@ async function processMessage(msg) {
         try {
           const headers = { ...(msg.properties.headers || {}), 'x-retry-count': retryCount + 1 };
           
-          channel.sendToQueue(QUEUE_NAME, msg.content, {
+          // sendToQueue can throw - wrap it
+          await channel.sendToQueue(QUEUE_NAME, msg.content, {
             persistent: true,
             headers: headers
           });
@@ -183,12 +213,15 @@ async function processMessage(msg) {
           channel.ack(msg);
           logger.warn(`[BulkPayout] Message requeued with retry count ${retryCount + 1} (will be attempt ${retryCount + 2}/${MAX_RETRIES + 1})`);
         } catch (requeueError) {
-          logger.error('[BulkPayout] Failed to requeue:', requeueError.message);
+          logger.error('[BulkPayout] Failed to requeue:', {
+            error: requeueError.message,
+            stack: requeueError.stack
+          });
           // Fallback: nack without requeue to prevent infinite loop
           try {
             channel.nack(msg, false, false);
-          } catch {
-            logger.error('[BulkPayout] Cannot nack after requeue failure. Message will be redelivered by RabbitMQ.');
+          } catch (nackError) {
+            logger.error('[BulkPayout] Cannot nack after requeue failure:', nackError.message);
           }
         }
       } else {

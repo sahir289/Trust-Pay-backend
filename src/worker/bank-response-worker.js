@@ -23,7 +23,7 @@ import { createBankResponseService } from '../apis/bankResponse/bankResponseServ
 const QUEUE_NAME = config.rabbitmq.bankResponseQueue;
 const DLX_NAME = 'bank_responses.dlx';
 const DLQ_NAME = 'bank_responses.dlq';
-const PREFETCH_COUNT = config.rabbitmq.prefetchCount || 10;
+const PREFETCH_COUNT = 30; // Balanced: 30 concurrent transactions (safe for 60-connection pool)
 const MAX_RETRIES = 3;
 
 // Dedicated connection
@@ -85,9 +85,23 @@ async function processMessage(msg) {
   metrics.messagesProcessed++;
   metrics.lastProcessedAt = new Date().toISOString();
 
+  let data;
   try {
-    const data = JSON.parse(msg.content.toString());
+    data = JSON.parse(msg.content.toString());
+  } catch (parseError) {
+    logger.error('[Consumer] JSON parse failed - sending to DLQ:', parseError.message);
+    metrics.messagesToDLQ++;
+    if (channel) {
+      try {
+        channel.nack(msg, false, false);
+      } catch (nackError) {
+        logger.error('[Consumer] Failed to nack invalid JSON:', nackError.message);
+      }
+    }
+    return;
+  }
 
+  try {
     // Validate message structure
     if (!data?.payload || !data?.x_auth_token) {
       logger.error('[Consumer] Invalid message - sending to DLQ');
@@ -137,7 +151,8 @@ async function processMessage(msg) {
         try {
           const headers = { ...(msg.properties.headers || {}), 'x-retry-count': retryCount + 1 };
           
-          channel.sendToQueue(QUEUE_NAME, msg.content, {
+          // sendToQueue can throw - wrap it
+          await channel.sendToQueue(QUEUE_NAME, msg.content, {
             persistent: true,
             headers: headers
           });
@@ -145,11 +160,14 @@ async function processMessage(msg) {
           channel.ack(msg);
           logger.warn(`[Consumer] Message requeued with retry count ${retryCount + 1} (will be attempt ${retryCount + 2}/${MAX_RETRIES + 1})`);
         } catch (requeueError) {
-          logger.error('[Consumer] Failed to requeue:', requeueError.message);
+          logger.error('[Consumer] Failed to requeue:', {
+            error: requeueError.message,
+            stack: requeueError.stack
+          });
           try {
             channel.nack(msg, false, false);
-          } catch {
-            logger.error('[Consumer] Cannot nack after requeue failure. Message will be redelivered by RabbitMQ.');
+          } catch (nackError) {
+            logger.error('[Consumer] Cannot nack after requeue failure:', nackError.message);
           }
         }
       } else {
