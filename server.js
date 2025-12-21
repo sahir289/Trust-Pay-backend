@@ -156,7 +156,17 @@ process.on('unhandledRejection', (reason) => {
 });
 
 server.listen(PORT, onListening);
-startBankResponseHandler();
+
+// Start RabbitMQ consumer ONLY on primary worker (worker 0)
+// to avoid duplicate message processing and queue contention
+const instanceId = parseInt(process.env.INSTANCE_ID || '0', 10);
+if (instanceId === 0) {
+  startBankResponseHandler();
+  logger.info('[Worker 0] RabbitMQ consumer started');
+} else {
+  logger.info(`[Worker ${instanceId}] Skipping RabbitMQ consumer (runs only on worker 0)`);
+}
+
 server.on('error', onError);
 
 // Database Pool Monitoring - Only in production
