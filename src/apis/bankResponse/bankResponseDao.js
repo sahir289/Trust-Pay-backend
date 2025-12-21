@@ -931,10 +931,8 @@ const getBankResponseDaoAll = async (
         baseQueryVendor += ` AND br.status IN ('/success', '/freezed', '/internalTransfer')`;
       }
       
-      // Add sorting and pagination
-      baseQueryVendor += ` ORDER BY br.sno DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
-      const offset = (page - 1) * pageSize;
-      values.push(Number(pageSize), offset);
+      // Add sorting (no pagination - return all results)
+      baseQueryVendor += ` ORDER BY br.sno DESC`;
     }
 
     if (filters.search) {
