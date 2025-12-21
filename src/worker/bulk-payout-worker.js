@@ -247,29 +247,36 @@ async function processMessage(msg) {
  * Setup queue topology with DLX/DLQ
  */
 async function setupQueueTopology(ch) {
-  // Setup Dead Letter Exchange
-  await ch.assertExchange(DLX_NAME, 'direct', { durable: true });
-
-  // Setup Dead Letter Queue
-  await ch.assertQueue(DLQ_NAME, { durable: true });
-  await ch.bindQueue(DLQ_NAME, DLX_NAME, 'failed');
-
-  // Check if main queue exists
+  // Check if main queue exists first
   let queueExists = false;
+  let queueHasDLX = false;
+  
   try {
     const queueInfo = await ch.checkQueue(QUEUE_NAME);
     logger.info(`[BulkPayout] Queue exists: ${queueInfo.messageCount} messages, ${queueInfo.consumerCount} consumers`);
     queueExists = true;
+    
+    // Queue exists - use it as-is (can't modify arguments of existing queue)
+    logger.info('[BulkPayout] Using existing queue (DLX settings cannot be changed)');
   } catch (checkError) {
     if (checkError.message?.includes('NOT_FOUND') || checkError.message?.includes('404')) {
-      logger.info('[BulkPayout] Queue not found, will create');
+      logger.info('[BulkPayout] Queue not found, will create with DLX');
+      queueExists = false;
     } else {
       throw checkError;
     }
   }
 
-  // Create main queue if needed
+  // Only setup DLX/DLQ if queue doesn't exist (new setup)
   if (!queueExists) {
+    // Setup Dead Letter Exchange
+    await ch.assertExchange(DLX_NAME, 'direct', { durable: true });
+
+    // Setup Dead Letter Queue
+    await ch.assertQueue(DLQ_NAME, { durable: true });
+    await ch.bindQueue(DLQ_NAME, DLX_NAME, 'failed');
+
+    // Create main queue with DLX
     await ch.assertQueue(QUEUE_NAME, {
       durable: true,
       arguments: {
@@ -278,11 +285,18 @@ async function setupQueueTopology(ch) {
       },
     });
     logger.info('[BulkPayout] Queue created with DLX');
+    queueHasDLX = true;
   }
 
   // ALWAYS set prefetch (critical for performance)
   await ch.prefetch(PREFETCH_COUNT);
   logger.info(`[BulkPayout] Prefetch=${PREFETCH_COUNT}`);
+  
+  // Warn if existing queue doesn't have DLX (messages won't go to DLQ on max retries)
+  if (queueExists && !queueHasDLX) {
+    logger.warn('[BulkPayout] WARNING: Queue exists without DLX. Failed messages after max retries will NOT go to DLQ.');
+    logger.warn('[BulkPayout] To enable DLQ: Delete queue in RabbitMQ UI and restart worker.');
+  }
 }
 
 /**
