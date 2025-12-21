@@ -126,7 +126,7 @@ async function processMessage(msg) {
     // ACK only after successful processing
     if (channel) {
       channel.ack(msg);
-      logger.info(`[Consumer] ✅ Processed successfully (${duration}ms)`);
+      logger.info(`[Consumer] Processed successfully (${duration}ms)`);
     } else {
       logger.error('[Consumer] Cannot ack - channel closed. Will be redelivered.');
     }
@@ -314,7 +314,7 @@ export async function startBankResponseWorker() {
       }, 300000);
     }
     
-    logger.info(`[Consumer] ✅ Worker started (tag: ${consumerTag}), Prefetch=${PREFETCH_COUNT}`);
+    logger.info(`[Consumer] Worker started (tag: ${consumerTag}), Prefetch=${PREFETCH_COUNT}`);
 
   } catch (error) {
     logger.error('[Consumer] Startup failed:', {
@@ -370,7 +370,7 @@ export async function shutdownWorker(signal) {
     await bankResponseConnection.close();
     
     logger.info('[Consumer] Final metrics:', metrics);
-    logger.info('[Consumer] ✅ Shutdown complete');
+    logger.info('[Consumer] Shutdown complete');
 
   } catch (error) {
     logger.error('[Consumer] Shutdown error:', error.message);
