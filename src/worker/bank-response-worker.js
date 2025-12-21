@@ -23,7 +23,7 @@ import { createBankResponseService } from '../apis/bankResponse/bankResponseServ
 const QUEUE_NAME = config.rabbitmq.bankResponseQueue;
 const DLX_NAME = 'bank_responses.dlx';
 const DLQ_NAME = 'bank_responses.dlq';
-const PREFETCH_COUNT = 30; // Balanced: 30 concurrent transactions (safe for 60-connection pool)
+const PREFETCH_COUNT = 20; // Balanced: 20 concurrent transactions 
 const MAX_RETRIES = 3;
 
 // Dedicated connection

@@ -460,6 +460,9 @@ const createBankResponseService = async (
             getDataByUtr.some((item) => item.is_used);
           if (!acceptedStatus.includes(payInUtr.status) && botUtrIsUsed) {
             await commit(conn);
+            committed = true;
+            processingSet.delete(utr);
+            conn.release();
             return {
               message: `The entry is already ${payInUtr.status} with UTR`,
             };
@@ -473,7 +476,9 @@ const createBankResponseService = async (
           role !== Role.ADMIN
         ) {
           await commit(conn);
-          // if (shouldRelease) conn.release();
+          committed = true;
+          processingSet.delete(utr);
+          conn.release();
           return {
             message: `Entry Created Successfully. But as Bank Account is freezed entry is not paired. Please contact admin`,
           };
@@ -487,7 +492,9 @@ const createBankResponseService = async (
             (isValidAmountCode && upi_short_code !== payInUtr.upi_short_code)
           ) {
             await commit(conn);
-            // if (shouldRelease) conn.release();
+            committed = true;
+            processingSet.delete(utr);
+            conn.release();
             if (isValidAmountCode && payInUtr.upi_short_code) {
               return {
                 message: `⛔ Amount Code: ${upi_short_code} does not match with User Submitted Amount Code: ${payInUtr.upi_short_code}`,
@@ -585,7 +592,9 @@ const createBankResponseService = async (
           //   merchant_order_id: updatePayInDataRes?.merchant_order_id,
           // });
           await commit(conn);
-          // if (shouldRelease) conn.release();
+          committed = true;
+          processingSet.delete(utr);
+          conn.release();
           return {
             message: `Bank Mismatch with ${updatePayInDataRes?.merchant_order_id}`,
           };
@@ -602,7 +611,9 @@ const createBankResponseService = async (
         );
         if (existingResponse?.length > 0) {
           await commit(conn);
-          // if (shouldRelease) conn.release();
+          committed = true;
+          processingSet.delete(utr);
+          conn.release();
           return { message: `The UTR already exists` };
         }
 
@@ -652,7 +663,9 @@ const createBankResponseService = async (
             (isValidAmountCode && upi_short_code !== payInUtr.upi_short_code)
           ) {
             await commit(conn);
-            // if (shouldRelease) conn.release();
+            committed = true;
+            processingSet.delete(utr);
+            conn.release();
             if (isValidAmountCode && payInUtr.upi_short_code) {
               return {
                 message: `⛔ Amount Code: ${upi_short_code} does not match with User Submitted Amount Code: ${payInUtr.upi_short_code}`,
@@ -777,7 +790,9 @@ const createBankResponseService = async (
             conn,
           );
           await commit(conn);
-          // if (shouldRelease) conn.release();
+          committed = true;
+          processingSet.delete(utr);
+          conn.release();
           return {
             message: `UTR ${utr} matches the User Submitted UTR: ${payInUtr.user_submitted_utr} and the payment was successful.`,
           };
@@ -789,7 +804,9 @@ const createBankResponseService = async (
             (isValidAmountCode && upi_short_code !== payInUtr.upi_short_code)
           ) {
             await commit(conn);
-            // if (shouldRelease) conn.release();
+            committed = true;
+            processingSet.delete(utr);
+            conn.release();
             if (isValidAmountCode && payInUtr.upi_short_code) {
               return {
                 message: `⛔ Amount Code: ${upi_short_code} does not match with User Submitted Amount Code: ${payInUtr.upi_short_code}`,
@@ -876,7 +893,9 @@ const createBankResponseService = async (
           //   merchant_order_id: updatePayInDataRes?.merchant_order_id,
           // });
           await commit(conn);
-          // if (shouldRelease) conn.release();
+          committed = true;
+          processingSet.delete(utr);
+          conn.release();
           return {
             message: `Entry is in Dispute with ${updatePayInDataRes?.merchant_order_id}`,
           };
@@ -1083,7 +1102,8 @@ const createBankResponseWebHookService = async (
 
       if (updatedData.status === '/repeated') {
         await commit(conn);
-        // if (shouldRelease) conn.release();
+        committed = true;
+        conn.release();
         if (isValidAmountCode) {
           return {
             message: `Entry with REPEATED AMOUNT CODE: ${upi_short_code} Added`,
