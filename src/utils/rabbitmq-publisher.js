@@ -15,6 +15,8 @@ import { publisherConnection } from './rabbitmq-connection.js';
 import { createBankResponseService } from '../apis/bankResponse/bankResponseServices.js';
 
 const BANK_RESPONSE_QUEUE = config.rabbitmq.bankResponseQueue;
+const DLX_NAME = 'bank_responses.dlx';
+const DLQ_NAME = 'bank_responses.dlq';
 const MAX_PUBLISH_RETRIES = 3;
 const RETRY_DELAY_MS = 1000;
 
@@ -75,8 +77,19 @@ export async function publishBankResponse(responseData) {
   try {
     const channel = await publisherConnection.getChannel();
 
-    // Ensure queue exists (idempotent)
-    await channel.assertQueue(BANK_RESPONSE_QUEUE, { durable: true });
+    // Ensure DLX and DLQ exist
+    await channel.assertExchange(DLX_NAME, 'direct', { durable: true });
+    await channel.assertQueue(DLQ_NAME, { durable: true });
+    await channel.bindQueue(DLQ_NAME, DLX_NAME, 'failed');
+
+    // Ensure queue exists with DLX configuration (idempotent)
+    await channel.assertQueue(BANK_RESPONSE_QUEUE, {
+      durable: true,
+      arguments: {
+        'x-dead-letter-exchange': DLX_NAME,
+        'x-dead-letter-routing-key': 'failed',
+      },
+    });
 
     const published = await publishWithRetry(channel, BANK_RESPONSE_QUEUE, message);
 
@@ -89,7 +102,11 @@ export async function publishBankResponse(responseData) {
     return true;
 
   } catch (error) {
-    logger.error('[Publisher] Publishing error:', error.message);
+    logger.error('[Publisher] Publishing error:', {
+      message: error.message,
+      code: error.code,
+      stack: error.stack
+    });
     return await fallbackToDatabase(responseData);
   }
 }
