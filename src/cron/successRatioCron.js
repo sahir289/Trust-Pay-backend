@@ -19,30 +19,23 @@ const formattedSuccessRatiosForAllCompanies = async () => {
       return;
     }
 
-    // Process each company (sequential processing for safety)
-    // for (const company of companies) {
-    //   try {
-    //     logger.info(`Processing success ratios for company: ${company.id}`);
-    //     await formattedSuccessRatiosByMerchant(company.id);
-    //   } catch (error) {
-    //     logger.error(`Error processing success ratios for company ${company.id}: ${error}`);
-    //   }
-    // }
-
-    // Alternative: Parallel processing (uncomment if you want faster processing)
-    await Promise.allSettled(
-      companies.map(async (company) => {
-        try {
-          logger.info(`Processing success ratios for company: ${company.id}`);
-          await formattedSuccessRatiosByMerchant(company.id);
-          // await formattedSuccessRatiosByMerchantUpdatedAt(company.id);
-        } catch (error) {
-          logger.error(
-            `Error processing success ratios for company ${company.id}: ${error}`,
-          );
-        }
-      }),
-    );
+    // FIXED: Process companies in small batches to prevent pool exhaustion
+    const BATCH_SIZE = 3; // Process 3 companies at a time
+    for (let i = 0; i < companies.length; i += BATCH_SIZE) {
+      const batch = companies.slice(i, i + BATCH_SIZE);
+      await Promise.allSettled(
+        batch.map(async (company) => {
+          try {
+            logger.info(`Processing success ratios for company: ${company.id}`);
+            await formattedSuccessRatiosByMerchant(company.id);
+          } catch (error) {
+            logger.error(
+              `Error processing success ratios for company ${company.id}: ${error}`,
+            );
+          }
+        }),
+      );
+    }
 
     logger.info('Completed success ratio processing for all companies');
   } catch (error) {
