@@ -15,12 +15,29 @@ const logDir = 'log';
 const CLOUDWATCH_SAFE_SIZE = 240 * 1024; // 240KB to be safe
 
 /**
+ * Safely stringify data, handling circular references
+ */
+const safeStringify = (obj) => {
+  const seen = new WeakSet();
+  return JSON.stringify(obj, (key, value) => {
+    if (typeof value === 'object' && value !== null) {
+      if (seen.has(value)) {
+        return '[Circular]';
+      }
+      seen.add(value);
+    }
+    return value;
+  });
+};
+
+/**
  * Truncate log data to fit within CloudWatch limits
  * CloudWatch max event size is 256KB
  */
 const truncateForCloudWatch = (data) => {
-  const jsonString = JSON.stringify(data);
-  const sizeInBytes = Buffer.byteLength(jsonString, 'utf8');
+  try {
+    const jsonString = safeStringify(data);
+    const sizeInBytes = Buffer.byteLength(jsonString, 'utf8');
 
   if (sizeInBytes <= CLOUDWATCH_SAFE_SIZE) {
     return data;
@@ -36,42 +53,55 @@ const truncateForCloudWatch = (data) => {
     data.stack = data.stack.substring(0, 50000) + '... [TRUNCATED - Stack too large]';
   }
 
-  // Truncate metadata
-  if (data.metadata) {
-    const metaString = JSON.stringify(data.metadata);
-    if (Buffer.byteLength(metaString, 'utf8') > 50000) {
-      // Try to keep important fields
-      const truncatedMeta = {
-        ...data.metadata,
-        _truncated: true,
-        _originalSize: Buffer.byteLength(metaString, 'utf8'),
-      };
+    // Truncate metadata
+    if (data.metadata) {
+      const metaString = safeStringify(data.metadata);
+      if (Buffer.byteLength(metaString, 'utf8') > 50000) {
+        // Try to keep important fields
+        const truncatedMeta = {
+          ...data.metadata,
+          _truncated: true,
+          _originalSize: Buffer.byteLength(metaString, 'utf8'),
+        };
 
-      // Remove large fields one by one
-      for (const key in truncatedMeta) {
-        const fieldString = JSON.stringify(truncatedMeta[key]);
-        if (Buffer.byteLength(fieldString, 'utf8') > 10000) {
-          truncatedMeta[key] = '[TRUNCATED - Field too large]';
+        // Remove large fields one by one
+        for (const key in truncatedMeta) {
+          try {
+            const fieldString = safeStringify(truncatedMeta[key]);
+            if (Buffer.byteLength(fieldString, 'utf8') > 10000) {
+              truncatedMeta[key] = '[TRUNCATED - Field too large]';
+            }
+          } catch {
+            truncatedMeta[key] = '[Error serializing field]';
+          }
         }
+
+        data.metadata = truncatedMeta;
       }
-
-      data.metadata = truncatedMeta;
     }
-  }
 
-  // Final check - if still too large, strip metadata completely
-  const finalString = JSON.stringify(data);
-  if (Buffer.byteLength(finalString, 'utf8') > CLOUDWATCH_SAFE_SIZE) {
+    // Final check - if still too large, strip metadata completely
+    const finalString = safeStringify(data);
+    if (Buffer.byteLength(finalString, 'utf8') > CLOUDWATCH_SAFE_SIZE) {
+      return {
+        level: data.level,
+        message: data.message?.substring(0, 100000) || 'Log too large',
+        timestamp: data.timestamp,
+        _warning: 'Metadata removed - log exceeded CloudWatch size limit',
+        _originalSize: sizeInBytes,
+      };
+    }
+
+    return data;
+  } catch (error) {
+    // If truncation fails, return minimal safe log
     return {
-      level: data.level,
-      message: data.message?.substring(0, 100000) || 'Log too large',
-      timestamp: data.timestamp,
-      _warning: 'Metadata removed - log exceeded CloudWatch size limit',
-      _originalSize: sizeInBytes,
+      level: data.level || 'error',
+      message: data.message?.toString().substring(0, 1000) || 'Log truncation error',
+      timestamp: data.timestamp || new Date().toISOString(),
+      _error: 'Failed to process log: ' + error.message,
     };
   }
-
-  return data;
 };
 
 class Logger {
@@ -208,7 +238,14 @@ class Logger {
       ? format.combine(
           format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
           format.printf(({ timestamp, level, message, ...meta }) => {
-            const metaStr = Object.keys(meta).length ? JSON.stringify(meta) : '';
+            let metaStr = '';
+            if (Object.keys(meta).length) {
+              try {
+                metaStr = safeStringify(meta);
+              } catch {
+                metaStr = '[Error serializing metadata]';
+              }
+            }
             return `${timestamp}: [${level}] ${message} ${metaStr}`;
           })
         )
