@@ -166,9 +166,14 @@ server.listen(PORT, onListening);
 // to avoid duplicate message processing and queue contention
 const instanceId = parseInt(process.env.INSTANCE_ID || '0', 10);
 if (instanceId === 0) {
-  startBankResponseHandler();
-  startBulkPayoutHandler();
-  logger.info('[Worker 0] RabbitMQ consumers started (bank-response + bulk-payout)');
+  // Start workers asynchronously but don't block server startup
+  startBankResponseHandler().catch(err => 
+    logger.error('[Worker 0] Bank response handler failed:', err)
+  );
+  startBulkPayoutHandler().catch(err => 
+    logger.error('[Worker 0] Bulk payout handler failed:', err)
+  );
+  logger.info('[Worker 0] RabbitMQ consumers starting (bank-response + bulk-payout)');
 } else {
   logger.info(`[Worker ${instanceId}] Skipping RabbitMQ consumers (run only on worker 0)`);
 }

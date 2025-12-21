@@ -30,6 +30,38 @@ let channel = null;
 let consumerTag = null;
 let isShuttingDown = false;
 
+// Metrics for monitoring
+const metrics = {
+  messagesProcessed: 0,
+  messagesSucceeded: 0,
+  messagesFailed: 0,
+  messagesToDLQ: 0,
+  totalProcessingTime: 0,
+  startTime: null,
+};
+
+// Log metrics every 5 minutes in production
+if (process.env.NODE_ENV === 'production') {
+  setInterval(() => {
+    const uptime = metrics.startTime ? Math.floor((Date.now() - metrics.startTime) / 1000) : 0;
+    const avgProcessingTime = metrics.messagesProcessed > 0 
+      ? Math.floor(metrics.totalProcessingTime / metrics.messagesProcessed) 
+      : 0;
+    
+    logger.info('[Consumer] Metrics:', {
+      uptime: `${uptime}s`,
+      processed: metrics.messagesProcessed,
+      succeeded: metrics.messagesSucceeded,
+      failed: metrics.messagesFailed,
+      dlq: metrics.messagesToDLQ,
+      avgTime: `${avgProcessingTime}ms`,
+      successRate: metrics.messagesProcessed > 0 
+        ? `${((metrics.messagesSucceeded / metrics.messagesProcessed) * 100).toFixed(2)}%` 
+        : '0%'
+    });
+  }, 300000); // 5 minutes
+}
+
 /**
  * Retry-able error patterns
  */
@@ -103,6 +135,9 @@ function getRetryCount(msg) {
  */
 async function processMessage(msg) {
   const retryCount = getRetryCount(msg);
+  const startTime = Date.now();
+  
+  metrics.messagesProcessed++;
 
   try {
     const data = JSON.parse(msg.content.toString());
@@ -121,11 +156,19 @@ async function processMessage(msg) {
       data.name
     );
 
+    const duration = Date.now() - startTime;
+    metrics.totalProcessingTime += duration;
+    metrics.messagesSucceeded++;
+    
     channel.ack(msg);
-    logger.info('Consumer - Message processed successfully');
+    logger.info(`Consumer - Message processed successfully (${duration}ms)`);
 
   } catch (error) {
     const shouldRetry = isRetryableError(error) && retryCount < MAX_RETRIES;
+    
+    metrics.messagesFailed++;
+    const duration = Date.now() - startTime;
+    metrics.totalProcessingTime += duration;
 
     logger.error('Consumer - Processing failed:', {
       error: error.message,
@@ -146,6 +189,7 @@ async function processMessage(msg) {
       logger.warn(`Consumer - Message requeued (retry ${retryCount + 1}/${MAX_RETRIES})`);
     } else {
       // Send to DLQ or reject permanently
+      metrics.messagesToDLQ++;
       channel.nack(msg, false, false);
       logger.error('Consumer - Message sent to DLQ after max retries');
     }
@@ -170,30 +214,74 @@ export async function startBankResponseWorker() {
     // Setup queue topology
     await setupQueueTopology(channel);
 
-    // Start consuming
+    // Setup channel error handler
+    channel.on('error', (err) => {
+      logger.error('[Consumer] Channel error:', {
+        message: err.message,
+        code: err.code
+      });
+    });
+
+    channel.on('close', () => {
+      logger.warn('[Consumer] Channel closed unexpectedly');
+      if (!isShuttingDown) {
+        logger.info('[Consumer] Will attempt reconnection...');
+        setTimeout(() => {
+          startBankResponseWorker().catch(err =>
+            logger.error('[Consumer] Reconnection failed:', {
+              message: err.message,
+              stack: err.stack
+            })
+          );
+        }, 5000);
+      }
+    });
+
+    // Start consuming with error handling
     const result = await channel.consume(
       QUEUE_NAME,
       async (msg) => {
         if (!msg || isShuttingDown) return;
-        await processMessage(msg);
+        try {
+          await processMessage(msg);
+        } catch (err) {
+          logger.error('[Consumer] Unhandled error in message handler:', {
+            message: err.message,
+            stack: err.stack
+          });
+          // Nack the message so it's not lost
+          if (channel) {
+            channel.nack(msg, false, true); // Requeue
+          }
+        }
       },
       { noAck: false }
     );
 
     consumerTag = result.consumerTag;
     
+    // Start metrics tracking
+    metrics.startTime = Date.now();
+    
     logger.info(`Consumer - Worker started (tag: ${consumerTag})`);
     logger.info(`Consumer - Waiting for messages in queue: ${QUEUE_NAME}`);
 
   } catch (error) {
-    logger.error('Consumer - Worker startup failed:', error.message);
+    logger.error('Consumer - Worker startup failed:', {
+      message: error.message,
+      stack: error.stack,
+      code: error.code
+    });
     
     // Retry after delay if initial connection fails
     if (!isShuttingDown) {
       logger.info('Consumer - Retrying in 10 seconds...');
       setTimeout(() => {
         startBankResponseWorker().catch(err => 
-          logger.error('Consumer - Retry failed:', err.message)
+          logger.error('Consumer - Retry failed:', {
+            message: err.message,
+            stack: err.stack
+          })
         );
       }, 10000);
     }
@@ -245,7 +333,11 @@ export async function startBankResponseHandler() {
   try {
     await startBankResponseWorker();
   } catch (error) {
-    logger.error('[Consumer] Failed to start worker:', error.message);
+    logger.error('[Consumer] Failed to start worker:', {
+      message: error.message,
+      stack: error.stack,
+      code: error.code
+    });
     // Don't throw - allow server to continue
   }
 }
