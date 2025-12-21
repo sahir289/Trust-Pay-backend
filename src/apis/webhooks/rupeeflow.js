@@ -34,7 +34,7 @@ export const rupeeFlowWebhook = async (req, res) => {
     const rupeeFlowStatus = payload.status?.toUpperCase();
     let status = rupeeFlowStatus;
     
-    if (rupeeFlowStatus === 'FAILED') {
+    if (rupeeFlowStatus === 'FAILED' || rupeeFlowStatus === '400' || rupeeFlowStatus === 400) {
       status = Status.REJECTED;
     }
 
