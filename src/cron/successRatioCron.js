@@ -7,7 +7,14 @@ import config from '../config/config.js';
 import { logger } from '../utils/logger.js';
 
 // Function to process success ratios for all companies
+let isSuccessRatioCronRunning = false; // Prevent overlapping executions
+
 const formattedSuccessRatiosForAllCompanies = async () => {
+  if (isSuccessRatioCronRunning) {
+    logger.warn('Success ratio cron is already running, skipping this execution');
+    return;
+  }
+  isSuccessRatioCronRunning = true;
   try {
     logger.info('Starting success ratio processing for all companies');
 
@@ -40,6 +47,8 @@ const formattedSuccessRatiosForAllCompanies = async () => {
     logger.info('Completed success ratio processing for all companies');
   } catch (error) {
     logger.error(`Error in formattedSuccessRatiosForAllCompanies: ${error}`);
+  } finally {
+    isSuccessRatioCronRunning = false;
   }
 };
 

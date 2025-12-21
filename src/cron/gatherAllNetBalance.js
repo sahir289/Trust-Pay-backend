@@ -18,10 +18,17 @@ dayjs.extend(utc);
 dayjs.extend(timezone);
 
 // Function to gather data for all companies
+let isGatherNetBalanceRunning = false; // Prevent overlapping executions
+
 const gatherAllNetbalanceForAllCompanies = async (
   type = 'N',
   timezone = 'Asia/Kolkata',
 ) => {
+  if (isGatherNetBalanceRunning) {
+    logger.warn('Gather net balance cron is already running, skipping this execution');
+    return;
+  }
+  isGatherNetBalanceRunning = true;
   try {
     logger.info('Starting gather data for all companies');
 
@@ -43,7 +50,8 @@ const gatherAllNetbalanceForAllCompanies = async (
     //   }
     // }
 
-    // Parallel processing with 1-second delay after every 5 gatherAllVendorsNetBalance calls
+    // Process companies in batches with shared connections (safe now)
+    // Each company uses only 1 connection instead of multiple due to connection sharing
     const batchSize = 5;
     for (let i = 0; i < companies.length; i += batchSize) {
       const batch = companies.slice(i, i + batchSize);
@@ -57,7 +65,7 @@ const gatherAllNetbalanceForAllCompanies = async (
           }
         }),
       );
-      // Add a 1-second delay after every batch except the last
+      // Add a 1-second delay between batches
       if (i + batchSize < companies.length) {
         await new Promise((resolve) => setTimeout(resolve, 1000));
       }
@@ -66,6 +74,8 @@ const gatherAllNetbalanceForAllCompanies = async (
     logger.info('Completed gather net balance for all companies');
   } catch (error) {
     logger.error(`Error in gatherAllNetbalanceForAllCompanies: ${error}`);
+  } finally {
+    isGatherNetBalanceRunning = false;
   }
 };
 
@@ -162,6 +172,7 @@ const gatherAllVendorsNetBalance = async (
   timezone = 'Asia/Kolkata',
 ) => {
   try {
+
     let sDate;
     let eDate;
     if (typeof timezone !== 'string') {

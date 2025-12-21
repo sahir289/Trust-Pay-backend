@@ -13,6 +13,7 @@ import timezone from 'dayjs/plugin/timezone.js';
 import utc from 'dayjs/plugin/utc.js';
 import collectBankData from './bankCron.js';
 import gatherAllNetbalanceForAllCompanies from './gatherAllNetBalance.js';
+// import { getConnection } from '../utils/db.js';
 
 // Initialize dayjs plugins
 dayjs.extend(utc);
@@ -108,10 +109,17 @@ const executeWithRetry = async (cronType, attemptDescription) => {
 };
 
 // Function to gather data for all companies
+let isGatherAllDataRunning = false; // Prevent overlapping executions
+
 const gatherAllDataForAllCompanies = async (
   type = 'N',
   timezone = 'Asia/Kolkata',
 ) => {
+  if (isGatherAllDataRunning) {
+    logger.warn('Gather all data cron is already running, skipping this execution');
+    return;
+  }
+  isGatherAllDataRunning = true;
   try {
     logger.info('Starting gather data for all companies');
 
@@ -133,7 +141,8 @@ const gatherAllDataForAllCompanies = async (
     //   }
     // }
 
-    // Parallel processing with 1-second delay after every 5 gatherAllData calls
+    // Process companies in batches with shared connections (safe now)
+    // Each company uses only 1 connection instead of 200+ due to connection sharing
     const batchSize = 5;
     for (let i = 0; i < companies.length; i += batchSize) {
       const batch = companies.slice(i, i + batchSize);
@@ -147,7 +156,7 @@ const gatherAllDataForAllCompanies = async (
           }
         }),
       );
-      // Add a 1-second delay after every batch except the last
+      // Add a 1-second delay between batches
       if (i + batchSize < companies.length) {
         await new Promise((resolve) => setTimeout(resolve, 1000));
       }
@@ -164,6 +173,8 @@ const gatherAllDataForAllCompanies = async (
     await gatherAllNetbalanceForAllCompanies(type, timezone);
   } catch (error) {
     logger.error(`Error in gatherAllDataForAllCompanies: ${error}`);
+  } finally {
+    isGatherAllDataRunning = false;
   }
 };
 

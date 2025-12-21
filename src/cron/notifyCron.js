@@ -11,10 +11,20 @@ import { calculateDuration } from '../helpers/index.js';
 import config from '../config/config.js';
 
 let notifyCronJob = null;
+let isNotifyCronRunning = false; // Prevent overlapping executions
 
 if (config?.env == 'production') {
-  notifyCronJob = cron.schedule('*/10 * * * * *', () => {
-    collectPayinData('Asia/Kolkata');
+  notifyCronJob = cron.schedule('*/10 * * * * *', async () => {
+    if (isNotifyCronRunning) {
+      logger.warn('Notify cron is already running, skipping this execution');
+      return;
+    }
+    isNotifyCronRunning = true;
+    try {
+      await collectPayinData('Asia/Kolkata');
+    } finally {
+      isNotifyCronRunning = false;
+    }
   });
   logger.info('Running cron job in production environment');
 } else {
