@@ -12,7 +12,7 @@
 import { Buffer } from 'buffer';
 // import config from '../config/config.js';
 import { logger } from '../utils/logger.js';
-import { consumerConnection } from '../utils/rabbitmq-connection.js';
+import { RabbitMQConnection } from '../utils/rabbitmq-connection.js';
 import { updatePayoutDao } from '../apis/payOut/payOutDao.js';
 
 // Queue configuration
@@ -21,6 +21,9 @@ const DLX_NAME = 'bulk_payout.dlx';
 const DLQ_NAME = 'bulk_payout.dlq';
 const PREFETCH_COUNT = 20; // Higher prefetch for bulk updates (they're fast)
 const MAX_RETRIES = 3;
+
+// Dedicated connection for this worker (isolated from other workers)
+const bulkPayoutConnection = new RabbitMQConnection('bulk-payout-worker');
 
 // Worker state
 let channel = null;
@@ -47,46 +50,30 @@ function isRetryableError(error) {
 
 /**
  * Setup queue topology with DLX/DLQ
+ * Uses assertQueue which creates queue if missing (safer than checkQueue)
  */
 async function setupQueueTopology(ch) {
-  try {
-    // Try to check if queue exists first
-    const queueInfo = await ch.checkQueue(QUEUE_NAME);
-    logger.info(`[BulkPayout] Queue exists (${queueInfo.messageCount} messages, ${queueInfo.consumerCount} consumers)`);
-    
-    // Queue exists, just set prefetch
-    await ch.prefetch(PREFETCH_COUNT);
-    logger.info(`[BulkPayout] Using existing queue, Prefetch=${PREFETCH_COUNT}`);
-    
-  } catch (checkError) {
-    // Queue doesn't exist, create it with DLX
-    if (checkError.message.includes('NOT_FOUND')) {
-      logger.info('[BulkPayout] Queue not found, creating with DLX configuration...');
-      
-      // Setup Dead Letter Exchange
-      await ch.assertExchange(DLX_NAME, 'direct', { durable: true });
+  // Setup Dead Letter Exchange
+  await ch.assertExchange(DLX_NAME, 'direct', { durable: true });
 
-      // Setup Dead Letter Queue
-      await ch.assertQueue(DLQ_NAME, { durable: true });
-      await ch.bindQueue(DLQ_NAME, DLX_NAME, 'failed');
+  // Setup Dead Letter Queue
+  await ch.assertQueue(DLQ_NAME, { durable: true });
+  await ch.bindQueue(DLQ_NAME, DLX_NAME, 'failed');
 
-      // Setup main queue with DLX configuration
-      await ch.assertQueue(QUEUE_NAME, {
-        durable: true,
-        arguments: {
-          'x-dead-letter-exchange': DLX_NAME,
-          'x-dead-letter-routing-key': 'failed',
-        },
-      });
+  // Setup main queue with DLX configuration
+  // assertQueue is idempotent - creates if missing, uses existing if present
+  const queueInfo = await ch.assertQueue(QUEUE_NAME, {
+    durable: true,
+    arguments: {
+      'x-dead-letter-exchange': DLX_NAME,
+      'x-dead-letter-routing-key': 'failed',
+    },
+  });
 
-      // Set prefetch for concurrent processing
-      await ch.prefetch(PREFETCH_COUNT);
+  // Set prefetch for concurrent processing
+  await ch.prefetch(PREFETCH_COUNT);
 
-      logger.info(`[BulkPayout] Topology initialized: Queue=${QUEUE_NAME}, Prefetch=${PREFETCH_COUNT}`);
-    } else {
-      throw checkError;
-    }
-  }
+  logger.info(`[BulkPayout] Queue ready: ${queueInfo.messageCount} messages, ${queueInfo.consumerCount} consumers, Prefetch=${PREFETCH_COUNT}`);
 }
 
 /**
@@ -205,8 +192,9 @@ export async function startBulkPayoutWorker() {
   logger.info('[BulkPayout] Starting Bulk Payout Worker...');
 
   try {
-    // Get dedicated consumer channel
-    channel = await consumerConnection.getChannel();
+    // Get dedicated connection and create channel
+    const connection = await bulkPayoutConnection.connect();
+    channel = await connection.createChannel();
 
     // Setup queue topology
     await setupQueueTopology(channel);
@@ -227,7 +215,25 @@ export async function startBulkPayoutWorker() {
     logger.info(`[BulkPayout] Waiting for messages in queue: ${QUEUE_NAME}`);
 
   } catch (error) {
-    logger.error('[BulkPayout] Worker startup failed:', error.message);
+    logger.error('[BulkPayout] Worker startup failed:', {
+      message: error.message,
+      stack: error.stack,
+      code: error.code
+    });
+    
+    // Retry after delay if initial connection fails
+    if (!isShuttingDown) {
+      logger.info('[BulkPayout] Retrying in 10 seconds...');
+      setTimeout(() => {
+        startBulkPayoutWorker().catch(err => 
+          logger.error('[BulkPayout] Retry failed:', {
+            message: err.message,
+            stack: err.stack
+          })
+        );
+      }, 10000);
+    }
+    
     throw error;
   }
 }
@@ -236,14 +242,14 @@ export async function startBulkPayoutWorker() {
  * Graceful shutdown
  */
 export async function shutdownBulkPayoutWorker(signal) {
-  if (!channel || isShuttingDown) return;
+  if (isShuttingDown) return;
 
   isShuttingDown = true;
   logger.warn(`[BulkPayout] ${signal} - Shutting down gracefully...`);
 
   try {
-    // Cancel consumer
-    if (consumerTag) {
+    // Cancel consumer first
+    if (channel && consumerTag) {
       await channel.cancel(consumerTag);
       logger.info('[BulkPayout] Consumer cancelled');
     }
@@ -251,8 +257,16 @@ export async function shutdownBulkPayoutWorker(signal) {
     // Wait for in-flight messages to complete
     await new Promise(resolve => setTimeout(resolve, 2000));
 
-    // Close connection
-    await consumerConnection.close();
+    // Close channel
+    if (channel) {
+      await channel.close().catch(err => 
+        logger.warn('[BulkPayout] Channel close error:', err.message)
+      );
+      channel = null;
+    }
+
+    // Close dedicated connection
+    await bulkPayoutConnection.close();
     logger.info('[BulkPayout] Shutdown complete');
 
   } catch (error) {
@@ -267,7 +281,11 @@ export async function startBulkPayoutHandler() {
   try {
     await startBulkPayoutWorker();
   } catch (error) {
-    logger.error('[BulkPayout] Failed to start worker:', error.message);
+    logger.error('[BulkPayout] Failed to start worker:', {
+      message: error.message,
+      stack: error.stack,
+      code: error.code
+    });
     // Don't throw - allow server to continue
   }
 }

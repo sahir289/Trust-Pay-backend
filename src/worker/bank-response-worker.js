@@ -12,7 +12,7 @@
 import { Buffer } from 'buffer';
 import config from '../config/config.js';
 import { logger } from '../utils/logger.js';
-import { consumerConnection } from '../utils/rabbitmq-connection.js';
+import { RabbitMQConnection } from '../utils/rabbitmq-connection.js';
 import { createBankResponseService } from '../apis/bankResponse/bankResponseServices.js';
 
 // Queue configuration
@@ -21,6 +21,9 @@ const DLX_NAME = 'bank_responses.dlx';
 const DLQ_NAME = 'bank_responses.dlq';
 const PREFETCH_COUNT = config.rabbitmq.prefetchCount || 10;
 const MAX_RETRIES = 3;
+
+// Dedicated connection for this worker (isolated from other workers)
+const bankResponseConnection = new RabbitMQConnection('bank-response-worker');
 
 // Worker state
 let channel = null;
@@ -160,8 +163,9 @@ export async function startBankResponseWorker() {
   logger.info('Consumer - Starting Bank Response Worker...');
 
   try {
-    // Get dedicated consumer channel
-    channel = await consumerConnection.getChannel();
+    // Get dedicated connection and create channel
+    const connection = await bankResponseConnection.connect();
+    channel = await connection.createChannel();
 
     // Setup queue topology
     await setupQueueTopology(channel);
@@ -183,6 +187,17 @@ export async function startBankResponseWorker() {
 
   } catch (error) {
     logger.error('Consumer - Worker startup failed:', error.message);
+    
+    // Retry after delay if initial connection fails
+    if (!isShuttingDown) {
+      logger.info('Consumer - Retrying in 10 seconds...');
+      setTimeout(() => {
+        startBankResponseWorker().catch(err => 
+          logger.error('Consumer - Retry failed:', err.message)
+        );
+      }, 10000);
+    }
+    
     throw error;
   }
 }
@@ -191,23 +206,31 @@ export async function startBankResponseWorker() {
  * Graceful shutdown
  */
 export async function shutdownWorker(signal) {
-  if (!channel || isShuttingDown) return;
+  if (isShuttingDown) return;
 
   isShuttingDown = true;
   logger.warn(`[Consumer] ${signal} - Shutting down gracefully...`);
 
   try {
-    // Cancel consumer
-    if (consumerTag) {
+    // Cancel consumer first
+    if (channel && consumerTag) {
       await channel.cancel(consumerTag);
       logger.info('[Consumer] Consumer cancelled');
     }
 
-    // Wait for in-flight messages (optional)
+    // Wait for in-flight messages
     await new Promise(resolve => setTimeout(resolve, 2000));
 
-    // Close connection
-    await consumerConnection.close();
+    // Close channel
+    if (channel) {
+      await channel.close().catch(err => 
+        logger.warn('[Consumer] Channel close error:', err.message)
+      );
+      channel = null;
+    }
+
+    // Close dedicated connection
+    await bankResponseConnection.close();
     logger.info('[Consumer] Shutdown complete');
 
   } catch (error) {
