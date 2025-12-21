@@ -315,7 +315,10 @@ const createBankResponseService = async (
 
       if (updatedData.status === '/repeated') {
         await commit(conn);
-        // if (shouldRelease) conn.release();
+        committed = true;
+        processingSet.delete(utr);
+        conn.release();
+        conn = null; // Prevent double release in finally block
         if (isValidAmountCode) {
           return {
             message: `Entry with REPEATED AMOUNT CODE: ${upi_short_code} Added`,
@@ -463,6 +466,7 @@ const createBankResponseService = async (
             committed = true;
             processingSet.delete(utr);
             conn.release();
+            conn = null; // Prevent double release in finally block
             return {
               message: `The entry is already ${payInUtr.status} with UTR`,
             };
@@ -479,6 +483,7 @@ const createBankResponseService = async (
           committed = true;
           processingSet.delete(utr);
           conn.release();
+          conn = null; // Prevent double release in finally block
           return {
             message: `Entry Created Successfully. But as Bank Account is freezed entry is not paired. Please contact admin`,
           };
@@ -495,6 +500,7 @@ const createBankResponseService = async (
             committed = true;
             processingSet.delete(utr);
             conn.release();
+            conn = null; // Prevent double release
             if (isValidAmountCode && payInUtr.upi_short_code) {
               return {
                 message: `⛔ Amount Code: ${upi_short_code} does not match with User Submitted Amount Code: ${payInUtr.upi_short_code}`,
@@ -595,6 +601,7 @@ const createBankResponseService = async (
           committed = true;
           processingSet.delete(utr);
           conn.release();
+          conn = null; // Prevent double release in finally block
           return {
             message: `Bank Mismatch with ${updatePayInDataRes?.merchant_order_id}`,
           };
@@ -614,6 +621,7 @@ const createBankResponseService = async (
           committed = true;
           processingSet.delete(utr);
           conn.release();
+          conn = null; // Prevent double release in finally block
           return { message: `The UTR already exists` };
         }
 
@@ -666,6 +674,7 @@ const createBankResponseService = async (
             committed = true;
             processingSet.delete(utr);
             conn.release();
+            conn = null; // Prevent double release
             if (isValidAmountCode && payInUtr.upi_short_code) {
               return {
                 message: `⛔ Amount Code: ${upi_short_code} does not match with User Submitted Amount Code: ${payInUtr.upi_short_code}`,
@@ -793,6 +802,7 @@ const createBankResponseService = async (
           committed = true;
           processingSet.delete(utr);
           conn.release();
+          conn = null; // Prevent double release
           return {
             message: `UTR ${utr} matches the User Submitted UTR: ${payInUtr.user_submitted_utr} and the payment was successful.`,
           };
@@ -807,6 +817,7 @@ const createBankResponseService = async (
             committed = true;
             processingSet.delete(utr);
             conn.release();
+            conn = null; // Prevent double release
             if (isValidAmountCode && payInUtr.upi_short_code) {
               return {
                 message: `⛔ Amount Code: ${upi_short_code} does not match with User Submitted Amount Code: ${payInUtr.upi_short_code}`,
@@ -896,6 +907,7 @@ const createBankResponseService = async (
           committed = true;
           processingSet.delete(utr);
           conn.release();
+          conn = null; // Prevent double release
           return {
             message: `Entry is in Dispute with ${updatePayInDataRes?.merchant_order_id}`,
           };
@@ -1104,6 +1116,7 @@ const createBankResponseWebHookService = async (
         await commit(conn);
         committed = true;
         conn.release();
+        conn = null; // Prevent double release
         if (isValidAmountCode) {
           return {
             message: `Entry with REPEATED AMOUNT CODE: ${upi_short_code} Added`,
