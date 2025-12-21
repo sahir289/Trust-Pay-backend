@@ -11,8 +11,8 @@ function config(Env) {
     },
     aws: {
       region: Env?.AWS_REGION || 'us-east-1',
-      accessKeyId: Env?.ACCESS_KEY,
-      secretAccessKey: Env.secretKeyS3,
+      accessKeyId: Env?.AWS_ACCESS_KEY_ID,
+      secretAccessKey: Env?.AWS_SECRET_ACCESS_KEY,
       cloudWatchLogGroup: Env?.AWS_LOG_GROUP_NAME,
     },
     jwt: {

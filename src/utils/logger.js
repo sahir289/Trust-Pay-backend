@@ -11,95 +11,129 @@ const aws = appConfig?.aws;
 const logDir = 'log';
 
 // CloudWatch has a 256KB limit per log event
-// const CLOUDWATCH_MAX_SIZE = 256 * 1024; // 256KB in bytes
+// Using 240KB safe limit to account for JSON overhead and metadata
 const CLOUDWATCH_SAFE_SIZE = 240 * 1024; // 240KB to be safe
 
+// Standard limits for all transports to ensure consistency
+const MAX_MESSAGE_LENGTH = 10000; // 10KB for message body
+const MAX_STACK_LENGTH = 5000; // 5KB for stack traces
+const MAX_METADATA_LENGTH = 5000; // 5KB for metadata per field
+
 /**
- * Safely stringify data, handling circular references
+ * Safely stringify data, handling circular references and BigInt
  */
 const safeStringify = (obj) => {
   const seen = new WeakSet();
   return JSON.stringify(obj, (key, value) => {
+    // Handle BigInt
+    if (typeof value === 'bigint') {
+      return value.toString() + 'n';
+    }
+    // Handle circular references
     if (typeof value === 'object' && value !== null) {
       if (seen.has(value)) {
         return '[Circular]';
       }
       seen.add(value);
     }
+    // Handle functions
+    if (typeof value === 'function') {
+      return '[Function]';
+    }
     return value;
   });
 };
 
 /**
- * Truncate log data to fit within CloudWatch limits
- * CloudWatch max event size is 256KB
+ * Smart truncation - preserves beginning and end of content for context
  */
-const truncateForCloudWatch = (data) => {
+const smartTruncate = (str, maxLength, label = 'content') => {
+  if (!str || typeof str !== 'string') return str;
+  
+  const length = Buffer.byteLength(str, 'utf8');
+  if (length <= maxLength) return str;
+  
+  // Keep first 60% and last 20%, show middle was truncated
+  const keepStart = Math.floor(maxLength * 0.6);
+  const keepEnd = Math.floor(maxLength * 0.2);
+  const truncatedBytes = length - maxLength;
+  
+  const start = str.substring(0, keepStart);
+  const end = str.substring(str.length - keepEnd);
+  
+  return `${start}\n\n... [${truncatedBytes} bytes of ${label} truncated] ...\n\n${end}`;
+};
+
+/**
+ * Truncate log data - used by ALL transports for consistency
+ */
+const truncateLogData = (data, forCloudWatch = false) => {
   try {
-    const jsonString = safeStringify(data);
-    const sizeInBytes = Buffer.byteLength(jsonString, 'utf8');
-
-  if (sizeInBytes <= CLOUDWATCH_SAFE_SIZE) {
-    return data;
-  }
-
-  // If message itself is too large, truncate it
-  if (data.message && Buffer.byteLength(data.message, 'utf8') > 100000) {
-    data.message = data.message.substring(0, 100000) + '... [TRUNCATED - Message too large]';
-  }
-
-  // Truncate stack traces
-  if (data.stack && Buffer.byteLength(data.stack, 'utf8') > 50000) {
-    data.stack = data.stack.substring(0, 50000) + '... [TRUNCATED - Stack too large]';
-  }
-
-    // Truncate metadata
-    if (data.metadata) {
-      const metaString = safeStringify(data.metadata);
-      if (Buffer.byteLength(metaString, 'utf8') > 50000) {
-        // Try to keep important fields
-        const truncatedMeta = {
-          ...data.metadata,
-          _truncated: true,
-          _originalSize: Buffer.byteLength(metaString, 'utf8'),
-        };
-
-        // Remove large fields one by one
-        for (const key in truncatedMeta) {
-          try {
-            const fieldString = safeStringify(truncatedMeta[key]);
-            if (Buffer.byteLength(fieldString, 'utf8') > 10000) {
-              truncatedMeta[key] = '[TRUNCATED - Field too large]';
-            }
-          } catch {
-            truncatedMeta[key] = '[Error serializing field]';
-          }
-        }
-
-        data.metadata = truncatedMeta;
+    const cloned = { ...data };
+    
+    // Truncate message with preview
+    if (cloned.message && typeof cloned.message === 'string') {
+      cloned.message = smartTruncate(cloned.message, MAX_MESSAGE_LENGTH, 'message');
+    } else if (cloned.message && typeof cloned.message === 'object') {
+      // Handle object messages
+      try {
+        const msgStr = safeStringify(cloned.message);
+        cloned.message = smartTruncate(msgStr, MAX_MESSAGE_LENGTH, 'message object');
+      } catch {
+        cloned.message = '[Complex message - could not serialize]';
       }
     }
-
-    // Final check - if still too large, strip metadata completely
-    const finalString = safeStringify(data);
-    if (Buffer.byteLength(finalString, 'utf8') > CLOUDWATCH_SAFE_SIZE) {
-      return {
-        level: data.level,
-        message: data.message?.substring(0, 100000) || 'Log too large',
-        timestamp: data.timestamp,
-        _warning: 'Metadata removed - log exceeded CloudWatch size limit',
-        _originalSize: sizeInBytes,
-      };
+    
+    // Truncate stack traces with preview
+    if (cloned.stack && typeof cloned.stack === 'string') {
+      cloned.stack = smartTruncate(cloned.stack, MAX_STACK_LENGTH, 'stack trace');
     }
-
-    return data;
+    
+    // Truncate metadata fields individually
+    if (cloned.metadata && typeof cloned.metadata === 'object') {
+      const truncatedMeta = {};
+      for (const [key, value] of Object.entries(cloned.metadata)) {
+        try {
+          if (typeof value === 'string') {
+            truncatedMeta[key] = smartTruncate(value, MAX_METADATA_LENGTH, `metadata.${key}`);
+          } else if (typeof value === 'object' && value !== null) {
+            const serialized = safeStringify(value);
+            truncatedMeta[key] = smartTruncate(serialized, MAX_METADATA_LENGTH, `metadata.${key}`);
+          } else {
+            truncatedMeta[key] = value;
+          }
+        } catch {
+          truncatedMeta[key] = `[Error serializing ${key}]`;
+        }
+      }
+      cloned.metadata = truncatedMeta;
+    }
+    
+    // Final size check for CloudWatch only
+    if (forCloudWatch) {
+      const finalString = safeStringify(cloned);
+      const finalSize = Buffer.byteLength(finalString, 'utf8');
+      
+      if (finalSize > CLOUDWATCH_SAFE_SIZE) {
+        // Extreme case - strip metadata but keep message preview
+        return {
+          level: cloned.level,
+          message: smartTruncate(cloned.message || 'Large log', 8000, 'message'),
+          timestamp: cloned.timestamp,
+          _warning: 'Metadata stripped - exceeded CloudWatch 240KB limit',
+          _originalSize: `${(finalSize / 1024).toFixed(2)}KB`,
+        };
+      }
+    }
+    
+    return cloned;
   } catch (error) {
-    // If truncation fails, return minimal safe log
+    // fallback here - never lose the log completely
     return {
       level: data.level || 'error',
-      message: data.message?.toString().substring(0, 1000) || 'Log truncation error',
+      message: data.message?.toString().substring(0, 500) || 'Log processing error',
       timestamp: data.timestamp || new Date().toISOString(),
-      _error: 'Failed to process log: ' + error.message,
+      _error: `Truncation failed: ${error.message}`,
     };
   }
 };
@@ -107,33 +141,43 @@ const truncateForCloudWatch = (data) => {
 class Logger {
   #logger;
   constructor() {
-    // Ensure log directory exists with proper error handling
     try {
       if (!fs.existsSync(logDir)) {
         fs.mkdirSync(logDir, { recursive: true });
       }
     } catch (error) {
       console.error(`Failed to create log directory: ${error.message}`);
-      // Fallback to current directory if log dir creation fails
     }
 
     const transports = [
+      // Combined log - everything goes here for easy debugging
+      new DailyRotate({
+        filename: `${logDir}/%DATE%-combined.log`,
+        datePattern: 'YYYY-MM-DD',
+        level: 'debug', // Capture everything
+        maxFiles: '7d', // Keep for 7 days
+        maxSize: '50m',
+        zippedArchive: true,
+      }),
+      // Errors - critical for investigation
       new DailyRotate({
         filename: `${logDir}/%DATE%-error-results.log`,
         datePattern: 'YYYY-MM-DD',
         level: 'error',
-        maxFiles: '30d', // Keep logs for 30 days
-        maxSize: '20m', // Rotate when file reaches 20MB
-        zippedArchive: true, // Compress old logs
+        maxFiles: '30d', // Keep errors longer
+        maxSize: '20m',
+        zippedArchive: true,
       }),
+      // Info - general application flow
       new DailyRotate({
         filename: `${logDir}/%DATE%-info-results.log`,
         datePattern: 'YYYY-MM-DD',
         level: 'info',
-        maxFiles: '14d', // Keep info logs for 14 days
+        maxFiles: '14d',
         maxSize: '20m',
         zippedArchive: true,
       }),
+      // Warnings - potential issues
       new DailyRotate({
         filename: `${logDir}/%DATE%-warning-results.log`,
         datePattern: 'YYYY-MM-DD',
@@ -146,11 +190,11 @@ class Logger {
 
     // Only add CloudWatch transport on primary worker (worker 0) to avoid race conditions
     // PM2 sets INSTANCE_ID env var, fallback to checking if we're the first worker
-    const instanceId = parseInt(process.env.INSTANCE_ID || '0', 10);
+    const instanceId = parseInt(process.env.INSTANCE_ID || '0', 10); // INSTANCE_ID have not added in config file yet but will do later
     const isPrimaryWorker = instanceId === 0;
 
     // Only enable CloudWatch in production with valid AWS credentials
-    const isProduction = appConfig?.env === 'production' || process.env.NODE_ENV === 'production';
+    const isProduction = appConfig?.env === 'production'; // will not log cloudwatch in development 
     const hasAwsConfig = aws?.cloudWatchLogGroup && aws?.region && aws?.accessKeyId && aws?.secretAccessKey;
 
     if (isPrimaryWorker && isProduction && hasAwsConfig) {
@@ -212,23 +256,38 @@ class Logger {
         addIpFormat(),
         format.errors({ stack: true }),
         format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
-        // Truncate logs before they go to any transport (including CloudWatch)
+        // Apply smart truncation to ALL logs (file + CloudWatch)
         format((info) => {
-          // Only truncate for CloudWatch (when in production and primary worker)
-          if (isPrimaryWorker && isProduction && hasAwsConfig) {
-            return truncateForCloudWatch(info);
-          }
-          return info;
+          const forCloudWatch = isPrimaryWorker && isProduction && hasAwsConfig;
+          return truncateLogData(info, forCloudWatch);
         })(),
         format.metadata({
           fillExcept: ['message', 'level', 'timestamp', 'stack'],
-        }), // it will flatten metadata
+        }),
         format.json(),
       ),
       transports,
       exitOnError: false,
-      // Silence internal winston errors in production
       silent: false,
+      // Handle unhandled exceptions and rejections
+      exceptionHandlers: [
+        new DailyRotate({
+          filename: `${logDir}/%DATE%-exceptions.log`,
+          datePattern: 'YYYY-MM-DD',
+          maxFiles: '30d',
+          maxSize: '20m',
+          zippedArchive: true,
+        }),
+      ],
+      rejectionHandlers: [
+        new DailyRotate({
+          filename: `${logDir}/%DATE%-rejections.log`,
+          datePattern: 'YYYY-MM-DD',
+          maxFiles: '30d',
+          maxSize: '20m',
+          zippedArchive: true,
+        }),
+      ],
     });
 
     // Add console transport for all environments
