@@ -10,6 +10,10 @@ import {
   shutdownWorker,
   startBankResponseHandler,
 } from './src/worker/bank-response-worker.js';
+import {
+  startBulkPayoutHandler,
+  shutdownBulkPayoutWorker,
+} from './src/worker/bulk-payout-worker.js';
 import { closeRedis } from './src/utils/redisClient.js';
 import { stopNotifyCron } from './src/cron/notifyCron.js';
 import { stopCalculationCron } from './src/cron/calculationCron.js';
@@ -109,6 +113,7 @@ async function gracefulShutdown(label, err) {
       shutdownSocket(),
       closePool(),
       shutdownWorker(label),
+      shutdownBulkPayoutWorker(label),
       closeRabbitMQ(),
       closeRedis(),
       logger.close(), // Flush logger before exit
@@ -157,14 +162,15 @@ process.on('unhandledRejection', (reason) => {
 
 server.listen(PORT, onListening);
 
-// Start RabbitMQ consumer ONLY on primary worker (worker 0)
+// Start RabbitMQ consumers ONLY on primary worker (worker 0)
 // to avoid duplicate message processing and queue contention
 const instanceId = parseInt(process.env.INSTANCE_ID || '0', 10);
 if (instanceId === 0) {
   startBankResponseHandler();
-  logger.info('[Worker 0] RabbitMQ consumer started');
+  startBulkPayoutHandler();
+  logger.info('[Worker 0] RabbitMQ consumers started (bank-response + bulk-payout)');
 } else {
-  logger.info(`[Worker ${instanceId}] Skipping RabbitMQ consumer (runs only on worker 0)`);
+  logger.info(`[Worker ${instanceId}] Skipping RabbitMQ consumers (run only on worker 0)`);
 }
 
 server.on('error', onError);
