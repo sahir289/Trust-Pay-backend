@@ -1,11 +1,11 @@
-const { default: config } = require("./src/config/config");
+const instances = process.env.NODE_ENV === 'production' ? 'max' : 2;
 
 module.exports = {
     apps: [
         {
             name: 'trust-pay-backend',
             script: './server.js',
-            instances: config?.env === 'production' ? 'max' : 2, // 2 instances for dev, all cores for prod
+            instances: instances, // 2 instances for dev, all cores for prod
             exec_mode: 'cluster',
             max_memory_restart: '1G',
             node_args: '--max-old-space-size=2048',
