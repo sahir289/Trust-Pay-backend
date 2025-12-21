@@ -58,9 +58,11 @@ export const createPool = (connectionString, name) => {
     max: config.env === 'production' ? 60 : 10, // 10 for dev, 60 for prod
     min: config.env === 'production' ? 10 : 2, // 2 for dev, 10 for prod
     idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: config.env === 'production' ? 5000 : 10000, // More lenient in dev
+    connectionTimeoutMillis: 20000, // 20s for both - AWS RDS needs more time under load
     keepAlive: true,
     maxUses: 7500,
+    // Queue timeout - wait for available connection from pool
+    acquireTimeoutMillis: 20000, // 20s to acquire connection from pool
   });
 
   pool.on('connect', async (client) => {
@@ -129,6 +131,34 @@ export const createPool = (connectionString, name) => {
 
 const writerPool = createPool(config?.databaseWriterUrl, 'Writer');
 const readerPool = createPool(config?.databaseReaderUrl, 'Reader');
+
+/**
+ * Monitor pool health - warn when running low on connections
+ */
+if (config.env === 'production') {
+  const POOL_CHECK_INTERVAL = 30000; // Check every 30s in production
+  const WARNING_THRESHOLD = 0.8; // Warn when 80% of pool used
+  
+  setInterval(() => {
+    const stats = getPoolStats();
+    
+    // Check writer pool
+    if (stats.writer.total > 0) {
+      const writerUsage = (stats.writer.total - stats.writer.idle) / stats.writer.total;
+      if (writerUsage >= WARNING_THRESHOLD) {
+        logger.warn(`[DB Pool] Writer pool ${(writerUsage * 100).toFixed(0)}% used (${stats.writer.total - stats.writer.idle}/${stats.writer.total}), ${stats.writer.waiting} waiting`);
+      }
+    }
+    
+    // Check reader pool
+    if (stats.reader.total > 0) {
+      const readerUsage = (stats.reader.total - stats.reader.idle) / stats.reader.total;
+      if (readerUsage >= WARNING_THRESHOLD) {
+        logger.warn(`[DB Pool] Reader pool ${(readerUsage * 100).toFixed(0)}% used (${stats.reader.total - stats.reader.idle}/${stats.reader.total}), ${stats.reader.waiting} waiting`);
+      }
+    }
+  }, POOL_CHECK_INTERVAL);
+}
 
 /**
  * Get current pool statistics for monitoring
@@ -309,6 +339,12 @@ export const executeQuery = async (query, queryParams = [], conn = null) => {
         : await pool.query(query, queryParams);
       return result;
     } catch (error) {
+      // Log pool stats on connection timeout to help diagnose pool exhaustion
+      if (error.message?.includes('timeout') || error.message?.includes('timed out')) {
+        const stats = getPoolStats();
+        logger.error(`[DB Timeout] Pool stats at failure:`, stats);
+      }
+      
       logger.error(`Error while executing query (Attempt ${attempt}):`, error);
       logger.error(`\nQuery: ${query}\nParams: [${queryParams}]`);
 
@@ -322,6 +358,7 @@ export const executeQuery = async (query, queryParams = [], conn = null) => {
         error.message?.includes('Database connection error') || // DbError from getConnection
         error.message?.includes('Connection terminated unexpectedly') ||
         error.message?.includes('connection timeout') ||
+        error.message?.includes('timeout exceeded') || // Pool timeout
         error.message?.includes('server closed the connection') ||
         error.message?.includes('terminating connection due to idle-in-transaction timeout');
 
