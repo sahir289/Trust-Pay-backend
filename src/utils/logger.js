@@ -188,21 +188,20 @@ class Logger {
       }),
     ];
 
-    // Only add CloudWatch transport on primary worker (worker 0) to avoid race conditions
-    // PM2 sets INSTANCE_ID env var, fallback to checking if we're the first worker
-    const instanceId = parseInt(process.env.INSTANCE_ID || '0', 10); // INSTANCE_ID have not added in config file yet but will do later
-    const isPrimaryWorker = instanceId === 0;
+    // Only add CloudWatch transport on primary worker (worker 0) to avoid duplicate logs
+    // Each worker should log to CloudWatch with its own log stream
+    const instanceId = parseInt(process.env.INSTANCE_ID || '0', 10);
 
-    // Only enable CloudWatch in production with valid AWS credentials
-    const isProduction = appConfig?.env === 'production'; // will not log cloudwatch in development 
+    // Enable CloudWatch in production with valid AWS credentials
+    const isProduction = appConfig?.env === 'production';
     const hasAwsConfig = aws?.cloudWatchLogGroup && aws?.region && aws?.accessKeyId && aws?.secretAccessKey;
 
-    if (isPrimaryWorker && isProduction && hasAwsConfig) {
+    if (isProduction && hasAwsConfig) {
       try {
-        // AWS CloudWatch Transport Configuration - Only on primary worker
+        // AWS CloudWatch Transport Configuration - Each worker gets its own stream
         const cloudWatchConfig = {
           logGroupName: aws.cloudWatchLogGroup,
-          logStreamName: `${env}-logs-${new Date().toISOString().split('T')[0]}`, // Include date in stream
+          logStreamName: `${env}-worker-${instanceId}-${new Date().toISOString().split('T')[0]}`, // Unique per worker
           awsRegion: aws.region,
           awsAccessKeyId: aws.accessKeyId,
           awsSecretAccessKey: aws.secretAccessKey,
@@ -210,7 +209,7 @@ class Logger {
           jsonMessage: true,
           createLogGroup: true,
           createLogStream: true,
-          uploadRate: 5000, // Upload every 5 seconds (reduces AWS API calls in high-traffic scenarios)
+          uploadRate: 5000, // Upload every 5 seconds
           errorHandler: (error) => {
             // Only log critical CloudWatch errors, not every upload retry
             if (!error.message?.includes('retrying')) {
@@ -227,7 +226,7 @@ class Logger {
         });
 
         transports.push(cwTransport);
-        console.log('[Logger] CloudWatch transport enabled for worker 0');
+        console.log(`[Logger] CloudWatch transport enabled for worker ${instanceId}`);
       } catch (error) {
         console.error('[Logger] Failed to initialize CloudWatch transport:', error.message);
         console.warn('[Logger] Continuing with file-based logging only');
@@ -235,8 +234,6 @@ class Logger {
     } else {
       if (!isProduction) {
         console.log('[Logger] CloudWatch disabled in non-production environment');
-      } else if (!isPrimaryWorker) {
-        console.log(`[Logger] CloudWatch disabled for worker ${instanceId} (only worker 0 uses CloudWatch)`);
       } else if (!hasAwsConfig) {
         console.warn('[Logger] CloudWatch disabled - missing AWS configuration');
       }
@@ -404,11 +401,30 @@ class Logger {
 export default Logger;
 const winstonLogger = new Logger();
 
+// Helper to check if current worker should log shared events
+const isPrimaryWorker = () => {
+  const instanceId = parseInt(process.env.INSTANCE_ID || '0', 10);
+  return instanceId === 0;
+};
+
 export const logger = {
   log: (message, meta) => winstonLogger.log('info', message, meta),
   info: (message, meta) => winstonLogger.log('info', message, meta),
   warn: (message, meta) => winstonLogger.log('warn', message, meta),
   error: (message, meta) => winstonLogger.log('error', message, meta),
   debug: (message, meta) => winstonLogger.log('debug', message, meta),
+  
+  // Only log from worker 0 to avoid duplicates for shared events (startup, config, etc.)
+  infoOnce: (message, meta) => {
+    if (isPrimaryWorker()) {
+      winstonLogger.log('info', message, meta);
+    }
+  },
+  warnOnce: (message, meta) => {
+    if (isPrimaryWorker()) {
+      winstonLogger.log('warn', message, meta);
+    }
+  },
+  
   close: () => winstonLogger.close(), // Export close for graceful shutdown
 };

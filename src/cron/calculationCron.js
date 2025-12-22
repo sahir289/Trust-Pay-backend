@@ -116,7 +116,7 @@ const collectCalculationData = async () => {
             // config: calculation[0].config,
             created_at: currentTime, // Store exact IST time
           };
-          await processUpdate(resetData);
+          await processUpdate(resetData, conn);
         }
       } catch (userError) {
         logger.error(
@@ -140,11 +140,12 @@ const collectCalculationData = async () => {
   }
 };
 // Function to update the calculation data
-async function processUpdate(data) {
+async function processUpdate(data, conn = null) {
   try {
-    await createCalculationDao(data);
+    await createCalculationDao(data, conn);
   } catch (error) {
     logger.error('Error while updating calculation data:', error?.message);
+    throw error; // Re-throw to trigger transaction rollback
   }
 }
 

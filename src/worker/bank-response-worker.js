@@ -25,6 +25,7 @@ const DLX_NAME = 'bank_responses.dlx';
 const DLQ_NAME = 'bank_responses.dlq';
 const PREFETCH_COUNT = 20; // Balanced: 20 concurrent transactions 
 const MAX_RETRIES = 3;
+const PROCESSING_TIMEOUT = 30000; // 30 seconds max per message
 
 // Dedicated connection
 const bankResponseConnection = new RabbitMQConnection('bank-response-worker');
@@ -75,7 +76,7 @@ function getRetryCount(msg) {
 }
 
 /**
- * Process bank response message
+ * Process bank response message with timeout protection
  * CRITICAL: Only ACKs after successful processing
  */
 async function processMessage(msg) {
@@ -97,6 +98,8 @@ async function processMessage(msg) {
       } catch (nackError) {
         logger.error('[Consumer] Failed to nack invalid JSON:', nackError.message);
       }
+    } else {
+      throw new Error('Channel null - cannot nack invalid JSON');
     }
     return;
   }
@@ -106,18 +109,30 @@ async function processMessage(msg) {
     if (!data?.payload || !data?.x_auth_token) {
       logger.error('[Consumer] Invalid message - sending to DLQ');
       metrics.messagesToDLQ++;
-      if (channel) channel.nack(msg, false, false);
+      if (channel) {
+        channel.nack(msg, false, false);
+      } else {
+        throw new Error('Channel null - cannot nack invalid message');
+      }
       return;
     }
 
     logger.info(`[Consumer] Processing (attempt ${retryCount + 1}/${MAX_RETRIES + 1})`);
 
-    await createBankResponseService(
+    // Add timeout protection to prevent hanging forever
+    const timeoutPromise = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Processing timeout')), PROCESSING_TIMEOUT)
+    );
+
+    const processingPromise = createBankResponseService(
       data.payload,
       data.x_auth_token,
       data.role,
       data.name
     );
+
+    // Race between processing and timeout
+    await Promise.race([processingPromise, timeoutPromise]);
 
     const duration = Date.now() - startTime;
     metrics.totalProcessingTime += duration;
@@ -128,7 +143,9 @@ async function processMessage(msg) {
       channel.ack(msg);
       logger.info(`[Consumer] Processed successfully (${duration}ms)`);
     } else {
-      logger.error('[Consumer] Cannot ack - channel closed. Will be redelivered.');
+      logger.error('[Consumer] CRITICAL: Cannot ack - channel closed. Message will be stuck unacked until restart!');
+      // CANNOT DO ANYTHING - message will be redelivered on reconnect
+      throw new Error('Channel closed during processing - message will be redelivered');
     }
 
   } catch (error) {
@@ -143,6 +160,7 @@ async function processMessage(msg) {
       stack: error.stack,
       retryCount,
       willRetry: shouldRetry,
+      duration: `${duration}ms`,
     });
 
     if (shouldRetry) {
@@ -171,7 +189,9 @@ async function processMessage(msg) {
           }
         }
       } else {
-        logger.error('[Consumer] Cannot requeue - channel is null. RabbitMQ will redeliver.');
+        logger.error('[Consumer] CRITICAL: Cannot requeue - channel is null. Message will be stuck unacked!');
+        // CANNOT DO ANYTHING - message stuck until consumer restarts
+        throw new Error('Channel null - cannot requeue message');
       }
     } else {
       // Max retries - send to DLQ
@@ -183,6 +203,9 @@ async function processMessage(msg) {
         } catch (nackError) {
           logger.error('[Consumer] Failed to send to DLQ:', nackError.message);
         }
+      } else {
+        logger.error('[Consumer] CRITICAL: Cannot send to DLQ - channel is null. Message stuck unacked!');
+        throw new Error('Channel null - cannot send to DLQ');
       }
     }
   }
@@ -192,34 +215,23 @@ async function processMessage(msg) {
  * Setup queue topology
  */
 async function setupQueueTopology(ch) {
-  try {
-    const queueInfo = await ch.checkQueue(QUEUE_NAME);
-    logger.info(`[Consumer] Queue exists: ${queueInfo.messageCount} messages, ${queueInfo.consumerCount} consumers`);
-    await ch.prefetch(PREFETCH_COUNT);
-    logger.info(`[Consumer] Prefetch=${PREFETCH_COUNT}`);
-    
-  } catch (checkError) {
-    if (checkError.message?.includes('NOT_FOUND') || checkError.message?.includes('404')) {
-      logger.info('[Consumer] Queue not found, creating with DLX...');
-      
-      await ch.assertExchange(DLX_NAME, 'direct', { durable: true });
-      await ch.assertQueue(DLQ_NAME, { durable: true });
-      await ch.bindQueue(DLQ_NAME, DLX_NAME, 'failed');
+  // Always assert (create if not exists) DLX and DLQ first
+  await ch.assertExchange(DLX_NAME, 'direct', { durable: true });
+  await ch.assertQueue(DLQ_NAME, { durable: true });
+  await ch.bindQueue(DLQ_NAME, DLX_NAME, 'failed');
 
-      await ch.assertQueue(QUEUE_NAME, {
-        durable: true,
-        arguments: {
-          'x-dead-letter-exchange': DLX_NAME,
-          'x-dead-letter-routing-key': 'failed',
-        },
-      });
+  // Assert main queue with DLX configuration (idempotent - creates if not exists)
+  const queueInfo = await ch.assertQueue(QUEUE_NAME, {
+    durable: true,
+    arguments: {
+      'x-dead-letter-exchange': DLX_NAME,
+      'x-dead-letter-routing-key': 'failed',
+    },
+  });
 
-      await ch.prefetch(PREFETCH_COUNT);
-      logger.info(`[Consumer] Queue created, Prefetch=${PREFETCH_COUNT}`);
-    } else {
-      throw checkError;
-    }
-  }
+  await ch.prefetch(PREFETCH_COUNT);
+  
+  logger.info(`[Consumer] Queue ready: ${queueInfo.messageCount} messages, ${queueInfo.consumerCount} consumers, Prefetch=${PREFETCH_COUNT}`);
 }
 
 /**
@@ -269,6 +281,7 @@ export async function startBankResponseWorker() {
       QUEUE_NAME,
       async (msg) => {
         if (!msg || isShuttingDown) return;
+        
         try {
           await processMessage(msg);
         } catch (err) {
@@ -276,12 +289,16 @@ export async function startBankResponseWorker() {
             message: err.message,
             stack: err.stack
           });
+          // processMessage throws when channel is null - requeue message
           if (channel) {
             try {
               channel.nack(msg, false, true);
             } catch (nackError) {
               logger.error('[Consumer] Failed to nack after fatal error:', nackError.message);
             }
+          } else {
+            logger.error('[Consumer] CRITICAL: Channel null in consumer callback - message will be redelivered on reconnect');
+            // Cannot nack - message stays unacked and will be redelivered when consumer reconnects
           }
         }
       },

@@ -1,6 +1,6 @@
 // import cron from 'node-cron';
 import moment from 'moment-timezone';
-import { getConnection } from '../utils/db.js';
+import { getConnection, beginTransaction, commit, rollback } from '../utils/db.js';
 import { logger } from '../utils/logger.js';
 import { createBankHistoryService } from '../apis/bankHistory/bankHistorySevice.js';
 // if (process.env.NODE_ENV == 'production') {
@@ -23,21 +23,23 @@ const collectBankData = async (timezone = 'Asia/Kolkata') => {
   let conn;
   let committed = false;
   try {
-    conn = await getConnection('writer');
+    conn = await getConnection();
+    await beginTransaction(conn);
     //added payin_count to update everyday
     await createBankHistoryService(conn);
     const sql =
       'UPDATE public."BankAccount" SET today_balance = 0 , payin_count = 0 ';
     await conn.query(sql);
-    await conn.commit();
+    await commit(conn);
     committed = true;
     logger.info(
       'Successfully updated today_balance for all bank accounts.',
       startTime,
     );
   } catch (error) {
-    if (conn && !committed) await conn.rollback();
+    if (conn && !committed) await rollback(conn);
     logger.error('Error while updating bank account data:', error?.message);
+    throw error; // Re-throw to ensure failure detection
   } finally {
     if (conn) conn.release();
   }

@@ -103,7 +103,11 @@ async function processMessage(msg) {
     if (!content?.individualUpdates || !Array.isArray(content.individualUpdates)) {
       logger.error('[BulkPayout] Invalid message structure - sending to DLQ');
       metrics.messagesToDLQ++;
-      if (channel) channel.nack(msg, false, false);
+      if (channel) {
+        channel.nack(msg, false, false);
+      } else {
+        throw new Error('Channel null - cannot nack invalid message');
+      }
       return;
     }
 
@@ -176,7 +180,8 @@ async function processMessage(msg) {
     if (channel) {
       channel.ack(msg);
     } else {
-      logger.error('[BulkPayout] Cannot ack - channel closed. Message will be redelivered.');
+      logger.error('[BulkPayout] CRITICAL: Cannot ack - channel is null. Message stuck unacked!');
+      throw new Error('Channel null - cannot ack message');
     }
 
   } catch (error) {
@@ -223,7 +228,8 @@ async function processMessage(msg) {
         }
       } else {
         // CRITICAL: Channel is null - message will be redelivered by RabbitMQ
-        logger.error('[BulkPayout] Cannot requeue - channel is null. RabbitMQ will redeliver.');
+        logger.error('[BulkPayout] CRITICAL: Cannot requeue - channel is null. Message stuck unacked!');
+        throw new Error('Channel null - cannot requeue message');
       }
     } else {
       // Max retries exceeded - send to DLQ
@@ -235,6 +241,9 @@ async function processMessage(msg) {
         } catch (nackError) {
           logger.error('[BulkPayout] Failed to send to DLQ:', nackError.message);
         }
+      } else {
+        logger.error('[BulkPayout] CRITICAL: Cannot send to DLQ - channel is null. Message stuck unacked!');
+        throw new Error('Channel null - cannot send to DLQ');
       }
     }
   }
@@ -244,56 +253,23 @@ async function processMessage(msg) {
  * Setup queue topology with DLX/DLQ
  */
 async function setupQueueTopology(ch) {
-  // Check if main queue exists first
-  let queueExists = false;
-  let queueHasDLX = false;
-  
-  try {
-    const queueInfo = await ch.checkQueue(QUEUE_NAME);
-    logger.info(`[BulkPayout] Queue exists: ${queueInfo.messageCount} messages, ${queueInfo.consumerCount} consumers`);
-    queueExists = true;
-    
-    // Queue exists - use it as-is (can't modify arguments of existing queue)
-    logger.info('[BulkPayout] Using existing queue (DLX settings cannot be changed)');
-  } catch (checkError) {
-    if (checkError.message?.includes('NOT_FOUND') || checkError.message?.includes('404')) {
-      logger.info('[BulkPayout] Queue not found, will create with DLX');
-      queueExists = false;
-    } else {
-      throw checkError;
-    }
-  }
+  // Always assert (create if not exists) DLX and DLQ first
+  await ch.assertExchange(DLX_NAME, 'direct', { durable: true });
+  await ch.assertQueue(DLQ_NAME, { durable: true });
+  await ch.bindQueue(DLQ_NAME, DLX_NAME, 'failed');
 
-  // Only setup DLX/DLQ if queue doesn't exist (new setup)
-  if (!queueExists) {
-    // Setup Dead Letter Exchange
-    await ch.assertExchange(DLX_NAME, 'direct', { durable: true });
+  // Assert main queue with DLX configuration (idempotent - creates if not exists)
+  const queueInfo = await ch.assertQueue(QUEUE_NAME, {
+    durable: true,
+    arguments: {
+      'x-dead-letter-exchange': DLX_NAME,
+      'x-dead-letter-routing-key': 'failed',
+    },
+  });
 
-    // Setup Dead Letter Queue
-    await ch.assertQueue(DLQ_NAME, { durable: true });
-    await ch.bindQueue(DLQ_NAME, DLX_NAME, 'failed');
-
-    // Create main queue with DLX
-    await ch.assertQueue(QUEUE_NAME, {
-      durable: true,
-      arguments: {
-        'x-dead-letter-exchange': DLX_NAME,
-        'x-dead-letter-routing-key': 'failed',
-      },
-    });
-    logger.info('[BulkPayout] Queue created with DLX');
-    queueHasDLX = true;
-  }
-
-  // ALWAYS set prefetch (critical for performance)
   await ch.prefetch(PREFETCH_COUNT);
-  logger.info(`[BulkPayout] Prefetch=${PREFETCH_COUNT}`);
   
-  // Warn if existing queue doesn't have DLX (messages won't go to DLQ on max retries)
-  if (queueExists && !queueHasDLX) {
-    logger.warn('[BulkPayout] WARNING: Queue exists without DLX. Failed messages after max retries will NOT go to DLQ.');
-    logger.warn('[BulkPayout] To enable DLQ: Delete queue in RabbitMQ UI and restart worker.');
-  }
+  logger.info(`[BulkPayout] Queue ready: ${queueInfo.messageCount} messages, ${queueInfo.consumerCount} consumers, Prefetch=${PREFETCH_COUNT}`);
 }
 
 /**
@@ -351,13 +327,16 @@ export async function startBulkPayoutWorker() {
             message: err.message,
             stack: err.stack
           });
-          // Nack to prevent message loss
+          // processMessage throws when channel is null - requeue message
           if (channel) {
             try {
               channel.nack(msg, false, true);
             } catch (nackError) {
               logger.error('[BulkPayout] Failed to nack after fatal error:', nackError.message);
             }
+          } else {
+            logger.error('[BulkPayout] CRITICAL: Channel null in consumer callback - message will be redelivered on reconnect');
+            // Cannot nack - message stays unacked and will be redelivered when consumer reconnects
           }
         }
       },

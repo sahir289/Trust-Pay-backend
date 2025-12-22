@@ -15,12 +15,6 @@ import {
   shutdownBulkPayoutWorker,
 } from './src/worker/bulk-payout-worker.js';
 import { closeRedis } from './src/utils/redisClient.js';
-import { stopNotifyCron } from './src/cron/notifyCron.js';
-import { stopCalculationCron } from './src/cron/calculationCron.js';
-import { stopPendingPayoutCron } from './src/cron/pendingPayout.js';
-import { stopGatherAllDataCron } from './src/cron/gatherAllData.js';
-import { stopCheckNetbalanceCron } from './src/cron/checkNetbalance.js';
-import { stopSuccessRatioCron } from './src/cron/successRatioCron.js';
 // import { migrateUsersToES } from './src/elasticSearch/user/migrate.js';
 
 const server = createServer(app);
@@ -99,15 +93,6 @@ async function gracefulShutdown(label, err) {
 
   //  we need to close the resources (HTTP server, DB, etc.)
   try {
-    // Stop all cron jobs first
-    logger.info('Stopping all cron jobs...');
-    stopNotifyCron();
-    stopCalculationCron();
-    stopPendingPayoutCron();
-    stopGatherAllDataCron();
-    stopCheckNetbalanceCron();
-    stopSuccessRatioCron();
-
     await Promise.allSettled([
       new Promise((res) => server.close(res)),
       shutdownSocket(),
@@ -163,7 +148,8 @@ process.on('unhandledRejection', (reason) => {
 server.listen(PORT, onListening);
 
 // Start RabbitMQ consumers ONLY on primary worker (worker 0)
-// to avoid duplicate message processing and queue contention
+// to avoid duplicate message processing
+// Note: Cron jobs run in separate 'trust-pay-crons' PM2 process
 const instanceId = parseInt(process.env.INSTANCE_ID || '0', 10);
 if (instanceId === 0) {
   // Start workers asynchronously but don't block server startup
