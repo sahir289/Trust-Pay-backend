@@ -320,7 +320,7 @@ const _updateBankaccountInternal = async (
       const userId = bank[0].user_id;
 
       // Get vendor by userId
-      const vendors = await getVendorsDao({ user_id: userId });
+      const vendors = await getVendorsDao({ user_id: userId }, conn);
       if (vendors && vendors.length > 0) {
         const vendor = vendors[0];
         const netBalanceLimit = vendor?.config?.net_balance;
