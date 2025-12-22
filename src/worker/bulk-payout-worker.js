@@ -129,11 +129,13 @@ async function processMessage(msg) {
             throw new Error('Missing payoutId');
           }
 
-          return updatePayoutDao([update.payoutId], {
+          return updatePayoutDao({ id: update.payoutId }, {
             status: update.status,
             bank_acc_id: update.bank_acc_id,
             config: update.config,
-            approved_at: update.approved_at,
+            approved_at: update?.approved_at,
+            rejected_reason: update?.rejected_reason,
+            rejected_at: update?.rejected_at,
             updated_at: new Date().toISOString(),
           });
         })
