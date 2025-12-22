@@ -320,7 +320,7 @@ const _updateBankaccountInternal = async (
       const userId = bank[0].user_id;
 
       // Get vendor by userId
-      const vendors = await getVendorsDao({ user_id: userId }, conn);
+      const vendors = await getVendorsDao({ user_id: userId }, null, null, null, null, null, null, conn);
       if (vendors && vendors.length > 0) {
         const vendor = vendors[0];
         const netBalanceLimit = vendor?.config?.net_balance;
@@ -346,6 +346,11 @@ const _updateBankaccountInternal = async (
     let userId = bank[0].user_id;
     const userHierarchys = await getUserHierarchysDao(
       { user_id: userId },
+      null,
+      null,
+      null,
+      null,
+      null,
       conn,
     );
     if (role === Role.VENDOR_OPERATIONS) {
@@ -410,15 +415,13 @@ const _updateBankaccountInternal = async (
       );
       if (bankResponse.length > 0) {
         for (let i = 0; i < bankResponse.length; i++) {
-          for (let i = 0; i < bankResponse.length; i++) {
-            await updateBotResponseDao(
-              bankResponse[i].id,
-              {
-                status: '/freezed',
-              },
-              conn,
-            );
-          }
+          await updateBotResponseDao(
+            bankResponse[i].id,
+            {
+              status: '/freezed',
+            },
+            conn,
+          );
         }
       }
     }
@@ -460,14 +463,16 @@ const updateBankaccountService = async (
   // user_id,
 ) => {
   let conn;
+  let committed = false;
   try {
     conn = await getConnection();
     await beginTransaction(conn);
     const result = await _updateBankaccountInternal(ids, payload, role, conn);
     await commit(conn);
+    committed = true;
     return result;
   } catch (error) {
-    if (conn) await rollback(conn);
+    if (conn && !committed) await rollback(conn);
     logger.error('error getting while  updating banks', error);
     throw error;
   } finally {
