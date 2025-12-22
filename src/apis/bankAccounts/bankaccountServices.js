@@ -220,12 +220,22 @@ const _createBankaccountServiceInternal = async (
   try {
     //child add bankaccount for its parent
     if (designation === Role.VENDOR_OPERATIONS) {
-      const childHierarchy = await getUserHierarchysDao({ user_id }, null, null, null, null, null, conn);
+      const childHierarchy = await getUserHierarchysDao(
+        { user_id },
+        null,
+        null,
+        null,
+        null,
+        null,
+        conn,
+      );
       const parentUserId = childHierarchy[0].config.parent;
       payload.user_id = parentUserId;
     }
     if (designation === Role.VENDOR_ADMIN && !payload.user_id) {
-        throw new BadRequestError('Vendor Admins are not allowed to create own bank accounts.');
+      throw new BadRequestError(
+        'Vendor Admins are not allowed to create own bank accounts.',
+      );
     }
     const result = await createBankaccountDao(payload, conn);
     // await notifyAdminsAndUsers({
@@ -249,7 +259,8 @@ const createBankaccountService = async (
   user_id,
   // company_id,
 ) => {
-  let conn; let committed = false; ;
+  let conn;
+  let committed = false;
   try {
     conn = await getConnection();
     await beginTransaction(conn);
@@ -260,7 +271,8 @@ const createBankaccountService = async (
       conn,
       // company_id,
     );
-    await commit(conn); committed = true;
+    await commit(conn);
+    committed = true;
     return result;
   } catch (error) {
     if (conn && !committed) await rollback(conn);
@@ -286,140 +298,151 @@ const _updateBankaccountInternal = async (
     const bank = await getBankaccountDao({
       id: ids.id,
       company_id: ids.company_id,
-    });
+    }, null, null, role, null, conn);
 
-  if (payload?.is_enabled === false) {
-    // Clear merchants array when bank is disabled
-    payload = {
-      ...payload,
-      config: {
-        ...payload.config,
-        merchants: [],
-      },
-    };
-  }
+    if (payload?.is_enabled === false) {
+      // Clear merchants array when bank is disabled
+      payload = {
+        ...payload,
+        config: {
+          ...payload.config,
+          merchants: [],
+        },
+      };
+    }
 
-  // Check net_balance limit when trying to enable a bank
-  if (
-    payload?.is_enabled === true &&
-    bank[0]?.user_id &&
-    bank[0]?.bank_used_for === 'PayIn'
-  ) {
-    const userId = bank[0].user_id;
+    // Check net_balance limit when trying to enable a bank
+    if (
+      payload?.is_enabled === true &&
+      bank[0]?.user_id &&
+      bank[0]?.bank_used_for === 'PayIn'
+    ) {
+      const userId = bank[0].user_id;
 
-    // Get vendor by userId
-    const vendors = await getVendorsDao({ user_id: userId });
-    if (vendors && vendors.length > 0) {
-      const vendor = vendors[0];
-      const netBalanceLimit = vendor?.config?.net_balance;
+      // Get vendor by userId
+      const vendors = await getVendorsDao({ user_id: userId }, conn);
+      if (vendors && vendors.length > 0) {
+        const vendor = vendors[0];
+        const netBalanceLimit = vendor?.config?.net_balance;
 
-      if (netBalanceLimit && netBalanceLimit > 0) {
-        // Get calculation entry by userId
-        const calculations = await getCalculationforCronDao(userId);
-        if (calculations && calculations.length > 0) {
-          const currentNetBalance = calculations[0].net_balance;
+        if (netBalanceLimit && netBalanceLimit > 0) {
+          // Get calculation entry by userId
+          const calculations = await getCalculationforCronDao(userId, conn);
+          if (calculations && calculations.length > 0) {
+            const currentNetBalance = calculations[0].net_balance;
 
-          // Check if current net_balance exceeds the limit
-          if (currentNetBalance > netBalanceLimit) {
-            throw new BadRequestError(
-              `Cannot enable bank account. Current net balance (${currentNetBalance}) exceeds the allowed limit (${netBalanceLimit}).`,
+            // Check if current net_balance exceeds the limit
+            if (currentNetBalance > netBalanceLimit) {
+              throw new BadRequestError(
+                `Cannot enable bank account. Current net balance (${currentNetBalance}) exceeds the allowed limit (${netBalanceLimit}).`,
+              );
+            }
+          }
+        }
+      }
+    }
+
+    //show notification only to vendor whose bank status is updated
+    let userId = bank[0].user_id;
+    const userHierarchys = await getUserHierarchysDao(
+      { user_id: userId },
+      conn,
+    );
+    if (role === Role.VENDOR_OPERATIONS) {
+      userId = userHierarchys[0]?.config?.parent;
+    }
+    if (
+      Object.keys(payload).length === 1 &&
+      payload.latest_balance &&
+      bank[0].is_enabled &&
+      bank[0].config?.max_limit &&
+      bank[0].config?.max_limit !== 0
+    ) {
+      if (payload.latest_balance >= bank[0].config?.max_limit) {
+        payload.is_enabled = false;
+        payload = {
+          ...payload,
+          config: {
+            ...bank[0].config,
+            merchants: [],
+          },
+        };
+        deactivateBank(bank[0].nick_name, ids.id, userId);
+      } else if (payload.latest_balance === bank[0].config?.max_limit) {
+        deactivateBank(bank[0].nick_name, ids.id, true);
+      }
+    }
+    delete payload.latest_balance;
+
+    //added merchant_added key in config which contains date on which merchant is added along with its id
+    if (payload?.config?.merchant_added) {
+      const existingMerchantDetails = bank[0]?.config?.merchant_added || {};
+      const newMerchantDetails = {};
+
+      for (const key in payload.config.merchant_added) {
+        const merchantId = key.replace(/^\[?"?|"?\]$/g, '');
+        newMerchantDetails[merchantId] = payload.config.merchant_added[key];
+      }
+
+      payload.config.merchant_added = {
+        ...existingMerchantDetails,
+        ...newMerchantDetails,
+      };
+    }
+
+    const payloadData = JSON.parse(stringifyJSON(payload));
+    if (Object.keys(payload).length > 0) {
+      result = await updateBankaccountDao(
+        { id: ids.id, company_id: ids.company_id },
+        payload,
+        false, // isParentDeleted
+        conn, // Pass connection
+      );
+    }
+    if (payloadData?.config?.is_freeze === true) {
+      const bankResponse = await getBankResponsesforFreeze(
+        {
+          bank_id: ids.id,
+          is_used: false,
+          status: '/success',
+        },
+        conn,
+      );
+      if (bankResponse.length > 0) {
+        for (let i = 0; i < bankResponse.length; i++) {
+          for (let i = 0; i < bankResponse.length; i++) {
+            await updateBotResponseDao(
+              bankResponse[i].id,
+              {
+                status: '/freezed',
+              },
+              conn,
             );
           }
         }
       }
     }
-  }
-
-  //show notification only to vendor whose bank status is updated
-  let userId = bank[0].user_id;
-  const userHierarchys = await getUserHierarchysDao({ user_id: userId });
-  if (role === Role.VENDOR_OPERATIONS) {
-    userId = userHierarchys[0]?.config?.parent;
-  }
-  if (
-    Object.keys(payload).length === 1 &&
-    payload.latest_balance &&
-    bank[0].is_enabled &&
-    bank[0].config?.max_limit &&
-    bank[0].config?.max_limit !== 0
-  ) {
-    if (payload.latest_balance >= bank[0].config?.max_limit) {
-      payload.is_enabled = false;
-      payload = {
-        ...payload,
-        config: {
-          ...bank[0].config,
-          merchants: [],
+    if (payloadData?.config?.is_freeze === false) {
+      const bankResponse = await getBankResponsesforFreeze(
+        {
+          bank_id: ids.id,
+          is_used: false,
+          status: '/freezed',
         },
-      };
-      deactivateBank(bank[0].nick_name, ids.id, userId);
-    } else if (payload.latest_balance === bank[0].config?.max_limit) {
-      deactivateBank(bank[0].nick_name, ids.id, true);
-    }
-  }
-  delete payload.latest_balance;
-
-  //added merchant_added key in config which contains date on which merchant is added along with its id
-  if (payload?.config?.merchant_added) {
-    const existingMerchantDetails = bank?.config?.merchant_added || {};
-    const newMerchantDetails = {};
-
-    for (const key in payload.config.merchant_added) {
-      const merchantId = key.replace(/^\[?"?|"?\]$/g, '');
-      newMerchantDetails[merchantId] = payload.config.merchant_added[key];
-    }
-
-    payload.config.merchant_added = {
-      ...existingMerchantDetails,
-      ...newMerchantDetails,
-    };
-  }
-
-  const payloadData = JSON.parse(stringifyJSON(payload));
-  if (Object.keys(payload).length > 0) {
-    result = await updateBankaccountDao(
-      { id: ids.id, company_id: ids.company_id },
-      payload,
-      false, // isParentDeleted
-      conn,  // Pass connection
-    );
-  }
-  if (payloadData?.config?.is_freeze === true) {
-    const bankResponse = await getBankResponsesforFreeze({
-      bank_id: ids.id,
-      is_used: false,
-      status: '/success',
-    });
-    if (bankResponse.length > 0) {
-      for (let i = 0; i < bankResponse.length; i++) {
+        conn,
+      );
+      if (bankResponse.length > 0) {
         for (let i = 0; i < bankResponse.length; i++) {
           await updateBotResponseDao(
             bankResponse[i].id,
             {
-              status: '/freezed',
+              status: '/success',
             },
+            conn,
           );
         }
       }
     }
-  }
-  if (payloadData?.config?.is_freeze === false) {
-    const bankResponse = await getBankResponsesforFreeze({
-      bank_id: ids.id,
-      is_used: false,
-      status: '/freezed',
-    });
-    if (bankResponse.length > 0) {
-      for (let i = 0; i < bankResponse.length; i++) {
-        await updateBotResponseDao(
-          bankResponse[i].id,
-          {
-            status: '/success',
-          },
-        );
-      }
-    }
-  }
 
     return result;
   } catch (error) {
@@ -436,13 +459,19 @@ const updateBankaccountService = async (
   // company_id,
   // user_id,
 ) => {
+  let conn;
   try {
-    const result = await _updateBankaccountInternal(ids, payload, role);
-
+    conn = await getConnection();
+    await beginTransaction(conn);
+    const result = await _updateBankaccountInternal(ids, payload, role, conn);
+    await commit(conn);
     return result;
   } catch (error) {
+    if (conn) await rollback(conn);
     logger.error('error getting while  updating banks', error);
     throw error;
+  } finally {
+    if (conn) conn.release();
   }
 };
 
@@ -466,16 +495,20 @@ const deleteBankaccountService = async (ids, user_id) => {
   } catch (error) {
     logger.error('error getting while deleting banks', error);
     throw error;
-  } 
+  }
 };
 
-const _activeInactiveBankAccountServiceInternal = async (ids, payload, conn) => {
+const _activeInactiveBankAccountServiceInternal = async (
+  ids,
+  payload,
+  conn,
+) => {
   try {
     const result = await updateBankaccountDao(
       { id: ids.id, company_id: ids.company_id },
       payload,
       false, // isParentDeleted
-      conn,  // Pass connection for transaction
+      conn, // Pass connection for transaction
     );
     return result;
   } catch (error) {
@@ -485,12 +518,18 @@ const _activeInactiveBankAccountServiceInternal = async (ids, payload, conn) => 
 };
 
 const activeInactiveBankAccountService = async (ids, payload) => {
-  let conn; let committed = false; ;
+  let conn;
+  let committed = false;
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const result = await _activeInactiveBankAccountServiceInternal(ids, payload, conn);
-    await commit(conn); committed = true;
+    const result = await _activeInactiveBankAccountServiceInternal(
+      ids,
+      payload,
+      conn,
+    );
+    await commit(conn);
+    committed = true;
     return result;
   } catch (error) {
     if (conn && !committed) await rollback(conn);
