@@ -5,6 +5,7 @@ import chalk from 'chalk';
 import { DbError, InternalServerError } from './appErrors.js';
 import { logger } from './logger.js';
 import { stringifyJSON } from './index.js';
+import { trackDbConnection } from './dbConnectionTracker.js';
 // import fs from 'fs';
 // import path from 'path';
 // import { fileURLToPath } from 'url';
@@ -221,6 +222,10 @@ const getConnection = async (type = 'writer') => {
       
       const client = await Promise.race([pool.connect(), timeoutPromise]);
       
+      // Add tracking (capture caller file/line best-effort)
+      const stack = new Error().stack?.split('\n').slice(2, 6).join('\n');
+      trackDbConnection({ stack });
+
       // Only log in development or on first connection
       if (config.env !== 'production' || retryCount > 0) {
         logger.info('Database connected successfully');

@@ -507,7 +507,7 @@ export const getPayInUrlService = async (
       await updatePayInUrlDao(id, {
         is_url_expires: true,
         status: Status.DROPPED,
-      });
+      }, null, conn);
       // Notifying merchant about expired URL
       // This is async function but it's just the callback sending function there fore we are not using await
       merchantPayinCallback(config.urls?.notify, {
@@ -1590,7 +1590,7 @@ export const _processPayInServiceInternal = async (
       throw new BadRequestError('Please Enter Valid Amount');
     }
   }
-  const payIn = await getPayInUrlService(merchantOrderId, tele_check);
+  const payIn = await getPayInUrlService(merchantOrderId, tele_check, conn);
   if (
     Object.keys(payIn).length === 2 &&
     'error' in payIn &&
@@ -1616,10 +1616,14 @@ export const _processPayInServiceInternal = async (
   }
   const lockKey = `${payIn.bank_acc_id}${userSubmittedUtr}`;
   await checkLockEdit(lockKey, true, conn);
-  const banks = await getBankaccountDao({
-    id: payIn?.bank_acc_id,
-    company_id: payIn.company_id,
-  });
+  const banks = await getBankaccountDao(
+    { id: payIn?.bank_acc_id, company_id: payIn.company_id },
+    null,
+    null,
+    null,
+    null,
+    conn,
+  );
   const bank = banks[0];
 
   if (!bank) {
@@ -1698,7 +1702,7 @@ export const _processPayInServiceInternal = async (
     updatePayInData.duration = duration;
     result.utr_id =
       bankResponse.utr || payIn.user_submitted_utr || userSubmittedUtr;
-    await updatePayInUrlDao(payIn.id, updatePayInData);
+    await updatePayInUrlDao(payIn.id, updatePayInData, null, conn);
 
     const responseObj = {
       id: payIn.id,
@@ -1751,7 +1755,7 @@ export const _processPayInServiceInternal = async (
     await updateBotResponseDao(bankResponse.id, {
       is_used: true,
       status: '/success',
-    });
+    }, conn);
   }
 
   if (bankResponse.bank_id && bankResponse.bank_id !== payIn.bank_acc_id) {
@@ -1762,7 +1766,7 @@ export const _processPayInServiceInternal = async (
     result.status = Status.BANK_MISMATCH;
     result.utr_id =
       bankResponse.utr || payIn.user_submitted_utr || userSubmittedUtr;
-    await updatePayInUrlDao(payIn.id, updatePayInData);
+    await updatePayInUrlDao(payIn.id, updatePayInData, null, conn);
 
     const responseObj = {
       id: payIn.id,
@@ -1936,7 +1940,7 @@ export const _processPayInServiceInternal = async (
   // );
   // }
 
-  await updatePayInUrlDao(payIn.id, updatePayInData);
+  await updatePayInUrlDao(payIn.id, updatePayInData, null, conn);
   // After updating payin, build the response object
 
   const responseObj = {
@@ -2525,7 +2529,7 @@ export const processPayInByImageService = async (payload) => {
       userSubmittedUtr: content.utr,
       amount: payInData.amount,
       user_submitted_image: payload.fileKey,
-    });
+    }, null, false, false, null, null, conn);
     await commit(conn);
     committed = true;
     return result;
