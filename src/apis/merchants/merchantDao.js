@@ -33,7 +33,6 @@ export const getMerchantForEsDao = async (merchantId, conn = null) => {
     `;
     const result = await executeQuery(sql, [merchantId], conn);
     return result.rows[0];
-   
   } catch (error) {
     logger.error(
       `Error fetching merchant details for ID ${merchantId}:`,
@@ -44,11 +43,11 @@ export const getMerchantForEsDao = async (merchantId, conn = null) => {
 };
 
 export const getMerchantsCodeDao = async (
-  conn,
   filters,
   includeSubMerchants = false,
   includeOnlyMerchants = false,
   excludeDisabledMerchant = false,
+  conn = null,
 ) => {
   try {
     //includeSubMerchants  convert string to boolean
@@ -125,7 +124,7 @@ export const getMerchantsCodeDao = async (
       }
     }
     sql += ` GROUP BY m.id, m.code, m.user_id ORDER BY m.code ASC`;
-    const result = await conn.query(sql, queryParams);
+    const result = await executeQuery(sql, queryParams, conn);
     logger.log('Fetched Merchants:', result.rows.length, 'rows');
     return result.rows;
   } catch (error) {
@@ -253,7 +252,10 @@ export const getMerchantByUserDao = async (userId, role, conn = null) => {
     throw error;
   }
 };
-export const getMerchantsBankResponseDao = async (filters = {}, conn = null) => {
+export const getMerchantsBankResponseDao = async (
+  filters = {},
+  conn = null,
+) => {
   try {
     const selectColumns = `
       id,
@@ -288,7 +290,7 @@ export const getMerchantByIdDao = async (id, company_id, conn = null) => {
     logger.error(`Error in getMerchantByIdDao for ID ${id}:`, error.message);
     throw error;
   }
-}
+};
 
 export const getMerchantsDao = async (
   filters,
@@ -388,7 +390,6 @@ export const getMerchantsForDashboardReportDao = async (
   }
 };
 
-
 export const getMerchantsByCodeDao = async (code, api_key, conn = null) => {
   try {
     let baseQuery = `
@@ -446,7 +447,11 @@ export const getMerchantsByCodeDao = async (code, api_key, conn = null) => {
   }
 };
 
-export const getMerchantsByCodeAndApiKeyDao = async (code, api_key, conn = null) => {
+export const getMerchantsByCodeAndApiKeyDao = async (
+  code,
+  api_key,
+  conn = null,
+) => {
   try {
     if (!code || !api_key) return [];
     const cleanCode = code.trim();
@@ -518,7 +523,10 @@ export const getMerchantByCodeDao = async (code, conn = null) => {
     throw error;
   }
 };
-export const getMerchantsForSuccessRatioDao = async (filters = {}, conn = null) => {
+export const getMerchantsForSuccessRatioDao = async (
+  filters = {},
+  conn = null,
+) => {
   try {
     const selectColumns = `
       id,
@@ -765,15 +773,15 @@ export const getMerchantsBySearchDao = async (
           LIMIT 1
         ) LIKE $${paramIndex}
     `;
-    if (role === 'ADMIN') {
-      conditionBlock += `
+          if (role === 'ADMIN') {
+            conditionBlock += `
         OR LOWER("Merchant".config::text) LIKE LOWER($${paramIndex})
       `;
-    }
-    conditionBlock += `)`;
-    conditions.push(conditionBlock);
-    values.push(`%${term}%`);
-    paramIndex++;
+          }
+          conditionBlock += `)`;
+          conditions.push(conditionBlock);
+          values.push(`%${term}%`);
+          paramIndex++;
         }
       }
     }
@@ -791,7 +799,11 @@ export const getMerchantsBySearchDao = async (
     `;
     values.push(limitNum, offset);
 
-    const countResult = await executeQuery(countQuery, values.slice(0, -2), conn);
+    const countResult = await executeQuery(
+      countQuery,
+      values.slice(0, -2),
+      conn,
+    );
     let searchResult = await executeQuery(queryText, values, conn);
 
     const totalItems = parseInt(countResult.rows[0].total, 10);
@@ -803,7 +815,10 @@ export const getMerchantsBySearchDao = async (
       totalPages = Math.ceil(totalItems / limitNum);
     }
 
-    const data = await enhanceMerchantsWithSubMerchants(searchResult.rows ,role);
+    const data = await enhanceMerchantsWithSubMerchants(
+      searchResult.rows,
+      role,
+    );
 
     return {
       totalCount: totalItems,
@@ -903,7 +918,11 @@ export const updateMerchantBalanceDao = async (
   }
 };
 
-export const getMerchantByCodeAndApiKey = async (code, publicKey, conn = null) => {
+export const getMerchantByCodeAndApiKey = async (
+  code,
+  publicKey,
+  conn = null,
+) => {
   try {
     const query = `
       SELECT * 
@@ -953,13 +972,16 @@ export const getMerchantsDaoArray = async (company_id, codes, conn = null) => {
     `;
 
     let queryParams = [company_id];
-    
+
     // Handle both user_id arrays and code arrays
     if (Array.isArray(codes) && codes.length > 0) {
       // Check if the first element looks like a UUID (user_id) or a code
       const firstCode = codes[0];
-      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(firstCode);
-      
+      const isUUID =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+          firstCode,
+        );
+
       if (isUUID) {
         // These are user_ids
         baseQuery += ` AND "Merchant".user_id = ANY($2)`;
@@ -970,7 +992,7 @@ export const getMerchantsDaoArray = async (company_id, codes, conn = null) => {
         queryParams.push(codes);
       }
     }
-    
+
     const result = await executeQuery(baseQuery, queryParams, conn);
     return result.rows;
   } catch (error) {

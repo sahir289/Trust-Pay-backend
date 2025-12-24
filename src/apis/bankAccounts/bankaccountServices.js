@@ -37,9 +37,19 @@ const getBankaccountService = async (
   user_id,
   designation,
 ) => {
+  let conn;
   try {
+    conn = await getConnection();
     if (role == Role.VENDOR) {
-      const userHierarchys = await getUserHierarchysDao({ user_id });
+      const userHierarchys = await getUserHierarchysDao(
+        { user_id },
+        null,
+        null,
+        null,
+        null,
+        null,
+        conn,
+      );
       const userHierarchy = userHierarchys?.[0];
 
       const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
@@ -53,7 +63,15 @@ const getBankaccountService = async (
       filters.user_id = [user_id];
     }
 
-    const userHierarchys = await getUserHierarchysDao({ user_id });
+    const userHierarchys = await getUserHierarchysDao(
+      { user_id },
+      null,
+      null,
+      null,
+      null,
+      null,
+      conn,
+    );
     if (designation == Role.VENDOR_OPERATIONS) {
       const userHierarchy = userHierarchys?.[0];
       const parentID = userHierarchy?.config?.parent;
@@ -77,10 +95,13 @@ const getBankaccountService = async (
       pageSize,
       role,
       designation,
+      conn,
     );
   } catch (error) {
     logger.error('error getting while  getting banks', error);
     throw error;
+  } finally {
+    if (conn) conn.release();
   }
 };
 
@@ -94,9 +115,19 @@ const getBankAccountBySearchService = async (
   designation,
   search,
 ) => {
+  let conn;
   try {
+    conn = await getConnection();
     if (role == Role.VENDOR) {
-      const userHierarchys = await getUserHierarchysDao({ user_id });
+      const userHierarchys = await getUserHierarchysDao(
+        { user_id },
+        null,
+        null,
+        null,
+        null,
+        null,
+        conn,
+      );
       const userHierarchy = userHierarchys?.[0];
 
       const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
@@ -110,7 +141,15 @@ const getBankAccountBySearchService = async (
       filters.user_id = [user_id];
     }
 
-    const userHierarchys = await getUserHierarchysDao({ user_id });
+    const userHierarchys = await getUserHierarchysDao(
+      { user_id },
+      null,
+      null,
+      null,
+      null,
+      null,
+      conn,
+    );
     if (designation == Role.VENDOR_OPERATIONS) {
       const userHierarchy = userHierarchys?.[0];
       const parentID = userHierarchy?.config?.parent;
@@ -142,11 +181,14 @@ const getBankAccountBySearchService = async (
       role,
       designation,
       searchTerms,
+      conn,
     );
     return banks;
   } catch (error) {
     logger.error('error getting while getting check utr by search', error);
     throw new InternalServerError(error.message);
+  } finally {
+    if (conn) conn.release();
   }
 };
 
@@ -159,10 +201,20 @@ const getBankaccountServiceNickName = async (
   user,
   // check_enabled
 ) => {
+  let conn;
   try {
+    conn = await getConnection();
     let filters = {};
     if (role == Role.VENDOR) {
-      const userHierarchys = await getUserHierarchysDao({ user_id });
+      const userHierarchys = await getUserHierarchysDao(
+        { user_id },
+        null,
+        null,
+        null,
+        null,
+        null,
+        conn,
+      );
       const userHierarchy = userHierarchys?.[0];
 
       const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
@@ -181,7 +233,15 @@ const getBankaccountServiceNickName = async (
     } else if (user) {
       filters.user_id = [user];
     }
-    const userHierarchys = await getUserHierarchysDao({ user_id });
+    const userHierarchys = await getUserHierarchysDao(
+      { user_id },
+      null,
+      null,
+      null,
+      null,
+      null,
+      conn,
+    );
     if (designation == Role.VENDOR_OPERATIONS) {
       const userHierarchy = userHierarchys?.[0];
       const parentID = userHierarchy?.config?.parent;
@@ -201,12 +261,15 @@ const getBankaccountServiceNickName = async (
       company_id,
       type,
       filters,
+      conn,
       // check_enabled
     );
     return result;
   } catch (error) {
     logger.error('Error in getBankaccountServiceNickName', error);
     throw error;
+  } finally {
+    if (conn) conn.release();
   }
 };
 
@@ -295,10 +358,17 @@ const _updateBankaccountInternal = async (
   try {
     let result;
 
-    const bank = await getBankaccountDao({
-      id: ids.id,
-      company_id: ids.company_id,
-    }, null, null, role, null, conn);
+    const bank = await getBankaccountDao(
+      {
+        id: ids.id,
+        company_id: ids.company_id,
+      },
+      null,
+      null,
+      role,
+      null,
+      conn,
+    );
 
     if (payload?.is_enabled === false) {
       // Clear merchants array when bank is disabled
@@ -320,7 +390,16 @@ const _updateBankaccountInternal = async (
       const userId = bank[0].user_id;
 
       // Get vendor by userId
-      const vendors = await getVendorsDao({ user_id: userId }, null, null, null, null, null, null, conn);
+      const vendors = await getVendorsDao(
+        { user_id: userId },
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        conn,
+      );
       if (vendors && vendors.length > 0) {
         const vendor = vendors[0];
         const netBalanceLimit = vendor?.config?.net_balance;
