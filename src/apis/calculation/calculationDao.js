@@ -940,7 +940,7 @@ export const getCalculationsForInternalUseDao = async (
       // Get user hierarchy to validate submerchant access
       const userHierarchys = await getUserHierarchysDao({
         user_id: effectiveUserId,
-      });
+      }, null, null, null, null, null, conn);
       let userIds = [effectiveUserId]; // Always include merchant's own ID
 
       // Handle userCodes for merchant totals
@@ -973,7 +973,7 @@ export const getCalculationsForInternalUseDao = async (
       // Get user hierarchy to validate sub-vendor access
       const userHierarchys = await getUserHierarchysDao({
         user_id: effectiveUserId,
-      });
+      }, null, null, null, null, null, conn);
       let userIds = [effectiveUserId]; // Always include vendor's own ID
 
       // Include sub-vendors when available
@@ -1067,7 +1067,7 @@ export const getCalculationsForInternalUseDao = async (
 
       const balanceResult = conn
         ? await conn.query(baseCalQuery)
-        : await executeQuery(baseCalQuery);
+        : await executeQuery(baseCalQuery, [], conn);
 
       // Process results into netBalance object with company filtering
       netBalance = balanceResult.rows.reduce(
@@ -1090,7 +1090,7 @@ export const getCalculationsForInternalUseDao = async (
     } else {
       const userHierarchys = await getUserHierarchysDao({
         user_id: effectiveUserId,
-      });
+      }, null, null, null, null, null, conn);
       let userIds = [effectiveUserId]; // Always include user's own ID
 
       // Include sub-merchants/sub-vendors when available based on role
@@ -1261,7 +1261,7 @@ export const getCalculationsForInternalUseDao = async (
       // Get user hierarchy to validate submerchant access
       const userHierarchys = await getUserHierarchysDao({
         user_id: effectiveUserId,
-      });
+      }, null, null, null, null, null, conn);
       let userIds = [effectiveUserId];
 
       if (userCodes?.length > 0) {
@@ -1280,7 +1280,7 @@ export const getCalculationsForInternalUseDao = async (
       // Get user hierarchy to validate sub-vendor access
       const userHierarchys = await getUserHierarchysDao({
         user_id: effectiveUserId,
-      });
+      }, null, null, null, null, null, conn);
       let userIds = [effectiveUserId]; // Always include vendor's own ID
 
       // Include sub-vendors when available
@@ -1337,7 +1337,7 @@ export const getCalculationsForInternalUseDao = async (
             if (userCode) {
               const userHierarchys = await getUserHierarchysDao({
                 user_id: userCode,
-              });
+              }, null, null, null, null, null, conn);
               const allowedSubvendors =
                 userHierarchys?.[0]?.config?.siblings?.sub_vendors || [];
               vendorUserIds.push(userCode); // Add the main userCode
