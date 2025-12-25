@@ -10,6 +10,7 @@ import {
   checkPayOutStatus,
   assignedPayout,
   createTataPayBulkPayoutController,
+  createRupeeFlowBulkPayoutController,
 } from './payOutController.js';
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
@@ -408,6 +409,11 @@ router.post(
   '/tatapay/bulk-payout',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(createTataPayBulkPayoutController),
+);
+router.post(
+  '/rupeeflow/bulk-payout',
+  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  tryCatchHandler(createRupeeFlowBulkPayoutController),
 );
 
 // router.post(

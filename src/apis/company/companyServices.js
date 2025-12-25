@@ -5,13 +5,14 @@ import {
   getCompanyDetailsByIdDao,
   updateCompanyDao,
 } from './companyDao.js';
-import { createUserService } from '../users/userService.js';
+import { _createUserServiceInternal } from '../users/userService.js';
 // import { createDesignationService } from '../designation/designationServices.js';
 import { getRoleDao } from '../roles/rolesDao.js';
 import { RoleIs, DesignationIs } from '../../constants/index.js';
 import { getDesignationDao } from '../designation/designationDao.js';
 import { logger } from '../../utils/logger.js';
 import config from '../../config/config.js';
+import { beginTransaction, commit, getConnection, rollback } from '../../utils/db.js';
 
 const getCompanyService = async (id) => {
   try {
@@ -33,7 +34,7 @@ const getCompanyByIdService = async (id) => {
   }
 };
 
-const _createCompanyServiceInternal = async (payload) => {
+const _createCompanyServiceInternal = async (payload, conn) => {
   try {
     // Validate payload
     // Create company
@@ -94,14 +95,14 @@ const _createCompanyServiceInternal = async (payload) => {
       email: payload.email,
       contact_no: payload.contact_no,
       config: payload.config || {},
-    });
+    }, conn);
     let role = [];
     let designations = [];
 
-    role = await getRoleDao({ role: RoleIs.ADMIN });
+    role = await getRoleDao({ role: RoleIs.ADMIN }, conn);
     designations = await getDesignationDao({
       designation: DesignationIs.ADMIN,
-    });
+    }, conn);
 
     const userPayload = {
       role_id: role[0].id,
@@ -117,7 +118,7 @@ const _createCompanyServiceInternal = async (payload) => {
       code: payload.first_name.split('').reverse().join(''),
     };
     // Create user - this will manage its own transaction
-    const user = await createUserService(userPayload);
+    const user = await _createUserServiceInternal(userPayload, conn);
 
     // Return result
     return {
@@ -133,12 +134,23 @@ const _createCompanyServiceInternal = async (payload) => {
 };
 
 const createCompanyService = async (payload) => {
+  let conn
   try {
-    const result = await _createCompanyServiceInternal(payload);
+    conn = await getConnection();
+    await beginTransaction(conn);
+    const result = await _createCompanyServiceInternal(payload, conn);
+    await commit(conn);
     return result;
   } catch (error) {
+    if (conn) {
+      await rollback(conn);
+    }
     logger.error('Error while creating company:', error);
     throw error;
+  } finally {
+    if (conn) {
+      conn.release();
+    }
   }
 };
 

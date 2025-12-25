@@ -154,7 +154,9 @@ const getMerchantsService = async (
   designation,
   user_id,
 ) => {
+  let conn;
   try {
+    conn = await getConnection('reader');
     const filterColumns =
       role === Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
     const pageNumber = parseInt(page, 10) || 1;
@@ -173,88 +175,7 @@ const getMerchantsService = async (
         null,
         null,
         null,
-      );
-      const userHierarchy = userHierarchys[0];
-      if (designation === Role.MERCHANT || designation === Role.SUB_MERCHANT) {
-        if (userHierarchy?.config?.siblings?.sub_merchants) {
-          const subMerchants =
-            userHierarchy?.config?.siblings?.sub_merchants ?? [];
-          userIdFilter = [...new Set([...userIdFilter, ...subMerchants])];
-        }
-      } else if (designation === Role.MERCHANT_OPERATIONS) {
-        const parentUserId = userHierarchy?.config?.parent;
-        if (parentUserId && !userIdFilter.includes(parentUserId)) {
-          userIdFilter.push(parentUserId);
-        }
-        if (parentUserId) {
-          const parentHierarchys = await getUserHierarchysDao({
-            user_id: parentUserId,
-          });
-          const parentHierarchy = parentHierarchys[0];
-          if (parentHierarchy?.config?.siblings?.sub_merchants) {
-            const subMerchants =
-              parentHierarchy?.config?.siblings?.sub_merchants ?? [];
-            userIdFilter = [...new Set([...userIdFilter, ...subMerchants])];
-          }
-        }
-      }
-    }
-    if (userIdFilter.length > 0) {
-      filters.user_id =
-        userIdFilter.length === 1 ? userIdFilter[0] : userIdFilter;
-    }
-    if (role === Role.ADMIN) {
-      delete filters.user_id;
-    }
-    let data = await getAllMerchantsDao(
-      filters,
-      pageNumber,
-      pageSize,
-      'updated_at',
-      null,
-      role,
-    );
-
-    const finalResult = filterResponse(data, filterColumns);
-    return finalResult;
-  } catch (error) {
-    logger.error('Error while fetching merchants', error);
-    throw error;
-  }
-};
-// let searchTerms;
-// if (filters.search) {
-//   searchTerms = filters.search
-//     .split(',')
-//     .map((term) => term.trim())
-//     .filter((term) => term.length > 0);
-// }
-const getMerchantsBySearchService = async (
-  filters,
-  role,
-  designation,
-  user_id,
-) => {
-  try {
-    // const filterColumns =
-    //   role === Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
-    const pageNumber = parseInt(filters?.page, 10) || 1;
-    const pageSize = parseInt(filters?.limit, 10) || 10;
-
-    let userIdFilter = Array.isArray(user_id)
-      ? [...user_id]
-      : user_id
-        ? [user_id]
-        : [];
-    if (role === Role.MERCHANT) {
-      const userHierarchys = await getUserHierarchysDao(
-        { user_id },
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
+        conn,
       );
       const userHierarchy = userHierarchys[0];
       if (designation === Role.MERCHANT || designation === Role.SUB_MERCHANT) {
@@ -278,7 +199,102 @@ const getMerchantsBySearchService = async (
             null,
             null,
             null,
+            conn,
+          );
+          const parentHierarchy = parentHierarchys[0];
+          if (parentHierarchy?.config?.siblings?.sub_merchants) {
+            const subMerchants =
+              parentHierarchy?.config?.siblings?.sub_merchants ?? [];
+            userIdFilter = [...new Set([...userIdFilter, ...subMerchants])];
+          }
+        }
+      }
+    }
+    if (userIdFilter.length > 0) {
+      filters.user_id =
+        userIdFilter.length === 1 ? userIdFilter[0] : userIdFilter;
+    }
+    if (role === Role.ADMIN) {
+      delete filters.user_id;
+    }
+    let data = await getAllMerchantsDao(
+      filters,
+      pageNumber,
+      pageSize,
+      'updated_at',
+      null,
+      role,
+      conn,
+    );
+
+    const finalResult = filterResponse(data, filterColumns);
+    return finalResult;
+  } catch (error) {
+    logger.error('Error while fetching merchants', error);
+    throw error;
+  } finally {
+    if (conn) conn.release();
+  }
+};
+// let searchTerms;
+// if (filters.search) {
+//   searchTerms = filters.search
+//     .split(',')
+//     .map((term) => term.trim())
+//     .filter((term) => term.length > 0);
+// }
+const getMerchantsBySearchService = async (
+  filters,
+  role,
+  designation,
+  user_id,
+) => {
+  let conn;
+  try {
+    conn = await getConnection('reader');
+    // const filterColumns =
+    //   role === Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
+    const pageNumber = parseInt(filters?.page, 10) || 1;
+    const pageSize = parseInt(filters?.limit, 10) || 10;
+
+    let userIdFilter = Array.isArray(user_id)
+      ? [...user_id]
+      : user_id
+        ? [user_id]
+        : [];
+    if (role === Role.MERCHANT) {
+      const userHierarchys = await getUserHierarchysDao(
+        { user_id },
+        null,
+        null,
+        null,
+        null,
+        null,
+        conn,
+      );
+      const userHierarchy = userHierarchys[0];
+      if (designation === Role.MERCHANT || designation === Role.SUB_MERCHANT) {
+        if (userHierarchy?.config?.siblings?.sub_merchants) {
+          const subMerchants =
+            userHierarchy?.config?.siblings?.sub_merchants ?? [];
+          userIdFilter = [...new Set([...userIdFilter, ...subMerchants])];
+        }
+      } else if (designation === Role.MERCHANT_OPERATIONS) {
+        const parentUserId = userHierarchy?.config?.parent;
+        if (parentUserId && !userIdFilter.includes(parentUserId)) {
+          userIdFilter.push(parentUserId);
+        }
+        if (parentUserId) {
+          const parentHierarchys = await getUserHierarchysDao(
+            {
+              user_id: parentUserId,
+            },
             null,
+            null,
+            null,
+            null,
+            null,
+            conn,
           );
           const parentHierarchy = parentHierarchys[0];
           if (parentHierarchy?.config?.siblings?.sub_merchants) {
@@ -312,6 +328,7 @@ const getMerchantsBySearchService = async (
       null,
       role,
       searchTerms,
+      conn,
     );
 
     // let data = await getAllMerchantsDao(
@@ -328,6 +345,8 @@ const getMerchantsBySearchService = async (
   } catch (error) {
     logger.error('Error while fetching merchants by search', error);
     throw new InternalServerError(error.message);
+  } finally {
+    if (conn) conn.release();
   }
 };
 
@@ -374,9 +393,17 @@ const getMerchantsServiceCode = async (
           userIdFilter.push(parentUserId);
         }
         if (parentUserId) {
-          const parentHierarchys = await getUserHierarchysDao({
-            user_id: parentUserId,
-          });
+          const parentHierarchys = await getUserHierarchysDao(
+            {
+              user_id: parentUserId,
+            },
+            null,
+            null,
+            null,
+            null,
+            null,
+            conn,
+          );
           const parentHierarchy = parentHierarchys[0];
           const subMerchants =
             parentHierarchy?.config?.siblings?.sub_merchants ?? [];
@@ -395,11 +422,11 @@ const getMerchantsServiceCode = async (
     }
 
     const codes = await getMerchantsCodeDao(
-      conn,
       filters,
       includeSubMerchants,
       includeOnlyMerchants,
       excludeDisabledMerchant,
+      conn,
     );
     await commit(conn);
     committed = true;
@@ -626,7 +653,9 @@ const getMerchantByIdService = async (
   role,
   addUserHierarchy = false,
 ) => {
+  let conn;
   try {
+    conn = await getConnection('reader');
     const entryColumns =
       role === Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
     const filterColumns = entryColumns.includes('user_id')
@@ -639,6 +668,7 @@ const getMerchantByIdService = async (
       null,
       null,
       filterColumns,
+      conn,
     );
 
     const merchant = dataArr[0];
@@ -659,7 +689,7 @@ const getMerchantByIdService = async (
         null,
         null,
         null,
-        null,
+        conn,
       );
       const userHierarchy = userHierarchys[0];
 
@@ -682,6 +712,7 @@ const getMerchantByIdService = async (
         null,
         null,
         filterColumns,
+        conn,
       );
     }
 
@@ -689,6 +720,8 @@ const getMerchantByIdService = async (
   } catch (error) {
     logger.error('Error while fetching merchant by ID', error);
     throw error;
+  } finally {
+    if (conn) conn.release();
   }
 };
 
