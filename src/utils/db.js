@@ -5,6 +5,7 @@ import chalk from 'chalk';
 import { DbError, InternalServerError } from './appErrors.js';
 import { logger } from './logger.js';
 import { stringifyJSON } from './index.js';
+import { trackDbConnection } from './dbConnectionTracker.js';
 // import fs from 'fs';
 // import path from 'path';
 // import { fileURLToPath } from 'url';
@@ -221,6 +222,10 @@ const getConnection = async (type = 'writer') => {
       
       const client = await Promise.race([pool.connect(), timeoutPromise]);
       
+      // Add tracking (capture caller file/line best-effort)
+      const stack = new Error().stack?.split('\n').slice(2, 6).join('\n');
+      trackDbConnection({ stack });
+
       // Only log in development or on first connection
       if (config.env !== 'production' || retryCount > 0) {
         logger.info('Database connected successfully');
@@ -329,49 +334,50 @@ const rollback = async (client) => {
 };
 
 export const executeQuery = async (query, queryParams = [], conn = null) => {
-  const maxRetries = 3; // Number of retries for transient errors
+  const maxRetries = 3;
+  const isSelect = query.trim().toUpperCase().startsWith('SELECT');
+  const pool = isSelect ? readerPool : writerPool;
+  
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    let client = null;
+    const db = conn ?? (client = await pool.connect());
+
     try {
-      const isSelect = query.trim().toUpperCase().startsWith('SELECT');
-      const pool = isSelect ? readerPool : writerPool;
-      const result = conn
-        ? await conn.query(query, queryParams)
-        : await pool.query(query, queryParams);
+
+      const result = await db.query(query, queryParams);
       return result;
     } catch (error) {
-      // Log pool stats on connection timeout to help diagnose pool exhaustion
-      if (error.message?.includes('timeout') || error.message?.includes('timed out')) {
-        const stats = getPoolStats();
-        logger.error(`[DB Timeout] Pool stats at failure:`, stats);
+      if (error.message?.includes('timeout')) {
+        logger.error('[DB Timeout] Pool stats:', getPoolStats());
       }
-      
-      logger.error(`Error while executing query (Attempt ${attempt}):`, error);
-      logger.error(`\nQuery: ${query}\nParams: [${queryParams}]`);
 
-      // Check if error is a transient connection issue
-      const isTransientError = 
+      logger.error(`DB Error (Attempt ${attempt})`, {
+        query,
+        params: queryParams,
+        error,
+      });
+
+      const isTransientError =
         error.code === 'ECONNRESET' ||
         error.code === 'ECONNREFUSED' ||
         error.code === 'ETIMEDOUT' ||
         error.code === 'EPIPE' ||
         error.code === 'ENOTFOUND' ||
-        error.message?.includes('Database connection error') || // DbError from getConnection
         error.message?.includes('Connection terminated unexpectedly') ||
-        error.message?.includes('connection timeout') ||
-        error.message?.includes('timeout exceeded') || // Pool timeout
-        error.message?.includes('server closed the connection') ||
-        error.message?.includes('terminating connection due to idle-in-transaction timeout');
+        error.message?.includes('timeout');
 
-      // Retry only for transient errors
       if (isTransientError && attempt < maxRetries) {
-        const delay = 1000 * attempt; // Exponential backoff: 1s, 2s, 3s
-        logger.warn(`Retrying query due to ${error.code || 'connection error'} (Attempt ${attempt + 1} in ${delay}ms)...`);
-        await new Promise((resolve) => setTimeout(resolve, delay));
+        const delay = attempt * 1000;
+        logger.warn(`Retrying DB query in ${delay}ms (Attempt ${attempt + 1})`);
+        await new Promise(res => setTimeout(res, delay));
         continue;
       }
 
-      // Throw error if retries are exhausted or error is not transient
       throw new DbError(error.message);
+    } finally {
+      if (client) {
+        client.release();
+      }
     }
   }
 };
