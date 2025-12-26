@@ -1004,7 +1004,6 @@ const createBankResponseWebHookService = async (
               parseFloat(botRes.amount),
             payin_count: parseFloat(bankDetails[0].payin_count + 1),
           },
-          localConn,
         );
         await updateBankaccountService(
           localConn,
@@ -1567,7 +1566,7 @@ const resetBankResponseService = async (conn, id, userData) => {
     }
 
     if (bank_id) {
-      const newBank = await getBankaccountDao({ id: bank_id });
+      const newBank = await getBankaccountDao({ id: bank_id }, null, null, null, null, conn);
       const bankResult = await handleBankIdUpdate({
         botRes,
         bank_id,
@@ -1580,13 +1579,13 @@ const resetBankResponseService = async (conn, id, userData) => {
       changes.bank_id = bank_id;
       changes.nick_name = newBank[0]?.nick_name;
       changes.config.previousBank = (
-        await getBankaccountDao({ id: botRes.bank_id })
+        await getBankaccountDao({ id: botRes.bank_id }, null, null, null, null, conn)
       )[0]?.nick_name;
     }
 
     if (!amount && !utr && !bank_id) {
-      await updatePayInData({ payInData, user_name, botRes });
-      await resetBankResponseDao(id, updateData);
+      await updatePayInData({ payInData, user_name, botRes }, conn);
+      await resetBankResponseDao(id, updateData, conn);
     }
 
     // logger.info(`Bank response reset successful for ID: ${id}`, 'info');
@@ -1672,9 +1671,11 @@ const handleAmountUpdate = async ({
       }
       
       // Fetch calculation data for vendor and parent (if sub-vendor)
-      let fetchPromises = [getAllCalculationforCronDao(vendor[0].user_id)];
+      let fetchPromises = [getAllCalculationforCronDao(vendor[0].user_id, conn)];
       if (subVendorParentInfo) {
-        fetchPromises.push(getAllCalculationforCronDao(subVendorParentInfo.parentUserId));
+        fetchPromises.push(
+          getAllCalculationforCronDao(subVendorParentInfo.parentUserId, conn),
+        );
       }
 
       const calculationResults = await Promise.all(fetchPromises);
@@ -1761,7 +1762,7 @@ const handleAmountUpdate = async ({
             );
           }
         }),
-        updatePayInData({ payInData, user_name, botRes }),
+        updatePayInData({ payInData, user_name, botRes }, conn),
         updateBotResponseDao(botRes.id, updateData, conn),
       );
 
@@ -1799,7 +1800,7 @@ const handleUtrUpdate = async ({
     const payIn = await getPayInsForResetBankResDao({
       user_submitted_utr: utr,
       company_id,
-    });
+    }, conn);
     if (
       payIn?.length &&
       payIn[0].user_submitted_utr &&
@@ -2008,6 +2009,8 @@ const handleBankIdUpdate = async ({
           today_balance: prevBank[0].today_balance - botRes.amount,
           updated_by: user_id,
         },
+        undefined,
+        conn,
       ),
       updateBankaccountDao(
         { id: newBank[0].id, company_id },
@@ -2017,6 +2020,8 @@ const handleBankIdUpdate = async ({
           today_balance: newBank[0].today_balance + botRes.amount,
           updated_by: user_id,
         },
+        undefined,
+        conn,
       ),
       updateBotResponseDao(botRes.id, updateData, conn),
     ];
@@ -2030,7 +2035,7 @@ const handleBankIdUpdate = async ({
 };
 
 // Update pay-in data
-const updatePayInData = async ({ payInData, user_name, botRes }) => {
+const updatePayInData = async ({ payInData, user_name, botRes }, conn) => {
   try {
     const isEqualUTR = payInData?.some(
       (item) => item.user_submitted_utr === botRes.utr,
@@ -2068,7 +2073,7 @@ const updatePayInData = async ({ payInData, user_name, botRes }) => {
         bank_response_id: null,
         updated_by: user_name,
       };
-      await updatePayInUrlDao(updatePayinID[0].id, updatePayinData);
+      await updatePayInUrlDao(updatePayinID[0].id, updatePayinData, undefined, conn);
       await newTableEntry(tableName.PAYIN);
     }
   } catch (error) {
