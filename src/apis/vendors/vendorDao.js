@@ -10,14 +10,10 @@ import { getUserHierarchyVendor , updateUserHierarchyVendor } from '../userHiera
 import { logger } from '../../utils/logger.js';
 import { enhanceVendorsWithSubVendors } from '../../utils/enhanceSubVendor.js';
 
-export const createVendorDao = async (data, conn) => {
+export const createVendorDao = async (data, conn = null) => {
   try {
     const [sql, params] = buildInsertQuery(tableName.VENDOR, data);
-    if (conn && conn.query) {
-      const result = await conn.query(sql, params);
-      return result.rows[0];
-    }
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in create Vendor Dao:', error);
@@ -25,10 +21,10 @@ export const createVendorDao = async (data, conn) => {
   }
 };
 
-export const getVendorCodeDao = async (id) => {
+export const getVendorCodeDao = async (id, conn = null) => {
   try {
     const sql = `SELECT code FROM "${tableName.VENDOR}" WHERE id = $1`;
-    const result = await executeQuery(sql, [id]);
+    const result = await executeQuery(sql, [id], conn);
     return result.rows[0] || null;
   } catch (error) {
     logger.error('Error fetching vendor by ID:', error);
@@ -36,7 +32,7 @@ export const getVendorCodeDao = async (id) => {
   }
 };
 
-export const getVendorsBankReponseDao = async (filters = {}) => {
+export const getVendorsBankReponseDao = async (filters = {}, conn = null) => {
   try {
     let sql = `
       SELECT 
@@ -81,8 +77,8 @@ export const getVendorsBankReponseDao = async (filters = {}) => {
     }
     
     sql += ` ORDER BY v.created_at DESC`;
-    
-    const result = await executeQuery(sql, params);
+
+    const result = await executeQuery(sql, params, conn);
     return result.rows || [];
   } catch (error) {
     logger.error('Error fetching vendor data:', error);
@@ -90,7 +86,7 @@ export const getVendorsBankReponseDao = async (filters = {}) => {
   }
 };
 
-export const getVendorsDashBoardReportDao = async (filters = {}) => {
+export const getVendorsDashBoardReportDao = async (filters = {}, conn = null) => {
   try {
     const selectColumns = `
       user_id,
@@ -100,7 +96,7 @@ export const getVendorsDashBoardReportDao = async (filters = {}) => {
       `SELECT ${selectColumns} FROM "${tableName.VENDOR}" WHERE 1=1`,
       filters,
     );
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows || [];
   } catch (error) {
     logger.error('Error getting vendor data:', error);
@@ -116,6 +112,7 @@ export const getVendorsCodeDao = async (
   includeSeperateSubVendors = false,
   includeVendorAdmin = false,
   isEnabled = false,
+  conn = null,
 ) => {
   try {
     // Convert string to boolean
@@ -250,7 +247,7 @@ export const getVendorsCodeDao = async (
     }
 
     sql += ` GROUP BY v.id, v.code, v.user_id ORDER BY v.code ASC`;
-    const result = await conn.query(sql, queryParams);
+    const result = await executeQuery(sql, queryParams, conn);
     logger.log('Fetched Vendors:', result.rows.length, 'rows');
     return result.rows;
   } catch (error) {
@@ -258,7 +255,7 @@ export const getVendorsCodeDao = async (
     throw error;
   }
 };
-export const getVendorsPayinsDao = async (filters) => {
+export const getVendorsPayinsDao = async (filters, conn = null) => {
   try {
     let query = `
     SELECT code
@@ -267,7 +264,7 @@ export const getVendorsPayinsDao = async (filters) => {
     And is_obsolete = false
   `;
     const params = [filters.user_id];
-    const result = await executeQuery(query, params);
+    const result = await executeQuery(query, params, conn);
     return result.rows;
   } catch (error) {
     logger.error('Error executing vendor Payins query:', error.message);
@@ -283,6 +280,7 @@ export const getVendorsDao = async (
   sortOrder = 'DESC',
   role,
   includeSeperateSubVendors = false,
+  conn = null,
 ) => {
   try {
     let baseQuery;
@@ -365,7 +363,7 @@ export const getVendorsDao = async (
       sortOrder,
       'Vendor',
     );
-    const result = await executeQuery(query, values);
+    const result = await executeQuery(query, values, conn);
 
     // Enhance with sub-vendor data
     const enhancedVendors = await enhanceVendorsWithSubVendors(
@@ -373,6 +371,7 @@ export const getVendorsDao = async (
       includeSeperateSubVendors,
       role,
       filters.company_id,
+      conn,
     );
     return enhancedVendors;
   } catch (error) {
@@ -381,7 +380,7 @@ export const getVendorsDao = async (
   }
 };
 
-export const getVendorByIdDao = async (user_id, company_id) => {
+export const getVendorByIdDao = async (user_id, company_id, conn = null) => {
   try {
     const sql = `
     SELECT 
@@ -399,7 +398,7 @@ export const getVendorByIdDao = async (user_id, company_id) => {
     ;
   `;
     const params = [user_id, company_id];
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows || null;
   } catch (error) {
     logger.error('Error fetching vendor by ID:', error);
@@ -407,7 +406,7 @@ export const getVendorByIdDao = async (user_id, company_id) => {
   }
 }
 
-export const getVendorIdsByUserIds = async (user_ids) => {
+export const getVendorIdsByUserIds = async (user_ids, conn = null) => {
   try {
     const ids = Array.isArray(user_ids) ? user_ids : [user_ids];
     if (ids.length === 0) return [];
@@ -419,8 +418,8 @@ export const getVendorIdsByUserIds = async (user_ids) => {
       WHERE user_id IN (${placeholders})
         AND is_obsolete = false
     `;
-    const result = await executeQuery(query, ids);
-    return result.rows.map(row => row.id);
+    const result = await executeQuery(query, ids, conn);
+    return result.rows.map((row) => row.id);
   } catch (error) {
     logger.error('Error in getVendorIdsByUserIds:', error);
     throw error;
@@ -434,6 +433,7 @@ export const getAllVendorsDao = async (
   sortOrder = 'DESC',
   role,
   includeSeperateSubVendors = false,
+  conn = null,
 ) => {
   try {
     let baseQuery;
@@ -515,7 +515,7 @@ export const getAllVendorsDao = async (
       sortOrder,
       'Vendor',
     );
-    const result = await executeQuery(query, values);
+    const result = await executeQuery(query, values, conn);
 
     // Enhance with sub-vendor data
     const enhancedVendors = await enhanceVendorsWithSubVendors(
@@ -523,6 +523,7 @@ export const getAllVendorsDao = async (
       includeSeperateSubVendors,
       role,
       filters.company_id,
+      conn,
     );
     return enhancedVendors;
   } catch (error) {
@@ -537,6 +538,7 @@ export const getVendorsBySearchDao = async (
   pageSize,
   searchTerms,
   includeSeperateSubVendors = false,
+  conn = null,
 ) => {
   try {
     const conditions = [];
@@ -644,7 +646,7 @@ export const getVendorsBySearchDao = async (
     }
 
     const countQuery = `SELECT COUNT(*) as total FROM (${queryText}) as count_table`;
-    const countResult = await executeQuery(countQuery, values);
+    const countResult = await executeQuery(countQuery, values, conn);
 
     // Calculate offset - pageNumber is 1-based
     const offset = (pageNumber - 1) * pageSize;
@@ -655,13 +657,13 @@ export const getVendorsBySearchDao = async (
       OFFSET $${paramIndex + 1}
     `;
     values.push(pageSize, offset);
-    let searchResult = await executeQuery(queryText, values);
+    let searchResult = await executeQuery(queryText, values, conn);
     // Calculate pagination metadata
     const totalItems = parseInt(countResult.rows[0].total);
     let totalPages = Math.ceil(totalItems / pageSize);
     if (totalItems > 0 && searchResult.rows.length === 0 && offset > 0) {
       values[values.length - 1] = 0;
-      searchResult = await executeQuery(queryText, values);
+      searchResult = await executeQuery(queryText, values, conn);
       totalPages = Math.ceil(totalItems / pageSize);
     }
 
@@ -671,6 +673,7 @@ export const getVendorsBySearchDao = async (
       includeSeperateSubVendors,
       filters.role,
       filters.company_id,
+      conn,
     );
 
     const data = {
@@ -684,14 +687,10 @@ export const getVendorsBySearchDao = async (
     throw error;
   }
 };
-export const updateVendorDao = async (id, data, conn) => {
+export const updateVendorDao = async (id, data, conn = null) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.VENDOR, data, id);
-    if (conn && conn.query) {
-      const result = await conn.query(sql, params);
-      return result.rows[0];
-    }
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in updateVendorDao:', error);
@@ -699,10 +698,10 @@ export const updateVendorDao = async (id, data, conn) => {
   }
 };
 
-export const deleteVendorDao = async (conn, id, data) => {
+export const deleteVendorDao = async (id, data, conn = null) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.VENDOR, data, id);
-    const result = await conn.query(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in deleteVendorDao:', error);
@@ -727,7 +726,7 @@ export const updateVendorBalanceDao = async (
       const result = await conn.query(sql, params);
       return result.rows[0];
     }
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result[0];
   } catch (error) {
     logger.error('Error in updateVendorBalanceDao:', error);
@@ -735,7 +734,7 @@ export const updateVendorBalanceDao = async (
   }
 };
 
-export const getVendorsDaoArray = async (company_id, code) => {
+export const getVendorsDaoArray = async (company_id, code, conn = null) => {
   try {
     let baseQuery = `
       SELECT 
@@ -770,7 +769,7 @@ export const getVendorsDaoArray = async (company_id, code) => {
     `;
 
     let queryParams = [company_id, code];
-    const result = await executeQuery(baseQuery, queryParams);
+    const result = await executeQuery(baseQuery, queryParams, conn);
     return result.rows;
   } catch (error) {
     logger.error('Error fetching merchant by code and API key:', error);
@@ -778,13 +777,13 @@ export const getVendorsDaoArray = async (company_id, code) => {
   }
 };
 
-export const getBankResponseAccessByIDDao = async (id) => {
+export const getBankResponseAccessByIDDao = async (id, conn = null) => {
   try {
     const query = `
       SELECT "Vendor".config->>'bank_response_access' as bank_response_access FROM "Vendor"
       WHERE "Vendor".user_id = $1
     `;
-    const result = await executeQuery(query, [id]);
+    const result = await executeQuery(query, [id], conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error fetching bank response access by ID:', error);
@@ -792,7 +791,7 @@ export const getBankResponseAccessByIDDao = async (id) => {
   }
 };
 
-export const getVendorByCodeDao = async (code) => {
+export const getVendorByCodeDao = async (code, conn = null) => {
   try {
     const sql = `
       SELECT 
@@ -809,7 +808,7 @@ export const getVendorByCodeDao = async (code) => {
       ORDER BY "Vendor"."created_at" ASC;
     `;
 
-    const result = await executeQuery(sql, [code]);
+    const result = await executeQuery(sql, [code], conn);
     return result.rows;
   } catch (error) {
     logger.error('Error fetching vendor by code:', error);
@@ -818,7 +817,7 @@ export const getVendorByCodeDao = async (code) => {
 };
 
 //only for subvendor data
-export const getVendorByUserDao = async (userId) => {
+export const getVendorByUserDao = async (userId, conn = null) => {
   try {
     const sql = `
       SELECT 
@@ -850,7 +849,7 @@ export const getVendorByUserDao = async (userId) => {
     const queryParams = [userId];
 
     // Execute query
-    const result = await executeQuery(sql, queryParams);
+    const result = await executeQuery(sql, queryParams, conn);
 
     // Return the rows (vendor data)
     return result.rows;
@@ -863,18 +862,18 @@ export const getVendorByUserDao = async (userId) => {
 /**
  * Get designation id by designation name
  */
-export const getDesignationIdDao = async (designation, conn) => {
+export const getDesignationIdDao = async (designation, conn = null) => {
+  try  {
   const sql = `SELECT id FROM "${tableName.DESIGNATION}" WHERE designation = $1 LIMIT 1;`;
-  let result;
-  if (conn && conn.query) {
-    result = await conn.query(sql, [designation]);
-  } else {
-    result = await executeQuery(sql, [designation]);
-  }
+  const result = await executeQuery(sql, [designation], conn);
   return result.rows[0]?.id || null;
+  } catch (error) {
+    logger.error('Error in getDesignationIdDao:', error);
+    throw error;
+  }
 };
 
-export const isNetBalanceZeroForTwoHours = async (vendorUserId) => {
+export const isNetBalanceZeroForTwoHours = async (vendorUserId, conn = null) => {
   try {
     const sql = `
       SELECT net_balance, updated_at
@@ -885,7 +884,7 @@ export const isNetBalanceZeroForTwoHours = async (vendorUserId) => {
       ORDER BY updated_at DESC
       LIMIT 1;
     `;
-    const result = await executeQuery(sql, [vendorUserId]);
+    const result = await executeQuery(sql, [vendorUserId], conn);
     if (!result.rows.length) {
       return false;
     } else {
@@ -901,10 +900,10 @@ export const isNetBalanceZeroForTwoHours = async (vendorUserId) => {
   }
 };
 
-const getVendorCode = async (userId) => {
+const getVendorCode = async (userId, conn = null) => {
   try {
     const sql = `SELECT code FROM "${tableName.VENDOR}" WHERE user_id = $1 LIMIT 1;`;
-    const { rows } = await executeQuery(sql, [userId]);
+    const { rows } = await executeQuery(sql, [userId], conn);
     return rows[0]?.code;
   } catch (error) {
     logger.error('Error in getVendorCode:', error);
@@ -912,10 +911,10 @@ const getVendorCode = async (userId) => {
   }
 };
 
-const getVendorConfig = async (userId) => {
+const getVendorConfig = async (userId, conn = null) => {
   try {
     const sql = `SELECT code, config FROM "${tableName.VENDOR}" WHERE user_id = $1 LIMIT 1;`;
-    const { rows } = await executeQuery(sql, [userId]);
+    const { rows } = await executeQuery(sql, [userId], conn);
     return { code: rows[0]?.code, config: rows[0]?.config || {} };
   } catch (error) {
     logger.error('Error in getVendorConfig:', error);
@@ -923,13 +922,13 @@ const getVendorConfig = async (userId) => {
   }
 };
 
-const updateVendorConfig = async (userId, newConfig, updatedBy) => {
+const updateVendorConfig = async (userId, newConfig, updatedBy, conn = null) => {
   try {
     const sql = `UPDATE "${tableName.VENDOR}"
                SET config = $1, updated_by = $2
                WHERE user_id = $3
                RETURNING *;`;
-    const { rows } = await executeQuery(sql, [newConfig, updatedBy, userId]);
+    const { rows } = await executeQuery(sql, [newConfig, updatedBy, userId], conn);
     return rows[0];
   } catch (error) {
     logger.error('Error in updateVendorConfig:', error);
@@ -996,7 +995,14 @@ const updateSubCodeWithHistory = (vendorConfig, newSubCode) => ({
 
 //linkVendorDao links a sub-vendor to a parent vendor
 
-export const linkVendorDao = async (vendorUserId, subVendorUserId, user_id) => {
+export const linkVendorDao = async (
+  vendorUserId,
+  subVendorUserId,
+  user_id,
+  mediator_payin_commission,
+  mediator_payout_commission,
+  conn = null,
+) => {
   try {
     const parentConfig = await getUserHierarchyVendor(vendorUserId);
     const childConfig = await getUserHierarchyVendor(subVendorUserId);
@@ -1006,10 +1012,11 @@ export const linkVendorDao = async (vendorUserId, subVendorUserId, user_id) => {
       vendorUserId,
       newParentConfig,
       user_id,
+      conn,
     );
 
     const newChildConfig = setParentInChild(childConfig, vendorUserId);
-    await updateUserHierarchyVendor(subVendorUserId, newChildConfig, user_id);
+    await updateUserHierarchyVendor(subVendorUserId, newChildConfig, user_id, conn);
 
     const parentCode = await getVendorCode(vendorUserId);
     if (parentCode) {
@@ -1017,8 +1024,13 @@ export const linkVendorDao = async (vendorUserId, subVendorUserId, user_id) => {
         await getVendorConfig(subVendorUserId);
       const subCode = buildSubCode(parentCode, childCode);
 
-      const updatedVendorConfig = { ...vendorConfig, sub_code: subCode };
-      await updateVendorConfig(subVendorUserId, updatedVendorConfig, user_id);
+      const updatedVendorConfig = {
+        ...vendorConfig,
+        sub_code: subCode,
+        mediator_payin_commission: mediator_payin_commission,
+        mediator_payout_commission: mediator_payout_commission,
+      };
+      await updateVendorConfig(subVendorUserId, updatedVendorConfig, user_id, conn);
     }
 
     return updatedParent;
@@ -1034,6 +1046,7 @@ export const unlinkVendorDao = async (
   vendorUserId,
   subVendorUserId,
   user_id,
+  conn = null,
 ) => {
   try {
     const parentConfig = await getUserHierarchyVendor(vendorUserId);
@@ -1046,13 +1059,14 @@ export const unlinkVendorDao = async (
       vendorUserId,
       newParentConfig,
       user_id,
+      conn,
     );
     const newChildConfig = clearParentInChild(childConfig);
-    await updateUserHierarchyVendor(subVendorUserId, newChildConfig, user_id);
+    await updateUserHierarchyVendor(subVendorUserId, newChildConfig, user_id, conn);
     const { config: vendorConfig } = await getVendorConfig(subVendorUserId);
     const cleanedVendorConfig = removeSubCodeFromVendor(vendorConfig);
     if (cleanedVendorConfig !== vendorConfig) {
-      await updateVendorConfig(subVendorUserId, cleanedVendorConfig, user_id);
+      await updateVendorConfig(subVendorUserId, cleanedVendorConfig, user_id, conn);
     }
     return updatedParent;
   } catch (error) {
@@ -1067,6 +1081,7 @@ export const transferVendorDao = async (
   newVendorUserId,
   currentVendorUserId,
   user_id,
+  conn = null,
 ) => {
   try {
     const currentParentConfig = await getUserHierarchyVendor(currentVendorUserId);
@@ -1080,6 +1095,7 @@ export const transferVendorDao = async (
       currentVendorUserId,
       updatedCurrentConfig,
       user_id,
+      conn,
     );
     const updatedNewConfig = addSubVendorToParent(
       newParentConfig,
@@ -1089,9 +1105,10 @@ export const transferVendorDao = async (
       newVendorUserId,
       updatedNewConfig,
       user_id,
+      conn,
     );
     const updatedChildConfig = setParentInChild(childConfig, newVendorUserId);
-    await updateUserHierarchyVendor(vendorUserId, updatedChildConfig, user_id);
+    await updateUserHierarchyVendor(vendorUserId, updatedChildConfig, user_id, conn);
     const newParentCode = await getVendorCode(newVendorUserId);
     if (newParentCode) {
       const { code: childCode, config: vendorConfig } =
@@ -1101,7 +1118,7 @@ export const transferVendorDao = async (
         vendorConfig,
         newSubCode,
       );
-      await updateVendorConfig(vendorUserId, finalVendorConfig, user_id);
+      await updateVendorConfig(vendorUserId, finalVendorConfig, user_id, conn);
     }
     return result;
   } catch (error) {
@@ -1110,10 +1127,10 @@ export const transferVendorDao = async (
   }
 };
 
-export const getVendorByUserId = async (user_id) => {
+export const getVendorByUserId = async (user_id, conn = null) => {
   try {
     const sql = `SELECT * FROM "${tableName.VENDOR}" WHERE user_id = $1 AND is_obsolete = false LIMIT 1;`;
-    const result = await executeQuery(sql, [user_id]);
+    const result = await executeQuery(sql, [user_id], conn);
     return result.rows[0] || null;
   } catch (error) {
     logger.error('Error fetching vendor by user_id:', error);

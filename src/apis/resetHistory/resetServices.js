@@ -94,9 +94,9 @@ const getResetHistoryBySearchService = async (filters) => {
   }
 };
 
-const createResetHistoryService = async (conn, payload) => {
+const _createResetHistoryServiceInternal = async (payload, conn = null) => {
   try {
-    const result = await createResetHistoryDao(payload,conn);
+    const result = await createResetHistoryDao(payload, conn);
     // await notifyAdminsAndUsers({
     //   conn,
     //   company_id: payload.company_id,

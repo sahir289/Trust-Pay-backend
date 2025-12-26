@@ -13,6 +13,7 @@ import {
   checkPayOutStatusService,
   assignedPayoutService,
   createTataPayBulkPayoutService,
+  createRupeeFlowBulkPayoutService,
 } from './payOutService.js';
 import {
   PAYOUT_DETAILS_SCHEMA,
@@ -21,6 +22,7 @@ import {
   VALIDATE_PAYOUT_BY_ID,
   ASSIGNED_VENDOR_SCHEMA,
   TATAPAY_BULK_PAYOUT_SCHEMA,
+  RUPEEFLOW_BULK_PAYOUT_SCHEMA,
 } from '../../schemas/payoutSchema.js';
 import { ValidationError } from '../../utils/appErrors.js';
 // import { BadRequestError } from '../../utils/appErrors.js';
@@ -239,6 +241,26 @@ const createTataPayBulkPayoutController = async (req, res) => {
   return sendSuccess(res, result.data, result.message);
 };
 
+const createRupeeFlowBulkPayoutController = async (req, res) => {
+  // Validate request body
+  const joiValidation = RUPEEFLOW_BULK_PAYOUT_SCHEMA.validate(req.body);
+  if (joiValidation.error) {
+    throw new ValidationError(joiValidation.error);
+  }
+
+  const { payoutEntries, payoutIds } = req.body;
+  const { company_id, user_id } = req.user;
+
+  const result = await createRupeeFlowBulkPayoutService({
+    payoutEntries,
+    payoutIds,
+    company_id,
+    user_id,
+  });
+
+  return sendSuccess(res, result.data, result.message);
+};
+
 export {
   createPayout,
   getPayoutsBySearch,
@@ -249,4 +271,5 @@ export {
   getPayoutsById,
   assignedPayout,
   createTataPayBulkPayoutController,
+  createRupeeFlowBulkPayoutController
 };

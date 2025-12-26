@@ -10,15 +10,11 @@ import { getCompanyByIDDao } from '../../apis/company/companyDao.js';
 import { getVendorsDao } from '../../apis/vendors/vendorDao.js';
 import { updatePayoutService } from '../../apis/payOut/payOutService.js';
 import { getUserByCompanyCreatedAtDao } from '../../apis/users/userDao.js';
-import {
-  beginTransaction,
-  commit,
-  getConnection,
-  rollback,
-} from '../../utils/db.js';
+import { sendSuccess } from '../../utils/responseHandlers.js';
 
 // Define the optimized payAssistTransactionStatusCallback function
 export const payAssistTransactionStatusCallback = async (req, res) => {
+  sendSuccess(res, {}, 'Webhook received successfully');
   const payload = req.body;
   const apitxnid = payload?.Response?.apitxnid;
   let conn;
@@ -32,6 +28,17 @@ export const payAssistTransactionStatusCallback = async (req, res) => {
     const [singleWithdrawData] = await getPayoutsDao({ merchant_order_id: apitxnid });
     if (!singleWithdrawData) {
       return res.status(404).send('Payment not found');
+    }
+
+    if (
+      singleWithdrawData.status === Status.APPROVED ||
+      singleWithdrawData.status === Status.REJECTED
+    ) {
+      logger.info('Payout already processed', {
+        payoutId: singleWithdrawData.id,
+        status: singleWithdrawData.status,
+      });
+      return
     }
 
     const [company] = await getCompanyByIDDao({

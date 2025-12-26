@@ -173,8 +173,7 @@ const getBeneficiaryAccountBySearchService = async (
       }
     } else if (role === Role.VENDOR) {
       if (designation === Role.VENDOR || designation === Role.VENDOR_ADMIN) {
-        const subVendors =
-          userHierarchy?.config?.siblings?.sub_vendor ?? [];
+        const subVendors = userHierarchy?.config?.siblings?.sub_vendor ?? [];
         if (Array.isArray(subVendors) && subVendors.length > 0) {
           merchant_user_id = [...merchant_user_id, ...subVendors];
           filters.user_id = [merchant_user_id];
@@ -255,6 +254,7 @@ const getBeneficiaryAccountServiceByBankName = async (
   role,
   user_id,
   designation,
+  conn,
 ) => {
   let conn;
   try {
@@ -265,7 +265,15 @@ const getBeneficiaryAccountServiceByBankName = async (
     if (role == Role.VENDOR) {
       filters.user_id = [user_id];
     }
-    const userHierarchys = await getUserHierarchysDao({ user_id });
+    const userHierarchys = await getUserHierarchysDao(
+      { user_id },
+      null,
+      null,
+      null,
+      null,
+      null,
+      conn,
+    );
     if (designation == Role.VENDOR_OPERATIONS) {
       const parentID = userHierarchys[0]?.config?.parent;
       if (parentID) {
@@ -278,30 +286,57 @@ const getBeneficiaryAccountServiceByBankName = async (
       company_id,
       type,
       filters,
+      conn,
     );
-    await commit(conn);
     return result;
   } catch (error) {
-    if (conn) {
-      try {
-        await rollback(conn);
-      } catch (rollbackError) {
-        logger.error('Error during transaction rollback', rollbackError);
-      }
-    }
+    logger.error(
+      'error in _getBeneficiaryAccountServiceByBankNameInternal',
+      error,
+    );
     throw error;
-  } finally {
-    if (conn) {
-      try {
-        conn.release();
-      } catch (releaseError) {
-        logger.error('Error while releasing the connection', releaseError);
-      }
-    }
   }
 };
 
-const createBeneficiaryAccountService = async (conn, payload, company_id) => {
+const getBeneficiaryAccountServiceByBankName = async (
+  company_id,
+  type,
+  role,
+  user_id,
+  designation,
+) => {
+  let conn;
+  let committed = false;
+  try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+    const result = await _getBeneficiaryAccountServiceByBankNameInternal(
+      company_id,
+      type,
+      role,
+      user_id,
+      designation,
+      conn,
+    );
+    await commit(conn);
+    committed = true;
+    return result;
+  } catch (error) {
+    if (conn && !committed) {
+      await rollback(conn);
+    }
+    logger.error('error getting while getting beneficiary by bank name', error);
+    throw error;
+  } finally {
+    if (conn) conn.release();
+  }
+};
+
+const _createBeneficiaryAccountServiceInternal = async (
+  payload,
+  company_id,
+  conn,
+) => {
   try {
     // Set user_id to created_by if not already set
     payload.user_id = payload.user_id || payload.created_by;
@@ -353,6 +388,7 @@ const createBeneficiaryAccountService = async (conn, payload, company_id) => {
         null,
         null,
         roleObj.role,
+        conn,
       );
       if (exists.length > 0)
         throw new BadRequestError(
@@ -361,7 +397,7 @@ const createBeneficiaryAccountService = async (conn, payload, company_id) => {
     }
 
     // Create account
-    const result = await createBeneficiaryAccountDao(conn, payload);
+    const result = await createBeneficiaryAccountDao(payload, conn);
 
     // Notify users
     // const vendorUsers = await getUserByRoleDao(company_id, Role.VENDOR);
@@ -384,27 +420,56 @@ const createBeneficiaryAccountService = async (conn, payload, company_id) => {
   }
 };
 
-const updateBeneficiaryAccountService = async (conn, ids, payload) => {
+const createBeneficiaryAccountService = async (payload, company_id) => {
+  let conn;
+  let committed = false;
+  try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+    const result = await _createBeneficiaryAccountServiceInternal(
+      payload,
+      company_id,
+      conn,
+    );
+    await commit(conn);
+    committed = true;
+    return result;
+  } catch (error) {
+    if (conn && !committed) await rollback(conn);
+    logger.error('error getting while creating beneficiary account', error);
+    throw error;
+  } finally {
+    if (conn) conn.release();
+  }
+};
+
+const _updateBeneficiaryAccountService = async (ids, payload, conn) => {
   try {
     if (payload.acc_no) {
       let filters = {};
       filters.acc_no = payload.acc_no;
       filters.company_id = ids.company_id;
-      const exists = await checkBeneficiaryAccountExistsDao(filters);
+      const exists = await checkBeneficiaryAccountExistsDao(filters, conn);
       if (exists) {
         throw new BadRequestError('Beneficiary account no. already exists');
       }
     }
-    const [banks] = await getBeneficiaryAccountDao({
-      id: ids.id,
-      company_id: ids.company_id,
-    });
+    const [banks] = await getBeneficiaryAccountDao(
+      {
+        id: ids.id,
+        company_id: ids.company_id,
+      },
+      null,
+      null,
+      null,
+      conn,
+    );
 
     if (!banks) {
       throw new BadRequestError('Beneficiary account not found');
     }
 
-    return await updateBeneficiaryAccountDao(
+    const result = await updateBeneficiaryAccountDao(
       { id: ids.id, company_id: ids.company_id },
       payload,
       conn,
@@ -426,23 +491,61 @@ const updateBeneficiaryAccountService = async (conn, ids, payload) => {
     //   actorUserId: payload.updated_by,
     //   category: 'Beneficiary Account',
     // });
+    return result;
   } catch (error) {
+    logger.error('error in _updateBeneficiaryAccountService', error);
+    throw error;
+  }
+};
+
+const updateBeneficiaryAccountService = async (ids, payload) => {
+  let conn;
+  let committed = false;
+  try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+    const result = await _updateBeneficiaryAccountService(ids, payload, conn);
+    await commit(conn);
+    committed = true;
+    return result;
+  } catch (error) {
+    if (conn && !committed) await rollback(conn);
     logger.error('error getting while updating banks', error.message);
     throw error;
   }
 };
 
-const deleteBeneficiaryAccountService = async (conn, ids) => {
+const _deleteBeneficiaryAccountServiceInternal = async (ids, conn) => {
   try {
     let result = await deleteBeneficiaryDao(
       conn,
       { id: ids.id, company_id: ids.company_id },
       { is_obsolete: true },
+      conn,
     );
     return result;
   } catch (error) {
+    logger.error('error in _deleteBeneficiaryAccountServiceInternal', error);
+    throw error;
+  }
+};
+
+const deleteBeneficiaryAccountService = async (ids) => {
+  let conn;
+  let committed = false;
+  try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+    const result = await _deleteBeneficiaryAccountServiceInternal(ids, conn);
+    await commit(conn);
+    committed = true;
+    return result;
+  } catch (error) {
+    if (conn && !committed) await rollback(conn);
     logger.error('error getting while deleting banks', error);
-    throw new BadRequestError('Error getting while  deleting banks');
+    throw error;
+  } finally {
+    if (conn) conn.release();
   }
 };
 
