@@ -1,4 +1,5 @@
 import fs from 'fs';
+import os from 'os';
 import winston, { createLogger, format } from 'winston';
 import DailyRotate from 'winston-daily-rotate-file';
 import CloudWatchTransport from 'winston-cloudwatch';
@@ -149,59 +150,26 @@ class Logger {
       console.error(`Failed to create log directory: ${error.message}`);
     }
 
-    const transports = [
-      // Combined log - everything goes here for easy debugging
-      new DailyRotate({
-        filename: `${logDir}/%DATE%-combined.log`,
-        datePattern: 'YYYY-MM-DD',
-        level: 'debug', // Capture everything
-        maxFiles: '7d', // Keep for 7 days
-        maxSize: '50m',
-        zippedArchive: true,
-      }),
-      // Errors - critical for investigation
-      new DailyRotate({
-        filename: `${logDir}/%DATE%-error-results.log`,
-        datePattern: 'YYYY-MM-DD',
-        level: 'error',
-        maxFiles: '30d', // Keep errors longer
-        maxSize: '20m',
-        zippedArchive: true,
-      }),
-      // Info - general application flow
-      new DailyRotate({
-        filename: `${logDir}/%DATE%-info-results.log`,
-        datePattern: 'YYYY-MM-DD',
-        level: 'info',
-        maxFiles: '14d',
-        maxSize: '20m',
-        zippedArchive: true,
-      }),
-      // Warnings - potential issues
-      new DailyRotate({
-        filename: `${logDir}/%DATE%-warning-results.log`,
-        datePattern: 'YYYY-MM-DD',
-        level: 'warn',
-        maxFiles: '30d',
-        maxSize: '20m',
-        zippedArchive: true,
-      }),
-    ];
-
-    // Only add CloudWatch transport on primary worker (worker 0) to avoid duplicate logs
-    // Each worker should log to CloudWatch with its own log stream
-    const instanceId = parseInt(process.env.INSTANCE_ID || '0', 10);
-
-    // Enable CloudWatch in production with valid AWS credentials
+    const transports = [];
+    
+    // Determine environment
     const isProduction = appConfig?.env === 'production';
     const hasAwsConfig = aws?.cloudWatchLogGroup && aws?.region && aws?.accessKeyId && aws?.secretAccessKey;
-
+    
+    // Get worker identification metadata
+    const instanceId = process.env.INSTANCE_ID || process.env.NODE_APP_INSTANCE || '0';
+    const workerId = process.env.pm_id || process.pid; // PM2 ID or Process ID
+    const hostname = process.env.HOSTNAME || os.hostname();
+    
     if (isProduction && hasAwsConfig) {
+      // CloudWatch for production - SINGLE CENTRALIZED STREAM for all workers
       try {
-        // AWS CloudWatch Transport Configuration - Each worker gets its own stream
+        // Centralized stream: env-date (all workers write here)
+        const streamName = `${env}-${new Date().toISOString().split('T')[0]}`;
+        
         const cloudWatchConfig = {
           logGroupName: aws.cloudWatchLogGroup,
-          logStreamName: `${env}-worker-${instanceId}-${new Date().toISOString().split('T')[0]}`, // Unique per worker
+          logStreamName: streamName,
           awsRegion: aws.region,
           awsAccessKeyId: aws.accessKeyId,
           awsSecretAccessKey: aws.secretAccessKey,
@@ -209,34 +177,100 @@ class Logger {
           jsonMessage: true,
           createLogGroup: true,
           createLogStream: true,
-          uploadRate: 5000, // Upload every 5 seconds
+          uploadRate: 3000, // 3s upload - reduces API calls with shared stream
           errorHandler: (error) => {
-            // Only log critical CloudWatch errors, not every upload retry
-            if (!error.message?.includes('retrying')) {
+            // Suppress non-critical errors (throttling/retries are normal with shared stream)
+            if (!error.message?.includes('retrying') && 
+                !error.message?.includes('throttl') && 
+                !error.message?.includes('sequence')) {
               console.error('[CloudWatch] Upload error:', error.message);
             }
+          },
+          messageFormatter: (logObject) => {
+            // Worker identification in EVERY log message
+            return {
+              ...logObject,
+              worker_id: workerId,
+              instance_id: instanceId,
+              hostname: hostname,
+            };
           },
         };
 
         const cwTransport = new CloudWatchTransport(cloudWatchConfig);
         
-        // Handle CloudWatch-specific errors
+        // Handle CloudWatch-specific errors gracefully
         cwTransport.on('error', (error) => {
-          console.error('[CloudWatch] Transport error:', error.message);
+          // Sequence token errors are expected with concurrent writes - library handles them
+          if (!error.message?.includes('sequence')) {
+            console.error('[CloudWatch] Transport error:', error.message);
+          }
         });
 
         transports.push(cwTransport);
-        console.log(`[Logger] CloudWatch transport enabled for worker ${instanceId}`);
+        console.log(`CloudWatch enabled: ${streamName} (worker ${workerId})`);
       } catch (error) {
-        console.error('[Logger] Failed to initialize CloudWatch transport:', error.message);
-        console.warn('[Logger] Continuing with file-based logging only');
+        console.error('CloudWatch init failed:', error.message);
+        console.warn('Falling back to minimal local logging');
+        
+        // Fallback: Critical errors only to local file
+        transports.push(
+          new DailyRotate({
+            filename: `${logDir}/%DATE%-error-fallback-w${workerId}.log`,
+            datePattern: 'YYYY-MM-DD',
+            level: 'error',
+            maxFiles: '7d',
+            maxSize: '20m',
+          })
+        );
       }
     } else {
+      // DEVELOPMENT/STAGING: Use local file rotation (faster, no AWS costs)
       if (!isProduction) {
-        console.log('[Logger] CloudWatch disabled in non-production environment');
-      } else if (!hasAwsConfig) {
-        console.warn('[Logger] CloudWatch disabled - missing AWS configuration');
+        console.log('Development mode - Using local file logging only');
+      } else {
+        console.warn('Production mode but CloudWatch config missing. Using file logs only.');
       }
+      
+      // Local file transports for non-production
+      transports.push(
+        // Combined log - everything for debugging
+        new DailyRotate({
+          filename: `${logDir}/%DATE%-combined.log`,
+          datePattern: 'YYYY-MM-DD',
+          level: 'debug',
+          maxFiles: '3d', // Keep only 3 days in dev
+          maxSize: '50m',
+          zippedArchive: true,
+        }),
+        // Errors - critical for investigation
+        new DailyRotate({
+          filename: `${logDir}/%DATE%-error-results.log`,
+          datePattern: 'YYYY-MM-DD',
+          level: 'error',
+          maxFiles: '7d', // Keep errors for a week
+          maxSize: '20m',
+          zippedArchive: true,
+        }),
+        // Info - general flow
+        new DailyRotate({
+          filename: `${logDir}/%DATE%-info-results.log`,
+          datePattern: 'YYYY-MM-DD',
+          level: 'info',
+          maxFiles: '3d', // Reduced retention in dev
+          maxSize: '20m',
+          zippedArchive: true,
+        }),
+        // Warnings
+        new DailyRotate({
+          filename: `${logDir}/%DATE%-warning-results.log`,
+          datePattern: 'YYYY-MM-DD',
+          level: 'warn',
+          maxFiles: '7d',
+          maxSize: '20m',
+          zippedArchive: true,
+        })
+      );
     }
 
     // custom format to add IP address to metadata
