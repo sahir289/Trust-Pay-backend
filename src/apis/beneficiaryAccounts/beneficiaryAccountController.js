@@ -5,7 +5,6 @@ import {
   VALIDATE_BENEFICIARY_ACCOUNT_BY_ID,
 } from '../../schemas/BeneficiaryAccountSchema.js';
 import {  ValidationError } from '../../utils/appErrors.js';
-import { transactionWrapper } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import {
@@ -113,7 +112,7 @@ const createBeneficiaryAccount = async (req, res) => {
   payload.updated_by = user_id;
   payload.company_id = company_id;
   // const data =
-  await transactionWrapper(createBeneficiaryAccountService)(
+  await createBeneficiaryAccountService(
     payload,
     company_id,
   );
@@ -131,7 +130,7 @@ const updateBeneficiaryAccount = async (req, res) => {
   payload.updated_by = user_id;
   const ids = { id, company_id };
   // const data =
-  await transactionWrapper(updateBeneficiaryAccountService)(ids, payload, role);
+  await updateBeneficiaryAccountService(ids, payload, role);
   return sendSuccess(res, {}, 'Beneficiary Updated successfully');
 };
 
@@ -144,7 +143,7 @@ const deleteBeneficiaryAccount = async (req, res) => {
   const { company_id } = req.user;
   const ids = { id, company_id };
   // const data =
-  await transactionWrapper(deleteBeneficiaryAccountService)(ids);
+  await deleteBeneficiaryAccountService(ids);
   return sendSuccess(res, {}, 'deleted Beneficiary successfully');
 };
 export {

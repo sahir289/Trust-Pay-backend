@@ -11,7 +11,6 @@ import {
   VALIDATE_BANK_RESPONSE_BY_ID,
 } from '../../schemas/bankAccoountSchema.js';
 import { ValidationError } from '../../utils/appErrors.js';
-import { transactionWrapper } from '../../utils/db.js';
 import { sendError, sendSuccess } from '../../utils/responseHandlers.js';
 import { getBankaccountDao, getMerchantBankDao } from './bankaccountDao.js';
 import {
@@ -131,7 +130,7 @@ const createBankaccount = async (req, res) => {
     return sendError(res, 'Nick Name Must Be Unique', 400);
   }
   // const data =
-  const bankDetail = await transactionWrapper(createBankaccountService)(
+  const bankDetail = await createBankaccountService(
     payload,
     designation,
     user_id,
@@ -156,7 +155,7 @@ const updateBankaccount = async (req, res) => {
   payload.updated_by = user_id;
   const ids = { id, company_id };
   // const data =
-  const updatebank = await transactionWrapper(updateBankaccountService)(
+  const updatebank = await updateBankaccountService(
     ids,
     payload,
     role,
@@ -205,7 +204,7 @@ const deleteBankaccount = async (req, res) => {
   const { company_id, user_name, user_id } = req.user;
   const ids = { id, company_id };
   // const data =
-  const deletebank = await transactionWrapper(deleteBankaccountService)(
+  const deletebank = await deleteBankaccountService(
     ids,
     user_id,
   );
@@ -227,7 +226,7 @@ const activeInactiveBankAccount = async (req, res) => {
   const payload = {
     is_enabled: is_active,
   };
-  const updateBank = await transactionWrapper(activeInactiveBankAccountService)(
+  const updateBank = await activeInactiveBankAccountService(
     ids,
     payload,
   );

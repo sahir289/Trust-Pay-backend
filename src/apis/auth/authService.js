@@ -6,7 +6,7 @@ import {
 } from '../../utils/appErrors.js';
 import { createHash, verifyHash } from '../../utils/bcryptPassword.js';
 import os from 'os';
-import { getConnection } from '../../utils/db.js';
+import { beginTransaction, getConnection, rollback } from '../../utils/db.js';
 import { getUsersByUserNameDao, updateUserDao } from '../users/userDao.js';
 import { generateUserToken } from '../../utils/auth.js';
 import {
@@ -30,18 +30,23 @@ import { compareHash } from '../../utils/hashUtils.js';
 import { logOutUser } from '../../utils/sockets.js';
 import { Role } from '../../constants/index.js';
 
-const loginService = async (config, clientIP, retryCount = 0) => {
-  const MAX_RETRIES = 2;
+const loginService = async (
+  config,
+  clientIP,
+  // retryCount = 0
+) => {
+  // const MAX_RETRIES = 2;
   let conn;
+  let committed = false;
   try {
-    let user = await getUsersByUserNameDao({}, config.username);
+    conn = await getConnection();
+    await beginTransaction(conn);
+    let user = await getUsersByUserNameDao({}, config.username, conn);
     if (!user) {
       throw new NotFoundError('User Not Found.');
     }
     if (!user.is_enabled) {
-      throw new NotFoundError(
-        'User not active. Please contact Support Team',
-      );
+      throw new NotFoundError('User not active. Please contact Support Team');
     }
 
     if (user.designation === Role.ADMIN && !config.newPassword) {
@@ -65,15 +70,20 @@ const loginService = async (config, clientIP, retryCount = 0) => {
         throw new NotFoundError('Invalid current password. Please try again.');
       }
       const hashedPassword = await createHash(config.newPassword);
-      conn = await getConnection();
-      await updateUserDao(
-        { id: user.id },
-        {
-          password: hashedPassword,
-          config: { ...user.config, isLoginFirst: false },
-        },
-        conn,
-      );
+
+      try {
+        await updateUserDao(
+          { id: user.id },
+          {
+            password: hashedPassword,
+            config: { ...user.config, isLoginFirst: false },
+          },
+          conn,
+        );
+      } catch (updateError) {
+        logger.error('Error updating user password:', updateError);
+        throw updateError;
+      }
       isLoginSecondFlag = true;
     } else {
       // Verify password for regular login
@@ -93,112 +103,108 @@ const loginService = async (config, clientIP, retryCount = 0) => {
     }
 
     // Proceed with session and token generation for non-first login
-    conn = conn || (await getConnection());
-    
-    try {
-      // Start a transaction with read committed isolation for better concurrency
-      // We'll handle race conditions through application logic rather than serializable isolation
-      await conn.query('BEGIN ISOLATION LEVEL READ COMMITTED');
-      
-      // First, immediately invalidate ALL existing sessions for this user
-      // This prevents any race condition with multiple simultaneous logins
-      await deleteUserSessionsDao(user.id, user.company_id, null, conn);
-      
-      // Add a small delay to ensure any concurrent operations complete
-      await new Promise(resolve => setTimeout(resolve, 50));
-      
-      // Generate new session ID and tokens first (before any DB operations)
-      const sessionId = generateUUID();
-      const tokenInfo = generateUserToken(user);
-      const hashedToken = await createHash(tokenInfo.refreshToken);
-      
-      const newConfig = {
-        user_info: {
-          user_ip: clientIP,
-          user_location: config.user_location || {},
-          hostname: os.hostname(),
-          os_platform: os.platform(),
-          network_interface: Object.values(os.networkInterfaces())[0]?.[0],
-          cpu_cores: os.cpus()[0],
-        },
-        token: {
-          access_token: tokenInfo.accessToken,
-          refresh_token: hashedToken,
-        },
-        confirm_over_ride: config.confirmOverRide,
-        login_time: new Date().toISOString(),
-      };
+    // conn = conn || (await getConnection());
 
-      // Create new session - this should be the only active session
-      await addLoginDao(user.id, newConfig, user.company_id, sessionId, conn);
-      
-      // Commit the transaction
-      await conn.query('COMMIT');
+    // try {
+    // Start a transaction with read committed isolation for better concurrency
+    // We'll handle race conditions through application logic rather than serializable isolation
+    await conn.query('BEGIN ISOLATION LEVEL READ COMMITTED');
 
-      logger.info(`New session created for user: ${user.id}, session: ${sessionId}`);
+    // First, immediately invalidate ALL existing sessions for this user
+    // This prevents any race condition with multiple simultaneous logins
+    await deleteUserSessionsDao(user.id, user.company_id, null, conn);
 
-      // After successful login, force logout all other sessions for this user
-      // This is done AFTER the transaction to ensure we don't interfere with the login process
-      forceLogoutUser(user.id, null, sessionId);
+    // Add a small delay to ensure any concurrent operations complete
+    await new Promise((resolve) => setTimeout(resolve, 50));
 
-      return {
-        tokenInfo,
-        sessionId,
-      };
-    } catch (transactionError) {
-      // Rollback the transaction on error
-      try {
-        await conn.query('ROLLBACK');
-      } catch (rollbackError) {
-        logger.error('Error during rollback:', rollbackError);
-      }
-      
-      // Handle serialization failures with detailed logging and retry logic
-      if (transactionError.code === '40001' || 
-          transactionError.message?.includes('serialization failure') ||
-          transactionError.message?.includes('could not serialize access') ||
-          transactionError.detail?.includes('Canceled on identification as a pivot')) {
-        
-        logger.warn(`Serialization failure for user ${user.id}:`, {
-          errorCode: transactionError.code,
-          errorDetail: transactionError.detail,
-          errorHint: transactionError.hint,
-          routine: transactionError.routine,
-          retryAttempt: retryCount
-        });
-        
-        // Retry if we haven't exceeded max retries
-        if (retryCount < MAX_RETRIES) {
-          // Add exponential backoff with jitter to prevent thundering herd
-          const backoffDelay = Math.random() * 200 * (retryCount + 1) + 100; // Increasing delay
-          await new Promise(resolve => setTimeout(resolve, backoffDelay));
-          
-          logger.info(`Retrying login for user ${user.id}, attempt ${retryCount + 1}/${MAX_RETRIES}`);
-          return await loginService(config, clientIP, retryCount + 1);
-        } else {
-          logger.error(`Max retries exceeded for user ${user.id} due to serialization failures`);
-          throw new AuthenticationError('Login service is temporarily busy. Please try again in a moment.');
-        }
-      }
-      
-      throw transactionError;
-    }
+    // Generate new session ID and tokens first (before any DB operations)
+    const sessionId = generateUUID();
+    const tokenInfo = generateUserToken(user);
+    const hashedToken = await createHash(tokenInfo.refreshToken);
+
+    const newConfig = {
+      user_info: {
+        user_ip: clientIP,
+        user_location: config.user_location || {},
+        hostname: os.hostname(),
+        os_platform: os.platform(),
+        network_interface: Object.values(os.networkInterfaces())[0]?.[0],
+        cpu_cores: os.cpus()[0],
+      },
+      token: {
+        access_token: tokenInfo.accessToken,
+        refresh_token: hashedToken,
+      },
+      confirm_over_ride: config.confirmOverRide,
+      login_time: new Date().toISOString(),
+    };
+
+    // Create new session - this should be the only active session
+    await addLoginDao(user.id, newConfig, user.company_id, sessionId, conn);
+
+    // Commit the transaction
+    await conn.query('COMMIT');
+
+    logger.info(
+      `New session created for user: ${user.id}, session: ${sessionId}`,
+    );
+
+    // After successful login, force logout all other sessions for this user
+    // This is done AFTER the transaction to ensure we don't interfere with the login process
+    forceLogoutUser(user.id, null, sessionId);
+
+    return {
+      tokenInfo,
+      sessionId,
+    };
+    // } catch (transactionError) {
+    // Rollback the transaction on error
+    // try {
+    //   await conn.query('ROLLBACK');
+    // } catch (rollbackError) {
+    //   logger.error('Error during rollback:', rollbackError);
+    // }
+
+    // // Handle serialization failures with detailed logging and retry logic
+    // if (transactionError.code === '40001' ||
+    //     transactionError.message?.includes('serialization failure') ||
+    //     transactionError.message?.includes('could not serialize access') ||
+    //     transactionError.detail?.includes('Canceled on identification as a pivot')) {
+
+    //   logger.warn(`Serialization failure for user ${user.id}:`, {
+    //     errorCode: transactionError.code,
+    //     errorDetail: transactionError.detail,
+    //     errorHint: transactionError.hint,
+    //     routine: transactionError.routine,
+    //     retryAttempt: retryCount
+    //   });
+
+    //   // Retry if we haven't exceeded max retries
+    //   if (retryCount < MAX_RETRIES) {
+    //     // Add exponential backoff with jitter to prevent thundering herd
+    //     const backoffDelay = Math.random() * 200 * (retryCount + 1) + 100; // Increasing delay
+    //     await new Promise(resolve => setTimeout(resolve, backoffDelay));
+
+    //     logger.info(`Retrying login for user ${user.id}, attempt ${retryCount + 1}/${MAX_RETRIES}`);
+    //     return await loginService(config, clientIP, retryCount + 1);
+    //   } else {
+    //     logger.error(`Max retries exceeded for user ${user.id} due to serialization failures`);
+    //     throw new AuthenticationError('Login service is temporarily busy. Please try again in a moment.');
+    //   }
+    // }
+
+    //   throw transactionError;
+    // }
   } catch (error) {
+    if (conn && !committed) await rollback(conn);
     logger.error('Error in login service:', error);
     throw error;
   } finally {
-    if (conn) {
-      try {
-        conn.release();
-      } catch (releaseError) {
-        logger.error('Error while releasing the connection', releaseError);
-      }
-    }
+    if (conn) conn.release();
   }
 };
 
 const refreshTokenService = async (user_id, company_id, refreshToken) => {
-  let conn;
   try {
     const session = await getSessionByIdDao({ user_id, company_id });
     if (!session) {
@@ -214,21 +220,11 @@ const refreshTokenService = async (user_id, company_id, refreshToken) => {
   } catch (error) {
     logger.log('Error getting :', error);
     throw error;
-  } finally {
-    if (conn) {
-      try {
-        conn.release();
-      } catch (releaseError) {
-        logger.error('Error while releasing the connection', releaseError);
-      }
-    }
   }
 };
 
 const logoutService = async (decodeToken, session_id) => {
-  let conn;
   try {
-    conn = await getConnection();
     const data = await deleteUserSessionsDao(
       decodeToken.user_id,
       decodeToken.company_id,
@@ -239,21 +235,11 @@ const logoutService = async (decodeToken, session_id) => {
   } catch (error) {
     logger.error('Error getting while logout', error);
     throw error;
-  } finally {
-    if (conn) {
-      try {
-        conn.release();
-      } catch (releaseError) {
-        logger.error('Error while releasing the connection', releaseError);
-      }
-    }
   }
 };
 
 const changePasswordService = async (payload) => {
-  let conn;
   try {
-    conn = await getConnection();
     const userDetials = {
       user_name: payload.user_name,
       password: payload.oldPassword,
@@ -268,14 +254,6 @@ const changePasswordService = async (payload) => {
   } catch (error) {
     logger.error('Error getting while changing password', error);
     throw error;
-  } finally {
-    if (conn) {
-      try {
-        conn.release();
-      } catch (releaseError) {
-        logger.error('Error while releasing the connection', releaseError);
-      }
-    }
   }
 };
 
@@ -300,9 +278,9 @@ const forgetPasswordService = async (payload) => {
     const hashPassword = await createHash(payload.password);
     const user = await updateUserDao(
       { id: payload.user_id },
-      { 
+      {
         password: hashPassword,
-        config: { isLoginFirst: false } 
+        config: { isLoginFirst: false },
       },
     );
     return user;
@@ -372,10 +350,15 @@ const getUserRoleService = async (userName) => {
 
     let response = {
       isAdmin: false,
+      isVendor: false,
     };
     if (user.designation === Role.ADMIN) {
       response = {
         isAdmin: true,
+      };
+    } else if (user.role === Role.VENDOR) {
+      response = {
+        isVendor: true,
       };
     }
     return response;
@@ -383,7 +366,7 @@ const getUserRoleService = async (userName) => {
     logger.error('Error getting user role', error);
     throw error; // Re-throw the error to be handled by the calling function
   }
-}
+};
 
 export {
   loginService,

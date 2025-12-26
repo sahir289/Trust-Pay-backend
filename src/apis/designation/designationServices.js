@@ -16,9 +16,9 @@ const getDesignationService = async (user, page, limit) => {
   }
 };
 
-const createDesignationService = async (conn, payload) => {
+const createDesignationService = async (payload) => {
   try {
-    const result = await createDesignationDao(conn, payload);
+    const result = await createDesignationDao(payload);
     return result;
   } catch (error) {
     logger.error('error getting while Designation', error);

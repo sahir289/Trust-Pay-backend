@@ -1,4 +1,3 @@
-import { transactionWrapper } from '../../utils/db.js';
 import {
   sendSuccess,
   sendNewSuccess,
@@ -13,6 +12,7 @@ import {
   checkPayOutStatusService,
   assignedPayoutService,
   createTataPayBulkPayoutService,
+  createRupeeFlowBulkPayoutService,
 } from './payOutService.js';
 import {
   PAYOUT_DETAILS_SCHEMA,
@@ -21,6 +21,7 @@ import {
   VALIDATE_PAYOUT_BY_ID,
   ASSIGNED_VENDOR_SCHEMA,
   TATAPAY_BULK_PAYOUT_SCHEMA,
+  RUPEEFLOW_BULK_PAYOUT_SCHEMA,
 } from '../../schemas/payoutSchema.js';
 import { ValidationError } from '../../utils/appErrors.js';
 // import { BadRequestError } from '../../utils/appErrors.js';
@@ -54,7 +55,7 @@ const createPayout = async (req, res) => {
     payload.created_by = user_id;
     payload.updated_by = user_id;
     payload.x_api_key = x_api_key;
-    result = await transactionWrapper(createPayoutService)(
+    result = await createPayoutService(
       req.headers,
       payload,
       role,
@@ -63,7 +64,7 @@ const createPayout = async (req, res) => {
     );
   } else {
     payload.x_api_key = x_api_key;
-    result = await transactionWrapper(createPayoutService)(
+    result = await createPayoutService(
       req.headers,
       payload,
       null,
@@ -149,7 +150,7 @@ const updatePayout = async (req, res) => {
 
   payload.updated_by = user_id;
   const ids = { id, company_id };
-  const update = await transactionWrapper(updatePayoutService)(
+  const update = await updatePayoutService(
     ids,
     payload,
     role,
@@ -171,7 +172,7 @@ const assignedPayout = async (req, res) => {
   }
   const updated_by = user_id;
   const ids = { id };
-  const update = await transactionWrapper(assignedPayoutService)(
+  const update = await assignedPayoutService(
     ids,
     payouts_ids,
     updated_by,
@@ -229,7 +230,27 @@ const createTataPayBulkPayoutController = async (req, res) => {
   const { payoutEntries, payoutIds } = req.body;
   const { company_id, user_id } = req.user;
 
-  const result = await transactionWrapper(createTataPayBulkPayoutService)({
+  const result = await createTataPayBulkPayoutService({
+    payoutEntries,
+    payoutIds,
+    company_id,
+    user_id,
+  });
+
+  return sendSuccess(res, result.data, result.message);
+};
+
+const createRupeeFlowBulkPayoutController = async (req, res) => {
+  // Validate request body
+  const joiValidation = RUPEEFLOW_BULK_PAYOUT_SCHEMA.validate(req.body);
+  if (joiValidation.error) {
+    throw new ValidationError(joiValidation.error);
+  }
+
+  const { payoutEntries, payoutIds } = req.body;
+  const { company_id, user_id } = req.user;
+
+  const result = await createRupeeFlowBulkPayoutService({
     payoutEntries,
     payoutIds,
     company_id,
@@ -249,4 +270,5 @@ export {
   getPayoutsById,
   assignedPayout,
   createTataPayBulkPayoutController,
+  createRupeeFlowBulkPayoutController
 };

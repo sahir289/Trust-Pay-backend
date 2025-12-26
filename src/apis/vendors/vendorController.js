@@ -19,7 +19,6 @@ import {
 } from '../../schemas/vendorSchema.js';
 import { ValidationError, BadRequestError } from '../../utils/appErrors.js';
 import { logger } from '../../utils/logger.js';
-import { transactionWrapper } from '../../utils/db.js';
 // import { BadRequestError } from '../../utils/appErrors.js';
 
 const createVendor = async (req, res) => {
@@ -33,7 +32,7 @@ const createVendor = async (req, res) => {
   payload.created_by = user_id;
   payload.updated_by = user_id;
   // Call the service to create the Vendor
-  const vendor = await transactionWrapper(createVendorService)(payload);
+  const vendor = await createVendorService(payload);
   // Log success message
   // Send a success response to the client
   return sendSuccess(res, { id: vendor.id }, 'Vendor created successfully');

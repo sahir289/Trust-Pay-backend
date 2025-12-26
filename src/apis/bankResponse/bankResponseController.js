@@ -20,7 +20,6 @@ import {
 } from './bankResponseServices.js';
 import { BadRequestError } from '../../utils/appErrors.js';
 
-import { transactionWrapper } from '../../utils/db.js';
 import { Role } from '../../constants/index.js';
 
 // Ensure Role.BOT is defined in '../../constants/index.js' as:
@@ -30,7 +29,7 @@ import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { s3 } from '../../helpers/Aws.js';
 import { streamToBuffer } from '../../helpers/index.js';
 // import { newTableEntry } from '../../utils/sockets.js';
-import { publishBankResponse } from '../../utils/rabbitmq-bank-response.js';
+import { publishBankResponse, publishBankResponseBulk } from '../../utils/rabbitmq-bank-response.js';
 
 const getBankResponse = async (req, res) => {
   const { role, company_id, designation, user_id } = req.user;
@@ -170,7 +169,7 @@ const createBankBotResponseBulk = async (req, res) => {
       invalidPayloads.push({ index: idx, payload, error: error.message });
       validationErrors.push(error.message);
     } else {
-      publishBankResponse({
+      publishBankResponseBulk({
         payload,
         x_auth_token,
         role: Role.BOT,
@@ -251,7 +250,7 @@ const resetBankResponseController = async (req, res) => {
   }
 
   // Call service to handle the reset logic
-  const result = await transactionWrapper(resetBankResponseService)(id, {
+  const result = await resetBankResponseService(id, {
     company_id,
     user_name,
     user_id,
@@ -293,7 +292,7 @@ const importBankResponse = async (req, res) => {
   // Convert S3 Body (ReadableStream) to Buffer
   const pdfBuffer = await streamToBuffer(Body);
 
-  const result = await transactionWrapper(importBankResponseService)(
+  const result = await importBankResponseService(
     {
       ...payload,
       pdfBuffer, // Pass the buffer directly
