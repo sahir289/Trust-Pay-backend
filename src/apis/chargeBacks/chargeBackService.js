@@ -38,6 +38,8 @@ import {
   updateMerchantDao,
 } from '../merchants/merchantDao.js';
 import { trackVendorsNetBalance } from '../../utils/trackVendorsNetBalance.js';
+import { newTableEntry } from '../../utils/sockets.js';
+import { tableName } from '../../constants/index.js';
 
 const _createChargeBackServiceInternal = async (
   payload,
@@ -196,6 +198,39 @@ const _createChargeBackServiceInternal = async (
     //   actorUserId: payload.merchant_user_id,
     //   category: 'ChargeBack',
     // });
+
+    // Emit socket event for new chargeback
+    const chargebackResponseObj = {
+      id: data.id,
+      sno: data.sno || null,
+      merchant_user_id: data.merchant_user_id || null,
+      vendor_user_id: data.vendor_user_id || null,
+      payin_id: data.payin_id || null,
+      bank_acc_id: data.bank_acc_id || null,
+      amount: data.amount || 0,
+      reference_date: data.reference_date || null,
+      created_by: data.created_by || '',
+      updated_by: data.updated_by || '',
+      created_at: data.created_at,
+      updated_at: data.updated_at,
+      bank_name: PayinDetails[0]?.bank_name || PayinDetails[0]?.nick_name || null,
+      utr: PayinDetails[0]?.utr || PayinDetails[0]?.user_submitted_utr || null,
+      merchant_name: merchantData[0]?.name || null,
+      config: data.config || {},
+      user: PayinDetails[0]?.user || null,
+      user_ip: PayinDetails[0]?.user_ip || null,
+      merchant_order_id: PayinDetails[0]?.merchant_order_id || null,
+      vendor_name: PayinDetails[0]?.vendor_name || null,
+      merchant_display_code: merchantData[0]?.code || null,
+      company_id: data.company_id || null,
+      status: data.status || null,
+    };
+    setImmediate(() => {
+      newTableEntry(tableName.CHARGE_BACK, chargebackResponseObj).catch((err) =>
+        logger.error('Socket emit failed for chargeback:', err),
+      );
+    });
+
     const filterColumns =
       role === Role.MERCHANT
         ? merchantColumns.CHARGE_BACK
@@ -656,6 +691,39 @@ const _updateChargeBackServiceInternal = async (
     );
 
     await trackVendorsNetBalance(vendorCalculation[0].user_id, response);
+
+    // Emit socket event for updated chargeback
+    const chargebackResponseObj = {
+      id: data.id,
+      sno: data.sno || null,
+      merchant_user_id: data.merchant_user_id || null,
+      vendor_user_id: data.vendor_user_id || null,
+      payin_id: data.payin_id || null,
+      bank_acc_id: data.bank_acc_id || null,
+      amount: data.amount || 0,
+      reference_date: data.reference_date || null,
+      created_by: data.created_by || '',
+      updated_by: data.updated_by || '',
+      created_at: data.created_at,
+      updated_at: data.updated_at,
+      bank_name: chargeBack?.bank_name || chargeBack?.nick_name || null,
+      utr: chargeBack?.utr || chargeBack?.user_submitted_utr || null,
+      merchant_name: chargeBack?.merchant_name || null,
+      config: data.config || {},
+      user: chargeBack?.user || null,
+      user_ip: chargeBack?.user_ip || null,
+      merchant_order_id: chargeBack?.merchant_order_id || null,
+      vendor_name: chargeBack?.vendor_name || null,
+      merchant_display_code: chargeBack?.merchant_display_code || chargeBack?.merchant_code || null,
+      company_id: data.company_id || null,
+      status: data.status || null,
+    };
+    setImmediate(() => {
+      newTableEntry(tableName.CHARGE_BACK, chargebackResponseObj).catch((err) =>
+        logger.error('Socket emit failed for chargeback update:', err),
+      );
+    });
+
     return data;
   } catch (error) {
     logger.error('error in _updateChargeBackServiceInternal', error);

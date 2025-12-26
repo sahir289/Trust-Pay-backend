@@ -552,23 +552,23 @@ const createBankResponseService = async (
               status: updatePayInDataRes.status,
               company_id: updatePayInDataRes.company_id,
               merchant_order_id: updatePayInDataRes.merchant_order_id,
-              amount: updatePayInDataRes.amount,
+              amount: updatePayInDataRes.amount || 0,
               merchant_id: merchantData[0]?.merchant_id || null,
               payin_merchant_commission:
-                updatePayInDataRes.payin_merchant_commission,
+                updatePayInDataRes.payin_merchant_commission || 0,
               payin_vendor_commission:
-                updatePayInDataRes.payin_vendor_commission,
-              duration: updatePayInDataRes.duration,
+                updatePayInDataRes.payin_vendor_commission || 0,
+              duration: updatePayInDataRes.duration || 0,
               created_at: updatePayInDataRes.created_at,
               updated_at: updatePayInDataRes.updated_at,
-              user_submitted_utr: updatePayInDataRes.user_submitted_utr,
-              bank_acc_id: updatePayInDataRes.bank_acc_id,
-              nick_name: currentPayinBank[0]?.nick_name || null,
-              user: updatePayInDataRes.user,
+              user_submitted_utr: updatePayInDataRes.user_submitted_utr || null,
+              bank_acc_id: updatePayInDataRes.bank_acc_id || null,
+              nick_name: currentPayinBank[0]?.nick_name || '',
+              user: updatePayInDataRes.user || null,
               vendor_code: (vendor && vendor[0]?.code) || null,
               vendor_user_id: (vendor && vendor[0]?.user_id) || null,
-              bank_response_id: updatePayInDataRes.bank_response_id,
-              config: updatePayInDataRes.config,
+              bank_response_id: updatePayInDataRes.bank_response_id || null,
+              config: updatePayInDataRes.config || {},
               merchant_details: {
                 merchant_code: merchantData[0]?.code || '',
                 dispute: updatePayInDataRes.status === Status.DISPUTE,
@@ -577,7 +577,7 @@ const createBankResponseService = async (
               },
               bank_res_details: {
                 utr: botRes.utr || null,
-                amount: botRes.amount || null,
+                amount: botRes.amount || 0,
               },
             };
             await newTableEntry(tableName.PAYIN, obj);
@@ -750,20 +750,21 @@ const createBankResponseService = async (
             status: updatePayin.status,
             company_id: updatePayin.company_id,
             merchant_order_id: updatePayin.merchant_order_id,
-            amount: updatePayin.amount,
+            amount: updatePayin.amount || 0,
             merchant_id: merchantData[0]?.merchant_id || null,
-            payin_merchant_commission: updatePayin.payin_merchant_commission,
-            payin_vendor_commission: updatePayin.payin_vendor_commission,
-            duration: updatePayin.duration,
+            payin_merchant_commission: updatePayin.payin_merchant_commission || 0,
+            payin_vendor_commission: updatePayin.payin_vendor_commission || 0,
+            duration: updatePayin.duration || 0,
             created_at: updatePayin.created_at,
             updated_at: updatePayin.updated_at,
-            nick_name: bankDetails[0]?.nick_name || null,
+            nick_name: bankDetails[0]?.nick_name || '',
             user: updatePayin.user || null,
             vendor_code: (vendorData && vendorData[0]?.code) || null,
-            user_submitted_utr: updatePayin.user_submitted_utr,
-            bank_acc_id: updatePayin.bank_acc_id,
-            bank_response_id: updatePayin.bank_response_id,
-            config: updatePayin.config,
+            vendor_user_id: (vendorData && vendorData[0]?.user_id) || null,
+            user_submitted_utr: updatePayin.user_submitted_utr || null,
+            bank_acc_id: updatePayin.bank_acc_id || null,
+            bank_response_id: updatePayin.bank_response_id || null,
+            config: updatePayin.config || {},
             merchant_details: {
               merchant_code: merchantData[0]?.code || '',
               dispute: updatePayin.status === Status.DISPUTE,
@@ -772,7 +773,7 @@ const createBankResponseService = async (
             },
             bank_res_details: {
               utr: botRes.utr || null,
-              amount: botRes.amount || null,
+              amount: botRes.amount || 0,
             },
           };
 
@@ -857,23 +858,23 @@ const createBankResponseService = async (
               status: updatePayInDataRes.status,
               company_id: updatePayInDataRes.company_id,
               merchant_order_id: updatePayInDataRes.merchant_order_id,
-              amount: updatePayInDataRes.amount,
+              amount: updatePayInDataRes.amount || 0,
               merchant_id: merchantData[0]?.merchant_id || null,
               payin_merchant_commission:
-                updatePayInDataRes.payin_merchant_commission,
+                updatePayInDataRes.payin_merchant_commission || 0,
               payin_vendor_commission:
-                updatePayInDataRes.payin_vendor_commission,
-              duration: updatePayInDataRes.duration,
+                updatePayInDataRes.payin_vendor_commission || 0,
+              duration: updatePayInDataRes.duration || 0,
               created_at: updatePayInDataRes.created_at,
               updated_at: updatePayInDataRes.updated_at,
-              user_submitted_utr: updatePayInDataRes.user_submitted_utr,
-              bank_acc_id: updatePayInDataRes.bank_acc_id,
-              bank_response_id: updatePayInDataRes.bank_response_id,
-              nick_name: bankDetails[0]?.nick_name || null,
-              user: updatePayInDataRes.user,
+              user_submitted_utr: updatePayInDataRes.user_submitted_utr || null,
+              bank_acc_id: updatePayInDataRes.bank_acc_id || null,
+              bank_response_id: updatePayInDataRes.bank_response_id || null,
+              nick_name: bankDetails[0]?.nick_name || '',
+              user: updatePayInDataRes.user || null,
               vendor_code: vendorData[0]?.code || null,
               vendor_user_id: vendorData[0]?.user_id || null,
-              config: updatePayInDataRes.config,
+              config: updatePayInDataRes.config || {},
               merchant_details: {
                 merchant_code: merchantData[0]?.code || '',
                 dispute: updatePayInDataRes.status === Status.DISPUTE,
@@ -882,7 +883,7 @@ const createBankResponseService = async (
               },
               bank_res_details: {
                 utr: botRes.utr || null,
-                amount: botRes.amount || null,
+                amount: botRes.amount || 0,
               },
             };
             await newTableEntry(tableName.PAYIN, obj);
@@ -2020,7 +2021,7 @@ const handleUtrUpdate = async ({
         null,
         conn,
       );
-      await newTableEntry(tableName.PAYIN);
+      // Socket event handled by caller or omitted for partial update
     }
     await updateBotResponseDao(botRes.id, updateData, conn);
   } catch (error) {
@@ -2320,7 +2321,7 @@ const updatePayInData = async ({ payInData, user_name, botRes }) => {
         updated_by: user_name,
       };
       await updatePayInUrlDao(updatePayinID[0].id, updatePayinData);
-      await newTableEntry(tableName.PAYIN);
+      // Socket event handled by caller or omitted for partial update
     }
   } catch (error) {
     logger.error('Error in updatePayin Data', error.message);

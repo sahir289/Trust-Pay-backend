@@ -713,8 +713,8 @@ export const assignedBankToPayInUrlService = async (
     const responseObj = {
       ...updatePayIn,
       bank_acc_id: selectedBankDetails.id,
-      nick_name: selectedBankDetails.nick_name,
-      vendor_code: vendor?.code,
+      nick_name: selectedBankDetails.nick_name || '',
+      vendor_code: vendor?.code || null,
       vendor_user_id: vendor?.user_id || null,
       merchant_details: {
         merchant_code: merchant ? merchant.code : null,
@@ -1195,7 +1195,49 @@ export const updateDepositStatusService = async (
 
     await updateBotResponseDao({ id: bank.id }, { is_used: true }, conn);
 
-    newTableEntry(tableName.PAYIN, { id: payInData.id, ...updatePayInRes });
+    // Build complete response object for socket
+    const socketResponseObj = {
+      id: payInData.id,
+      sno: updatePayInRes.sno || payInData.sno,
+      amount: updatePayInRes.amount || payInData.amount || 0,
+      status: updatePayInRes.status,
+      user_submitted_utr: updatePayInRes.user_submitted_utr || bankResponse.utr || null,
+      user_submitted_image: updatePayInRes.user_submitted_image || null,
+      duration: updatePayInRes.duration || 0,
+      nick_name: bank.nick_name || '',
+      bank_acc_id: updatePayInRes.bank_acc_id || payInData.bank_acc_id || null,
+      payin_merchant_commission: updatePayInRes.payin_merchant_commission || 0,
+      payin_vendor_commission: updatePayInRes.payin_vendor_commission || 0,
+      merchant_details: {
+        merchant_code: merchant?.code || '',
+        dispute: updatePayInRes.status === Status.DISPUTE,
+        return_url: payInData.config?.urls?.return || null,
+        notify_url: payInData.config?.urls?.notify || null,
+      },
+      merchant_order_id: updatePayInRes.merchant_order_id || payInData.merchant_order_id,
+      merchant_id: payInData.merchant_id,
+      payin_details: {
+        urls: payInData.config?.urls || {},
+        user: payInData.config?.user || {},
+      },
+      vendor_code: vendor?.code || null,
+      vendor_user_id: vendor?.user_id || null,
+      upi_short_code: updatePayInRes.upi_short_code || payInData.upi_short_code || null,
+      is_url_expires: updatePayInRes.is_url_expires || false,
+      approved_at: updatePayInRes.approved_at || null,
+      created_by: updatePayInRes.created_by || payInData.created_by || null,
+      updated_by: updatePayInRes.updated_by || null,
+      is_notified: updatePayInRes.is_notified || false,
+      user: updatePayInRes.user || payInData.user || null,
+      created_at: updatePayInRes.created_at || payInData.created_at,
+      updated_at: updatePayInRes.updated_at || new Date().toISOString(),
+      bank_res_details: {
+        utr: bankResponse.utr || null,
+        amount: bankResponse.amount || 0,
+      },
+      company_id: payInData.company_id,
+    };
+    newTableEntry(tableName.PAYIN, socketResponseObj);
 
     // update bank balance and today balance
     // const bankBalance =
@@ -1703,26 +1745,26 @@ export const _processPayInServiceInternal = async (
     const responseObj = {
       id: payIn.id,
       sno: payIn.sno,
-      amount: amount,
+      amount: amount || 0,
       status: updatePayInData.status,
-      user_submitted_utr: updatePayInData.user_submitted_utr,
+      user_submitted_utr: updatePayInData.user_submitted_utr || null,
       user_submitted_image: updatePayInData.user_submitted_image || null,
-      duration: updatePayInData.duration,
-      nick_name: bank.nick_name,
-      bank_acc_id: updatePayInData.bank_acc_id,
+      duration: updatePayInData.duration || 0,
+      nick_name: bank.nick_name || '',
+      bank_acc_id: updatePayInData.bank_acc_id || null,
       merchant_order_id: payIn.merchant_order_id,
       company_id: payIn.company_id,
-      vendor_code: vendor?.code,
-      user: payIn.user,
+      vendor_code: vendor?.code || null,
+      user: payIn.user || null,
       merchant_id: payIn.merchant_id,
-      vendor_user_id: vendor?.id || null,
+      vendor_user_id: vendor?.user_id || null,
       bank_res_details: {
         utr: bankResponse.utr || null,
-        amount: bankResponse.amount || null,
+        amount: bankResponse.amount || 0,
       },
       created_at: payIn.created_at,
       updated_at: new Date().toISOString(),
-      updated_by: updated_by,
+      updated_by: updated_by || null,
       bank_response_id: bankResponse.id || null,
       is_url_expires: true,
     };
@@ -1767,22 +1809,22 @@ export const _processPayInServiceInternal = async (
     const responseObj = {
       id: payIn.id,
       sno: payIn.sno,
-      amount: amount,
+      amount: amount || 0,
       status: updatePayInData.status,
-      user_submitted_utr: updatePayInData.user_submitted_utr,
+      user_submitted_utr: updatePayInData.user_submitted_utr || null,
       user_submitted_image: updatePayInData.user_submitted_image || null,
-      duration: updatePayInData.duration,
-      user: payIn.user,
-      nick_name: bank.nick_name,
+      duration: updatePayInData.duration || 0,
+      user: payIn.user || null,
+      nick_name: bank.nick_name || '',
       merchant_id: payIn.merchant_id,
-      vendor_code: vendor?.code,
-      vendor_user_id: vendor?.id || null,
-      bank_acc_id: updatePayInData.bank_acc_id,
+      vendor_code: vendor?.code || null,
+      vendor_user_id: vendor?.user_id || null,
+      bank_acc_id: updatePayInData.bank_acc_id || null,
       merchant_order_id: payIn.merchant_order_id,
       company_id: payIn.company_id,
       bank_res_details: {
         utr: bankResponse.utr || null,
-        amount: bankResponse.amount || null,
+        amount: bankResponse.amount || 0,
       },
     };
 
@@ -1942,17 +1984,17 @@ export const _processPayInServiceInternal = async (
   const responseObj = {
     id: payIn.id,
     sno: payIn.sno,
-    amount: amount,
+    amount: amount || 0,
     status: updatePayInData.status,
-    user_submitted_utr: updatePayInData.user_submitted_utr,
+    user_submitted_utr: updatePayInData.user_submitted_utr || null,
     user_submitted_image: updatePayInData.user_submitted_image || null,
-    duration: updatePayInData.duration,
+    duration: updatePayInData.duration || 0,
     merchant_id: payIn.merchant_id,
-    nick_name: bank.nick_name,
-    vendor_user_id: vendor?.id || null,
-    bank_acc_id: updatePayInData.bank_acc_id,
+    nick_name: bank.nick_name || '',
+    vendor_user_id: vendor?.user_id || null,
+    bank_acc_id: updatePayInData.bank_acc_id || null,
     payin_merchant_commission:
-      updatePayInData.payin_merchant_commission || null,
+      updatePayInData.payin_merchant_commission || 0,
     merchant_details: {
       merchant_code: merchant && merchant[0] ? merchant[0].code : null,
       dispute: updatePayInData.status === Status.DISPUTE,
@@ -1966,9 +2008,9 @@ export const _processPayInServiceInternal = async (
     },
     bank_res_details: {
       utr: bankResponse.utr || null,
-      amount: bankResponse.amount || null,
+      amount: bankResponse.amount || 0,
     },
-    user: payIn.user,
+    user: payIn.user || null,
     updated_at: payIn.updated_at,
     created_at: payIn.created_at,
     vendor_code: vendor?.code || null,
@@ -2192,16 +2234,16 @@ export const processPayInWebHookService = async (payload, updated_by) => {
     const responseObj = {
       id: payIn.id,
       sno: payIn.sno,
-      amount,
+      amount: amount || 0,
       status: finalStatus,
-      user_submitted_utr: userSubmittedUtr,
-      duration,
+      user_submitted_utr: userSubmittedUtr || null,
+      duration: duration || 0,
       merchant_id: payIn.merchant_id,
-      nick_name: bank.nick_name,
-      vendor_user_id: vendor?.id || null,
-      bank_acc_id: payIn.bank_acc_id,
+      nick_name: bank.nick_name || '',
+      vendor_user_id: vendor?.user_id || null,
+      bank_acc_id: payIn.bank_acc_id || null,
       payin_merchant_commission:
-        updatePayInData.payin_merchant_commission || null,
+        updatePayInData.payin_merchant_commission || 0,
       merchant_details: {
         merchant_code: merchant?.code || null,
         dispute: finalStatus === Status.DISPUTE,
@@ -2215,9 +2257,9 @@ export const processPayInWebHookService = async (payload, updated_by) => {
       },
       bank_res_details: {
         utr: bankResponse.utr || null,
-        amount: bankResponse.amount || null,
+        amount: bankResponse.amount || 0,
       },
-      user: payIn.user,
+      user: payIn.user || null,
       updated_at: payIn.updated_at,
       created_at: payIn.created_at,
       vendor_code: vendor?.code || null,
@@ -2747,7 +2789,7 @@ export const disputeDuplicateTransactionService = async (
           ...newEntryResponse,
           bank_res_details: {
             utr: bankResponse.utr || null,
-            amount: bankResponse.amount || null,
+            amount: bankResponse.amount || 0,
           },
         });
         await newTableEntry(tableName.BANK_RESPONSE, {
@@ -2910,7 +2952,49 @@ export const disputeDuplicateTransactionService = async (
     // }
 
     // await Promise.all(notifications);
-    await newTableEntry(tableName.PAYIN, { id: payIn.id, ...response });
+    // Build complete socket response object
+    const socketResponseObj = {
+      id: payIn.id,
+      sno: response.sno || payIn.sno,
+      amount: response.amount || payIn.amount || 0,
+      status: response.status,
+      user_submitted_utr: response.user_submitted_utr || null,
+      user_submitted_image: response.user_submitted_image || null,
+      duration: response.duration || 0,
+      nick_name: response.nick_name || '',
+      bank_acc_id: response.bank_acc_id || null,
+      payin_merchant_commission: response.payin_merchant_commission || 0,
+      payin_vendor_commission: response.payin_vendor_commission || 0,
+      merchant_details: response.merchant_details || {
+        merchant_code: '',
+        dispute: false,
+        return_url: null,
+        notify_url: null,
+      },
+      merchant_order_id: response.merchant_order_id || payIn.merchant_order_id,
+      merchant_id: response.merchant_id || payIn.merchant_id,
+      payin_details: response.payin_details || {
+        urls: payIn.config?.urls || {},
+        user: payIn.config?.user || {},
+      },
+      vendor_code: response.vendor_code || null,
+      vendor_user_id: response.vendor_user_id || null,
+      upi_short_code: response.upi_short_code || payIn.upi_short_code || null,
+      is_url_expires: response.is_url_expires || false,
+      approved_at: response.approved_at || null,
+      created_by: response.created_by || null,
+      updated_by: response.updated_by || null,
+      is_notified: response.is_notified || false,
+      user: response.user || payIn.user || null,
+      created_at: response.created_at || payIn.created_at,
+      updated_at: response.updated_at || new Date().toISOString(),
+      bank_res_details: response.bank_res_details || {
+        utr: null,
+        amount: 0,
+      },
+      company_id: response.company_id || payIn.company_id,
+    };
+    await newTableEntry(tableName.PAYIN, socketResponseObj);
     await commit(conn);
     committed = true;
     return response;
@@ -3262,7 +3346,7 @@ const _checkPendingPayinStatusServiceInternal = async (
       }
     }
     if (processedPayinIds.length >= 1) {
-      await newTableEntry(tableName.PAYIN);
+      // Socket events already emitted in the processing loop above
     }
     return processedPayinIds;
   } catch (error) {
@@ -3363,16 +3447,17 @@ const _verifyPayinsServiceInternal = async (
       const responseObj = {
         id: payIn.id,
         sno: payIn.sno,
-        amount: payIn.amount,
+        amount: payIn.amount || 0,
         status: payIn.bank_acc_id ? Status.DROPPED : Status.FAILED,
-        user_submitted_utr: payIn.user_submitted_utr,
+        user_submitted_utr: payIn.user_submitted_utr || null,
         user_submitted_image: payIn.user_submitted_image || null,
-        duration: payIn.duration,
-        nick_name: payIn.bank_acc_id ? bankAccountDetails[0]?.nick_name : '',
-        bank_acc_id: payIn.bank_acc_id,
+        duration: payIn.duration || 0,
+        nick_name: payIn.bank_acc_id ? bankAccountDetails[0]?.nick_name || '' : '',
+        bank_acc_id: payIn.bank_acc_id || null,
         merchant_order_id: payIn.merchant_order_id,
         company_id: payIn.company_id,
-        vendor_code: payIn.bank_acc_id ? vendorData[0]?.code : '',
+        vendor_code: payIn.bank_acc_id ? vendorData[0]?.code || '' : '',
+        vendor_user_id: payIn.bank_acc_id ? vendorData[0]?.user_id || null : null,
         merchant_details: {
           merchant_code: merchant.code || '',
           dispute: payIn.status === Status.DISPUTE,
@@ -4551,11 +4636,43 @@ export const updatePayInService = async (
     //   additionalRecipients: [vendor_user_id],
     // });
     const updatedPayInData = {
-      ...updatedPayIn,
-      nick_name: payInBank[0]?.nick_name,
+      id: updatedPayIn.id,
+      sno: updatedPayIn.sno,
+      amount: updatedPayIn.amount || 0,
+      status: updatedPayIn.status,
+      user_submitted_utr: updatedPayIn.user_submitted_utr || null,
+      user_submitted_image: updatedPayIn.user_submitted_image || null,
+      duration: updatedPayIn.duration || 0,
+      nick_name: payInBank[0]?.nick_name || '',
+      bank_acc_id: updatedPayIn.bank_acc_id || null,
+      payin_merchant_commission: updatedPayIn.payin_merchant_commission || 0,
+      payin_vendor_commission: updatedPayIn.payin_vendor_commission || 0,
+      merchant_details: {
+        merchant_code: merchant?.code || '',
+        dispute: updatedPayIn.status === Status.DISPUTE,
+        return_url: updatedPayIn.config?.urls?.return || null,
+        notify_url: updatedPayIn.config?.urls?.notify || null,
+      },
+      merchant_order_id: updatedPayIn.merchant_order_id,
+      merchant_id: updatedPayIn.merchant_id,
+      payin_details: {
+        urls: updatedPayIn.config?.urls || {},
+        user: updatedPayIn.config?.user || {},
+      },
+      vendor_code: vendor?.code || null,
+      vendor_user_id: vendor?.user_id || null,
+      upi_short_code: updatedPayIn.upi_short_code || null,
+      is_url_expires: updatedPayIn.is_url_expires || false,
+      approved_at: updatedPayIn.approved_at || null,
+      created_by: updatedPayIn.created_by || null,
+      updated_by: updatedPayIn.updated_by || null,
+      is_notified: updatedPayIn.is_notified || false,
+      user: updatedPayIn.user || null,
+      created_at: updatedPayIn.created_at,
+      updated_at: updatedPayIn.updated_at || new Date().toISOString(),
       bank_res_details: {
-        utr: bankResponseDataUtr?.utr || bankResponseData?.utr,
-        amount: updatedPayIn?.amount,
+        utr: bankResponseDataUtr?.utr || bankResponseData?.utr || null,
+        amount: updatedPayIn?.amount || 0,
       },
       company_id: company_id,
     };
