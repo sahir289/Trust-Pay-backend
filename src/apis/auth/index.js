@@ -35,7 +35,7 @@ const router = express.Router();
  *                   type: string
  *                   example: "login successfully!"
  */
-router.post('/login', geoLocationGuard, tryCatchHandler(loginController)); // login route
+router.post('/login', tryCatchHandler(loginController)); // login route
 
 router.post('/refresh-token', tryCatchHandler(refreshTokenController));
 
