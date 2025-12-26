@@ -8,6 +8,8 @@ import {
   methodNotFound,
   addLogIdInRequest,
 } from './middlewares/requestExtension.js';
+import { requestTimeoutMiddleware } from './middlewares/requestTimeout.js';
+import { requestSanitizerMiddleware } from './middlewares/requestSanitizer.js';
 import apis from './apis/index.js';
 import errorHandler from './middlewares/errorHandler.js';
 import config from './config/config.js';
@@ -62,6 +64,12 @@ app.use(
   }),
 );
 app.use(express.json());
+
+// Request sanitization - MUST come early to sanitize all inputs
+app.use(requestSanitizerMiddleware);
+
+// Request timeout - configurable per route
+app.use(requestTimeoutMiddleware);
 
 app.use(addLogIdInRequest);
 app.use(apis);

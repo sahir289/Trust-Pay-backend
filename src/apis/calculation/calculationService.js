@@ -47,6 +47,7 @@ dayjs.extend(timezone);
 // Service to fetch calculation data
 const getCalculationService = async (filters, role) => {
   let conn; 
+  let committed = false;
   try {
     // Get connection without transaction for read-only operation
     conn = await getConnection();
@@ -59,9 +60,10 @@ const getCalculationService = async (filters, role) => {
     const result = await getCalculationsSumDao({
       ...filters,
       role,
-      conn,
-    });
+    }, conn);
 
+    await commit(conn);
+    committed = true;
     return (
       result || {
         vendor: [],
@@ -75,6 +77,9 @@ const getCalculationService = async (filters, role) => {
       }
     );
   } catch (error) {
+    if (conn && !committed) {
+      await rollback(conn);
+    }
     logger.error('Error while fetching calculation data:', 'error', error);
     throw error;
   } finally {
