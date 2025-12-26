@@ -3,49 +3,44 @@ import { executeQuery } from './db.js';
 import { Role } from '../constants/index.js';
 import { logger } from './logger.js';
 
-export async function enhanceVendorsWithSubVendors(
-  data,
-  includeSeperateSubVendors = false,
-  role = null,
-  company_id = null,
-  conn = null,
-) {
+export async function enhanceVendorsWithSubVendors(data, includeSeperateSubVendors = false, role = null, company_id = null) {
   const subVendorUserIds = new Set();
-
+  
   // First pass: collect all sub-vendor user IDs
   for (const vendor of data) {
     const userHierarchys = await getUserHierarchysDao({
       user_id: vendor.user_id,
-    }, null , null, null, null, null, conn);
+    });
     const userHierarchy = userHierarchys[0];
-
+    
     if (userHierarchy?.config?.siblings?.sub_vendors) {
       const subVendors = userHierarchy.config.siblings.sub_vendors;
       subVendors.forEach((id) => subVendorUserIds.add(id));
     }
   }
-
+  
   const result = [];
-
+  
   // Second pass: enhance vendors with sub-vendor data
   for (const vendor of data) {
+    
     // If includeSeperateSubVendors is true, don't filter out sub-vendors
     if (!includeSeperateSubVendors && subVendorUserIds.has(vendor.user_id)) {
       continue;
     }
-
+    
     const userHierarchys = await getUserHierarchysDao({
       user_id: vendor.user_id,
-    }, null , null, null, null, null, conn);
+    });
     const userHierarchy = userHierarchys[0];
-
+    
     // If no sub-vendors, add empty array and continue
     if (!userHierarchy?.config?.siblings?.sub_vendors) {
       vendor.subVendors = [];
       result.push(vendor);
       continue;
     }
-
+    
     // Get sub-vendor data only for main vendors (not for sub-vendors themselves)
     // If includeSeperateSubVendors is true, don't add nested subVendors for sub-vendors
     if (includeSeperateSubVendors && subVendorUserIds.has(vendor.user_id)) {
@@ -53,31 +48,26 @@ export async function enhanceVendorsWithSubVendors(
       result.push(vendor);
       continue;
     }
-
+    
     const subVendorIds = userHierarchy.config.siblings.sub_vendors;
     const subVendors = [];
-
+    
     // Fetch sub-vendor data with the same structure as main vendors
     if (subVendorIds.length > 0) {
-      const subVendorData = await getSubVendorsWithCompleteData(
-        subVendorIds,
-        role,
-        company_id,
-        conn,
-      );
+      const subVendorData = await getSubVendorsWithCompleteData(subVendorIds, role, company_id);
       subVendors.push(...subVendorData);
     }
-
+    
     vendor.subVendors = subVendors;
-
+    
     result.push(vendor);
   }
-
+  
   return result;
 }
 
 // Helper function to get sub-vendor data with the same structure as main vendors
-async function getSubVendorsWithCompleteData(userIds, role, company_id, conn = null) {
+async function getSubVendorsWithCompleteData(userIds, role, company_id) {
   try {
     // Build the same columns as getVendorsBySearchDao
     const columns = [
@@ -138,13 +128,10 @@ async function getSubVendorsWithCompleteData(userIds, role, company_id, conn = n
 
     queryText += ` ORDER BY "Vendor"."updated_at" DESC`;
 
-    const result = await executeQuery(queryText, values, conn);
+    const result = await executeQuery(queryText, values);
     return result.rows;
   } catch (error) {
-    logger.error(
-      'Error fetching sub-vendor data with complete structure:',
-      error,
-    );
+    logger.error('Error fetching sub-vendor data with complete structure:', error);
     return [];
   }
 }

@@ -10,7 +10,6 @@ import {
   checkPayOutStatus,
   assignedPayout,
   createTataPayBulkPayoutController,
-  createRupeeFlowBulkPayoutController,
 } from './payOutController.js';
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
@@ -23,7 +22,6 @@ import {
 // Import balance functions from separate files
 import { getPayAssistWalletBalance } from '../../payassist/payassist.js';
 import { getTataPayWalletBalance } from '../../tatapay/tatapay.js';
-import { getRupeeFlowWalletBalance, initiateRupeeFlowPayout } from '../../rupeeflow/rupeeflow.js';
 const router = express.Router();
 
 /**
@@ -285,18 +283,6 @@ router.post(
   tryCatchHandler(tataPayTransactionStatusCallback),
 );
 
-router.post(
-  '/rupeeflow',
-  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
-  tryCatchHandler(initiateRupeeFlowPayout),
-);
-
-router.get(
-  '/rupeeflow/wallet-balance',
-  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
-  tryCatchHandler(getRupeeFlowWalletBalance),
-);
-
 /**
  * @swagger
  * /payout/tatapay/bulk-payout:
@@ -409,11 +395,6 @@ router.post(
   '/tatapay/bulk-payout',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(createTataPayBulkPayoutController),
-);
-router.post(
-  '/rupeeflow/bulk-payout',
-  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
-  tryCatchHandler(createRupeeFlowBulkPayoutController),
 );
 
 // router.post(

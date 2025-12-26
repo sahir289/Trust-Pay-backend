@@ -17,7 +17,6 @@ import userHierarchy from './userHierarchy/index.js';
 import payOut from './payOut/index.js';
 import complaints from './complaints/index.js';
 import reports from './reports/index.js';
-// Cron import removed - crons run in dedicated cron-worker.js process
 import cron from '../cron/index.js';
 import swaggerUi from 'swagger-ui-express';
 import { swaggerSpecs } from '../../swaggerConfig.js';
@@ -61,7 +60,6 @@ router.use('/consume-bank-response', consumeBankResponseRouter);
 router.use('/ping', ping);
 router.use('/auth', auth);
 router.use('/complaints', complaints);
-// Cron route removed - crons run in dedicated cron-worker.js process
 router.use('/cron', cron);
 router.use('/common', common);
 router.use('/dashboardReport', dashboardReport);

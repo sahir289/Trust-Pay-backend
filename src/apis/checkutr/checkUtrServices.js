@@ -58,9 +58,9 @@ const getCheckUtrBySearchService = async (company_id, search, page, limit) => {
   }
 };
 
-const _createCheckUtrServiceInternal = async (payload, conn) => {
+const createCheckUtrService = async (conn, payload) => {
   try {
-    const result = await createCheckUtrDao(payload, conn);
+    const result = await createCheckUtrDao(payload);
     // await notifyAdminsAndUsers({
     //   conn,
     //   company_id: payload.company_id,
@@ -71,23 +71,6 @@ const _createCheckUtrServiceInternal = async (payload, conn) => {
     // });
     return result;
   } catch (error) {
-    logger.error('error in _createCheckUtrServiceInternal', error);
-    throw error;
-  }
-};
-
-const createCheckUtrService = async (payload) => {
-  let conn; let committed = false; ;
-  try {
-    conn = await getConnection();
-    await beginTransaction(conn);
-    const result = await _createCheckUtrServiceInternal(payload, conn);
-    await commit(conn); committed = true;
-    return result;
-  } catch (error) {
-    if (conn && !committed) {
-      await rollback(conn);
-    }
     logger.error('error getting while check utr', error);
     throw error;
   }

@@ -14,10 +14,8 @@ import {
   rollback,
 } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
-import { sendSuccess } from '../../utils/responseHandlers.js';
 
 export const tataPayTransactionStatusCallback = async (req, res) => {
-  sendSuccess(res, {}, 'Webhook received successfully');
   const payload = req.body;
   const apitxnid = payload?.payoutId;
   let conn;
@@ -34,17 +32,6 @@ export const tataPayTransactionStatusCallback = async (req, res) => {
     
     if (!singleWithdrawData) {
       return res.status(404).send('Payment not found');
-    }
-
-    if (
-      singleWithdrawData.status === Status.APPROVED ||
-      singleWithdrawData.status === Status.REJECTED
-    ) {
-      logger.info('Payout already processed', {
-        payoutId: singleWithdrawData.id,
-        status: singleWithdrawData.status,
-      });
-      return
     }
 
     const [company] = await getCompanyByIDDao({

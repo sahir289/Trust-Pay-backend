@@ -9,6 +9,7 @@ import {
   executeQuery,
 } from '../../utils/db.js';
 import dayjs from 'dayjs';
+import { getConnection } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
 // import {
 //   createPayinInES,
@@ -21,10 +22,10 @@ import { logger } from '../../utils/logger.js';
 // import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 // import { generateCacheKey ,setCachedData,getCachedData } from '../../utils/redishashkey.js';
 // import { newTableEntry } from '../../utils/sockets.js';
-export const generatePayInUrlDao = async (data, conn = null) => {
+export const generatePayInUrlDao = async (data) => {
   try {
     const [sql, params] = buildInsertQuery(tableName.PAYIN, data);
-    const result = await executeQuery(sql, params, conn);
+    const result = await executeQuery(sql, params);
     const insertedEntry = result.rows[0];
     // if (insertedEntry.merchant_id) {
     //   const code = await getMerchantForEsDao(insertedEntry.merchant_id);
@@ -42,7 +43,7 @@ export const generatePayInUrlDao = async (data, conn = null) => {
     throw error;
   }
 };
-export const getPayInwithMerchantDao = async (merchantorderid, conn = null) => {
+export const getPayInwithMerchantDao = async (merchantorderid) => {
   try {
     const sql = `
     SELECT 
@@ -80,7 +81,7 @@ export const getPayInwithMerchantDao = async (merchantorderid, conn = null) => {
     const filterArray = Array.isArray(merchantorderid)
       ? merchantorderid
       : [merchantorderid];
-    const result = await executeQuery(sql, filterArray, conn);
+    const result = await executeQuery(sql, filterArray);
     return result.rows[0];
   } catch (error) {
     logger.error(
@@ -91,7 +92,7 @@ export const getPayInwithMerchantDao = async (merchantorderid, conn = null) => {
   }
 };
 
-export const getPayInWithMerchantOrderIdDao = async (merchantOrderid, conn = null) => {
+export const getPayInWithMerchantOrderIdDao = async (merchantOrderid) => {
   try {
     const sql = `
     SELECT 
@@ -102,7 +103,7 @@ export const getPayInWithMerchantOrderIdDao = async (merchantOrderid, conn = nul
     FROM "Payin" p
     WHERE p.merchant_order_id = $1`;
     const params = [merchantOrderid];
-    const result = await executeQuery(sql, params, conn);
+    const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
     logger.error(
@@ -114,7 +115,7 @@ export const getPayInWithMerchantOrderIdDao = async (merchantOrderid, conn = nul
 }
 
 //new daos for payin, bankresponse , checkutr, resethistory
-export const getPayInsBankResDao = async (filters = {}, conn = null) => {
+export const getPayInsBankResDao = async (filters = {}) => {
   try {
     const selectColumns = `
       id,
@@ -132,7 +133,7 @@ export const getPayInsBankResDao = async (filters = {}, conn = null) => {
       `SELECT ${selectColumns} FROM "${tableName.PAYIN}" WHERE is_obsolete = false`,
       filters,
     );
-    const result = await executeQuery(sql, params, conn);
+    const result = await executeQuery(sql, params);
     return result.rows || [];
   } catch (error) {
     logger.error('Error in getPayInsDao:', error);
@@ -140,7 +141,7 @@ export const getPayInsBankResDao = async (filters = {}, conn = null) => {
   }
 };
 
-export const getPayInsForSuccessRatioDao = async (filters = {}, conn = null) => {
+export const getPayInsForSuccessRatioDao = async (filters = {}) => {
   try {
     const now = new Date();
     const last24Hours = new Date(now.getTime() - 24 * 60 * 60 * 1000);
@@ -167,7 +168,7 @@ export const getPayInsForSuccessRatioDao = async (filters = {}, conn = null) => 
       last24Hours,
       now,
       filters.company_id,
-    ], conn);
+    ]);
     return result.rows || [];
   } catch (error) {
     logger.error('Error in getPayInsForSuccessRatioDao (last 24h):', error);
@@ -175,7 +176,7 @@ export const getPayInsForSuccessRatioDao = async (filters = {}, conn = null) => 
   }
 };
 
-export const getSuccessPayInsDao = async (filters = {}, conn = null) => {
+export const getSuccessPayInsDao = async (filters = {}) => {
   try {
     const selectColumns = `
       id,
@@ -189,14 +190,14 @@ export const getSuccessPayInsDao = async (filters = {}, conn = null) => {
       `SELECT ${selectColumns} FROM "${tableName.PAYIN}" WHERE is_obsolete = false`,
       filters,
     );
-    const result = await executeQuery(sql, params, conn);
+    const result = await executeQuery(sql, params);
     return result.rows;
   } catch (error) {
     logger.error('Error getting success PayIns:', error);
     throw error;
   }
 };
-export const getPayInForUpdateDao = async (filters = {}, conn = null) => {
+export const getPayInForUpdateDao = async (filters = {}) => {
   try {
     const selectColumns = `
       id,
@@ -219,14 +220,14 @@ export const getPayInForUpdateDao = async (filters = {}, conn = null) => {
       `SELECT ${selectColumns} FROM "${tableName.PAYIN}" WHERE is_obsolete = false`,
       filters,
     );
-    const result = await executeQuery(sql, params, conn);
+    const result = await executeQuery(sql, params);
     return result.rows[0] || null;
   } catch (error) {
     logger.error('Error getting PayIn for update service:', error);
     throw error;
   }
 };
-export const getPayInForUpdateServiceDao = async (filters = {}, conn = null) => {
+export const getPayInForUpdateServiceDao = async (filters = {}) => {
   try {
     const selectColumns = `
       id,
@@ -244,14 +245,14 @@ export const getPayInForUpdateServiceDao = async (filters = {}, conn = null) => 
       `SELECT ${selectColumns} FROM "${tableName.PAYIN}" WHERE is_obsolete = false`,
       filters,
     );
-    const result = await executeQuery(sql, params, conn);
+    const result = await executeQuery(sql, params);
     return result.rows[0] || null;
   } catch (error) {
     logger.error('Error getting PayIn for update:', error);
     throw error;
   }
 };
-export const getPayInForCheckStatusDao = async (filters, conn = null) => {
+export const getPayInForCheckStatusDao = async (filters) => {
   try {
     const selectColumns = `
       id,
@@ -269,7 +270,7 @@ export const getPayInForCheckStatusDao = async (filters, conn = null) => {
       filters,
     );
 
-    const result = await executeQuery(sql, params, conn);
+    const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
     logger.error('Error getting PayIn details:', error);
@@ -277,7 +278,7 @@ export const getPayInForCheckStatusDao = async (filters, conn = null) => {
   }
 };
 
-export const getPayinsForServiccDao = async (filters, conn = null) => {
+export const getPayinsForServiccDao = async (filters) => {
   try {
     const [sql, params] = buildSelectQuery(
       `SELECT 
@@ -304,7 +305,7 @@ export const getPayinsForServiccDao = async (filters, conn = null) => {
        FROM "${tableName.PAYIN}" WHERE is_obsolete = false`,
       filters,
     );
-    const result = await executeQuery(sql, params, conn);
+    const result = await executeQuery(sql, params);
 
     return result.rows[0];
   } catch (error) {
@@ -316,7 +317,7 @@ export const getPayinsForServiccDao = async (filters, conn = null) => {
   }
 };
 
-export const getPayInForDisputeServiceDao = async (filters = {}, conn = null) => {
+export const getPayInForDisputeServiceDao = async (filters = {}) => {
   try {
     const selectColumns = `
       p.id,
@@ -341,7 +342,7 @@ export const getPayInForDisputeServiceDao = async (filters = {}, conn = null) =>
       `SELECT ${selectColumns} FROM "${tableName.PAYIN}" as p WHERE is_obsolete = false`,
       filters,
     );
-    const result = await executeQuery(sql, params, conn);
+    const result = await executeQuery(sql, params);
     return result.rows[0] || null;
   } catch (error) {
     logger.error('Error getting PayIn for dispute service:', error);
@@ -349,7 +350,7 @@ export const getPayInForDisputeServiceDao = async (filters = {}, conn = null) =>
   }
 };
 
-export const getPayInIntentDao = async (merchantOrderId, conn = null) => {
+export const getPayInIntentDao = async (merchantOrderId ) => {
   try {
     const selectColumns = `
       p.id,
@@ -373,7 +374,7 @@ export const getPayInIntentDao = async (merchantOrderId, conn = null) => {
     `;
     const sql = `SELECT ${selectColumns} FROM "${tableName.PAYIN}" p WHERE p.merchant_order_id = $1 AND p.is_obsolete = false`;
     const params = [merchantOrderId];
-    const result = await executeQuery(sql, params, conn);
+    const result = await executeQuery(sql, params);
     return result.rows[0] || [];
   } catch (error) {
     logger.error('Error getting while creating intent link:', error);
@@ -381,7 +382,7 @@ export const getPayInIntentDao = async (merchantOrderId, conn = null) => {
   }
 };
 
-export const getPayInsForCronDao = async (filters = {}, conn = null) => {
+export const getPayInsForCronDao = async (filters = {}) => {
   try {
     const selectColumns = `
       id,
@@ -399,7 +400,7 @@ export const getPayInsForCronDao = async (filters = {}, conn = null) => {
       `SELECT ${selectColumns} FROM "${tableName.PAYIN}" WHERE is_obsolete = false`,
       filters,
     );
-    const result = await executeQuery(sql, params, conn);
+    const result = await executeQuery(sql, params);
     return result.rows || [];
   } catch (error) {
     logger.error('Error getting PayIns for cron:', error);
@@ -407,37 +408,7 @@ export const getPayInsForCronDao = async (filters = {}, conn = null) => {
   }
 };
 
-export const getExpiredPayInsDao = async (expireTime, status, dateField = 'created_at', conn = null) => {
-  try {
-    const selectColumns = `
-      id,
-      merchant_order_id,
-      status,
-      is_notified,
-      amount,
-      user_submitted_utr,
-      config,
-      created_at,
-      updated_at
-    `;
-
-    const sql = `
-      SELECT ${selectColumns} 
-      FROM "${tableName.PAYIN}" 
-      WHERE is_obsolete = false 
-        AND status = $1 
-        AND ${dateField} <= $2
-    `;
-    
-    const result = await executeQuery(sql, [status, expireTime], conn);
-    return result.rows || [];
-  } catch (error) {
-    logger.error('Error getting expired PayIns:', error);
-    throw error;
-  }
-};
-
-export const getPayInForTelegramUtrDao = async (filters = {}, conn = null) => {
+export const getPayInForTelegramUtrDao = async (filters = {}) => {
   try {
     const selectColumns = `
       id,
@@ -454,7 +425,7 @@ export const getPayInForTelegramUtrDao = async (filters = {}, conn = null) => {
       `SELECT ${selectColumns} FROM "${tableName.PAYIN}" WHERE 1=1`,
       filters,
     );
-    const result = await executeQuery(sql, params, conn);
+    const result = await executeQuery(sql, params);
     return result.rows[0] || null;
   } catch (error) {
     logger.error('Error getting PayIn for telegram UTR check:', error);
@@ -462,7 +433,7 @@ export const getPayInForTelegramUtrDao = async (filters = {}, conn = null) => {
   }
 };
 
-export const getPayInForResetDao = async (filters = {}, conn = null) => {
+export const getPayInForResetDao = async (filters = {}) => {
   try {
     const selectColumns = `
       id,
@@ -481,14 +452,14 @@ export const getPayInForResetDao = async (filters = {}, conn = null) => {
       `SELECT ${selectColumns} FROM "${tableName.PAYIN}" WHERE 1=1`,
       filters,
     );
-    const result = await executeQuery(sql, params, conn);
+    const result = await executeQuery(sql, params);
     return result.rows[0] || null;
   } catch (error) {
     logger.error('Error getting PayIn for reset service:', error);
     throw error;
   }
 };
-export const getPayInForTelegramResponseDao = async (filters = {}, conn = null) => {
+export const getPayInForTelegramResponseDao = async (filters = {}) => {
   try {
     const selectColumns = `
       id,
@@ -508,14 +479,14 @@ export const getPayInForTelegramResponseDao = async (filters = {}, conn = null) 
       `SELECT ${selectColumns} FROM "${tableName.PAYIN}" WHERE is_obsolete = false`,
       filters,
     );
-    const result = await executeQuery(sql, params, conn);
+    const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
     logger.error('Error getting PayIn for telegram response:', error);
     throw error;
   }
 };
-export const getPayInForTelegramResponseArrayDao = async (filters = {}, conn = null) => {
+export const getPayInForTelegramResponseArrayDao = async (filters = {}) => {
   try {
     const selectColumns = `
       id,
@@ -535,7 +506,7 @@ export const getPayInForTelegramResponseArrayDao = async (filters = {}, conn = n
       `SELECT ${selectColumns} FROM "${tableName.PAYIN}" WHERE is_obsolete = false`,
       filters,
     );
-    const result = await executeQuery(sql, params, conn);
+    const result = await executeQuery(sql, params);
     return result.rows;
   } catch (error) {
     logger.error('Error getting PayIn for telegram response:', error);
@@ -543,7 +514,7 @@ export const getPayInForTelegramResponseArrayDao = async (filters = {}, conn = n
   }
 };
 
-export const getPayInResetBasicDao = async (filters, conn = null) => {
+export const getPayInResetBasicDao = async (filters) => {
   try {
     const baseQuery = `
       SELECT 
@@ -559,14 +530,14 @@ export const getPayInResetBasicDao = async (filters, conn = null) => {
     `;
 
     const [sql, params] = buildSelectQuery(baseQuery, filters);
-    const result = await executeQuery(sql, params, conn);
+    const result = await executeQuery(sql, params);
     return result.rows[0] || null;
   } catch (error) {
     logger.error('Error getting basic PayIn:', error);
     throw error;
   }
 };
-export const getPayInForExpireDao = async (filters, conn = null) => {
+export const getPayInForExpireDao = async (filters) => {
   try {
     const baseQuery = `
       SELECT 
@@ -577,7 +548,7 @@ export const getPayInForExpireDao = async (filters, conn = null) => {
     `;
 
     const [sql, params] = buildSelectQuery(baseQuery, filters);
-    const result = await executeQuery(sql, params, conn);
+    const result = await executeQuery(sql, params);
     return result.rows[0] || null;
   } catch (error) {
     logger.error('Error getting PayIn for expire:', error);
@@ -598,7 +569,7 @@ export const getPayInForExpireDao = async (filters, conn = null) => {
 //   }
 // };
 
-export const getPayInPendingDao = async ({ company_id, status }, conn = null) => {
+export const getPayInPendingDao = async ({ company_id, status }) => {
   try {
     const sql = `
       SELECT 
@@ -617,7 +588,7 @@ export const getPayInPendingDao = async ({ company_id, status }, conn = null) =>
         AND p.updated_at BETWEEN NOW() - INTERVAL '2 days' AND NOW()
     `;
     const params = [company_id, status];
-    const result = await executeQuery(sql, params, conn);
+    const result = await executeQuery(sql, params);
     return result.rows;
   } catch (error) {
     logger.error('Error getting PayIn URL:', error);
@@ -625,7 +596,7 @@ export const getPayInPendingDao = async ({ company_id, status }, conn = null) =>
   }
 };
 
-export const getPayInDaoByCode = async (filters, conn = null) => {
+export const getPayInDaoByCode = async (filters) => {
   try {
     const sql = `
     SELECT r.code, p.config, p.merchant_id, p.user
@@ -635,7 +606,7 @@ export const getPayInDaoByCode = async (filters, conn = null) => {
       AND p.company_id = $2
   `;
     const params = [filters.id, filters.company_id];
-    const result = await executeQuery(sql, params, conn);
+    const result = await executeQuery(sql, params);
     return result.rows;
   } catch (error) {
     logger.error('Error getting PayIn URL:', error);
@@ -1186,7 +1157,6 @@ export const getPayinsWithoutHistoryDao = async (
   offset,
   role,
   designation,
-  conn = null,
 ) => {
   try {
     // if (filters.search) {
@@ -1513,15 +1483,14 @@ export const getPayinsWithoutHistoryDao = async (
     const countResult = await executeQuery(
       countQuery,
       queryParams.slice(0, -2),
-      conn
     );
-    let searchResult = await executeQuery(queryText, queryParams, conn);
+    let searchResult = await executeQuery(queryText, queryParams);
     const totalItems = parseInt(countResult.rows[0].total);
     let totalPages = Math.ceil(totalItems / limitNum);
 
     if (totalItems > 0 && searchResult.rows.length === 0 && offset > 0) {
       queryParams[queryParams.length - 1] = 0;
-      searchResult = await executeQuery(queryText, queryParams, conn);
+      searchResult = await executeQuery(queryText, queryParams);
       totalPages = Math.ceil(totalItems / limitNum);
     }
 
@@ -1544,7 +1513,6 @@ export const getPayinsWithHistoryDao = async (
   role,
   designation,
   updatedPayin = false,
-  conn = null,
 ) => {
   try {
     // const params = {
@@ -1871,14 +1839,13 @@ export const getPayinsWithHistoryDao = async (
     const countResult = await executeQuery(
       countQuery,
       queryParams.slice(0, -2),
-      conn
     );
-    let searchResult = await executeQuery(queryText, queryParams, conn);
+    let searchResult = await executeQuery(queryText, queryParams);
     const totalItems = parseInt(countResult.rows[0].total);
     let totalPages = Math.ceil(totalItems / limitNum);
     if (totalItems > 0 && searchResult.rows.length === 0 && offset > 0) {
       queryParams[queryParams.length - 1] = 0;
-      searchResult = await executeQuery(queryText, queryParams, conn);
+      searchResult = await executeQuery(queryText, queryParams);
       totalPages = Math.ceil(totalItems / limitNum);
     }
     const result = {
@@ -1893,7 +1860,7 @@ export const getPayinsWithHistoryDao = async (
     throw error;
   }
 };
-export const getPayinsSumAndCountByStatusDao = async (filters, conn = null) => {
+export const getPayinsSumAndCountByStatusDao = async (filters) => {
   try {
     const conditions = [`p.is_obsolete = false`];
     const queryParams = [filters.company_id];
@@ -1904,7 +1871,7 @@ export const getPayinsSumAndCountByStatusDao = async (filters, conn = null) => {
       FROM public."Payin"
       WHERE is_obsolete = false AND company_id = $1
     `;
-    const statusResult = await executeQuery(statusQuery, [filters.company_id], conn);
+    const statusResult = await executeQuery(statusQuery, [filters.company_id]);
     const validStatuses = statusResult.rows.map((row) => row.status);
 
     if (validStatuses.length === 0) {
@@ -1942,7 +1909,7 @@ export const getPayinsSumAndCountByStatusDao = async (filters, conn = null) => {
 
     queryText += ` GROUP BY s.status`;
 
-    const result = await executeQuery(queryText, queryParams, conn);
+    const result = await executeQuery(queryText, queryParams);
 
     const results = result.rows.map((row) => ({
       status: row.status,
@@ -1956,7 +1923,7 @@ export const getPayinsSumAndCountByStatusDao = async (filters, conn = null) => {
     throw error;
   }
 };
-export const getPayInsForResetBankResDao = async (filters = {}, conn = null) => {
+export const getPayInsForResetBankResDao = async (filters = {}) => {
   try {
     const selectColumns = `
       id,
@@ -1976,7 +1943,7 @@ export const getPayInsForResetBankResDao = async (filters = {}, conn = null) => 
       `SELECT ${selectColumns} FROM "${tableName.PAYIN}" WHERE is_obsolete = false and status != 'FAILED' and status != 'DUPLICATE'`,
       filters,
     );
-    const result = await executeQuery(sql, params, conn);
+    const result = await executeQuery(sql, params);
     return result.rows || [];
   } catch (error) {
     logger.error('Error in getPayInsForResetDao:', error);
@@ -2000,14 +1967,14 @@ export const getPayInsForResetBankResDao = async (filters = {}, conn = null) => 
 // };
 
 //process payin  dao fro geting payin for duplicate
-export const getPayInForCheckDao = async (filters = {}, conn = null) => {
+export const getPayInForCheckDao = async (filters = {}) => {
   try {
     const [sql, params] = buildSelectQuery(
       `SELECT id FROM "${tableName.PAYIN}" WHERE 1=1`,
       filters,
       // , page, limit
     );
-    const result = await executeQuery(sql, params, conn);
+    const result = await executeQuery(sql, params);
     return result.rows;
   } catch (error) {
     logger.error('Error getting PayIn URLs:', error);
@@ -2015,14 +1982,14 @@ export const getPayInForCheckDao = async (filters = {}, conn = null) => {
   }
 };
 
-export const getPayInForDuplicate = async (filters = {}, conn = null) => {
+export const getPayInForDuplicate = async (filters = {}) => {
   try {
     const [sql, params] = buildSelectQuery(
       `SELECT id FROM "${tableName.PAYIN}" WHERE status != 'DUPLICATE' AND is_obsolete = false`,
       filters,
       // , page, limit
     );
-    const result = await executeQuery(sql, params, conn);
+    const result = await executeQuery(sql, params);
     return result.rows;
   } catch (error) {
     logger.error('Error getting PayIn URLs:', error);
@@ -2030,12 +1997,18 @@ export const getPayInForDuplicate = async (filters = {}, conn = null) => {
   }
 };
 
-export const updatePayInUrlDao = async (id, data, additionalData = null, conn = null) => {
+export const updatePayInUrlDao = async (id, data, conn,
+  // Adddata
+) => {
   try {
-    logger.log(additionalData, 'additionalData in dao');
-    // additionalData is temporary parameter for utr and amount (not used currently)
     const [sql, params] = buildUpdateQuery(tableName.PAYIN, data, { id });
-    const result = await executeQuery(sql, params, conn);
+    let result;
+    if (conn && conn.query) {
+      result = await conn.query(sql, params);
+      // await newTableEntry(tableName.PAYIN);
+    } else {
+      result = await executeQuery(sql, params);
+    }
     // if (data.status === Status.SUCCESS) {
     //   await newTableEntry('SUM');
     // }
@@ -2083,11 +2056,12 @@ export const updatePayInUrlDao = async (id, data, additionalData = null, conn = 
   }
 };
 
-export const getPayinDetailsByMerchantOrderId = async (merchantOrderId, conn = null) => {
+export const getPayinDetailsByMerchantOrderId = async (merchantOrderId) => {
   if (!merchantOrderId || typeof merchantOrderId !== 'string') {
     throw new BadRequestError('Valid merchantOrderId is required');
   }
 
+  let conn;
   const baseQuery = `
     SELECT 
       p.id AS payin_id,
@@ -2110,12 +2084,21 @@ export const getPayinDetailsByMerchantOrderId = async (merchantOrderId, conn = n
   `;
 
   try {
-    const result = await executeQuery(baseQuery, [merchantOrderId], conn);
+    conn = await getConnection('reader');
+    const result = await conn.query(baseQuery, [merchantOrderId]);
 
     return result.rows;
   } catch (error) {
     const errorMessage = `Error fetching payin details for merchantOrderId ${merchantOrderId}: ${error.message}`;
     logger.error(errorMessage);
     throw error;
+  } finally {
+    if (conn) {
+      try {
+        conn.release();
+      } catch (releaseError) {
+        logger.error('Error releasing connection:', releaseError);
+      }
+    }
   }
 };

@@ -32,9 +32,6 @@ export default [
   },
   {
     files: ['**/*.test.js'],
-    ignores: ['src/examples/**'],
-  },
-  {
     languageOptions: {
       globals: {
         ...globals.browser,

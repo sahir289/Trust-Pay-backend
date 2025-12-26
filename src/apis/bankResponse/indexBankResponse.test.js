@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import request from 'supertest';
 import express from 'express';
 

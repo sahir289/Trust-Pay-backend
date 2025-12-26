@@ -50,7 +50,6 @@ const createGeoGuard = (options = {}) => {
     roleRegionRules = {
       VENDOR: { country: 'India', blockedRegions: ['Gujarat', 'Goa'] },
     },
-    defaultLocation = { latitude: 0, longitude: 0, accuracy: 1000 }, // Default fallback location
   } = { ...config.geoGuard, ...options };
 
   const vpnRolesSet = new Set(restrictVpnForRoles.map((r) => r.toUpperCase()));
@@ -61,26 +60,17 @@ const createGeoGuard = (options = {}) => {
   return async (req, res, next) => {
     try {
       const clientIp = getClientIp(req);
-      let location = req.body?.user_location;
+      const location = req.body?.user_location;
 
       if (!location || typeof location !== 'object') {
-        logger.warn('Location not provided, attempting to fetch from Proxy/VPN service', { ip: clientIp });
-        const proxyInfo = await withTimeout(checkProxyAndVpn(clientIp), 3000, 'Proxy/VPN check');
-        if (proxyInfo && proxyInfo.raw.latitude && proxyInfo.raw.longitude) {
-          location = {
-            latitude: proxyInfo.raw.latitude,
-            longitude: proxyInfo.raw.longitude,
-            accuracy: proxyInfo.accuracy || null,
-          };
-        } else {
-          logger.error('Failed to fetch location from Proxy/VPN service', { ip: clientIp });
-          location = defaultLocation;
-        }
+        return next(new BadRequestError(
+          'Precise location is required. Please enable GPS.',
+        ));
       }
 
       const { latitude, longitude, accuracy } = location;
 
-      if (!latitude || !longitude) {
+      if (!latitude || !longitude || accuracy == null) {
         return next( new BadRequestError(
           'Invalid location data. Latitude, longitude, and accuracy are required.',
         ));

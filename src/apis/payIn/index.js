@@ -31,12 +31,8 @@ import {
 // import { payInUpdateCashfreeWebhook } from '../../webhooks/index.js';
 import { multerUpload } from '../../utils/index.js';
 import getUserLocationMiddleware from '../../middlewares/locationRestrict.js';
-import dbConnScope from '../../middlewares/dbConnScope.js';
 
 const router = express.Router();
-
-// Track DB connections for all payin routes
-router.use(dbConnScope);
 
 // Public API's
 

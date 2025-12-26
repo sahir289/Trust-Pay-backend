@@ -124,20 +124,14 @@ import {
   getCompanyByIDDao,
   // getCompanyDetailsByIdDao,
 } from '../company/companyDao.js';
-import {
-  getUserByCompanyCreatedAtDao,
-  getAllUsersDao,
-  getUserDao,
-} from '../users/userDao.js';
+import { getAllUsersDao, getUserDao } from '../users/userDao.js';
 import { trackVendorsNetBalance } from '../../utils/trackVendorsNetBalance.js';
 import { createCashfreeOrder } from '../../cashfree/cashfree.js';
 import { createRazorPayOrder } from '../../razorpay/razorpay.js';
 // import { createZenTechIndTransaction } from '../../zentechind/zentechInd.js';
 import { createPaymentTransaction } from '../../intent/createIntentTransaction.js';
 
-export const generatePayInUrlByHashService = async (req) => {
-  let conn;
-  let committed = false; 
+export const generatePayInUrlByHashService = async (conn, req) => {
   try {
     const { user_id, code, ot, key, amount } = req.query;
     const { role_id, role } = req.user;
@@ -148,10 +142,8 @@ export const generatePayInUrlByHashService = async (req) => {
       };
       return data;
     }
-    conn = await getConnection();
-    await beginTransaction(conn);
     // const x_api_key = req.headers['x-api-key'];
-    const merchantArr = await getMerchantsByCodeDao(code, undefined, conn);
+    const merchantArr = await getMerchantsByCodeDao(code);
     if (merchantArr.length === 0) {
       const data = {
         status: 404,
@@ -161,16 +153,26 @@ export const generatePayInUrlByHashService = async (req) => {
     }
     const bankAssigned = await getMerchantBankDao({
       config_merchants_contains: merchantArr[0].id,
-    }, conn);
+    });
     const [company] = await getCompanyByIDDao({
       id: merchantArr[0].company_id,
-    }, conn);
+    });
     if (bankAssigned.length <= 0) {
       await sendBankNotAssignedAlertTelegram(
         company.config?.telegramBankAlertChatId,
         code,
         company.config?.telegramBotToken,
       );
+      // await notifyAdminsAndUsers({
+      //   conn,
+      //   company_id: merchantArr[0].company_id,
+      //   message: `Bank Account has not been linked with Merchant: ${code}`,
+      //   payloadUserId: merchantArr[0].user_id,
+      //   actorUserId: merchantArr[0].user_id,
+      //   category: 'Transaction',
+      //   subCategory: 'PayIn',
+      // });
+      //-- correct error handling
       const data = {
         status: 404,
         message: 'Bank Account has not been linked with Merchant',
@@ -189,6 +191,16 @@ export const generatePayInUrlByHashService = async (req) => {
         code,
         company.config?.telegramBotToken,
       );
+      // await notifyAdminsAndUsers({
+      //   conn,
+      //   company_id: merchantArr[0].company_id,
+      //   message: `Bank Account has not been linked with Merchant: ${code}`,
+      //   payloadUserId: merchantArr[0].user_id,
+      //   actorUserId: merchantArr[0].user_id,
+      //   category: 'Transaction',
+      //   subCategory: 'PayIn',
+      // });
+      // error handling
       const data = {
         status: 404,
         message: 'Bank Account has not been linked with Merchant',
@@ -230,11 +242,8 @@ export const generatePayInUrlByHashService = async (req) => {
     const updateRes = {
       payInUrl: `${config.reactPaymentOrigin}/transaction/${encodedHash}?${query}`,
     };
-    await commit(conn);
-    committed = true;
     return updateRes;
   } catch (error) {
-    if (conn && !committed) await rollback(conn);
     logger.error('Error generating payin hash:', error);
     throw error;
   }
@@ -387,11 +396,6 @@ export const generatePayInUrlService = async (payload, role, userIp) => {
       .add(ot === 'y' ? 10 : 30, ot === 'y' ? 'minute' : 'day')
       .toISOString();
 
-    let admin;
-    if (role === Role.ADMIN) {
-      admin = await getUserByCompanyCreatedAtDao(merchant.company_id, role);
-    }
-
     const data = {
       upi_short_code: nanoid(5),
       amount: amount || 0,
@@ -408,7 +412,7 @@ export const generatePayInUrlService = async (payload, role, userIp) => {
           notify: notifyUrl || merchant.config?.urls?.payin_notify || '',
         },
       }),
-      created_by: role === Role.ADMIN ? admin.id : merchant?.user_id,
+      created_by: merchant?.user_id,
     };
 
     const result = await generatePayInUrlDao(data);
@@ -428,7 +432,7 @@ export const generatePayInUrlService = async (payload, role, userIp) => {
     if (merchant?.config?.allow_intent) {
       const duration = calculateDuration(result.created_at);
       await updatePayInUrlDao(result.id, {
-        amount: parseFloat(amount || 0),
+        amount: parseFloat(amount),
         status: Status.ASSIGNED,
         bank_acc_id: bankAssigned[0].id,
         duration: duration,
@@ -457,14 +461,10 @@ export const generatePayInUrlService = async (payload, role, userIp) => {
   } 
 };
 
-export const getPayInUrlService = async (
-  id,
-  tele_check = true,
-  conn = null,
-) => {
+export const  getPayInUrlService = async (id, conn, tele_check = true) => {
   try {
     const currentTime = Date.now();
-    const payIn = await getPayinsForServiccDao({ merchant_order_id: id }, conn);
+    const payIn = await getPayinsForServiccDao({ merchant_order_id: id });
 
     if (!payIn) {
       throw new NotFoundError('Payment Url is incorrect');
@@ -484,10 +484,14 @@ export const getPayInUrlService = async (
       payIn.status !== Status.INITIATED
     ) {
       // expire payIn
-      await updatePayInUrlDao(id, {
-        is_url_expires: true,
-        status: Status.DROPPED,
-      }, null, conn);
+      await updatePayInUrlDao(
+        id,
+        {
+          is_url_expires: true,
+          status: Status.DROPPED,
+        },
+        conn,
+      );
       // Notifying merchant about expired URL
       // This is async function but it's just the callback sending function there fore we are not using await
       merchantPayinCallback(config.urls?.notify, {
@@ -541,7 +545,7 @@ export const assignedBankToPayInUrlService = async (
   merchantOrderId,
   amount,
   type,
-  isAdmin,
+  role,
 ) => {
   // Validate the PayIn URL
   try {
@@ -555,31 +559,26 @@ export const assignedBankToPayInUrlService = async (
           id: payIn.bank_acc_id,
           company_id: payIn.company_id,
         });
-        let response = {
-          return: payIn.config?.urls?.return,
-        };
-        if (
-          Number(amount) > Number(bank[0].min) &&
-          Number(amount) < Number(bank[0].max)
-        ) {
-          if (type === BankTypes.BANK_TRANSFER) {
-            response = {
-              bank: {
-                nick_name: bank[0].nick_name,
-                acc_holder_name: bank[0].acc_holder_name,
-                acc_no: bank[0].acc_no,
-                ifsc: bank[0].ifsc,
-              },
-            };
-          } else {
-            response = {
-              bank: {
-                upi_id: bank[0].upi_id,
-                acc_holder_name: bank[0].acc_holder_name,
-                code: payIn.upi_short_code,
-              },
-            };
-          }
+        let response;
+        if (type === BankTypes.BANK_TRANSFER) {
+          response = {
+            return: payIn.config?.urls?.return,
+            bank: {
+              nick_name: bank[0].nick_name,
+              acc_holder_name: bank[0].acc_holder_name,
+              acc_no: bank[0].acc_no,
+              ifsc: bank[0].ifsc,
+            },
+          };
+        } else {
+          response = {
+            return: payIn.config?.urls?.return,
+            bank: {
+              upi_id: bank[0].upi_id,
+              acc_holder_name: bank[0].acc_holder_name,
+              code: payIn.upi_short_code,
+            },
+          };
         }
         return response;
       } else {
@@ -596,44 +595,20 @@ export const assignedBankToPayInUrlService = async (
     const minPayIn = Number(merchant.min_payin);
     const amt = Number(amount);
 
-    if ((amt > maxPayIn || amt < minPayIn) && !isAdmin) {
+    if ((amt > maxPayIn || amt < minPayIn) && role) {
       //-- exact amounts should also be considered
       return { message: `Amount must be between ${minPayIn} and ${maxPayIn}` };
     }
     const banks = await getMerchantBankDao({
       config_merchants_contains: merchant.id,
     });
-
-    // First, check if any bank satisfies the amount condition
-    const banksWithValidAmount = banks.filter((bank) => {
+    //only enabled banks assigned
+    const enabledBanks = banks.filter((bank) => {
       const isPayInBank = ['PayIn', 'payIn'].includes(bank.bank_used_for);
       const isActive = bank.is_enabled && isPayInBank;
+
       if (!isActive) return false;
 
-      return amt >= Number(bank.min) && amt <= Number(bank.max);
-    });
-
-    // If no bank satisfies the amount condition, check for enabled banks to provide appropriate error
-    if (banksWithValidAmount.length === 0) {
-      await updatePayInUrlDao(payIn.id, {
-        is_url_expires: true,
-        status: Status.DROPPED,
-      });
-      merchantPayinCallback(payInConfig.urls?.notify, {
-        status: Status.DROPPED,
-        merchantOrderId: payIn.merchant_order_id,
-        payinId: payIn.id,
-        amount: null,
-        req_amount: payIn.amount,
-        utr_id: payIn.utr,
-      });
-      throw new NotFoundError(
-        `No bank found with valid amount range for ${amt}!`,
-      );
-    }
-
-    //only enabled banks assigned with valid amount, method support, and type matching
-    const enabledBanks = banksWithValidAmount.filter((bank) => {
       const config = bank.config || {};
       const hasAnyMethod =
         bank.is_qr ||
@@ -971,33 +946,18 @@ export const updateDepositStatusService = async (
   company_id,
   updated_by,
 ) => {
-  let conn;
-  let committed = false;
   try {
-    conn = await getConnection();
-    await beginTransaction(conn);
-    const payInData = await getPayInForUpdateServiceDao(
-      {
-        merchant_order_id: merchantOrderId,
-        company_id,
-      },
-      conn,
-    );
+    const payInData = await getPayInForUpdateServiceDao({
+      merchant_order_id: merchantOrderId,
+      company_id,
+    });
     if (!payInData) {
       throw new NotFoundError('PayIn data not found');
     }
-    const merchants = await getMerchantsDao(
-      {
-        id: payInData.merchant_id,
-        company_id,
-      },
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      conn,
-    );
+    const merchants = await getMerchantsDao({
+      id: payInData.merchant_id,
+      company_id,
+    });
 
     // need to check pay in is for merchant or vendor
     const merchant = merchants[0];
@@ -1013,51 +973,27 @@ export const updateDepositStatusService = async (
     }
 
     //call the Bank Res API
-    const bankResponse = await getBankResponseDao(
-      {
-        id: payInData.bank_response_id,
-        company_id,
-      },
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      conn,
-    );
+    const bankResponse = await getBankResponseDao({
+      id: payInData.bank_response_id,
+      company_id,
+    });
 
     if (!bankResponse) {
       throw new NotFoundError('No bank response found!');
     }
     let duration;
 
-    const banks = await getBankaccountDao(
-      { nick_name, company_id },
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      conn,
-    );
+    const banks = await getBankaccountDao({ nick_name, company_id });
     const bank = banks[0];
 
     if (!bank) {
       throw new NotFoundError('Bank not found!');
     }
 
-    const vendors = await getVendorsDao(
-      {
-        user_id: bank.user_id,
-        company_id,
-      },
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      conn,
-    );
+    const vendors = await getVendorsDao({
+      user_id: bank.user_id,
+      company_id,
+    });
     const vendor = vendors[0];
     //calculate the payin commission
     const payinCommission = calculateCommission(
@@ -1071,7 +1007,7 @@ export const updateDepositStatusService = async (
 
     let successData = [];
     if (bankResponse.is_used) {
-      successData = await getOtherSuccessPayIns(bankResponse, false, conn);
+      successData = await getOtherSuccessPayIns(bankResponse);
     }
     duration = calculateDuration(payInData.created_at);
     const updatePayInData = {
@@ -1166,7 +1102,6 @@ export const updateDepositStatusService = async (
     const updatePayInRes = await updatePayInUrlDao(
       payInData.id,
       updatePayInData,
-      null,
       conn,
     );
 
@@ -1197,11 +1132,8 @@ export const updateDepositStatusService = async (
       utr_id: bankResponse.utr || '',
     });
 
-    await commit(conn);
-    committed = true;
     return;
   } catch (error) {
-    if (conn && !committed) await rollback(conn);
     logger.error('Error updating deposit status:', error);
     throw error;
   }
@@ -1213,18 +1145,11 @@ export const resetDepositService = async (
   company_id,
   updated_by,
 ) => {
-  let conn;
-  let committed = false;
   try {
-    conn = await getConnection();
-    await beginTransaction(conn);
-    const payIn = await getPayInForResetDao(
-      {
-        merchant_order_id: merchant_order_id,
-        company_id: company_id,
-      },
-      conn,
-    );
+    const payIn = await getPayInForResetDao({
+      merchant_order_id: merchant_order_id,
+      company_id: company_id,
+    });
     if (!payIn) {
       throw new NotFoundError('Merchant Order ID not found');
     }
@@ -1237,7 +1162,6 @@ export const resetDepositService = async (
         updated_by,
         company_id,
       },
-      conn,
       // merchant_order_id,
     );
 
@@ -1265,15 +1189,7 @@ export const resetDepositService = async (
     } else {
       condition.utr = payIn.user_submitted_utr;
     }
-    const bankResponse = await getBankResponseDao(
-      condition,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      conn,
-    );
+    const bankResponse = await getBankResponseDao(condition);
     const duration = calculateDuration(payIn.created_at);
     const updatePayInData = {
       status: calculateStatus(payIn.created_at),
@@ -1286,7 +1202,7 @@ export const resetDepositService = async (
 
     if (bankResponse && bankResponse.is_used) {
       // check if any entry exists
-      const payInSuccess = await getOtherSuccessPayIns(bankResponse, undefined, conn);
+      const payInSuccess = await getOtherSuccessPayIns(bankResponse);
       ///for update bankresponse with id
       const id = bankResponse.id;
       if (!payInSuccess.length && payIn.status != Status.DUPLICATE) {
@@ -1294,21 +1210,10 @@ export const resetDepositService = async (
       }
     }
 
-    const result = await updatePayInUrlDao(
-      payIn.id,
-      updatePayInData,
-      undefined,
-      conn,
-    );
-    await commit(conn);
-    committed = true;
-    return result;
+    return await updatePayInUrlDao(payIn.id, updatePayInData, conn);
   } catch (error) {
-    if (conn && !committed) await rollback(conn);
     logger.error('Error reset deposit service:', error);
     throw error;
-  } finally {
-    if (conn) conn.release();
   }
 };
 
@@ -1320,6 +1225,104 @@ const calculateStatus = (createdAt) => {
 
   return timeDifference > TEN_MINUTES_IN_MS ? Status.DROPPED : Status.ASSIGNED;
 };
+
+// export const getPayinsService = async (
+//   company_id,
+//   page,
+//   limit,
+//   filters,
+//   role,
+//   user_id,
+//   designation,
+// ) => {
+//   let conn;
+//   try {
+//     const fetchMerchantIds = async (user_ids) => {
+//       const merchants = await getMerchantByUserIdDao(user_ids);
+//       return merchants.map((merchant) => merchant.id);
+//     };
+
+//     const fetchBankIds = async (user_id) => {
+//       try {
+//         const banks = await getBankaccountDao({
+//           user_id,
+//           bank_used_for: 'PayIn',
+//         });
+//         if (!banks || banks.length === 0) {
+//           return [];
+//         }
+//         return banks.map((bank) => bank.id);
+//       } catch (error) {
+//         logger.error('Error fetching PayIn:', error);
+//         return [];
+//       }
+//     };
+
+//     let merchant_user_id = role === Role.MERCHANT ? [user_id] : [];
+
+//     if (role === Role.MERCHANT) {
+//       const userHierarchys = await getUserHierarchysDao({ user_id });
+//       const userHierarchy = userHierarchys?.[0];
+
+//       if (designation === Role.MERCHANT && userHierarchy) {
+//         const subMerchants =
+//           userHierarchy?.config?.siblings?.sub_merchants ?? [];
+//         if (Array.isArray(subMerchants) && subMerchants.length > 0) {
+//           merchant_user_id = [...merchant_user_id, ...subMerchants];
+//           filters.merchant_id = await fetchMerchantIds(merchant_user_id);
+//         } else {
+//           filters.merchant_id = await fetchMerchantIds([user_id]);
+//         }
+//       } else if (designation === Role.SUB_MERCHANT) {
+//         filters.merchant_id = await fetchMerchantIds([user_id]);
+//       } else if (designation === Role.MERCHANT_OPERATIONS && userHierarchy) {
+//         const parentID = userHierarchy?.config?.parent;
+//         if (parentID) {
+//           const parentHierarchys = await getUserHierarchysDao({
+//             user_id: parentID,
+//           });
+//           const parentHierarchy = parentHierarchys?.[0];
+//           const subMerchants =
+//             parentHierarchy?.config?.siblings?.sub_merchants ?? [];
+
+//           const userIdFilter = [...new Set([parentID, ...subMerchants])];
+//           filters.merchant_id = await fetchMerchantIds(userIdFilter);
+//         }
+//       }
+//     } else if (role === Role.VENDOR) {
+//       if (designation === Role.VENDOR) {
+//         filters.bank_acc_id = await fetchBankIds(user_id);
+//       } else if (designation === Role.VENDOR_OPERATIONS) {
+//         const userHierarchys = await getUserHierarchysDao({ user_id });
+//         const parentID = userHierarchys?.[0]?.config?.parent;
+//         if (parentID) {
+//           filters.bank_acc_id = await fetchBankIds(parentID);
+//         }
+//       }
+//     }
+
+//     if (
+//       (designation === Role.VENDOR || designation === Role.VENDOR_OPERATIONS) &&
+//       Array.isArray(filters.bank_acc_id) &&
+//       filters.bank_acc_id.length === 0
+//     ) {
+//       return [];
+//     }
+
+//     conn = await getConnection();
+//     return await getAllPayInsDao(filters, company_id, page, limit, role);
+//   } catch (error) {
+//     throw new InternalServerError(error.message);
+//   } finally {
+//     if (conn) {
+//       try {
+//         conn.release();
+//       } catch (releaseError) {
+//         logger.error('Error while releasing the connection', releaseError);
+//       }
+//     }
+//   }
+// };
 
 export const getPayinsBySearchService = async (
   filters,
@@ -1363,15 +1366,7 @@ export const getPayinsBySearchService = async (
     let merchant_user_id = role === Role.MERCHANT ? [user_id] : [];
 
     if (role === Role.MERCHANT) {
-      const userHierarchys = await getUserHierarchysDao(
-        { user_id },
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-      );
+      const userHierarchys = await getUserHierarchysDao({ user_id });
       const userHierarchy = userHierarchys?.[0];
 
       if (designation === Role.MERCHANT && userHierarchy) {
@@ -1388,17 +1383,9 @@ export const getPayinsBySearchService = async (
       } else if (designation === Role.MERCHANT_OPERATIONS && userHierarchy) {
         const parentID = userHierarchy?.config?.parent;
         if (parentID) {
-          const parentHierarchys = await getUserHierarchysDao(
-            {
-              user_id: parentID,
-            },
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-          );
+          const parentHierarchys = await getUserHierarchysDao({
+            user_id: parentID,
+          });
           const parentHierarchy = parentHierarchys?.[0];
           const subMerchants =
             parentHierarchy?.config?.siblings?.sub_merchants ?? [];
@@ -1409,15 +1396,7 @@ export const getPayinsBySearchService = async (
       }
     } else if (role === Role.VENDOR || role === Role.SUB_VENDOR) {
       if (designation === Role.VENDOR_ADMIN || designation === Role.VENDOR) {
-        const userHierarchys = await getUserHierarchysDao(
-          { user_id },
-          null,
-          null,
-          null,
-          null,
-          null,
-          null,
-        );
+        const userHierarchys = await getUserHierarchysDao({ user_id });
         const userHierarchy = userHierarchys?.[0];
 
         const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
@@ -1430,29 +1409,13 @@ export const getPayinsBySearchService = async (
       } else if (designation === Role.SUB_VENDOR) {
         filters.bank_acc_id = await fetchBankIds(user_id);
       } else if (designation === Role.VENDOR_OPERATIONS) {
-        const userHierarchys = await getUserHierarchysDao(
-          { user_id },
-          null,
-          null,
-          null,
-          null,
-          null,
-          null,
-        );
+        const userHierarchys = await getUserHierarchysDao({ user_id });
         const userHierarchy = userHierarchys?.[0];
         const parentID = userHierarchy?.config?.parent;
         if (parentID) {
-          const parentHierarchys = await getUserHierarchysDao(
-            {
-              user_id: parentID,
-            },
-            null,
-            null,
-            null,
-            null,
-            null,
-            null,
-          );
+          const parentHierarchys = await getUserHierarchysDao({
+            user_id: parentID,
+          });
           const parentHierarchy = parentHierarchys?.[0];
           const subVendors =
             parentHierarchy?.config?.siblings?.sub_vendors ?? [];
@@ -1535,74 +1498,61 @@ export const processPayInService = async (
   img_utr = false,
   designation,
   h2h,
-  conn = null,
 ) => {
-  const {
-    userSubmittedUtr,
-    merchantOrderId,
-    amount,
-    from_telegram,
-    telegramMessage,
-    telegramBotToken,
-    user_submitted_image,
-    // : payload.fileKey
-  } = payload;
-  // validate payIn
-  // throw error if not exist or expires
-  const orderid = merchantOrderId;
-  await checkLockEdit(orderid, false, conn);
-  if (h2h) {
-    const payin = await getPayInsForCronDao(
-      {
+  try {
+    const {
+      userSubmittedUtr,
+      merchantOrderId,
+      amount,
+      from_telegram,
+      telegramMessage,
+      telegramBotToken,
+      user_submitted_image,
+      // : payload.fileKey
+    } = payload;
+    // validate payIn
+    // throw error if not exist or expires
+    const orderid = merchantOrderId;
+    await checkLockEdit(conn, orderid);
+    if (h2h) {
+      const payin = await getPayInsForCronDao({
         merchant_order_id: merchantOrderId,
-      },
-      conn,
-    );
-    if (payin.length == 0) {
-      throw new NotFoundError('Invalid Order Id');
+      });
+      if (payin.length == 0) {
+        throw new NotFoundError('Invalid Order Id');
+      }
+      if (payin[0].status != 'ASSIGNED') {
+        throw new BadRequestError('Payment is Expired');
+      }
+      if (payin[0].amount != payload.amount) {
+        throw new BadRequestError('Please Enter Valid Amount');
+      }
     }
-    if (payin[0].status != 'ASSIGNED') {
-      throw new BadRequestError('Payment is Expired');
+    const payIn = await getPayInUrlService(merchantOrderId, conn, tele_check);
+    if (
+      Object.keys(payIn).length === 2 &&
+      'error' in payIn &&
+      'result' in payIn
+    ) {
+      return payIn;
     }
-    if (payin[0].amount != payload.amount) {
-      throw new BadRequestError('Please Enter Valid Amount');
+    if (
+      (payIn.one_time_used === true || payIn.is_url_expires === true) &&
+      tele_check
+    ) {
+      const result = {
+        redirect_url: payIn.config?.urls?.return,
+      };
+      return { error: `This payin url is already used`, result };
     }
-  }
-  const payIn = await getPayInUrlService(merchantOrderId, tele_check, conn);
-  if (
-    Object.keys(payIn).length === 2 &&
-    'error' in payIn &&
-    'result' in payIn
-  ) {
-    return payIn;
-  }
-  if (
-    (payIn.one_time_used === true || payIn.is_url_expires === true) &&
-    tele_check
-  ) {
-    const result = {
-      redirect_url: payIn.config?.urls?.return,
-    };
-    return { error: `This payin url is already used`, result };
-  }
-  //lock payin transaction
-  // Validate that we have valid values for lock key
-  if (!payIn.bank_acc_id || !userSubmittedUtr) {
-    throw new BadRequestError(
-      'Missing bank_acc_id or userSubmittedUtr for transaction lock',
-    );
-  }
-  const lockKey = `${payIn.bank_acc_id}${userSubmittedUtr}`;
-  await checkLockEdit(lockKey, true, conn);
-  const banks = await getBankaccountDao(
-    { id: payIn?.bank_acc_id, company_id: payIn.company_id },
-    null,
-    null,
-    null,
-    null,
-    conn,
-  );
-  const bank = banks[0];
+    //lock payin transaction
+    const lockKey = `${payIn.bank_acc_id}${userSubmittedUtr}`;
+    await checkLockEdit(conn, lockKey, true);
+    const banks = await getBankaccountDao({
+      id: payIn?.bank_acc_id,
+      company_id: payIn.company_id,
+    });
+    const bank = banks[0];
 
     if (!bank) {
       throw new NotFoundError('Bank not found!');
@@ -1660,29 +1610,29 @@ export const processPayInService = async (
       utr_id: payIn.user_submitted_utr,
     };
 
-  if (
-    [
-      Status.SUCCESS,
-      Status.DUPLICATE,
-      Status.DISPUTE,
-      Status.BANK_MISMATCH,
-    ].includes(payIn.status)
-  ) {
-    if (payIn.status === Status.DUPLICATE) {
+    if (
+      [
+        Status.SUCCESS,
+        Status.DUPLICATE,
+        Status.DISPUTE,
+        Status.BANK_MISMATCH,
+      ].includes(payIn.status)
+    ) {
+      if (payIn.status === Status.DUPLICATE) {
+        result.utr_id =
+          bankResponse.utr || payIn.user_submitted_utr || userSubmittedUtr;
+      }
+      // This is async function but it's just the callback sending function there fore we are not using await
+      merchantPayinCallback(payIn.config?.urls?.notify, result);
+      return result;
+    }
+    if (otherPayIns.length || bankResponse.is_used) {
+      updatePayInData.status = Status.DUPLICATE;
+      result.status = Status.DUPLICATE;
+      updatePayInData.duration = duration;
       result.utr_id =
         bankResponse.utr || payIn.user_submitted_utr || userSubmittedUtr;
-    }
-    // This is async function but it's just the callback sending function there fore we are not using await
-    merchantPayinCallback(payIn.config?.urls?.notify, result);
-    return result;
-  }
-  if (otherPayIns.length || bankResponse.is_used) {
-    updatePayInData.status = Status.DUPLICATE;
-    result.status = Status.DUPLICATE;
-    updatePayInData.duration = duration;
-    result.utr_id =
-      bankResponse.utr || payIn.user_submitted_utr || userSubmittedUtr;
-    await updatePayInUrlDao(payIn.id, updatePayInData, null, conn);
+      await updatePayInUrlDao(payIn.id, updatePayInData, conn);
 
       const responseObj = {
         id: payIn.id,
@@ -1731,22 +1681,23 @@ export const processPayInService = async (
         })) || {};
     }
 
-  if (bankResponse.id) {
-    await updateBotResponseDao(bankResponse.id, {
-      is_used: true,
-      status: '/success',
-    }, conn);
-  }
+    if (bankResponse.id) {
+      await updateBotResponseDao(
+        bankResponse.id,
+        { is_used: true, status: '/success' },
+        conn,
+      );
+    }
 
-  if (bankResponse.bank_id && bankResponse.bank_id !== payIn.bank_acc_id) {
-    updatePayInData.status = Status.BANK_MISMATCH;
-    updatePayInData.bank_response_id = bankResponse.id;
-    updatePayInData.duration = duration;
-    // updatePayInData.approved_at = new Date().toISOString();
-    result.status = Status.BANK_MISMATCH;
-    result.utr_id =
-      bankResponse.utr || payIn.user_submitted_utr || userSubmittedUtr;
-    await updatePayInUrlDao(payIn.id, updatePayInData, null, conn);
+    if (bankResponse.bank_id && bankResponse.bank_id !== payIn.bank_acc_id) {
+      updatePayInData.status = Status.BANK_MISMATCH;
+      updatePayInData.bank_response_id = bankResponse.id;
+      updatePayInData.duration = duration;
+      // updatePayInData.approved_at = new Date().toISOString();
+      result.status = Status.BANK_MISMATCH;
+      result.utr_id =
+        bankResponse.utr || payIn.user_submitted_utr || userSubmittedUtr;
+      await updatePayInUrlDao(payIn.id, updatePayInData, conn);
 
       const responseObj = {
         id: payIn.id,
@@ -1924,8 +1875,8 @@ export const processPayInService = async (
     // );
     // }
 
-  await updatePayInUrlDao(payIn.id, updatePayInData, null, conn);
-  // After updating payin, build the response object
+    await updatePayInUrlDao(payIn.id, updatePayInData, conn);
+    // After updating payin, build the response object
 
     const responseObj = {
       id: payIn.id,
@@ -1988,88 +1939,65 @@ export const processPayInService = async (
         throw new BadRequestError('Missing required parameters');
       }
 
-    try {
-      switch (updatePayInData.status) {
-        case Status.DISPUTE:
-          await sendDisputeMessageTelegramBot(
-            telegramMessage.chat.id,
-            updatePayInData.amount,
-            bankResponse.amount,
-            telegramBotToken,
-            telegramMessage.message_id,
-          );
-          break;
-        case Status.DUPLICATE:
-          await sendDuplicateMessageTelegramBot(
-            telegramMessage.chat.id,
-            updatePayInData.user_submitted_utr,
-            payIn.merchant_order_id,
-            telegramBotToken,
-            telegramMessage.message_id,
-          );
-          break;
-        default:
-          await sendSuccessMessageTelegramBot(
-            telegramMessage.chat.id,
-            payIn.merchant_order_id,
-            telegramBotToken,
-            telegramMessage.message_id,
-          );
-          break;
+      try {
+        switch (updatePayInData.status) {
+          case Status.DISPUTE:
+            await sendDisputeMessageTelegramBot(
+              telegramMessage.chat.id,
+              updatePayInData.amount,
+              bankResponse.amount,
+              telegramBotToken,
+              telegramMessage.message_id,
+            );
+            break;
+          case Status.DUPLICATE:
+            await sendDuplicateMessageTelegramBot(
+              telegramMessage.chat.id,
+              updatePayInData.user_submitted_utr,
+              payIn.merchant_order_id,
+              telegramBotToken,
+              telegramMessage.message_id,
+            );
+            break;
+          default:
+            await sendSuccessMessageTelegramBot(
+              telegramMessage.chat.id,
+              payIn.merchant_order_id,
+              telegramBotToken,
+              telegramMessage.message_id,
+            );
+            break;
+        }
+      } catch (error) {
+        logger.error('Error handling Telegram message:', error);
       }
-    } catch (error) {
-      logger.error('Error handling Telegram message:', error);
+      // if (
+      //   [
+      //     Status.SUCCESS,
+      //     Status.BANK_MISMATCH,
+      //     Status.DISPUTE,
+      //     Status.DROPPED,
+      //   ].includes(payIn.status)
+      // ) {
+      // await notifyAdminsAndUsers({
+      //   conn,
+      //   company_id: payIn.company_id,
+      //   message: `Payin with merchant order id: ${payIn.merchant_order_id} has been updated.`,
+      //   payloadUserId: merchant[0].user_id,
+      //   actorUserId: bank.user_id,
+      //   category: 'Transaction',
+      //   subCategory: 'PayIn',
+      // });
+      // }
+    } else {
+      return updatePayInData.status === Status.DISPUTE
+        ? {
+            ...result,
+            message: `${payIn.merchant_order_id} is in Dispute: Requested amount ${updatePayInData.amount}, received amount ${bankResponse.amount}`,
+          }
+        : result;
     }
-    // if (
-    //   [
-    //     Status.SUCCESS,
-    //     Status.BANK_MISMATCH,
-    //     Status.DISPUTE,
-    //     Status.DROPPED,
-    //   ].includes(payIn.status)
-    // ) {
-    // await notifyAdminsAndUsers({
-    //   conn,
-    //   company_id: payIn.company_id,
-    //   message: `Payin with merchant order id: ${payIn.merchant_order_id} has been updated.`,
-    //   payloadUserId: merchant[0].user_id,
-    //   actorUserId: bank.user_id,
-    //   category: 'Transaction',
-    //   subCategory: 'PayIn',
-    // });
-    // }
-  }
-
-  return result;
-};
-
-export const processPayInService = async (
-  payload,
-  updated_by,
-  tele_check = true,
-  img_utr = false,
-  designation,
-  h2h,
-) => {
-  let conn;
-  let committed = false;
-  try {
-    conn = await getConnection();
-    await beginTransaction(conn);
-    const result = await _processPayInServiceInternal(
-      payload,
-      updated_by,
-      tele_check,
-      img_utr,
-      designation,
-      h2h,
-      conn,
-    );
-    await commit(conn);
-    committed = true;
-    return result;
   } catch (error) {
-    if (conn && !committed) await rollback(conn);
     logger.error('Error processing PayIn:', error);
     throw error;
   }
@@ -2241,9 +2169,7 @@ export const processPayInWebHookService = async (conn, payload, updated_by) => {
 //   };
 // };
 
-export const telegramResponseService = async (message) => {
-  let conn;
-  let committed = false;
+export const telegramResponseService = async (conn, message) => {
   try {
     const { photo } = message;
     const TELEGRAM_BOT_TOKEN = config.telegramOcrBotToken;
@@ -2288,15 +2214,11 @@ export const telegramResponseService = async (message) => {
     // ]);
     const payIn = await getPayInForTelegramResponseDao({
       merchant_order_id: message.caption,
-    }, conn);
+    });
     const bankResponse = await getBankResponseDao({
       utr: content.utr,
       company_id: payIn?.company_id,
-    },undefined,
-    undefined,
-    undefined,
-    undefined,
-    undefined, conn);
+    });
     // Early validation for missing critical data
     if (!payIn) {
       await sendErrorMessageTelegram(
@@ -2342,16 +2264,16 @@ export const telegramResponseService = async (message) => {
         payIn.bank_response_id
           ? getPayInForTelegramResponseArrayDao({
               bank_response_id: payIn.bank_response_id,
-            }, conn)
+            })
           : Promise.resolve([]),
         getPayInForTelegramResponseArrayDao({
           user_submitted_utr: content.utr,
           company_id: payIn?.company_id,
-        }, conn),
+        }),
         bankResponse.id
           ? getPayInForTelegramResponseArrayDao({
               bank_response_id: bankResponse.id,
-            }, conn)
+            })
           : Promise.resolve([]),
       ]);
     // Check for duplicates
@@ -2461,23 +2383,18 @@ export const telegramResponseService = async (message) => {
       null,
       false,
     );
-    await commit(conn);
-    committed = true;
   } catch (error) {
-    if (conn && !committed) await rollback(conn);
     logger.error('Error processing Telegram response:', error);
     throw error;
   }
 };
 
-export const processPayInByImageService = async (payload) => {
-  let conn;
-  let committed = false;
+export const processPayInByImageService = async (conn, payload) => {
   try {
     const { base64Image, merchantOrderId } = payload;
     const content = await getImageContentFromOCr(base64Image);
     let payInData;
-    payInData = await getPayInUrlService(merchantOrderId, null, conn);
+    payInData = await getPayInUrlService(merchantOrderId);
 
     if (payInData.one_time_used === true || payInData.is_url_expires === true) {
       const result = {
@@ -2487,19 +2404,14 @@ export const processPayInByImageService = async (payload) => {
     }
     if (!content || !content.utr) {
       const duration = calculateDuration(payInData.created_at);
-      const payIn = await updatePayInUrlDao(
-        payInData.id,
-        {
-          status: Status.IMG_PENDING,
-          amount: payload.amount,
-          is_url_expires: true,
-          one_time_used: true,
-          user_submitted_image: payload.fileKey,
-          duration,
-        },
-        undefined,
-        conn,
-      );
+      const payIn = await updatePayInUrlDao(payInData.id, {
+        status: Status.IMG_PENDING,
+        amount: payload.amount,
+        is_url_expires: true,
+        one_time_used: true,
+        user_submitted_image: payload.fileKey,
+        duration,
+      });
 
       return {
         status: 'IMG_PENDING',
@@ -2514,12 +2426,8 @@ export const processPayInByImageService = async (payload) => {
       userSubmittedUtr: content.utr,
       amount: payInData.amount,
       user_submitted_image: payload.fileKey,
-    }, undefined, false, false, undefined, undefined, conn);
-    await commit(conn);
-    committed = true;
-    return result;
+    });
   } catch (error) {
-    if (conn && !committed) await rollback(conn);
     logger.error('Error processing PayIn by image:', error);
     throw error;
   }
@@ -2531,13 +2439,11 @@ export const disputeDuplicateTransactionService = async (
   company_id,
   updated_by,
 ) => {
-  let conn;
-  let committed = false;
   try {
     const { payInId, merchantOrderId, confirmed, amount } = payload;
     const payIn = await getPayInForDisputeServiceDao({
       id: payInId,
-    }, conn);
+    });
 
     if (!payIn) {
       throw new BadRequestError('Invalid PayIn');
@@ -2564,9 +2470,9 @@ export const disputeDuplicateTransactionService = async (
     const merchants = await getMerchantsDao({
       id: payIn.merchant_id,
       company_id,
-    }, undefined, undefined, undefined, undefined, undefined, conn);
+    });
     const merchant = merchants[0];
-    const banks = await getBankaccountDao({ id: bankId, company_id }, null, null, null, null, conn);
+    const banks = await getBankaccountDao({ id: bankId, company_id });
     const bank = banks[0];
 
     if (!bank) {
@@ -2576,7 +2482,7 @@ export const disputeDuplicateTransactionService = async (
     const vendors = await getVendorsDao({
       user_id: bank.user_id,
       company_id,
-    }, undefined, undefined, undefined, undefined, undefined, undefined, conn);
+    });
     const vendor = vendors[0];
 
     if (!merchant) {
@@ -2596,7 +2502,7 @@ export const disputeDuplicateTransactionService = async (
     if (merchantOrderId) {
       var payInData = await getPayInForDisputeServiceDao({
         merchant_order_id: merchantOrderId,
-      }, conn);
+      });
       if (!payInData) {
         throw new NotFoundError('PayIn not found against merchant order id');
       }
@@ -2682,47 +2588,33 @@ export const disputeDuplicateTransactionService = async (
         //   };
         // }
 
-        newEntryResponse = await updatePayInUrlDao(
-          payInData.id,
-          {
-            is_url_expires: true,
-            one_time_used: true,
-            is_notified: true,
-            duration,
-            status: newStatus,
-            approved_at: new Date(),
-            payin_merchant_commission: payinCommission,
-            payin_vendor_commission: vendorPayinCommission,
-            bank_response_id: payIn.bank_response_id,
-            updated_by,
-            // config: payinConfig,
-          },
-          undefined,
-          conn,
-        );
-        await updateCalculationTable(
-          merchant.user_id,
-          {
-            payinCommission,
-            amount: toAmount,
-          },
-          conn,
-        );
+        newEntryResponse = await updatePayInUrlDao(payInData.id, {
+          is_url_expires: true,
+          one_time_used: true,
+          is_notified: true,
+          duration,
+          status: newStatus,
+          approved_at: new Date(),
+          payin_merchant_commission: payinCommission,
+          payin_vendor_commission: vendorPayinCommission,
+          bank_response_id: payIn.bank_response_id,
+          updated_by,
+          // config: payinConfig,
+        });
+        await updateCalculationTable(merchant.user_id, {
+          payinCommission,
+          amount: toAmount,
+        });
       } else {
-        newEntryResponse = await updatePayInUrlDao(
-          payInData.id,
-          {
-            is_url_expires: true,
-            one_time_used: true,
-            is_notified: true,
-            duration,
-            status: newStatus,
-            bank_response_id: payIn.bank_response_id,
-            updated_by,
-          },
-          undefined,
-          conn,
-        );
+        newEntryResponse = await updatePayInUrlDao(payInData.id, {
+          is_url_expires: true,
+          one_time_used: true,
+          is_notified: true,
+          duration,
+          status: newStatus,
+          bank_response_id: payIn.bank_response_id,
+          updated_by,
+        });
       }
 
       if ([Status.BANK_MISMATCH, Status.SUCCESS].includes(newStatus)) {
@@ -2809,7 +2701,7 @@ export const disputeDuplicateTransactionService = async (
       updatePayload.status = Status.FAILED;
     }
 
-    response = await updatePayInUrlDao(payIn.id, updatePayload, null, conn);
+    response = await updatePayInUrlDao(payIn.id, updatePayload);
     // await updateVendorBalanceDao(
     //   { user_id: bankResponse.user_id },
     //   toAmount,
@@ -2834,14 +2726,10 @@ export const disputeDuplicateTransactionService = async (
         updated_by,
         conn,
       );
-      await updateCalculationTable(
-        merchant.user_id,
-        {
-          payinCommission,
-          amount: toAmount,
-        },
-        conn,
-      );
+      await updateCalculationTable(merchant.user_id, {
+        payinCommission,
+        amount: toAmount,
+      });
     }
     const [company] = await getCompanyByIDDao({
       id: payIn.company_id,
@@ -2898,11 +2786,8 @@ export const disputeDuplicateTransactionService = async (
 
     // await Promise.all(notifications);
     await newTableEntry(tableName.PAYIN, { id: payIn.id, ...response });
-    await commit(conn);
-    committed = true;
     return response;
   } catch (error) {
-    if (conn && !committed) await rollback(conn);
     logger.error('Error in disputeDuplicateTransactionService:', error.message);
     throw error;
   }
@@ -2916,20 +2801,18 @@ export const telegramCheckUTRService = async (
   updated_by,
   designation,
 ) => {
-  let conn;
-  let committed = false;
   try {
     const bankResponse = await getBankResponsePayinDao({
       utr: utr,
       status:
         designation === Role.ADMIN ? ['/freezed', '/success'] : ['/success'],
       company_id,
-    }, conn);
+    });
     let otherBankResponse = {};
     const payIn = await getPayInForTelegramUtrDao({
       merchant_order_id,
       company_id,
-    }, conn);
+    });
     if (!bankResponse) {
       throw new NotFoundError(`UTR ${utr} not found`);
     } else if (
@@ -2958,12 +2841,13 @@ export const telegramCheckUTRService = async (
         created_by: updated_by,
         updated_by,
       },
-      conn,
+      merchant_order_id,
+      utr,
     );
 
     if (payIn.bank_response_id) {
       otherBankResponse =
-        (await getBankResponseDao({ id: payIn.bank_response_id }, undefined, undefined, undefined, undefined, undefined, conn)) || {};
+        (await getBankResponseDao({ id: payIn.bank_response_id })) || {};
     }
 
     // check old code flow
@@ -2975,7 +2859,7 @@ export const telegramCheckUTRService = async (
 
     const isAlreadyExit = await getPayInForTelegramUtrDao({
       bank_response_id: bankResponse.id,
-    }, conn);
+    });
     if (isAlreadyExit && isAlreadyExit.status !== Status.FAILED) {
       return {
         message: `Utr: ${utr} is ${isAlreadyExit.status} with ${isAlreadyExit.merchant_order_id}`,
@@ -3003,14 +2887,8 @@ export const telegramCheckUTRService = async (
       false,
       false,
       designation,
-      undefined,
-      conn,
     );
-    await commit(conn);
-    committed = true;
-    return result;
   } catch (error) {
-    if (conn && !committed) await rollback(conn);
     logger.error('Error in telegramCheckUTRService:', error);
     throw error;
   }
@@ -3046,7 +2924,6 @@ export const checkPendingPayinStatusService = async (
   user_id,
   company_id,
   user_name,
-  conn,
 ) => {
   try {
     const payins = await getPayInPendingDao({
@@ -3133,10 +3010,11 @@ export const checkPendingPayinStatusService = async (
             payInData,
             conn,
           );
-          await updateBotResponseDao(bankResponse.id, {
-            is_used: true,
-            updated_by: user_name,
-          });
+          await updateBotResponseDao(
+            bankResponse.id,
+            { is_used: true, updated_by: user_name },
+            conn,
+          );
 
           if (updatePayInDataRes) {
             // This is async function but it's just the callback sending function there fore we are not using await
@@ -3176,10 +3054,11 @@ export const checkPendingPayinStatusService = async (
             payInData,
             conn,
           );
-          await updateBotResponseDao(bankResponse.id, {
-            is_used: true,
-            updated_by: user_name,
-          });
+          await updateBotResponseDao(
+            bankResponse.id,
+            { is_used: true, updated_by: user_name },
+            conn,
+          );
 
           if (updatePayInDataRes) {
             // This is async function but it's just the callback sending function there fore we are not using await
@@ -3217,15 +3096,11 @@ export const checkPendingPayinStatusService = async (
           const updatePayInDataRes = await updatePayInUrlDao(
             currentPayin.id,
             payInData,
-            null,
             conn,
           );
           await updateBotResponseDao(
             bankResponse.id,
-            {
-              is_used: true,
-              updated_by: user_name,
-            },
+            { is_used: true, updated_by: user_name },
             conn,
           );
           await updateCalculationTable(
@@ -3255,32 +3130,6 @@ export const checkPendingPayinStatusService = async (
     }
     return processedPayinIds;
   } catch (error) {
-    logger.error('error in _checkPendingPayinStatusServiceInternal', error);
-    throw error;
-  }
-};
-
-export const checkPendingPayinStatusService = async (
-  user_id,
-  company_id,
-  user_name,
-) => {
-  let conn;
-  let committed = false;
-  try {
-    conn = await getConnection();
-    await beginTransaction(conn);
-    const processedPayinIds = await _checkPendingPayinStatusServiceInternal(
-      user_id,
-      company_id,
-      user_name,
-      conn,
-    );
-    await commit(conn);
-    committed = true;
-    return processedPayinIds;
-  } catch (error) {
-    if (conn && !committed) await rollback(conn);
     logger.error('Error in checkPendingPayinStatusService:', error);
     throw error;
   }
@@ -3291,7 +3140,6 @@ export const verifyPayinsService = async (
   merchantOrderId,
   user_location,
   oneTimeUsed,
-  conn,
 ) => {
   try {
     const payIn = await getPayInUrlService(merchantOrderId , conn);
@@ -3317,15 +3165,10 @@ export const verifyPayinsService = async (
         page_reload: true,
       });
 
-      await updatePayInUrlDao(
-        payIn.id,
-        {
-          config: updatedConfig,
-          one_time_used: true,
-        },
-        null,
-        conn,
-      );
+      await updatePayInUrlDao(payIn.id, {
+        config: updatedConfig,
+        one_time_used: true,
+      });
 
       const result = {
         redirect_url: payIn.config?.urls?.return,
@@ -3444,32 +3287,6 @@ export const verifyPayinsService = async (
     logger.info('PayIn URL verified successfully:', response);
     return result;
   } catch (error) {
-    logger.error('error in _verifyPayinsServiceInternal', error);
-    throw error;
-  }
-};
-
-export const verifyPayinsService = async (
-  merchantOrderId,
-  user_location,
-  oneTimeUsed,
-) => {
-  let conn;
-  let committed = false;
-  try {
-    conn = await getConnection();
-    await beginTransaction(conn);
-    const result = await _verifyPayinsServiceInternal(
-      merchantOrderId,
-      user_location,
-      oneTimeUsed,
-      conn,
-    );
-    await commit(conn);
-    committed = true;
-    return result;
-  } catch (error) {
-    if (conn && !committed) await rollback(conn);
     logger.error('Error in verifyPayinsService:', error);
     throw error;
   }
@@ -3575,18 +3392,17 @@ export const generateUpiUrlService = async (payload = {}) => {
     // Build canonical params used by all UPI schemes
     const canonicalParams = {
       pa, // payee VPA
-      pn: payload.payeeName?.trim() || 'Merchant', // payee name (pn)
+      pn: payload.payeeName ? payload.payeeName.trim() : '', // payee name (pn)
       am: amountStr, // amount
       cu: 'INR', // currency
       tr: transactionId, // transaction reference
       tn: (payload.transactionNote || '').trim() || transactionId, // txn note (fallback to txid)
       tid: transactionId, // terminal id / txn id
       featuretype: 'money_transfer',
-      mc: 'VKTRAD47056927653169',
     };
 
     // optional additions
-    // if (payload.merchantCode) canonicalParams.mc = 'VKTRAD47056927653169' || payload.merchantCode;
+    if (payload.merchantCode) canonicalParams.mc = payload.merchantCode;
     if (payload.businessName) canonicalParams.bn = payload.businessName.trim();
     if (payload.mode) canonicalParams.mode = payload.mode;
     if (payload.purpose) canonicalParams.purpose = payload.purpose;
@@ -3596,13 +3412,14 @@ export const generateUpiUrlService = async (payload = {}) => {
     // Compose platform-specific deep links (ap param is app package where applicable)
     const gpayUrl = `upi://pay?${encoded}&ap=com.google.android.apps.nbu.paisa.user`;
     const phonepeUrl = `upi://pay?${encoded}&ap=com.phonepe.app`;
-    const paytmUrl = `upi://pay?${encoded}&ap=net.one97.paytm`;
+    // Paytm often uses a different schema; keep tid and other params
+    const paytmIntent = `paytmmp://cash_wallet?${encoded}`;
     const genericUpiUrl = `upi://pay?${encoded}`;
 
     return {
       gpayUrl,
       phonepeUrl,
-      paytmUrl,
+      paytmUrl: paytmIntent,
       genericUpiUrl,
       transactionId,
       rawParams: canonicalParams, // useful for logging / debugging
@@ -3625,13 +3442,13 @@ const checkIsPayInExpired = (payIn) => {
   return false;
 };
 
-export const updateCalculationTable = async (user_id, data, conn = null) => {
+export const updateCalculationTable = async (user_id, data, conn) => {
   try {
     if (isNaN(Number(data.amount) - Number(data.payinCommission))) {
       throw new BadRequestError('Invalid amount or commission');
     }
     if (user_id) {
-      const calculationData = await getCalculationforCronDao(user_id, conn);
+      const calculationData = await getCalculationforCronDao(user_id);
       if (!calculationData[0]) {
         throw new NotFoundError('Calculation not found!');
       }
@@ -3732,7 +3549,7 @@ const getSubVendorParentInfo = async (vendor) => {
 //   }
 // };
 
-const getOtherSuccessPayIns = async (bankResponse, includeSuccess = true, conn) => {
+const getOtherSuccessPayIns = async (bankResponse, includeSuccess = true) => {
   try {
     const extraCondition = {};
     if (includeSuccess) {
@@ -3741,12 +3558,12 @@ const getOtherSuccessPayIns = async (bankResponse, includeSuccess = true, conn) 
     let successData = await getSuccessPayInsDao({
       bank_response_id: bankResponse.id,
       ...extraCondition,
-    }, conn);
+    });
     if (!successData.length) {
       successData = await getSuccessPayInsDao({
         user_submitted_utr: bankResponse.utr,
         ...extraCondition,
-      }, conn);
+      });
     }
 
     return successData;
@@ -3777,7 +3594,6 @@ const updateCalculationBalances = async (
   commission,
   conn,
   count,
-  conn,
 ) => {
   try {
     if (!currentCalculation) return;
@@ -3839,7 +3655,6 @@ const updateCalculationParentBalances = async (
   commission,
   conn,
   count,
-  conn,
 ) => {
   try {
     if (!currentCalculation) return;
@@ -3898,13 +3713,11 @@ export const updatePayInService = async (
   user_id,
   company_id,
 ) => {
-  let conn;
-  let committed = false;
   try {
     // Fetch user_name using user_id
     let user_name = '';
     if (user_id) {
-      const users = await getAllUsersDao({ id: user_id }, undefined, undefined, undefined, undefined, undefined, conn);
+      const users = await getAllUsersDao({ id: user_id });
       user_name =
         users && users[0] && users[0].user_name ? users[0].user_name : '';
     }
@@ -3920,11 +3733,11 @@ export const updatePayInService = async (
 
     // Fetch pay-in and bank response concurrently
     const [payIn, bankResponse] = await Promise.all([
-      getPayInForUpdateDao({ merchant_order_id , conn }),
+      getPayInForUpdateDao({ merchant_order_id }),
       getBankResponseDao({
-        id: (await getPayInForUpdateDao({ merchant_order_id }, conn))
+        id: (await getPayInForUpdateDao({ merchant_order_id }))
           .bank_response_id,
-      }, undefined, undefined, undefined, undefined, undefined, conn),
+      }),
     ]);
 
     if (!payIn) {
@@ -3941,10 +3754,10 @@ export const updatePayInService = async (
     let newVendorCommission = 0;
     const [vendor, merchant] = await Promise.all([
       getVendorsDao({
-        user_id: (await getBankaccountDao({ id: bankResponse.bank_id },undefined, undefined, undefined, undefined, conn))[0]
+        user_id: (await getBankaccountDao({ id: bankResponse.bank_id }))[0]
           .user_id,
       }),
-      getMerchantsDao({ id: payIn.merchant_id },undefined, undefined, undefined, undefined, undefined, conn),
+      getMerchantsDao({ id: payIn.merchant_id }),
     ]);
 
     // const merchant_user_id = merchant[0].user_id;
@@ -3958,7 +3771,7 @@ export const updatePayInService = async (
       amountDiff = payload.amount - bankResponse.amount;
       // Fetch bank, vendor, and merchant data concurrently
       const [bank] = await Promise.all([
-        getBankaccountDao({ id: bankResponse.bank_id }, undefined, undefined, undefined, undefined, conn),
+        getBankaccountDao({ id: bankResponse.bank_id }),
       ]);
 
       if (!bank[0] || !vendor[0] || !merchant[0]) {
@@ -4024,13 +3837,13 @@ export const updatePayInService = async (
 
       // Fetch calculation data for vendor, merchant, and parent (if sub-vendor)
       let fetchPromises = [
-        getAllCalculationforCronDao(vendor[0].user_id, conn),
-        getAllCalculationforCronDao(merchant[0].user_id, conn),
+        getAllCalculationforCronDao(vendor[0].user_id),
+        getAllCalculationforCronDao(merchant[0].user_id),
       ];
 
       if (subVendorParentInfo) {
         fetchPromises.push(
-          getAllCalculationforCronDao(subVendorParentInfo.parentUserId, conn),
+          getAllCalculationforCronDao(subVendorParentInfo.parentUserId),
         );
       }
 
@@ -4117,7 +3930,6 @@ export const updatePayInService = async (
           vendorCalculations,
           amountDiff,
           calculateCommission(Math.abs(amountDiff), vendor[0].payin_commission),
-          undefined,
           conn,
         ),
         updateCalculationBalances(
@@ -4128,7 +3940,6 @@ export const updatePayInService = async (
             Math.abs(amountDiff),
             merchant[0].payin_commission,
           ),
-          undefined,
           conn,
         ),
       ];
@@ -4140,7 +3951,6 @@ export const updatePayInService = async (
             parentCalculations,
             amountDiff, // Parent vendor amount is always 0 for adjustments
             parentCommission,
-            undefined,
             conn,
           ),
         );
@@ -4151,7 +3961,7 @@ export const updatePayInService = async (
     }
     // Handle UTR updates
     else if (payload?.utr) {
-      const bot = await getBankResponseDao({ utr: payload?.utr, company_id }, undefined, undefined, undefined, undefined, undefined, conn);
+      const bot = await getBankResponseDao({ utr: payload?.utr, company_id });
       if (bot) {
         logger.error(`Bank response found: ${payload?.utr}`);
         throw new NotFoundError(
@@ -4167,8 +3977,8 @@ export const updatePayInService = async (
     // Handle bank account ID updates
     else if (payload?.bank_acc_id) {
       const [prevBank, newBank] = await Promise.all([
-        getBankaccountDao({ id: bankResponse.bank_id }, undefined, undefined, undefined, undefined, conn),
-        getBankaccountDao({ id: payload.bank_acc_id }, undefined, undefined, undefined, undefined, conn),
+        getBankaccountDao({ id: bankResponse.bank_id }),
+        getBankaccountDao({ id: payload.bank_acc_id }),
       ]);
 
       if (!prevBank[0] || !newBank[0]) {
@@ -4180,8 +3990,8 @@ export const updatePayInService = async (
       }
       if (newBank[0].user_id !== prevBank[0].user_id) {
         const [prevVendor, newVendor] = await Promise.all([
-          getVendorsDao({ user_id: prevBank[0].user_id },undefined, undefined, undefined, undefined, undefined, undefined, conn),
-          getVendorsDao({ user_id: newBank[0].user_id },undefined, undefined, undefined, undefined, undefined, undefined, conn),
+          getVendorsDao({ user_id: prevBank[0].user_id }),
+          getVendorsDao({ user_id: newBank[0].user_id }),
         ]);
 
         if (!prevVendor[0] || !newVendor[0]) {
@@ -4189,8 +3999,8 @@ export const updatePayInService = async (
         }
 
         const [prevVendorCalc, newVendorCalc] = await Promise.all([
-          getAllCalculationforCronDao(prevVendor[0].user_id, conn),
-          getAllCalculationforCronDao(newVendor[0].user_id, conn),
+          getAllCalculationforCronDao(prevVendor[0].user_id),
+          getAllCalculationforCronDao(newVendor[0].user_id),
         ]);
 
         if (!prevVendorCalc[0] || !newVendorCalc[0]) {
@@ -4250,7 +4060,7 @@ export const updatePayInService = async (
 
           // Fetch parent calculation data for proper adjustment handling
           prevParentCalculationData = await getAllCalculationforCronDao(
-            prevSubVendorParentInfo.parentUserId, conn
+            prevSubVendorParentInfo.parentUserId,
           );
           if (prevParentCalculationData[0]) {
             const approvedDate = getDateWithoutTime(bankResponse.created_at);
@@ -4285,7 +4095,7 @@ export const updatePayInService = async (
 
           // Fetch parent calculation data for proper adjustment handling
           newParentCalculationData = await getAllCalculationforCronDao(
-            newSubVendorParentInfo.parentUserId, conn
+            newSubVendorParentInfo.parentUserId,
           );
           if (newParentCalculationData[0]) {
             const approvedDate = getDateWithoutTime(bankResponse.created_at);
@@ -4328,7 +4138,6 @@ export const updatePayInService = async (
             prevVendorCommission,
             conn,
             -1,
-            conn,
           ),
           updateCalculationBalances(
             newVendorCurrentCalcs,
@@ -4337,7 +4146,6 @@ export const updatePayInService = async (
             newVendorCommission,
             conn,
             1,
-            conn,
           ),
         ];
 
@@ -4351,7 +4159,6 @@ export const updatePayInService = async (
               -prevParentCommission, // Reverse the commission
               conn,
               -1,
-              conn,
             ),
           );
         }
@@ -4365,7 +4172,6 @@ export const updatePayInService = async (
               newParentCommission, // Add the commission
               conn,
               1,
-              conn,
             ),
           );
         }
@@ -4374,7 +4180,7 @@ export const updatePayInService = async (
       } else {
         // Same vendor, different bank - still need to update vendor calculations
         const [vendorForSameBank] = await Promise.all([
-          getVendorsDao({ user_id: prevBank[0].user_id }, undefined, undefined, undefined, undefined, undefined, undefined, conn),
+          getVendorsDao({ user_id: prevBank[0].user_id }),
         ]);
 
         if (vendorForSameBank[0]) {
@@ -4531,7 +4337,6 @@ export const updatePayInService = async (
             ? newVendorCommission
             : payIn.payin_vendor_commission,
       },
-      null,
       conn,
     );
     // await notifyAdminsAndUsers({
@@ -4555,11 +4360,8 @@ export const updatePayInService = async (
     };
     await newTableEntry(tableName.PAYIN, updatedPayInData);
 
-    await commit(conn);
-    committed = true;
     return updatedPayInData;
   } catch (error) {
-    if (conn && !committed) await rollback(conn);
     logger.error(`Error in updatePayInService: ${error.message}`, {
       error,
       merchant_order_id,

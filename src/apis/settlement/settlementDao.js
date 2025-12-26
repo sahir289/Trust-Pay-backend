@@ -20,7 +20,6 @@ const getSettlementDao = async (
   sortBy,
   sortOrder,
   columns = [],
-  conn = null,
 ) => {
   try {
     const { SETTLEMENT, USER, ROLE, BENEFICIARY_ACCOUNTS, MERCHANT, VENDOR } =
@@ -270,7 +269,7 @@ const getSettlementDao = async (
       ${limitcondition.value}
     `;
 
-    const result = await executeQuery(finalQuery, queryParams, conn);
+    const result = await executeQuery(finalQuery, queryParams);
     return result.rows;
   } catch (error) {
     logger.error('Error in getSettlementDao:', error);
@@ -287,7 +286,6 @@ const getSettlementsBySearchDao = async (
   columns = [],
   searchTerms = [],
   role,
-  conn = null,
 ) => {
   try {
     const conditions = ['s.is_obsolete = false'];
@@ -608,7 +606,7 @@ const getSettlementsBySearchDao = async (
 
     // Count query
     const countQuery = `SELECT COUNT(*) AS total FROM (${baseQuery}) AS count_table`;
-    const countResult = await executeQuery(countQuery, queryParams, conn);
+    const countResult = await executeQuery(countQuery, queryParams);
     const totalCount = parseInt(countResult.rows[0].total);
 
     // Sorting & Pagination
@@ -630,14 +628,14 @@ const getSettlementsBySearchDao = async (
     queryParams.push(pageSize, (page - 1) * pageSize);
 
     // Final result
-    let result = await executeQuery(finalQuery, queryParams, conn);
+    let result = await executeQuery(finalQuery, queryParams);
     if (
       totalCount > 0 &&
       result.rows.length === 0 &&
       (page - 1) * pageSize > 0
     ) {
       queryParams[queryParams.length - 1] = 0; // Reset offset to 0
-      result = await executeQuery(finalQuery, queryParams, conn);
+      result = await executeQuery(finalQuery, queryParams);
     }
     return {
       totalCount,
@@ -650,7 +648,7 @@ const getSettlementsBySearchDao = async (
   }
 };
 
-const getSettlementByUTRDao = async (utr, conn = null) => {
+const getSettlementByUTRDao = async (utr) => {
   try {
     let baseQuery = `SELECT
       id,
@@ -673,7 +671,7 @@ const getSettlementByUTRDao = async (utr, conn = null) => {
       config ->> 'reference_id' = $1`;
 
     const queryParams = [utr];
-    const result = await executeQuery(baseQuery, queryParams, conn);
+    const result = await executeQuery(baseQuery, queryParams);
     return result.rows.length > 0 ? result.rows : result.rows[0];
   } catch (error) {
     logger.error(error);
@@ -681,12 +679,15 @@ const getSettlementByUTRDao = async (utr, conn = null) => {
   }
 };
 
-const createSettlementDao = async (payload, conn = null) => {
+const createSettlementDao = async (payload, conn) => {
   try {
     const [sql, params] = buildInsertQuery(tableName.SETTLEMENT, payload);
-    const result = conn
-      ? await conn.query(sql, params)
-      : await executeQuery(sql, params, conn);
+    let result;
+    if (conn && conn.query) {
+      result = await conn.query(sql, params);
+    } else {
+      result = await executeQuery(sql, params);
+    }
     // const insertedEntry = result.rows[0];
     // const code = await getUsersNameDao(insertedEntry.user_id);
     // const createdBy = await getUsersNameDao(insertedEntry.created_by);
@@ -707,12 +708,15 @@ const createSettlementDao = async (payload, conn = null) => {
   }
 };
 
-const updateSettlementDao = async (id, data, conn = null) => {
+const updateSettlementDao = async (conn, id, data) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.SETTLEMENT, data, id);
-    const result = conn
-      ? await conn.query(sql, params)
-      : await executeQuery(sql, params, conn);
+    let result;
+    if (conn && conn.query) {
+      result = await conn.query(sql, params); // Use connection to execute query
+    } else {
+      result = await executeQuery(sql, params); // Use executeQuery if no connection
+    }
   //   const createdBy = await getUsersNameDao(data.updated_by);
   //   let insertedEntry = 
   //   {
@@ -735,12 +739,15 @@ const updateSettlementDao = async (id, data, conn = null) => {
   }
 };
 
-const deleteSettlementDao = async (id, data, conn = null) => {
+const deleteSettlementDao = async (conn, id, data) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.SETTLEMENT, data, id);
-    const result = conn
-      ? await conn.query(sql, params)
-      : await executeQuery(sql, params, conn);
+    let result;
+    if (conn && conn.query) {
+      result = await conn.query(sql, params); // Use connection to execute query
+    } else {
+      result = await executeQuery(sql, params); // Use executeQuery if no connection
+    }
 
     return result.rows[0];
   } catch (error) {

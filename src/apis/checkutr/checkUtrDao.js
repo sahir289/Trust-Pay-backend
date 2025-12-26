@@ -14,7 +14,6 @@ const getCheckUtrDao = async (
   sortBy = 'sno',
   sortOrder = 'DESC',
   columns = [],
-  conn = null,
 ) => {
   try {
     const { BANK_RESPONSE, CHECK_UTR_HISTORY, PAYIN, USER } = tableName;
@@ -106,7 +105,7 @@ const getCheckUtrDao = async (
     // queryParams.push(pageSize, offset);
 
     // Execute query
-    const result = await executeQuery(sql, queryParams, conn);
+    const result = await executeQuery(sql, queryParams);
 
     return {
       checkutr: result.rows,
@@ -122,7 +121,6 @@ const getCheckUtrBySearchDao = async (
   searchTerms,
   limitNum,
   offset,
-  conn = null,
 ) => {
   try {
     const conditions = [];
@@ -192,14 +190,14 @@ const getCheckUtrBySearchDao = async (
     `;
     values.push(limitNum, offset);
 
-    const countResult = await executeQuery(countQuery, values.slice(0, -2), conn);
-    let searchResult = await executeQuery(queryText, values, conn);
+    const countResult = await executeQuery(countQuery, values.slice(0, -2));
+    let searchResult = await executeQuery(queryText, values);
 
     const totalItems = parseInt(countResult.rows[0].total);
     const totalPages = Math.ceil(totalItems / limitNum);
     if (totalItems > 0 && searchResult.rows.length === 0 && offset > 0) {
       values[values.length - 1] = 0; 
-      searchResult = await executeQuery(queryText, values, conn);
+      searchResult = await executeQuery(queryText, values);
     }
     const data = {
       totalCount: totalItems,
@@ -213,13 +211,13 @@ const getCheckUtrBySearchDao = async (
   }
 };
 
-const createCheckUtrDao = async (payload, conn = null) => {
+const createCheckUtrDao = async (payload) => {
   try {
     const [sql, params] = buildInsertQuery(
       tableName.CHECK_UTR_HISTORY,
       payload,
     );
-    const result = await executeQuery(sql, params, conn);
+    const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
     logger.error('Error creating CheckUtr:', error);
@@ -227,12 +225,12 @@ const createCheckUtrDao = async (payload, conn = null) => {
   }
 };
 
-const updateCheckUtrDao = async (id, data, conn = null) => {
+const updateCheckUtrDao = async (id, data) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.CHECK_UTR_HISTORY, data, {
       id,
     });
-    const result = await executeQuery(sql, params, conn);
+    const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
     logger.error('Error updating CheckUtr:', error);
@@ -240,12 +238,12 @@ const updateCheckUtrDao = async (id, data, conn = null) => {
   }
 };
 
-const deleteCheckUtrDao = async (id, data, conn = null) => {
+const deleteCheckUtrDao = async (id, data) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.CHECK_UTR_HISTORY, data, {
       id,
     });
-    const result = await executeQuery(sql, params, conn);
+    const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
     logger.error('Error deleting CheckUtr:', error);

@@ -10,10 +10,10 @@ import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 import dayjs from 'dayjs';
 
 // Create ChargeBack entry
-export const createChargeBackDao = async (data, conn = null) => {
+export const createChargeBackDao = async (data) => {
   try {
     const [sql, params] = buildInsertQuery(tableName.CHARGE_BACK, data);
-    const result = await executeQuery(sql, params, conn);
+    const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
     logger.error('Error creating ChargeBack entry:', error);
@@ -21,11 +21,11 @@ export const createChargeBackDao = async (data, conn = null) => {
   }
 };
 
-export const getChargebackByIdDao = async (filters, conn = null) => {
+export const getChargebackByIdDao = async (filters) => {
   try {
     const query = `SELECT id, sno, merchant_user_id, vendor_user_id, payin_id, bank_acc_id, amount,config, reference_date, created_by, updated_by, created_at, updated_at FROM "${tableName.CHARGE_BACK}" WHERE 1=1`;
     const [sql, parameters] = buildSelectQuery(query, filters);
-    const result = await executeQuery(sql, parameters, conn);
+    const result = await executeQuery(sql, parameters);
     return result.rows;
   } catch (error) {
     logger.error(error);
@@ -42,7 +42,6 @@ export const getChargeBackDao = async (
   sortOrder,
   columns = [],
   role,
-  conn = null
 ) => {
   try {
     const {
@@ -244,7 +243,7 @@ export const getChargeBackDao = async (
       );
     }
 
-    const result = await executeQuery(baseQuery, queryParams, conn);
+    const result = await executeQuery(baseQuery, queryParams);
     return result.rows;
   } catch (error) {
     logger.error('Error fetching ChargeBack entries:', error);
@@ -260,7 +259,6 @@ export const getAllChargeBackDao = async (
   sortOrder,
   columns = [],
   role,
-  conn = null
 ) => {
   try {
     const {
@@ -460,7 +458,7 @@ export const getAllChargeBackDao = async (
       );
     }
 
-    const result = await executeQuery(baseQuery, queryParams, conn);
+    const result = await executeQuery(baseQuery, queryParams);
     return result.rows;
   } catch (error) {
     logger.error('Error fetching ChargeBack entries:', error);
@@ -477,7 +475,6 @@ export const getChargeBacksBySearchDao = async (
   columns = [],
   role,
   searchTerms = [],
-  conn = null
 ) => {
   try {
     const {
@@ -690,14 +687,13 @@ export const getChargeBacksBySearchDao = async (
     const countResult = await executeQuery(
       countQuery,
       queryParams.slice(0, paramIndex - 1),
-      conn
     );
     const totalCount = parseInt(countResult.rows[0]?.count || '0');
 
-    let result = await executeQuery(dataQuery, queryParams, conn);
+    let result = await executeQuery(dataQuery, queryParams);
     if (totalCount > 0 && result.rows.length === 0 && offset > 0) {
       queryParams[queryParams.length - 1] = 0; 
-      result = await executeQuery(dataQuery, queryParams, conn);
+      result = await executeQuery(dataQuery, queryParams);
     }
     return {
       totalCount,
@@ -712,10 +708,10 @@ export const getChargeBacksBySearchDao = async (
 
 
 // Update ChargeBack entry
-export const updateChargeBackDao = async (id, data, conn = null) => {
+export const updateChargeBackDao = async (id, data) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.CHARGE_BACK, data, id);
-    const result = await executeQuery(sql, params, conn);
+    const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
     logger.error('Error updating ChargeBack entry:', error);
@@ -724,10 +720,10 @@ export const updateChargeBackDao = async (id, data, conn = null) => {
 };
 
 // Delete ChargeBack entry
-export const deleteChargeBackDao = async (id, data, conn = null) => {
+export const deleteChargeBackDao = async (id, data) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.CHARGE_BACK, data, id);
-    const result = await executeQuery(sql, params, conn);
+    const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
     logger.error('Error deleting ChargeBack entry:', error);

@@ -1,5 +1,5 @@
 import { jest } from '@jest/globals';
-import os from 'os';
+// import os from 'os';
 import { Role } from '../../constants/index.js';
 import * as authServiceModule from './authService.js';
 import {
@@ -7,8 +7,8 @@ import {
   refreshTokenService,
   logoutService,
   changePasswordService,
-  verificationService,
-  verfyUserService,
+  // verificationService,
+  // verfyUserService,
   verfyOtpService,
   forgetPasswordService,
   getUserRoleService,
@@ -19,13 +19,13 @@ import * as authDao from './authDao.js';
 import * as bcryptUtils from '../../utils/bcryptPassword.js';
 import * as authUtils from '../../utils/auth.js';
 import * as socketUtils from '../../utils/sockets.js';
-import * as mailerUtils from '../../utils/sendMailer.js';
+// import * as mailerUtils from '../../utils/sendMailer.js';
 import * as otpDao from '../userOtp/userOtpDao.js';
-import { generateOTP } from '../../utils/generateOtp.js';
+// import { generateOTP } from '../../utils/generateOtp.js';
 import { generateUUID } from '../../utils/generateUUID.js';
 import { NotFoundError, BadRequestError } from '../../utils/appErrors.js';
 import { getConnection } from '../../utils/db.js';
-import { logger } from '../../utils/logger.js';
+// import { logger } from '../../utils/logger.js';
 
 jest.mock('../users/userDao.js');
 jest.mock('./authDao.js');

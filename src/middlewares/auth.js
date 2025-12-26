@@ -45,22 +45,12 @@ const isAuthenticated = async (req, res, next) => {
       next();
     } catch (dbError) {
       logger.error('Database session validation error:', dbError);
-      
-      // Handle connection errors specially - allow retry
-      if (dbError.code === 'ECONNRESET' || dbError.code === 'ETIMEDOUT' || dbError.code === 'ECONNREFUSED') {
-        return next(new InternalServerError('Database connection issue. Please try again.'));
-      }
-      
-      // For other DB errors, treat as invalid session
       throw new AuthenticationError('Session validation failed. Please login again.');
     }
     
   } catch (error) {
     logger.error('Error in authentication middleware:', error);
-    // Ensure all errors are passed to next() to prevent unhandled rejections
-    return next(error instanceof AuthenticationError || error instanceof InternalServerError 
-      ? error 
-      : new AuthenticationError(error.message));
+    next(new AuthenticationError(error.message));
   }
 };
 

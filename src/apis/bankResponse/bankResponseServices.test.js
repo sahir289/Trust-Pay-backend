@@ -12,7 +12,7 @@ const {
     resetBankResponseService,
     updateCalculationBalances,
     createBankResponseWebHookService,
-    updateCalculationTable,
+    // updateCalculationTable,
     importBankResponseService,
 } = require('./bankResponseServices.js');
 const {
@@ -33,7 +33,7 @@ const { updatePayInUrlDao, getPayInsBankResDao, getPayInsForResetBankResDao } = 
 const { getMerchantsDao, getMerchantsBankResponseDao } = require('../merchants/merchantDao');
 const { getVendorsDao, updateVendorDao, getVendorsBankReponseDao } = require('../vendors/vendorDao');
 const {
-    getAllCalculationforCronDao,
+    // getAllCalculationforCronDao,
     updateCalculationBalanceDao,
     getCalculationforCronDao,
 } = require('../calculation/calculationDao');
@@ -47,7 +47,7 @@ const commit = dbMock.commit;
 const getConnection = dbMock.getConnection;
 const rollback = dbMock.rollback;
 const { columns, merchantColumns, vendorColumns, Role, Status } = require('../../constants/index');
-const { default: PDFParser } = require('pdf2json');
+// const { default: PDFParser } = require('pdf2json');
   
   jest.mock('./bankResponseDao');
   jest.mock('../bankAccounts/bankaccountDao');
@@ -866,7 +866,7 @@ const { default: PDFParser } = require('pdf2json');
         const mockBanks = [{ id: 'bank1' }];
         getBankaccountDao.mockResolvedValue(mockBanks);
 
-        const result = await getBankResponseService(payload, role, page, limit, undefined, undefined, undefined, undefined, designation, user_id);
+        await getBankResponseService(payload, role, page, limit, undefined, undefined, undefined, undefined, designation, user_id);
 
         expect(getBankaccountDao).toHaveBeenCalledWith({
           user_id: 'sub_vendor_user_1',

@@ -23,7 +23,7 @@ import {
   updateVendorService,
   getVendorsBySearchService,
   getBankResponseAccessByIDService,
-  getVendorsByCodeService,
+  // getVendorsByCodeService,
   linkVendorService,
   unlinkVendorService,
   transferVendorService,

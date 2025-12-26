@@ -37,19 +37,9 @@ const getBankaccountService = async (
   user_id,
   designation,
 ) => {
-  let conn;
   try {
-    conn = await getConnection();
     if (role == Role.VENDOR) {
-      const userHierarchys = await getUserHierarchysDao(
-        { user_id },
-        null,
-        null,
-        null,
-        null,
-        null,
-        conn,
-      );
+      const userHierarchys = await getUserHierarchysDao({ user_id });
       const userHierarchy = userHierarchys?.[0];
 
       const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
@@ -63,15 +53,7 @@ const getBankaccountService = async (
       filters.user_id = [user_id];
     }
 
-    const userHierarchys = await getUserHierarchysDao(
-      { user_id },
-      null,
-      null,
-      null,
-      null,
-      null,
-      conn,
-    );
+    const userHierarchys = await getUserHierarchysDao({ user_id });
     if (designation == Role.VENDOR_OPERATIONS) {
       const userHierarchy = userHierarchys?.[0];
       const parentID = userHierarchy?.config?.parent;
@@ -95,13 +77,10 @@ const getBankaccountService = async (
       pageSize,
       role,
       designation,
-      conn,
     );
   } catch (error) {
     logger.error('error getting while  getting banks', error);
     throw error;
-  } finally {
-    if (conn) conn.release();
   }
 };
 
@@ -115,19 +94,9 @@ const getBankAccountBySearchService = async (
   designation,
   search,
 ) => {
-  let conn;
   try {
-    conn = await getConnection();
     if (role == Role.VENDOR) {
-      const userHierarchys = await getUserHierarchysDao(
-        { user_id },
-        null,
-        null,
-        null,
-        null,
-        null,
-        conn,
-      );
+      const userHierarchys = await getUserHierarchysDao({ user_id });
       const userHierarchy = userHierarchys?.[0];
 
       const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
@@ -141,15 +110,7 @@ const getBankAccountBySearchService = async (
       filters.user_id = [user_id];
     }
 
-    const userHierarchys = await getUserHierarchysDao(
-      { user_id },
-      null,
-      null,
-      null,
-      null,
-      null,
-      conn,
-    );
+    const userHierarchys = await getUserHierarchysDao({ user_id });
     if (designation == Role.VENDOR_OPERATIONS) {
       const userHierarchy = userHierarchys?.[0];
       const parentID = userHierarchy?.config?.parent;
@@ -181,14 +142,11 @@ const getBankAccountBySearchService = async (
       role,
       designation,
       searchTerms,
-      conn,
     );
     return banks;
   } catch (error) {
     logger.error('error getting while getting check utr by search', error);
     throw new InternalServerError(error.message);
-  } finally {
-    if (conn) conn.release();
   }
 };
 
@@ -204,17 +162,11 @@ const getBankaccountServiceNickName = async (
   let conn;
   try {
     conn = await getConnection();
+    await beginTransaction(conn);
+
     let filters = {};
     if (role == Role.VENDOR) {
-      const userHierarchys = await getUserHierarchysDao(
-        { user_id },
-        null,
-        null,
-        null,
-        null,
-        null,
-        conn,
-      );
+      const userHierarchys = await getUserHierarchysDao({ user_id });
       const userHierarchy = userHierarchys?.[0];
 
       const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
@@ -233,15 +185,7 @@ const getBankaccountServiceNickName = async (
     } else if (user) {
       filters.user_id = [user];
     }
-    const userHierarchys = await getUserHierarchysDao(
-      { user_id },
-      null,
-      null,
-      null,
-      null,
-      null,
-      conn,
-    );
+    const userHierarchys = await getUserHierarchysDao({ user_id });
     if (designation == Role.VENDOR_OPERATIONS) {
       const userHierarchy = userHierarchys?.[0];
       const parentID = userHierarchy?.config?.parent;
@@ -262,15 +206,27 @@ const getBankaccountServiceNickName = async (
       company_id,
       type,
       filters,
-      conn,
       // check_enabled
     );
+    await commit(conn);
     return result;
   } catch (error) {
-    logger.error('Error in getBankaccountServiceNickName', error);
+    if (conn) {
+      try {
+        await rollback(conn);
+      } catch (rollbackError) {
+        logger.error('Error during transaction rollback', rollbackError);
+      }
+    }
     throw error;
   } finally {
-    if (conn) conn.release();
+    if (conn) {
+      try {
+        conn.release();
+      } catch (releaseError) {
+        logger.error('Error while releasing the connection', releaseError);
+      }
+    }
   }
 };
 
@@ -279,30 +235,19 @@ const createBankaccountService = async (
   payload,
   designation,
   user_id,
-  conn = null,
   // company_id,
 ) => {
   try {
     //child add bankaccount for its parent
     if (designation === Role.VENDOR_OPERATIONS) {
-      const childHierarchy = await getUserHierarchysDao(
-        { user_id },
-        null,
-        null,
-        null,
-        null,
-        null,
-        conn,
-      );
+      const childHierarchy = await getUserHierarchysDao({ user_id });
       const parentUserId = childHierarchy[0].config.parent;
       payload.user_id = parentUserId;
     }
     if (designation === Role.VENDOR_ADMIN && !payload.user_id) {
-      throw new BadRequestError(
-        'Vendor Admins are not allowed to create own bank accounts.',
-      );
+        throw new BadRequestError('Vendor Admins are not allowed to create own bank accounts.');
     }
-    const result = await createBankaccountDao(payload, conn);
+    const result = await createBankaccountDao(payload);
     // await notifyAdminsAndUsers({
     //   conn,
     //   company_id: company_id,
@@ -313,34 +258,6 @@ const createBankaccountService = async (
     // });
     return result;
   } catch (error) {
-    logger.error('error in _createBankaccountServiceInternal', error);
-    throw error;
-  }
-};
-
-const createBankaccountService = async (
-  payload,
-  designation,
-  user_id,
-  // company_id,
-) => {
-  let conn;
-  let committed = false;
-  try {
-    conn = await getConnection();
-    await beginTransaction(conn);
-    const result = await _createBankaccountServiceInternal(
-      payload,
-      designation,
-      user_id,
-      conn,
-      // company_id,
-    );
-    await commit(conn);
-    committed = true;
-    return result;
-  } catch (error) {
-    if (conn && !committed) await rollback(conn);
     logger.error('error getting while  creating banks', error.message);
     throw error;
   }
@@ -351,24 +268,16 @@ const updateBankaccountService = async (
   ids,
   payload,
   role,
-  conn = null,
   // company_id,
   // user_id,
 ) => {
   try {
     let result;
 
-    const bank = await getBankaccountDao(
-      {
-        id: ids.id,
-        company_id: ids.company_id,
-      },
-      null,
-      null,
-      role,
-      null,
-      conn,
-    );
+    const bank = await getBankaccountDao({
+      id: ids.id,
+      company_id: ids.company_id,
+    });
 
     if (payload?.is_enabled === false) {
       // Clear merchants array when bank is disabled
@@ -390,23 +299,14 @@ const updateBankaccountService = async (
       const userId = bank[0].user_id;
 
       // Get vendor by userId
-      const vendors = await getVendorsDao(
-        { user_id: userId },
-        null,
-        null,
-        null,
-        null,
-        null,
-        null,
-        conn,
-      );
+      const vendors = await getVendorsDao({ user_id: userId });
       if (vendors && vendors.length > 0) {
         const vendor = vendors[0];
         const netBalanceLimit = vendor?.config?.net_balance;
 
         if (netBalanceLimit && netBalanceLimit > 0) {
           // Get calculation entry by userId
-          const calculations = await getCalculationforCronDao(userId, conn);
+          const calculations = await getCalculationforCronDao(userId);
           if (calculations && calculations.length > 0) {
             const currentNetBalance = calculations[0].net_balance;
 
@@ -423,15 +323,7 @@ const updateBankaccountService = async (
 
     //show notification only to vendor whose bank status is updated
     let userId = bank[0].user_id;
-    const userHierarchys = await getUserHierarchysDao(
-      { user_id: userId },
-      null,
-      null,
-      null,
-      null,
-      null,
-      conn,
-    );
+    const userHierarchys = await getUserHierarchysDao({ user_id: userId });
     if (role === Role.VENDOR_OPERATIONS) {
       userId = userHierarchys[0]?.config?.parent;
     }
@@ -452,15 +344,37 @@ const updateBankaccountService = async (
           },
         };
         deactivateBank(bank[0].nick_name, ids.id, userId);
+        // await notifyAdminsAndUsers({
+        //   conn,
+        //   company_id: company_id,
+        //   message: `The Bank with the ${bank[0].nick_name} id Deactivate`,
+        //   payloadUserId: user_id,
+        //   actorUserId: user_id,
+        //   category: 'Bank Account',
+        //   subCategory: null,
+        //   additionalRecipients: [],
+        //   role,
+        // });
       } else if (payload.latest_balance === bank[0].config?.max_limit) {
         deactivateBank(bank[0].nick_name, ids.id, true);
+        // await notifyAdminsAndUsers({
+        //   conn,
+        //   company_id: company_id,
+        //   message: `The Bank with the ${bank[0].nick_name} will be Deactivate soon as the Balance will soon reach the Daily Limit`,
+        //   payloadUserId: user_id,
+        //   actorUserId: user_id,
+        //   category: 'Bank Account',
+        //   subCategory: null,
+        //   additionalRecipients: [],
+        //   role,
+        // });
       }
     }
     delete payload.latest_balance;
 
     //added merchant_added key in config which contains date on which merchant is added along with its id
     if (payload?.config?.merchant_added) {
-      const existingMerchantDetails = bank[0]?.config?.merchant_added || {};
+      const existingMerchantDetails = bank?.config?.merchant_added || {};
       const newMerchantDetails = {};
 
       for (const key in payload.config.merchant_added) {
@@ -479,40 +393,35 @@ const updateBankaccountService = async (
       result = await updateBankaccountDao(
         { id: ids.id, company_id: ids.company_id },
         payload,
-        false, // isParentDeleted
-        conn, // Pass connection
+        conn,
       );
     }
     if (payloadData?.config?.is_freeze === true) {
-      const bankResponse = await getBankResponsesforFreeze(
-        {
-          bank_id: ids.id,
-          is_used: false,
-          status: '/success',
-        },
-        conn,
-      );
+      const bankResponse = await getBankResponsesforFreeze({
+        bank_id: ids.id,
+        is_used: false,
+        status: '/success',
+      });
       if (bankResponse.length > 0) {
         for (let i = 0; i < bankResponse.length; i++) {
-          await updateBotResponseDao(
-            bankResponse[i].id,
-            {
-              status: '/freezed',
-            },
-            conn,
-          );
+          for (let i = 0; i < bankResponse.length; i++) {
+            await updateBotResponseDao(
+              bankResponse[i].id,
+              {
+                status: '/freezed',
+              },
+              conn,
+            );
+          }
         }
       }
     }
     if (payloadData?.config?.is_freeze === false) {
-      const bankResponse = await getBankResponsesforFreeze(
-        {
-          bank_id: ids.id,
-          is_used: false,
-          status: '/freezed',
-        },
-        conn,
-      );
+      const bankResponse = await getBankResponsesforFreeze({
+        bank_id: ids.id,
+        is_used: false,
+        status: '/freezed',
+      });
       if (bankResponse.length > 0) {
         for (let i = 0; i < bankResponse.length; i++) {
           await updateBotResponseDao(
@@ -525,37 +434,20 @@ const updateBankaccountService = async (
         }
       }
     }
-
+    // if (role !== Role.BOT) {
+    //   await notifyAdminsAndUsers({
+    //     conn,
+    //     company_id: company_id,
+    //     message: `The bank account with nick name ${bank[0].nick_name} has been updated.`,
+    //     payloadUserId: user_id,
+    //     actorUserId: user_id,
+    //     category: 'Bank Account',
+    //   });
+    // }
     return result;
   } catch (error) {
-    logger.error('error in _updateBankaccountInternal', error);
-    throw error;
-  }
-};
-
-// Public service - manages its own transaction
-const updateBankaccountService = async (
-  ids,
-  payload,
-  role,
-  // company_id,
-  // user_id,
-) => {
-  let conn;
-  let committed = false;
-  try {
-    conn = await getConnection();
-    await beginTransaction(conn);
-    const result = await _updateBankaccountInternal(ids, payload, role, conn);
-    await commit(conn);
-    committed = true;
-    return result;
-  } catch (error) {
-    if (conn && !committed) await rollback(conn);
     logger.error('error getting while  updating banks', error);
     throw error;
-  } finally {
-    if (conn) conn.release();
   }
 };
 
@@ -578,45 +470,19 @@ const deleteBankaccountService = async (conn, ids, user_id) => {
     return result;
   } catch (error) {
     logger.error('error getting while deleting banks', error);
-    throw error;
+    throw new BadRequestError('Error getting while  deleting banks');
   }
 };
 
-const _activeInactiveBankAccountServiceInternal = async (
-  ids,
-  payload,
-  conn,
-) => {
+const activeInactiveBankAccountService = async (conn, ids, payload) => {
   try {
     const result = await updateBankaccountDao(
       { id: ids.id, company_id: ids.company_id },
       payload,
-      false, // isParentDeleted
-      conn, // Pass connection for transaction
-    );
-    return result;
-  } catch (error) {
-    logger.error('error in _activeInactiveBankAccountServiceInternal', error);
-    throw error;
-  }
-};
-
-const activeInactiveBankAccountService = async (ids, payload) => {
-  let conn;
-  let committed = false;
-  try {
-    conn = await getConnection();
-    await beginTransaction(conn);
-    const result = await _activeInactiveBankAccountServiceInternal(
-      ids,
-      payload,
       conn,
     );
-    await commit(conn);
-    committed = true;
     return result;
   } catch (error) {
-    if (conn && !committed) await rollback(conn);
     logger.error('error getting while updating banks', error);
     throw error;
   }

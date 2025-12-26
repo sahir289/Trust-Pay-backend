@@ -21,7 +21,6 @@ const getCalculationDao = async (
   sortBy,
   sortOrder,
   columns = [],
-  conn = null,
 ) => {
   try {
     // if simple user is querying then filter object must have user_id to bind result
@@ -130,17 +129,14 @@ const getCalculationDao = async (
       tableName.CALCULATION,
     );
     // Execute query
-    const result = await executeQuery(sql, queryParams, conn);
+    const result = await executeQuery(sql, queryParams);
     return result.rows;
   } catch (error) {
     logger.error('Error fetching Calculation', error);
     throw error;
   }
 };
-export const getCalculationDashBoardReportDao = async (
-  filters = {},
-  conn = null,
-) => {
+export const getCalculationDashBoardReportDao = async (filters = {}) => {
   try {
     const selectColumns = `
       total_payin_amount,
@@ -158,14 +154,14 @@ export const getCalculationDashBoardReportDao = async (
     const queryFilters = { user_id, company_id };
     baseQuery += ` AND created_at BETWEEN '${new Date(sDate).toISOString()}'::TIMESTAMPTZ AND '${new Date(eDate).toISOString()}'::TIMESTAMPTZ`;
     const [sql, params] = buildSelectQuery(baseQuery, queryFilters);
-    const result = await executeQuery(sql, params, conn);
+    const result = await executeQuery(sql, params);
     return result.rows || [];
   } catch (error) {
     logger.error('Error getting calculation data:', error);
     throw error;
   }
 };
-export const getCalculationByDateAndUserDao = async (date, conn = null) => {
+export const getCalculationByDateAndUserDao = async (date) => {
   if (!date) {
     throw new Error('date are required');
   }
@@ -173,7 +169,7 @@ export const getCalculationByDateAndUserDao = async (date, conn = null) => {
   if (isNaN(parsedDate.getTime())) {
     throw new Error('Invalid date format. Use YYYY-MM-DD');
   }
-  const isoDate = parsedDate.toISOString().split('T')[0];
+  const isoDate = parsedDate.toISOString().split('T')[0]; 
   try {
     const sql = `
       SELECT
@@ -188,7 +184,7 @@ export const getCalculationByDateAndUserDao = async (date, conn = null) => {
       WHERE created_at::DATE = $1   
     `;
     const params = [isoDate];
-    const result = await executeQuery(sql, params, conn);
+    const result = await executeQuery(sql, params);
     return result.rows || null;
   } catch (error) {
     logger.error(
@@ -198,11 +194,7 @@ export const getCalculationByDateAndUserDao = async (date, conn = null) => {
     throw error;
   }
 };
-export const updateTodayNetBalanceDao = async (
-  Id,
-  net_balance,
-  conn = null,
-) => {
+export const updateTodayNetBalanceDao = async (Id, net_balance, conn) => {
   try {
     const sql = `
       UPDATE "${tableName.CALCULATION}"
@@ -210,15 +202,21 @@ export const updateTodayNetBalanceDao = async (
       WHERE id = $1 
     `;
     const params = [Id, net_balance];
-    const result = await executeQuery(sql, params, conn);
+    const result = conn 
+      ? await conn.query(sql, params)
+      : await executeQuery(sql, params);
     return result.rows[0] || null;
+
   } catch (error) {
-    logger.error(`Failed to update net_balance for user ${Id}:`, error.message);
+    logger.error(
+      `Failed to update net_balance for user ${Id}:`,
+      error.message
+    );
     throw error;
   }
 };
 
-export const getCalculationsSumDao = async (filters, conn) => {
+export const getCalculationsSumDao = async (filters) => {
   try {
     const {
       role,
@@ -243,42 +241,21 @@ export const getCalculationsSumDao = async (filters, conn) => {
     // Fix the userCodes array creation
     let userCodes = [];
     if (users) {
+      // Handle both comma-with-space and comma-only separators
       userCodes = users.split(/\s*,\s*/).filter((id) => id.trim());
+      logger.info('Processed user codes:', userCodes);
     }
     let effectiveUserId = user_id;
-
-    // Cache for user hierarchies to avoid repeated database calls
-    const hierarchyCache = new Map();
-
-    // Helper function to get hierarchy with caching - reuses connection
-    const getCachedHierarchy = async (userId) => {
-      if (!userId) return null;
-      if (!hierarchyCache.has(userId)) {
-        const hierarchy = await getUserHierarchysDao({ user_id: userId }, null, null, null, null, null, conn);
-        hierarchyCache.set(userId, hierarchy);
-      }
-      return hierarchyCache.get(userId);
-    };
-    
-    // Helper to batch process promises with concurrency limit
-    const batchProcess = async (items, batchSize, processFn) => {
-      const results = [];
-      for (let i = 0; i < items.length; i += batchSize) {
-        const batch = items.slice(i, i + batchSize);
-        const batchResults = await Promise.all(batch.map(processFn));
-        results.push(...batchResults);
-      }
-      return results;
-    };
 
     if (
       designation === Role.MERCHANT_OPERATIONS ||
       designation === Role.VENDOR_OPERATIONS
     ) {
-      const hierarchy = await getCachedHierarchy(user_id);
+      const hierarchy = await getUserHierarchysDao({ user_id });
       const parentId = hierarchy?.[0]?.config?.parent;
       if (parentId) {
         effectiveUserId = parentId;
+        logger.info('Using parent merchant ID:', parentId);
       }
     }
 
@@ -344,22 +321,27 @@ export const getCalculationsSumDao = async (filters, conn) => {
     // Admin Query
     if (Role.ADMIN === role) {
       if (userCodes.length > 0) {
-        const hierarchies = await batchProcess(userCodes, 5, getCachedHierarchy);
-        
-        let userIds = [];
-        let vendorUserIds = [];
-        
-        hierarchies.forEach((userHierarchys, index) => {
-          const userCode = userCodes[index];
-          if (userCode && userHierarchys) {
+        // If userCodes are provided, filter by them
+        let userIds = []; // Initialize empty array for merchant IDs
+        let vendorUserIds = []; // Initialize empty array for vendor IDs
+        for (const userCode of userCodes) {
+          if (userCode) {
+            const userHierarchys = await getUserHierarchysDao({
+              user_id: userCode,
+            });
             const allowedSubmerchants =
               userHierarchys?.[0]?.config?.siblings?.sub_merchants || [];
-            userIds.push(userCode);
-            userIds.push(...allowedSubmerchants);
-            vendorUserIds.push(userCode);
+            // const allowedSubvendors =
+            //   userHierarchys?.[0]?.config?.siblings?.sub_vendors || [];
+            // Add current userCode and its submerchants to merchant userIds array
+            userIds.push(userCode); // Add the main userCode
+            userIds.push(...allowedSubmerchants); // Add all submerchants
+            // Add current userCode and its subvendors to vendor userIds array
+            vendorUserIds.push(userCode); // Add the main userCode
+            // vendorUserIds.push(...allowedSubvendors); // Add all subvendors
           }
-        });
-        
+        }
+        // Remove any duplicates
         userIds = [...new Set(userIds)];
         vendorUserIds = [...new Set(vendorUserIds)];
         const userCodeParams = userIds.map((code) => `'${code}'`).join(',');
@@ -371,26 +353,26 @@ export const getCalculationsSumDao = async (filters, conn) => {
       }
       const vQuery = `${vendorQuery}  AND c.company_id = '${company_id}' AND u.company_id = '${company_id}' ${groupBy}`;
       const mQuery = `${merchantQuery}  AND c.company_id = '${company_id}' AND u.company_id = '${company_id}' ${groupBy}`;
-      
-      [merchantData, vendorData] = await Promise.all([
-        executeQuery(mQuery, [], conn).then(result => result.rows),
-        executeQuery(vQuery, [], conn).then(result => result.rows)
-      ]);
+      merchantData = (await executeQuery(mQuery, [])).rows;
+      vendorData = (await executeQuery(vQuery, [])).rows;
     }
 
     // Super Admin Query
     if (Role.SUPER_ADMIN === role) {
-      [merchantData, vendorData] = await Promise.all([
-        executeQuery(`${merchantQuery}  ${groupBy}`, [], conn).then(result => result.rows),
-        executeQuery(`${vendorQuery}  ${groupBy}`, [], conn).then(result => result.rows)
-      ]);
+      merchantData = (await executeQuery(`${merchantQuery}  ${groupBy}`, []))
+        .rows;
+      vendorData = (await executeQuery(`${vendorQuery}  ${groupBy}`, [])).rows;
     }
 
     // query for merchant only role
     if (role === Role.MERCHANT) {
-      const userHierarchys = await getCachedHierarchy(effectiveUserId);
-      let userIds = [effectiveUserId];
+      // Get user hierarchy to validate submerchant access
+      const userHierarchys = await getUserHierarchysDao({
+        user_id: effectiveUserId,
+      });
+      let userIds = [effectiveUserId]; // Always include merchant's own ID
 
+      // Handle userCodes for merchant totals
       if (userCodes?.length > 0) {
         // Get allowed submerchant IDs from hierarchy
         const allowedSubmerchants =
@@ -408,33 +390,40 @@ export const getCalculationsSumDao = async (filters, conn) => {
         AND c.company_id = $1
         ${groupBy}`;
 
-      merchantData = (
-        await executeQuery(mQuery, [company_id], conn)
-      ).rows;
+      merchantData = (await executeQuery(mQuery, [company_id])).rows;
     }
 
     // query for vendor only role
     if (role === Role.VENDOR) {
-      const userHierarchys = await getCachedHierarchy(effectiveUserId);
-      let userIds = [effectiveUserId];
+      // Get user hierarchy to validate sub-vendor access
+      const userHierarchys = await getUserHierarchysDao({
+        user_id: effectiveUserId,
+      });
+      let userIds = [effectiveUserId]; // Always include vendor's own ID
+      // Include sub-vendors when available
       const subVendors =
         userHierarchys?.[0]?.config?.siblings?.sub_vendors || [];
       if (subVendors.length > 0) {
         userIds = [...new Set([...userIds, ...subVendors])];
       }
+      // Handle userCodes for vendor totals
       if (userCodes?.length > 0) {
-        userIds = [
-          ...new Set([
-            ...userCodes,
-          ]),
-        ];
+        // Get allowed sub-vendor IDs from hierarchy
+        // const allowedSubVendors =
+        //   userHierarchys?.[0]?.config?.siblings?.sub_vendors || [];
+        // // Only include valid sub-vendor IDs
+        // const validUserIds = userCodes.filter((id) =>
+        //   allowedSubVendors.includes(id),
+        // );
+        userIds = [...new Set([...userCodes
+          // ,...validUserIds
+        ])]; // Remove duplicates
       }
 
+      // Create parameterized query for all user IDs
       const userIdParams = userIds.map((_, index) => `$${index + 1}`).join(',');
       const vQuery = `${vendorQuery}  AND c.user_id = ANY(ARRAY[${userIdParams}])  AND c.company_id = $${userIds.length + 1}  ${groupBy}`;
-      vendorData = (
-        await executeQuery(vQuery, [...userIds, company_id], conn)
-      ).rows;
+      vendorData = (await executeQuery(vQuery, [...userIds, company_id])).rows;
     }
 
     if ([Role.SUPER_ADMIN, Role.ADMIN].includes(role)) {
@@ -447,44 +436,55 @@ export const getCalculationsSumDao = async (filters, conn) => {
       if (userCodes?.length > 0) {
         for (const userCode of userCodes) {
           if (userCode) {
-            const userHierarchies = await getCachedHierarchy(userCode);
+            const userHierarchies = await getUserHierarchysDao({
+              user_id: userCode,
+            });
             const allowedSubMerchants =
               userHierarchies?.[0]?.config?.siblings?.sub_merchants || [];
+            // const allowedSubVendors =
+            //   userHierarchies?.[0]?.config?.siblings?.sub_vendors || [];
             userIds = [
               ...new Set([
                 ...userCodes,
                 ...allowedSubMerchants,
+                // ...allowedSubVendors,
               ]),
-            ];
+            ]; // Remove duplicates
           }
         }
       }
       const baseCalQuery = `
         WITH LatestBalances AS (
-          SELECT DISTINCT ON (c.user_id)
+          SELECT 
             c.user_id,
             c.company_id,
             c.net_balance,
-            r.role
+            r.role,
+            m.code as merchant_code,
+            v.code as vendor_code,
+            ROW_NUMBER() OVER (PARTITION BY c.user_id ORDER BY c.created_at DESC) as rn
           FROM "${tableName.CALCULATION}" c
-          INNER JOIN "${tableName.USER}" u ON c.user_id = u.id
-          INNER JOIN "${tableName.ROLE}" r ON u.role_id = r.id 
+          JOIN "${tableName.USER}" u ON c.user_id = u.id AND u.is_obsolete = FALSE
+          JOIN "${tableName.ROLE}" r ON u.role_id = r.id 
+          LEFT JOIN "${tableName.MERCHANT}" m ON m.user_id = c.user_id
+          LEFT JOIN "${tableName.VENDOR}" v ON v.user_id = c.user_id
           WHERE c.is_obsolete = FALSE
           AND u.is_obsolete = FALSE
-          ${condition}
-          ${userIds.length > 0 ? `AND c.user_id = ANY(ARRAY[${userIds.map((id) => `'${id}'`).join(',')}])` : ''}
           AND c.created_at BETWEEN '${startDate}' AND '${endDate}'
-          ORDER BY c.user_id, c.created_at DESC
+          ${userIds.length > 0 ? `AND c.user_id = ANY(ARRAY[${userIds.map((id) => `'${id}'`).join(',')}])` : ''}
+          ${condition}
         )
         SELECT 
           role,
           company_id,
           CAST(ROUND(SUM(net_balance)::NUMERIC, 2) AS FLOAT) as net_balance_sum
         FROM LatestBalances 
+        WHERE rn = 1
         GROUP BY role, company_id`;
 
-      const balanceResult = await executeQuery(baseCalQuery, [], conn);
+      const balanceResult = await executeQuery(baseCalQuery);
 
+      // Process results into netBalance object with company filtering
       netBalance = balanceResult.rows.reduce(
         (acc, row) => {
           if (
@@ -503,9 +503,12 @@ export const getCalculationsSumDao = async (filters, conn) => {
         { vendor: 0, merchant: 0 },
       );
     } else {
-      const userHierarchys = await getCachedHierarchy(effectiveUserId);
-      let userIds = [effectiveUserId];
+      const userHierarchys = await getUserHierarchysDao({
+        user_id: effectiveUserId,
+      });
+      let userIds = [effectiveUserId]; // Always include user's own ID
 
+      // Include sub-merchants/sub-vendors when available based on role
       if (role === Role.MERCHANT) {
         const subMerchants =
           userHierarchys?.[0]?.config?.siblings?.sub_merchants || [];
@@ -513,16 +516,32 @@ export const getCalculationsSumDao = async (filters, conn) => {
           userIds = [...new Set([...userIds, ...subMerchants])];
         }
       }
+      // else if (role === Role.VENDOR) {
+      //   const subVendors =
+      //     userHierarchys?.[0]?.config?.siblings?.sub_vendors || [];
+      //   if (subVendors.length > 0) {
+      //     userIds = [...new Set([...userIds, ...subVendors])];
+      //   }
+      // }
 
+      // Handle userCodes for totals
       if (userCodes?.length > 0) {
+        // Get allowed submerchant/sub-vendor IDs from hierarchy based on role
         const allowedSubmerchants =
           userHierarchys?.[0]?.config?.siblings?.sub_merchants || [];
+        // const allowedSubVendors =
+        //   userHierarchys?.[0]?.config?.siblings?.sub_vendors || [];
 
+        // Only include valid IDs based on role
         const validUserIds = userCodes.filter(
-          (id) => allowedSubmerchants.includes(id)
+          (id) =>
+            allowedSubmerchants.includes(id)
+            // || allowedSubVendors.includes(id)
+          ,
         );
-        userIds = [...new Set([...userCodes, ...validUserIds])];
+        userIds = [...new Set([...userCodes, ...validUserIds])]; // Remove duplicates
       }
+      // For non-admin roles, use existing query logic
 
       const endDateConditon = ` AND DATE(c.created_at) = '${endDate}' `;
       const calBaseQuery = `
@@ -548,13 +567,10 @@ export const getCalculationsSumDao = async (filters, conn) => {
         Role.MERCHANT,
       );
 
-      const [vendorBalance, merchantBalance] = await Promise.all([
-        executeQuery(vendorCalQuery, [], conn).then(result => result.rows[0]?.net_balance_sum || 0),
-        executeQuery(merchantCalQuery, [], conn).then(result => result.rows[0]?.net_balance_sum || 0)
-      ]);
-      
-      netBalance.vendor = vendorBalance;
-      netBalance.merchant = merchantBalance;
+      netBalance.vendor =
+        (await executeQuery(vendorCalQuery)).rows[0]?.net_balance_sum || 0;
+      netBalance.merchant =
+        (await executeQuery(merchantCalQuery)).rows[0]?.net_balance_sum || 0;
     }
 
     // Modify total calculations query for merchants based on role
@@ -668,63 +684,94 @@ export const getCalculationsSumDao = async (filters, conn) => {
       AND r.role = 'VENDOR'
   `;
 
+    // Add role-based conditions
     if (role === Role.MERCHANT) {
-      const userHierarchys = await getCachedHierarchy(effectiveUserId);
-      let userIds = [effectiveUserId];
+      // Get user hierarchy to validate submerchant access
+      const userHierarchys = await getUserHierarchysDao({
+        user_id: effectiveUserId,
+      });
+      let userIds = [effectiveUserId]; // Always include merchant's own ID
 
+      // Handle userCodes for merchant totals
       if (userCodes?.length > 0) {
+        // Get allowed submerchant IDs from hierarchy
         const allowedSubmerchants =
           userHierarchys?.[0]?.config?.siblings?.sub_merchants || [];
+        // Only include valid submerchant IDs
         const validUserIds = userCodes.filter((id) =>
           allowedSubmerchants.includes(id),
         );
-        userIds = [...new Set([...userCodes, ...validUserIds])];
+        userIds = [...new Set([...userCodes, ...validUserIds])]; // Remove duplicates
       }
 
+      // Add filter to merchant total query
       merchantTotalQuery += ` AND m.user_id = ANY(ARRAY['${userIds.join("','")}']) `;
       merchantTotalQuery += ` AND c.company_id = '${company_id}'`;
-      vendorTotalQuery = null;
+      vendorTotalQuery = null; // Merchant shouldn't see vendor totals
     } else if (role === Role.VENDOR) {
-      let userIds = [effectiveUserId, ...userCodes];
-      userIds = [...new Set(userIds)];
+      // Get user hierarchy to validate sub-vendor access
+      // const userHierarchys = await getUserHierarchysDao({
+      //   user_id: effectiveUserId,
+      // });
+      let userIds = [effectiveUserId]; // Always include vendor's own ID
 
+      // Get allowed subVendor IDs from hierarchy
+      // const allowedSubVendors =
+      //   userHierarchys?.[0]?.config?.siblings?.sub_vendors || [];
+      // Only include valid subVendor IDs
+      // const validUserIds = userCodes.filter((id) =>
+      //   allowedSubVendors.includes(id),
+      // );
+      userIds = [...new Set([...userCodes,
+        // ...validUserIds
+      ])]; // Remove duplicates
+      // Add filter to vendor total query
       vendorTotalQuery += ` AND c.user_id = ANY(ARRAY['${userIds.join("','")}']) `;
       vendorTotalQuery += ` AND c.company_id = '${company_id}'`;
-      merchantTotalQuery = null;
+      merchantTotalQuery = null; // Vendor shouldn't see merchant totals
     } else if (role === Role.SUB_VENDOR) {
       vendorTotalQuery += ` AND c.user_id = '${effectiveUserId}'`;
       vendorTotalQuery += ` AND c.company_id = '${company_id}'`;
-      merchantTotalQuery = null;
+      merchantTotalQuery = null; // Sub-vendor shouldn't see merchant totals
     } else if (role === Role.ADMIN) {
+      // Get user hierarchy to validate access
       let userIds = [];
 
+      // Process each userCode if provided
       if (userCodes?.length > 0) {
-        const batchSize = 5;
-        const hierarchies = [];
-        for (let i = 0; i < userCodes.length; i += batchSize) {
-          const batch = userCodes.slice(i, i + batchSize);
-          const batchResults = await Promise.all(
-            batch.map(userCode => getCachedHierarchy(userCode))
-          );
-          hierarchies.push(...batchResults);
-        }
-        
-        hierarchies.forEach((userHierarchys, index) => {
-          const userCode = userCodes[index];
-          if (userCode && userHierarchys) {
+        for (const userCode of userCodes) {
+          if (userCode) {
+            const userHierarchys = await getUserHierarchysDao({
+              user_id: userCode,
+            });
             const allowedSubmerchants =
               userHierarchys?.[0]?.config?.siblings?.sub_merchants || [];
-            userIds.push(userCode);
-            userIds.push(...allowedSubmerchants);
+            // Combine current userCode with its submerchants
+            userIds.push(userCode); // Add the main userCode
+            userIds.push(...allowedSubmerchants); // Add all submerchants
           }
-        });
+        }
 
-        userIds = [...new Set(userIds)];
+        userIds = [...new Set(userIds)]; // Remove duplicates
 
+        // Add filters to queries using proper array syntax
         if (userIds.length > 0) {
           const userIdsFormatted = userIds.map((id) => `'${id}'`).join(',');
           merchantTotalQuery += ` AND m.user_id = ANY(ARRAY[${userIdsFormatted}]) `;
-          const uniqueVendorUserIds = [...new Set(userCodes)];
+          // Fixed: Include sub-vendors for Admin role vendor total calculations
+          const vendorUserIds = [];
+          for (const userCode of userCodes) {
+            if (userCode) {
+              // const userHierarchys = await getUserHierarchysDao({
+              //   user_id: userCode,
+              // });
+              // const allowedSubvendors =
+              //   userHierarchys?.[0]?.config?.siblings?.sub_vendors || [];
+              vendorUserIds.push(userCode); // Add the main userCode
+              // vendorUserIds.push(...allowedSubvendors); // Add all sub-vendors
+            }
+          }
+          const uniqueVendorUserIds = [...new Set(vendorUserIds)];
           if (uniqueVendorUserIds.length > 0) {
             vendorTotalQuery += ` AND v.user_id = ANY(ARRAY[${uniqueVendorUserIds.map((code) => `'${code}'`).join(',')}]) `;
           }
@@ -738,13 +785,12 @@ export const getCalculationsSumDao = async (filters, conn) => {
     // Execute queries based on role
     const [merchantTotal, vendorTotal] = await Promise.all([
       merchantTotalQuery
-        ? await executeQuery(merchantTotalQuery, [], conn)
+        ? executeQuery(merchantTotalQuery)
         : Promise.resolve({ rows: [{}] }),
       vendorTotalQuery
-        ? await executeQuery(vendorTotalQuery, [], conn)
+        ? executeQuery(vendorTotalQuery)
         : Promise.resolve({ rows: [{}] }),
     ]);
-    
     return {
       vendor: vendorData,
       merchant: merchantData,
@@ -758,10 +804,7 @@ export const getCalculationsSumDao = async (filters, conn) => {
   }
 };
 
-export const getCalculationsForInternalUseDao = async (
-  filters,
-  conn = null,
-) => {
+export const getCalculationsForInternalUseDao = async (filters) => {
   try {
     const {
       role,
@@ -799,7 +842,7 @@ export const getCalculationsForInternalUseDao = async (
       designation === Role.MERCHANT_OPERATIONS ||
       designation === Role.VENDOR_OPERATIONS
     ) {
-      const hierarchy = await getUserHierarchysDao({ user_id }, null, null, null, null, null, conn);
+      const hierarchy = await getUserHierarchysDao({ user_id });
       const parentId = hierarchy?.[0]?.config?.parent;
       if (parentId) {
         effectiveUserId = parentId;
@@ -871,33 +914,26 @@ export const getCalculationsForInternalUseDao = async (
     // Admin Query
     if (Role.ADMIN === role) {
       if (userCodes.length > 0) {
-        // Batch fetch hierarchies with limited concurrency to avoid connection pool exhaustion
-        const batchSize = 5;
-        const hierarchies = [];
-        for (let i = 0; i < userCodes.length; i += batchSize) {
-          const batch = userCodes.slice(i, i + batchSize);
-          const batchResults = await Promise.all(
-            batch.map(userCode => getUserHierarchysDao({ user_id: userCode }, null, null, null, null, null, conn))
-          );
-          hierarchies.push(...batchResults);
-        }
-        
-        let userIds = [];
-        let vendorUserIds = [];
-        
-        hierarchies.forEach((userHierarchys, index) => {
-          const userCode = userCodes[index];
-          if (userCode && userHierarchys) {
+        // If userCodes are provided, filter by them
+        let userIds = []; // Initialize empty array for merchant IDs
+        let vendorUserIds = []; // Initialize empty array for vendor IDs
+        for (const userCode of userCodes) {
+          if (userCode) {
+            const userHierarchys = await getUserHierarchysDao({
+              user_id: userCode,
+            });
             const allowedSubmerchants =
               userHierarchys?.[0]?.config?.siblings?.sub_merchants || [];
             const allowedSubvendors =
               userHierarchys?.[0]?.config?.siblings?.sub_vendors || [];
-            userIds.push(userCode);
-            userIds.push(...allowedSubmerchants);
-            vendorUserIds.push(userCode);
-            vendorUserIds.push(...allowedSubvendors);
+            // Add current userCode and its submerchants to merchant userIds array
+            userIds.push(userCode); // Add the main userCode
+            userIds.push(...allowedSubmerchants); // Add all submerchants
+            // Add current userCode and its subvendors to vendor userIds array
+            vendorUserIds.push(userCode); // Add the main userCode
+            vendorUserIds.push(...allowedSubvendors); // Add all subvendors
           }
-        });
+        }
         // Remove any duplicates
         userIds = [...new Set(userIds)];
         vendorUserIds = [...new Set(vendorUserIds)];
@@ -911,26 +947,15 @@ export const getCalculationsForInternalUseDao = async (
       }
       const vQuery = `${vendorQuery}  AND c.company_id = '${company_id}' AND u.company_id = '${company_id}' ${groupBy}`;
       const mQuery = `${merchantQuery}  AND c.company_id = '${company_id}' AND u.company_id = '${company_id}' ${groupBy}`;
-      merchantData = (
-        await executeQuery(mQuery, [], conn)
-      ).rows;
-      vendorData = (
-        await executeQuery(vQuery, [], conn)
-      ).rows;
+      merchantData = (await executeQuery(mQuery, [])).rows;
+      vendorData = (await executeQuery(vQuery, [])).rows;
     }
 
     // Super Admin Query
     if (Role.SUPER_ADMIN === role) {
-      merchantData = (
-        conn
-          ? await conn.query(`${merchantQuery}  ${groupBy}`, [])
-          : await executeQuery(`${merchantQuery}  ${groupBy}`, [], conn)
-      ).rows;
-      vendorData = (
-        conn
-          ? await conn.query(`${vendorQuery}  ${groupBy}`, [])
-          : await executeQuery(`${vendorQuery}  ${groupBy}`, [], conn)
-      ).rows;
+      merchantData = (await executeQuery(`${merchantQuery}  ${groupBy}`, []))
+        .rows;
+      vendorData = (await executeQuery(`${vendorQuery}  ${groupBy}`, [])).rows;
     }
 
     // query for merchant only role
@@ -938,7 +963,7 @@ export const getCalculationsForInternalUseDao = async (
       // Get user hierarchy to validate submerchant access
       const userHierarchys = await getUserHierarchysDao({
         user_id: effectiveUserId,
-      }, null, null, null, null, null, conn);
+      });
       let userIds = [effectiveUserId]; // Always include merchant's own ID
 
       // Handle userCodes for merchant totals
@@ -959,11 +984,7 @@ export const getCalculationsForInternalUseDao = async (
         AND c.company_id = $1
         ${groupBy}`;
 
-      merchantData = (
-        conn
-          ? await conn.query(mQuery, [company_id])
-          : await executeQuery(mQuery, [company_id], conn)
-      ).rows;
+      merchantData = (await executeQuery(mQuery, [company_id])).rows;
     }
 
     // query for vendor only role
@@ -971,7 +992,7 @@ export const getCalculationsForInternalUseDao = async (
       // Get user hierarchy to validate sub-vendor access
       const userHierarchys = await getUserHierarchysDao({
         user_id: effectiveUserId,
-      }, null, null, null, null, null, conn);
+      });
       let userIds = [effectiveUserId]; // Always include vendor's own ID
 
       // Include sub-vendors when available
@@ -996,11 +1017,7 @@ export const getCalculationsForInternalUseDao = async (
       // Create parameterized query for all user IDs
       const userIdParams = userIds.map((_, index) => `$${index + 1}`).join(',');
       const vQuery = `${vendorQuery}  AND c.user_id = ANY(ARRAY[${userIdParams}])  AND c.company_id = $${userIds.length + 1}  ${groupBy}`;
-      vendorData = (
-        conn
-          ? await conn.query(vQuery, [...userIds, company_id])
-          : await executeQuery(vQuery, [...userIds, company_id], conn)
-      ).rows;
+      vendorData = (await executeQuery(vQuery, [...userIds, company_id])).rows;
     }
 
     if ([Role.SUPER_ADMIN, Role.ADMIN].includes(role)) {
@@ -1063,9 +1080,7 @@ export const getCalculationsForInternalUseDao = async (
         WHERE rn = 1
         GROUP BY role, company_id`;
 
-      const balanceResult = conn
-        ? await conn.query(baseCalQuery)
-        : await executeQuery(baseCalQuery, [], conn);
+      const balanceResult = await executeQuery(baseCalQuery);
 
       // Process results into netBalance object with company filtering
       netBalance = balanceResult.rows.reduce(
@@ -1088,7 +1103,7 @@ export const getCalculationsForInternalUseDao = async (
     } else {
       const userHierarchys = await getUserHierarchysDao({
         user_id: effectiveUserId,
-      }, null, null, null, null, null, conn);
+      });
       let userIds = [effectiveUserId]; // Always include user's own ID
 
       // Include sub-merchants/sub-vendors when available based on role
@@ -1148,15 +1163,9 @@ export const getCalculationsForInternalUseDao = async (
       );
 
       netBalance.vendor =
-        (conn
-          ? await conn.query(vendorCalQuery)
-          : await executeQuery(vendorCalQuery, [], conn)
-        ).rows[0]?.net_balance_sum || 0;
+        (await executeQuery(vendorCalQuery)).rows[0]?.net_balance_sum || 0;
       netBalance.merchant =
-        (conn
-          ? await conn.query(merchantCalQuery)
-          : await executeQuery(merchantCalQuery, [], conn)
-        ).rows[0]?.net_balance_sum || 0;
+        (await executeQuery(merchantCalQuery)).rows[0]?.net_balance_sum || 0;
     }
 
     // Modify total calculations query for merchants based on role
@@ -1257,18 +1266,22 @@ export const getCalculationsForInternalUseDao = async (
       // Get user hierarchy to validate submerchant access
       const userHierarchys = await getUserHierarchysDao({
         user_id: effectiveUserId,
-      }, null, null, null, null, null, conn);
-      let userIds = [effectiveUserId];
+      });
+      let userIds = [effectiveUserId]; // Always include merchant's own ID
 
+      // Handle userCodes for merchant totals
       if (userCodes?.length > 0) {
+        // Get allowed submerchant IDs from hierarchy
         const allowedSubmerchants =
           userHierarchys?.[0]?.config?.siblings?.sub_merchants || [];
+        // Only include valid submerchant IDs
         const validUserIds = userCodes.filter((id) =>
           allowedSubmerchants.includes(id),
         );
-        userIds = [...new Set([...userCodes, ...validUserIds])];
+        userIds = [...new Set([...userCodes, ...validUserIds])]; // Remove duplicates
       }
 
+      // Add filter to merchant total query
       merchantTotalQuery += ` AND m.user_id = ANY(ARRAY['${userIds.join("','")}']) `;
       merchantTotalQuery += ` AND c.company_id = '${company_id}'`;
       vendorTotalQuery = null; // Merchant shouldn't see vendor totals
@@ -1276,7 +1289,7 @@ export const getCalculationsForInternalUseDao = async (
       // Get user hierarchy to validate sub-vendor access
       const userHierarchys = await getUserHierarchysDao({
         user_id: effectiveUserId,
-      }, null, null, null, null, null, conn);
+      });
       let userIds = [effectiveUserId]; // Always include vendor's own ID
 
       // Include sub-vendors when available
@@ -1289,7 +1302,7 @@ export const getCalculationsForInternalUseDao = async (
       // Add filter to vendor total query
       vendorTotalQuery += ` AND c.user_id = ANY(ARRAY['${userIds.join("','")}']) `;
       vendorTotalQuery += ` AND c.company_id = '${company_id}'`;
-      merchantTotalQuery = null;
+      merchantTotalQuery = null; // Vendor shouldn't see merchant totals
     } else if (role === Role.SUB_VENDOR) {
       vendorTotalQuery += ` AND c.user_id = '${effectiveUserId}'`;
       vendorTotalQuery += ` AND c.company_id = '${company_id}'`;
@@ -1300,26 +1313,18 @@ export const getCalculationsForInternalUseDao = async (
 
       // Process each userCode if provided
       if (userCodes?.length > 0) {
-        // Batch fetch hierarchies with limited concurrency to avoid connection pool exhaustion
-        const batchSize = 5;
-        const hierarchies = [];
-        for (let i = 0; i < userCodes.length; i += batchSize) {
-          const batch = userCodes.slice(i, i + batchSize);
-          const batchResults = await Promise.all(
-            batch.map(userCode => getUserHierarchysDao({ user_id: userCode }, null, null, null, null, null, conn))
-          );
-          hierarchies.push(...batchResults);
-        }
-        
-        hierarchies.forEach((userHierarchys, index) => {
-          const userCode = userCodes[index];
-          if (userCode && userHierarchys) {
+        for (const userCode of userCodes) {
+          if (userCode) {
+            const userHierarchys = await getUserHierarchysDao({
+              user_id: userCode,
+            });
             const allowedSubmerchants =
               userHierarchys?.[0]?.config?.siblings?.sub_merchants || [];
-            userIds.push(userCode);
-            userIds.push(...allowedSubmerchants);
+            // Combine current userCode with its submerchants
+            userIds.push(userCode); // Add the main userCode
+            userIds.push(...allowedSubmerchants); // Add all submerchants
           }
-        });
+        }
 
         userIds = [...new Set(userIds)]; // Remove duplicates
 
@@ -1333,7 +1338,7 @@ export const getCalculationsForInternalUseDao = async (
             if (userCode) {
               const userHierarchys = await getUserHierarchysDao({
                 user_id: userCode,
-              }, null, null, null, null, null, conn);
+              });
               const allowedSubvendors =
                 userHierarchys?.[0]?.config?.siblings?.sub_vendors || [];
               vendorUserIds.push(userCode); // Add the main userCode
@@ -1354,14 +1359,10 @@ export const getCalculationsForInternalUseDao = async (
     // Execute queries based on role
     const [merchantTotal, vendorTotal] = await Promise.all([
       merchantTotalQuery
-        ? conn
-          ? await conn.query(merchantTotalQuery)
-          : await executeQuery(merchantTotalQuery, [], conn)
+        ? executeQuery(merchantTotalQuery)
         : Promise.resolve({ rows: [{}] }),
       vendorTotalQuery
-        ? conn
-          ? await conn.query(vendorTotalQuery)
-          : await executeQuery(vendorTotalQuery, [], conn)
+        ? executeQuery(vendorTotalQuery)
         : Promise.resolve({ rows: [{}] }),
     ]);
     return {
@@ -1378,7 +1379,7 @@ export const getCalculationsForInternalUseDao = async (
 };
 
 ////for cron job to update net_balance
-export const getCalculationforCronDao = async (userId, conn = null) => {
+export const getCalculationforCronDao = async (userId) => {
   try {
     const sql = `
       SELECT *
@@ -1389,7 +1390,7 @@ export const getCalculationforCronDao = async (userId, conn = null) => {
       LIMIT 1
     `;
     // Ensure userId is correctly passed as an array
-    const result = await executeQuery(sql, [userId], conn);
+    const result = await executeQuery(sql, [userId]);
     return result.rows;
   } catch (error) {
     logger.error('Error fetching Calculation', error);
@@ -1397,7 +1398,7 @@ export const getCalculationforCronDao = async (userId, conn = null) => {
   }
 };
 
-export const getAllCalculationforCronDao = async (userId, conn = null) => {
+export const getAllCalculationforCronDao = async (userId) => {
   try {
     const sql = `
       SELECT *
@@ -1407,9 +1408,7 @@ export const getAllCalculationforCronDao = async (userId, conn = null) => {
       ORDER BY created_at DESC 
     `;
     // Ensure userId is correctly passed as an array
-    const result = conn
-      ? await conn.query(sql, [userId])
-      : await executeQuery(sql, [userId], conn);
+    const result = await executeQuery(sql, [userId]);
     return result.rows;
   } catch (error) {
     logger.error('Error fetching Calculation', error);
@@ -1417,7 +1416,7 @@ export const getAllCalculationforCronDao = async (userId, conn = null) => {
   }
 };
 
-export const checkTodayCalculationExistsDao = async (conn = null) => {
+export const checkTodayCalculationExistsDao = async () => {
   try {
     const today = dayjs().tz(IST).format('YYYY-MM-DD');
     const sql = `
@@ -1427,9 +1426,7 @@ export const checkTodayCalculationExistsDao = async (conn = null) => {
       AND DATE(created_at) = $1
       LIMIT 1
     `;
-    const result = conn
-      ? await conn.query(sql, [today])
-      : await executeQuery(sql, [today], conn);
+    const result = await executeQuery(sql, [today]);
     return parseInt(result.rows[0].count) > 0;
   } catch (error) {
     logger.error('Error checking today calculation exists:', error);
@@ -1437,10 +1434,15 @@ export const checkTodayCalculationExistsDao = async (conn = null) => {
   }
 };
 
-const createCalculationDao = async (data, conn = null) => {
+const createCalculationDao = async (conn, data) => {
   try {
     const [sql, params] = buildInsertQuery(tableName.CALCULATION, data);
-    const result = await executeQuery(sql, params, conn);
+    let result;
+    if (conn && conn.query) {
+      result = await conn.query(sql, params);
+    } else {
+      result = await executeQuery(sql, params);
+    }
     return result.rows ? result.rows[0] : result[0]; // Return the first row or result based on the structure
   } catch (error) {
     logger.error('Error creating calculation:', error); // Log the error for debugging
@@ -1448,17 +1450,22 @@ const createCalculationDao = async (data, conn = null) => {
   }
 };
 
-const updateCalculationDao = async (id, data, conn = null) => {
+const updateCalculationDao = async (id, data, conn) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.CALCULATION, data, id);
-    const result = await executeQuery(sql, params, conn);
+    let result;
+    if (conn && conn.query) {
+      result = await conn.query(sql, params); // Use connection to execute query
+    } else {
+      result = await executeQuery(sql, params); // Use executeQuery if no connection
+    }
     return result.rows ? result.rows[0] : result[0]; // Return the first row or result based on the structure
   } catch (error) {
     logger.error('Error updating calculation:', error); // Log the error for debugging
     throw error;
   }
 };
-const updateCalculationConfigDao = async (id, data, conn = null) => {
+const updateCalculationConfigDao = async (id, data, conn) => {
   return buildAndExecuteUpdateQuery(
     tableName.CALCULATION,
     data,
@@ -1469,11 +1476,16 @@ const updateCalculationConfigDao = async (id, data, conn = null) => {
   );
 };
 
-const deleteCalculationDao = async (id, data, conn = null) => {
+const deleteCalculationDao = async (conn, id, data) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.CALCULATION, data, id);
 
-    const result = await executeQuery(sql, params, conn);
+    let result;
+    if (conn && conn.query) {
+      result = await conn.query(sql, params); // Use connection to execute query
+    } else {
+      result = await executeQuery(sql, params); // Use executeQuery if no connection
+    }
 
     return result.rows ? result.rows[0] : result[0]; // Return the first row or result based on the structure
   } catch (error) {
@@ -1482,11 +1494,7 @@ const deleteCalculationDao = async (id, data, conn = null) => {
   }
 };
 
-export const updateCalculationBalanceDao = async (
-  filters,
-  data,
-  conn = null,
-) => {
+export const updateCalculationBalanceDao = async (filters, data, conn) => {
   try {
     const specialFields = {};
     Object.keys(data).forEach((el) => {
@@ -1498,9 +1506,11 @@ export const updateCalculationBalanceDao = async (
       filters,
       specialFields,
     );
-    const result = conn
-      ? await conn.query(sql, params)
-      : await executeQuery(sql, params, conn);
+    if (conn && conn.query) {
+      const result = await conn.query(sql, params);
+      return result.rows[0];
+    }
+    const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
     logger.error('Error updating calculation:', error);
@@ -1509,7 +1519,7 @@ export const updateCalculationBalanceDao = async (
 };
 
 // Checks if any calculation entry exists for a given date (YYYY-MM-DD)
-const checkCalculationEntryForDateDao = async (date, conn = null) => {
+const checkCalculationEntryForDateDao = async (date) => {
   try {
     // Compare only the date part, ignoring time and timezone
     const sql = `
@@ -1518,9 +1528,7 @@ const checkCalculationEntryForDateDao = async (date, conn = null) => {
       AND to_char(created_at AT TIME ZONE 'Asia/Kolkata', 'YYYY-MM-DD') = $1
       LIMIT 1
     `;
-    const result = conn
-      ? await conn.query(sql, [date])
-      : await executeQuery(sql, [date], conn);
+    const result = await executeQuery(sql, [date]);
     return result.rows.length > 0;
   } catch (error) {
     logger.error('Error checking calculation entry for date', error);
@@ -1528,12 +1536,7 @@ const checkCalculationEntryForDateDao = async (date, conn = null) => {
   }
 };
 
-const getMerchantNetBalanceDao = async (
-  companyId,
-  startDate,
-  endDate,
-  conn = null,
-) => {
+const getMerchantNetBalanceDao = async (companyId, startDate, endDate) => {
   try {
     // Base query to get merchant net balance data with latest records
     let sql = `
@@ -1562,9 +1565,7 @@ const getMerchantNetBalanceDao = async (
       WHERE rn = 1
     `;
 
-    const result = conn
-      ? await conn.query(wrappedSql, queryParams)
-      : await executeQuery(wrappedSql, queryParams, conn);
+    const result = await executeQuery(wrappedSql, queryParams);
     let merchantData = result.rows;
 
     // If no data, return empty array
@@ -1589,9 +1590,10 @@ const getMerchantNetBalanceDao = async (
           LIMIT 10
         `;
 
-        const historyResult = conn
-          ? await conn.query(historyQuery, [merchant.user_id, companyId])
-          : await executeQuery(historyQuery, [merchant.user_id, companyId]);
+        const historyResult = await executeQuery(historyQuery, [
+          merchant.user_id,
+          companyId,
+        ]);
         const netBalances = historyResult.rows.map((row) =>
           parseFloat(row.net_balance),
         );
@@ -1709,12 +1711,7 @@ const getMerchantNetBalanceDao = async (
   }
 };
 
-const getVendorNetBalanceDao = async (
-  companyId,
-  startDate,
-  endDate,
-  conn = null,
-) => {
+const getVendorNetBalanceDao = async (companyId, startDate, endDate) => {
   try {
     // Base query to get vendor net balance data with latest records
     let sql = `
@@ -1743,9 +1740,7 @@ const getVendorNetBalanceDao = async (
       WHERE rn = 1
     `;
 
-    const result = conn
-      ? await conn.query(wrappedSql, queryParams)
-      : await executeQuery(wrappedSql, queryParams, conn);
+    const result = await executeQuery(wrappedSql, queryParams);
     let vendorData = result.rows;
 
     // If no data, return empty array
@@ -1770,9 +1765,10 @@ const getVendorNetBalanceDao = async (
           LIMIT 10
         `;
 
-        const historyResult = conn
-          ? await conn.query(historyQuery, [vendor.user_id, companyId])
-          : await executeQuery(historyQuery, [vendor.user_id, companyId]);
+        const historyResult = await executeQuery(historyQuery, [
+          vendor.user_id,
+          companyId,
+        ]);
         const netBalances = historyResult.rows.map((row) =>
           parseFloat(row.net_balance),
         );
@@ -1886,7 +1882,7 @@ const getVendorNetBalanceDao = async (
 };
 
 // Helper function to get user's role from user_id
-const getUserRoleDao = async (user_id, conn = null) => {
+const getUserRoleDao = async (user_id) => {
   try {
     const query = `
       SELECT r.role
@@ -1895,9 +1891,7 @@ const getUserRoleDao = async (user_id, conn = null) => {
       WHERE u.id = $1 AND u.is_obsolete = false
     `;
 
-    const result = conn
-      ? await conn.query(query, [user_id])
-      : await executeQuery(query, [user_id], conn);
+    const result = await executeQuery(query, [user_id]);
     return result.rows[0]?.role || null;
   } catch (error) {
     logger.error('Error getting user role:', error);
@@ -1911,7 +1905,6 @@ const calculatePayinDataDao = async (
   company_id,
   startDate,
   additionalPayinData = null,
-  conn = null,
 ) => {
   try {
     // Get user's role to determine which commission field to use and which table to join
@@ -1964,9 +1957,7 @@ const calculatePayinDataDao = async (
       queryParams = [user_id, company_id, startDate];
     }
 
-    const result = conn
-      ? await conn.query(query, queryParams)
-      : await executeQuery(query, queryParams, conn);
+    const result = await executeQuery(query, queryParams);
 
     const payinData = {
       total_payin_count: 0,
@@ -1997,15 +1988,10 @@ const calculatePayinDataDao = async (
 };
 
 // Helper function to calculate payout data for a user and date range
-const calculatePayoutDataDao = async (
-  user_id,
-  company_id,
-  startDate,
-  conn = null,
-) => {
+const calculatePayoutDataDao = async (user_id, company_id, startDate) => {
   try {
     // Get user's role to determine which commission field to use and which table to join
-    const userRole = await getUserRoleDao(user_id, conn);
+    const userRole = await getUserRoleDao(user_id);
     const commissionField =
       userRole === Role.MERCHANT
         ? 'payout_merchant_commission'
@@ -2057,9 +2043,7 @@ const calculatePayoutDataDao = async (
       queryParams = [user_id, company_id, startDate];
     }
 
-    const result = conn
-      ? await conn.query(query, queryParams)
-      : await executeQuery(query, queryParams, conn);
+    const result = await executeQuery(query, queryParams);
 
     const payoutData = {
       total_payout_count: 0,
@@ -2099,7 +2083,6 @@ const calculateSettlementDataDao = async (
   company_id,
   startDate,
   role = null,
-  conn = null,
 ) => {
   try {
     let query;
@@ -2148,9 +2131,7 @@ const calculateSettlementDataDao = async (
       `;
     }
 
-    const result = conn
-      ? await conn.query(query, [user_id, company_id, startDate])
-      : await executeQuery(query, [user_id, company_id, startDate]);
+    const result = await executeQuery(query, [user_id, company_id, startDate]);
 
     const settlementData = {
       total_settlement_count: 0,
@@ -2317,15 +2298,10 @@ const calculateSettlementDataDao = async (
 };
 
 // Helper function to calculate chargeback data for a user and date range
-const calculateChargebackDataDao = async (
-  user_id,
-  company_id,
-  startDate,
-  conn = null,
-) => {
+const calculateChargebackDataDao = async (user_id, company_id, startDate) => {
   try {
     // Get user's role to determine which user_id field to use
-    const userRole = await getUserRoleDao(user_id, conn);
+    const userRole = await getUserRoleDao(user_id);
 
     let whereClause;
     if (userRole === Role.MERCHANT) {
@@ -2346,9 +2322,7 @@ const calculateChargebackDataDao = async (
         AND (created_at)::date = $3::date
     `;
 
-    const result = conn
-      ? await conn.query(query, [user_id, company_id, startDate])
-      : await executeQuery(query, [user_id, company_id, startDate]);
+    const result = await executeQuery(query, [user_id, company_id, startDate]);
     const row = result.rows[0];
 
     return {
@@ -2364,15 +2338,10 @@ const calculateChargebackDataDao = async (
 // Helper function to calculate adjustment data for a user and date range
 // Only counts entries where specific field amounts are changed on the processing date
 // Returns the difference between current and previous amounts from config.history
-const calculateAdjustmentDataDao = async (
-  user_id,
-  company_id,
-  startDate,
-  conn = null,
-) => {
+const calculateAdjustmentDataDao = async (user_id, company_id, startDate) => {
   try {
     // Get user's role to determine which table to query
-    const userRole = await getUserRoleDao(user_id, conn);
+    const userRole = await getUserRoleDao(user_id);
 
     let query, queryParams;
 
@@ -2398,17 +2367,11 @@ const calculateAdjustmentDataDao = async (
           )
       `;
 
-      const payinRecords = conn
-        ? await conn.query(getPayinRecordsQuery, [
-            user_id,
-            company_id,
-            startDate,
-          ])
-        : await executeQuery(getPayinRecordsQuery, [
-            user_id,
-            company_id,
-            startDate,
-          ], conn);
+      const payinRecords = await executeQuery(getPayinRecordsQuery, [
+        user_id,
+        company_id,
+        startDate,
+      ]);
 
       let totalAdjustmentCount = 0;
       let totalAmountDifference = 0;
@@ -2526,9 +2489,7 @@ const calculateAdjustmentDataDao = async (
       `;
       queryParams = [user_id, company_id, startDate];
 
-      const result = conn
-        ? await conn.query(query, queryParams)
-        : await executeQuery(query, queryParams, conn);
+      const result = await executeQuery(query, queryParams);
       const row = result.rows[0];
 
       return {
