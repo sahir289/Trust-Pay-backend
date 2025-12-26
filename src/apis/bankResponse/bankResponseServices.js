@@ -171,14 +171,14 @@ const createBankResponseService = async (
   const bank_id = splitData[3];
   const from_UI = splitData[4];
   let vendor;
-  
+
   // Check for concurrent duplicate UTR immediately (in-memory check)
   if (processingSet.has(utr)) {
     logger.warn(`Duplicate concurrent add data skipped for ${utr}`);
     return { message: `Duplicate UTR ${utr} already being processed` };
   }
   processingSet.add(utr);
-  
+
   try {
     conn = await getConnection();
     await beginTransaction(conn);
@@ -752,7 +752,8 @@ const createBankResponseService = async (
             merchant_order_id: updatePayin.merchant_order_id,
             amount: updatePayin.amount || 0,
             merchant_id: merchantData[0]?.merchant_id || null,
-            payin_merchant_commission: updatePayin.payin_merchant_commission || 0,
+            payin_merchant_commission:
+              updatePayin.payin_merchant_commission || 0,
             payin_vendor_commission: updatePayin.payin_vendor_commission || 0,
             duration: updatePayin.duration || 0,
             created_at: updatePayin.created_at,
@@ -1777,7 +1778,46 @@ const _resetBankResponseServiceInternal = async (id, userData, conn = null) => {
       company_id: company_id,
     };
     await newTableEntry(tableName.BANK_RESPONSE, results);
-
+    // Only emit PAYIN socket if a payin was actually updated and all required data is available
+    if (typeof amount === 'number' && !isNaN(amount) && payInData?.length) {
+      // Re-fetch updated payin and related data
+      const updatePayInDataRes = payInData[0];
+      const merchantData = await getMerchantsBankResponseDao({ id: updatePayInDataRes.merchant_id }, conn);
+      const bankDetails = await getBankaccountDao({ id: updatePayInDataRes.bank_acc_id }, null, null, null, null, null, conn);
+      const vendorData = await getVendorsBankReponseDao({ user_id: bankDetails[0]?.user_id }, conn);
+      const obj = {
+        id: updatePayInDataRes.id,
+        status: updatePayInDataRes.status,
+        company_id: updatePayInDataRes.company_id,
+        merchant_order_id: updatePayInDataRes.merchant_order_id,
+        amount: updatePayInDataRes.amount || 0,
+        merchant_id: merchantData[0]?.merchant_id || null,
+        payin_merchant_commission: updatePayInDataRes.payin_merchant_commission || 0,
+        payin_vendor_commission: updatePayInDataRes.payin_vendor_commission || 0,
+        duration: updatePayInDataRes.duration || 0,
+        created_at: updatePayInDataRes.created_at,
+        updated_at: updatePayInDataRes.updated_at,
+        user_submitted_utr: updatePayInDataRes.user_submitted_utr || null,
+        bank_acc_id: updatePayInDataRes.bank_acc_id || null,
+        bank_response_id: updatePayInDataRes.bank_response_id || null,
+        nick_name: bankDetails[0]?.nick_name || '',
+        user: updatePayInDataRes.user || null,
+        vendor_code: vendorData[0]?.code || null,
+        vendor_user_id: vendorData[0]?.user_id || null,
+        config: updatePayInDataRes.config || {},
+        merchant_details: {
+          merchant_code: merchantData[0]?.code || '',
+          dispute: updatePayInDataRes.status === Status.DISPUTE,
+          return_url: updatePayInDataRes.config?.urls?.return || null,
+          notify_url: updatePayInDataRes.config?.urls?.notify || null,
+        },
+        bank_res_details: {
+          utr: botRes.utr || null,
+          amount: botRes.amount || 0,
+        },
+      };
+      await newTableEntry(tableName.PAYIN, obj);
+    }
     return results;
   } catch (error) {
     logger.error('error in _resetBankResponseServiceInternal', error);
