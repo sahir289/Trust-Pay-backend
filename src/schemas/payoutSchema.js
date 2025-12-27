@@ -117,3 +117,34 @@ export const TATAPAY_BULK_PAYOUT_SCHEMA = Joi.object({
     'object.xor': 'Either payoutEntries or payoutIds must be provided, but not both',
     'object.missing': 'Either payoutEntries or payoutIds is required',
   });
+
+export const RUPEEFLOW_BULK_PAYOUT_SCHEMA = Joi.object({
+  payoutEntries: Joi.array()
+    .items(
+      Joi.object({
+        id: Joi.string().label('id').required(),
+        account_holder_name: Joi.string()
+          .label('account_holder_name')
+          .required(),
+        account_no: Joi.string().label('account_no').required(),
+        ifsc_code: Joi.string().label('ifsc_code').required(),
+        bank_name: Joi.string().label('bank_name').optional(),
+        amount: Joi.number().positive().label('amount').required(),
+        remark: Joi.string().label('remark').optional(),
+        address: Joi.string().label('address').optional(),
+        mode: Joi.string().label('mode').optional(),
+      }),
+    )
+    .label('payoutEntries')
+    .optional(),
+  payoutIds: Joi.array()
+    .items(Joi.string().label('payoutId'))
+    .label('payoutIds')
+    .optional(),
+})
+  .xor('payoutEntries', 'payoutIds')
+  .messages({
+    'object.xor':
+      'Either payoutEntries or payoutIds must be provided, but not both',
+    'object.missing': 'Either payoutEntries or payoutIds is required',
+  });
