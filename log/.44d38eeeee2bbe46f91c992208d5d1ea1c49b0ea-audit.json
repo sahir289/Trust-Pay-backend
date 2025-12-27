@@ -9,6 +9,11 @@
             "date": 1766751048368,
             "name": "log/2025-12-26-warning-results.log",
             "hash": "ab9423f3d11e04df9c20b51391c8296b298381261cef2a7dcc437f01c58b7fef"
+        },
+        {
+            "date": 1766832563588,
+            "name": "log/2025-12-27-warning-results.log",
+            "hash": "3659e9d83a9ba8c6801b659f4c86c13d13c0b128e5b69337f0e2926e7b864729"
         }
     ],
     "hashType": "sha256"
