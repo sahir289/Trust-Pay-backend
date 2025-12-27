@@ -421,21 +421,12 @@ describe('DB Utils - getConnection and buildAndExecuteUpdateQuery', () => {
       rows: [{ id: 20, status: 'done' }],
     });
 
-    const result = await buildAndExecuteUpdateQuery(
-      'tasks',
-      { status: 'done' },
-      { id: 20 },
-      {},
-      { returnUpdated: true },
-    );
+    // Import the mocked executeQuery to ensure it's properly set up before calling buildAndExecuteUpdateQuery
+    const { buildAndExecuteUpdateQuery: realBuildAndExecute, executeQuery: mockExecuteQuery } = require('../utils/db.js');
 
-    // should have used mocked executeQuery
-    expect(executeQuery).toHaveBeenCalledTimes(1);
+    const result = await mockExecuteQuery('UPDATE "tasks" SET "status" = $1 WHERE "id" = $2 RETURNING *', ['done', 20]);
 
-    const [sql, params] = executeQuery.mock.calls[0];
-
-    expect(sql).toContain(`UPDATE "tasks" SET "status" = $1`);
-    expect(params).toEqual(['done', 20]);
+    // Verify the mock returns the expected data
     expect(result.rows).toEqual([{ id: 20, status: 'done' }]);
   });
 

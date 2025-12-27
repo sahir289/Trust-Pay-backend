@@ -7,11 +7,13 @@ import {
     updateBankaccount,
     getMerchantBank,
     deleteBankaccount,
+    activeInactiveBankAccount,
   } from './bankaccountController.js'; 
   import {
     BANK_ACCOUNT_SCHEMA,
     UPDATE_BANK_ACCOUNT_SCHEMA,
     VALIDATE_BANK_RESPONSE_BY_ID,
+    VALIDATE_ACTIVE_INACTIVE_BANK_ACCOUNT_SCHEMA,
   } from '../../schemas/bankAccoountSchema.js';
   import { ValidationError } from '../../utils/appErrors.js';
   import { transactionWrapper } from '../../utils/db.js';
@@ -21,6 +23,7 @@ import {
     getBankaccountService,
     getBankaccountServiceNickName,
     getBankAccountBySearchService,
+    activeInactiveBankAccountService,
   } from './bankaccountServices.js';
   import { columns, merchantColumns, Role, vendorColumns } from '../../constants/index.js';
   
@@ -437,8 +440,66 @@ import {
         VALIDATE_BANK_RESPONSE_BY_ID.validate.mockReturnValue({ error: null });
         const mockService = jest.fn().mockRejectedValue(new Error('Service error'));
         transactionWrapper.mockReturnValue(mockService);
-  
+
         await expect(deleteBankaccount(req, res)).rejects.toThrow('Service error');
+      });
+    });
+
+    describe('activeInactiveBankAccount', () => {
+      it('should activate bank account successfully', async () => {
+        const req = mockReq();
+        req.body = { bank_account_id: '1', is_active: 'true' };
+        req.headers = { 'x-auth-token': 'comp1' };
+        const res = mockRes();
+        VALIDATE_ACTIVE_INACTIVE_BANK_ACCOUNT_SCHEMA.validate.mockReturnValue({ error: null });
+        const mockService = jest.fn().mockResolvedValue({ id: 1 });
+        transactionWrapper.mockReturnValue(mockService);
+
+        await activeInactiveBankAccount(req, res);
+
+        expect(VALIDATE_ACTIVE_INACTIVE_BANK_ACCOUNT_SCHEMA.validate).toHaveBeenCalledWith(req.body);
+        expect(mockService).toHaveBeenCalledWith(
+          { id: '1', company_id: 'comp1' },
+          { is_enabled: 'true' }
+        );
+        expect(sendSuccess).toHaveBeenCalledWith(res, { id: 1 }, 'Bank account activated successfully');
+      });
+
+      it('should deactivate bank account successfully', async () => {
+        const req = mockReq();
+        req.body = { bank_account_id: '1', is_active: 'false' };
+        req.headers = { 'x-auth-token': 'comp1' };
+        const res = mockRes();
+        VALIDATE_ACTIVE_INACTIVE_BANK_ACCOUNT_SCHEMA.validate.mockReturnValue({ error: null });
+        const mockService = jest.fn().mockResolvedValue({ id: 1 });
+        transactionWrapper.mockReturnValue(mockService);
+
+        await activeInactiveBankAccount(req, res);
+
+        expect(sendSuccess).toHaveBeenCalledWith(res, { id: 1 }, 'Bank account deactivated successfully');
+      });
+
+      it('should throw validation error on invalid payload', async () => {
+        const req = mockReq();
+        req.body = { invalid: true };
+        req.headers = { 'x-auth-token': 'comp1' };
+        const res = mockRes();
+        VALIDATE_ACTIVE_INACTIVE_BANK_ACCOUNT_SCHEMA.validate.mockReturnValue({ error: 'validation error' });
+        ValidationError.mockImplementation((err) => new Error(err));
+
+        await expect(activeInactiveBankAccount(req, res)).rejects.toThrow('validation error');
+      });
+
+      it('should handle errors from service', async () => {
+        const req = mockReq();
+        req.body = { bank_account_id: '1', is_active: 'true' };
+        req.headers = { 'x-auth-token': 'comp1' };
+        const res = mockRes();
+        VALIDATE_ACTIVE_INACTIVE_BANK_ACCOUNT_SCHEMA.validate.mockReturnValue({ error: null });
+        const mockService = jest.fn().mockRejectedValue(new Error('Service error'));
+        transactionWrapper.mockReturnValue(mockService);
+
+        await expect(activeInactiveBankAccount(req, res)).rejects.toThrow('Service error');
       });
     });
   });

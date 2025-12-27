@@ -1193,13 +1193,15 @@ const { columns, merchantColumns, vendorColumns, Role, Status } = require('../..
           bank_id: undefined,
         };
         getBankResponseDao.mockResolvedValue({ id: '1', utr: 'utr123', amount: 1000, bank_id: 'bank_1', config: {} });
-        getPayInsForResetBankResDao.mockResolvedValue([]); // No successful pay-in
+        getPayInsForResetBankResDao.mockResolvedValue([
+          { id: 'payin_1', status: 'PENDING', merchant_order_id: 'order_1' }
+        ]); // Mock pay-in data
         resetBankResponseDao.mockResolvedValue({});
         newTableEntry.mockResolvedValue();
   
         const result = await resetBankResponseService(mockConnection, id, userData);
   
-        expect(resetBankResponseDao).toHaveBeenCalledWith(id, { is_used: false, updated_by: 'test_user', config: {} });
+        expect(resetBankResponseDao).toHaveBeenCalledWith(id, { is_used: false, updated_by: 'test_user', config: {} }, mockConnection);
         expect(result.message).toEqual('Bot response reset successful');
       });
 

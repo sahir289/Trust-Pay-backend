@@ -5,6 +5,7 @@ import {
     updateCalculation,
     deleteCalculation,
     calculateSuccessRatios,
+    updateCalculations,
   } from './calculationController.js';
   import { sendSuccess } from '../../utils/responseHandlers.js';
   import {
@@ -13,11 +14,13 @@ import {
     updateCalculationService,
     deleteCalculationService,
     calculateSuccessRatiosService,
+    updateCalculationsService,
   } from './calculationService.js';
   import { transactionWrapper } from '../../utils/db.js';
   import {
     VALIDATE_CALCULATION_SCHEMA,
     VALIDATE_UPDATE_CALCULATION_STATUS,
+    VALIDATE_UPDATE_CALCULATIONS_SCHEMA,
   } from '../../schemas/calculationSchema.js';
   import {  ValidationError } from '../../utils/appErrors.js';
   import { logger } from '../../utils/logger.js';
@@ -32,6 +35,7 @@ import {
     updateCalculationService: jest.fn(),
     deleteCalculationService: jest.fn(),
     calculateSuccessRatiosService: jest.fn(),
+    updateCalculationsService: jest.fn(),
   }));
   
   jest.mock('../../utils/db.js', () => ({
@@ -42,6 +46,7 @@ import {
   jest.mock('../../schemas/calculationSchema.js', () => ({
     VALIDATE_CALCULATION_SCHEMA: { validate: jest.fn() },
     VALIDATE_UPDATE_CALCULATION_STATUS: { validate: jest.fn() },
+    VALIDATE_UPDATE_CALCULATIONS_SCHEMA: { validate: jest.fn() },
   }));
   
   jest.mock('../../utils/appErrors.js', () => ({
@@ -278,6 +283,89 @@ jest.mock('../../utils/logger.js', () => ({
         await expect(calculateSuccessRatios(req, res)).rejects.toEqual(error);
         expect(logger.error).toHaveBeenCalledWith('Error fetching success ratio data:', error);
         expect(sendSuccess).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('updateCalculations', () => {
+      test('should update calculations successfully', async () => {
+        const req = {
+          user: { company_id: 'comp1' },
+          body: { user_id: 'user1', date: '2025-01-01', startDate: '2025-01-01', endDate: '2025-01-01' },
+        };
+        const res = {};
+        const mockData = { updated: true };
+        VALIDATE_UPDATE_CALCULATIONS_SCHEMA.validate.mockReturnValue({ error: null });
+        updateCalculationsService.mockResolvedValue(mockData);
+
+        await updateCalculations(req, res);
+
+        expect(VALIDATE_UPDATE_CALCULATIONS_SCHEMA.validate).toHaveBeenCalledWith(req.body);
+        expect(updateCalculationsService).toHaveBeenCalledWith({
+          date: '2025-01-01',
+          user_id: 'user1',
+          startDate: '2025-01-01',
+          endDate: '2025-01-01',
+          company_id: 'comp1',
+        });
+        expect(sendSuccess).toHaveBeenCalledWith(res, mockData, 'Calculations updated successfully');
+      });
+
+      test('should use current date if no date provided', async () => {
+        const req = {
+          user: { company_id: 'comp1' },
+          body: { user_id: 'user1' },
+        };
+        const res = {};
+        const mockData = { updated: true };
+        VALIDATE_UPDATE_CALCULATIONS_SCHEMA.validate.mockReturnValue({ error: null });
+        updateCalculationsService.mockResolvedValue(mockData);
+
+        await updateCalculations(req, res);
+
+        const expectedDate = new Date().toISOString().split('T')[0];
+        expect(updateCalculationsService).toHaveBeenCalledWith({
+          date: expectedDate,
+          user_id: 'user1',
+          startDate: undefined,
+          endDate: undefined,
+          company_id: 'comp1',
+        });
+      });
+
+      test('should throw ValidationError on invalid body', async () => {
+        const req = {
+          user: { company_id: 'comp1' },
+          body: { invalid: true },
+        };
+        const res = {};
+        VALIDATE_UPDATE_CALCULATIONS_SCHEMA.validate.mockReturnValue({ error: 'validation error' });
+
+        await expect(updateCalculations(req, res)).rejects.toEqual({ message: 'validation error' });
+      });
+
+      test('should throw BadRequestError if user_id is not string', async () => {
+        const req = {
+          user: { company_id: 'comp1' },
+          body: { user_id: 123 },
+        };
+        const res = {};
+        VALIDATE_UPDATE_CALCULATIONS_SCHEMA.validate.mockReturnValue({ error: null });
+
+        await expect(updateCalculations(req, res)).rejects.toEqual({ message: 'user_id string is required' });
+      });
+
+      test('should handle service errors', async () => {
+        const req = {
+          user: { company_id: 'comp1' },
+          body: { user_id: 'user1' },
+        };
+        const res = {};
+        const error = new Error('Service error');
+        VALIDATE_UPDATE_CALCULATIONS_SCHEMA.validate.mockReturnValue({ error: null });
+        updateCalculationsService.mockRejectedValue(error);
+
+        await expect(updateCalculations(req, res)).rejects.toThrow(error);
+        expect(logger.error).toHaveBeenCalledWith('Error updating calculations:', error);
       });
     });
   });

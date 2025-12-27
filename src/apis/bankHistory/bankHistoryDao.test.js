@@ -1,4 +1,4 @@
-const { getBankHistoryDao, createBankHistoryDao } = require('./bankHistoryDao');
+const { getBankHistoryDao, createBankHistoryDao, getallBankHistoryDao } = require('./bankHistoryDao');
 const { executeQuery } = require('../../utils/db');
 const { logger } = require('../../utils/logger');
 const { BadRequestError } = require('../../utils/appErrors');
@@ -123,6 +123,49 @@ describe('Bank History DAO', () => {
 
       await expect(createBankHistoryDao(data)).rejects.toThrow(error);
       expect(logger.error).toHaveBeenCalledWith('Error in createBankHistoryDao:', error);
+    });
+  });
+
+  describe('getallBankHistoryDao', () => {
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it('should throw BadRequestError if date is missing', async () => {
+      const filters = {};
+      await expect(getallBankHistoryDao(filters)).rejects.toThrow(BadRequestError);
+      expect(logger.error).toHaveBeenCalledWith(
+        expect.stringContaining('Error in getBankHistoryDao'),
+        expect.any(Object)
+      );
+    });
+
+    it('should execute correct SQL query with parameters', async () => {
+      const filters = { date: '2023-10-01' };
+      const mockRows = [{ count: 10, today_balance: 1000 }];
+      executeQuery.mockResolvedValue({ rows: mockRows });
+
+      const result = await getallBankHistoryDao(filters);
+
+      expect(executeQuery).toHaveBeenCalledWith(
+        expect.stringMatching(
+          /SELECT count , today_balance FROM "bank_history"\s+WHERE DATE\(created_at\) = \$1\s+AND is_obsolete = false\s+ORDER BY created_at DESC/
+        ),
+        ['2023-10-01']
+      );
+      expect(result).toEqual(mockRows);
+    });
+
+    it('should handle database errors and log them', async () => {
+      const filters = { date: '2023-10-01' };
+      const error = new Error('Database error');
+      executeQuery.mockRejectedValue(error);
+
+      await expect(getallBankHistoryDao(filters)).rejects.toThrow(error);
+      expect(logger.error).toHaveBeenCalledWith(
+        `Error in getBankHistoryDao: ${error.message}`,
+        { errorMetadata: error }
+      );
     });
   });
 });

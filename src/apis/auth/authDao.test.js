@@ -92,7 +92,8 @@ describe('Auth DAO Tests', () => {
       await updateSessionDao('user1', 'company1', 'abc', { foo: 'bar' });
       expect(executeQuery).toHaveBeenCalledWith(
         expect.stringContaining('UPDATE'),
-        expect.any(Array)
+        expect.any(Array),
+        null
       );
     });
   });
@@ -113,7 +114,8 @@ describe('Auth DAO Tests', () => {
       const result = await changePasswordDao('user1', 'newpass');
       expect(executeQuery).toHaveBeenCalledWith(
         'UPDATE "User" SET password = $2 WHERE id = $1 RETURNING id',
-        ['user1', 'newpass']
+        ['user1', 'newpass'],
+        null
       );
       expect(result).toEqual(mockResult);
     });

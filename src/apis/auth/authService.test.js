@@ -110,7 +110,10 @@ describe('Auth Service', () => {
 
     it('should retry login on serialization failure', async () => {
       const connMock = {
-        query: jest.fn().mockRejectedValueOnce({ code: '40001', message: 'serialization failure' }).mockResolvedValue({}),
+        query: jest.fn()
+          .mockRejectedValueOnce({ code: '40001', message: 'serialization failure' })
+          .mockResolvedValueOnce({})
+          .mockResolvedValue({}),
         release: jest.fn(),
       };
       userDao.getUsersByUserNameDao.mockResolvedValue({ ...mockUser, config: { isLoginFirst: false } });

@@ -74,6 +74,70 @@ describe('ChargeBack Controller', () => {
       // ... other tests remain unchanged
     });
   
+    describe('getChargeBacksBySearch', () => {
+      test('should fetch chargebacks by search successfully', async () => {
+        const mockData = [{ id: 1, amount: 100 }];
+        require('./chargeBackService.js').getChargeBacksBySearchService.mockResolvedValue(mockData);
+        req.query = { page: 1, limit: 10, search: 'test' };
+
+        await controller.getChargeBacksBySearch(req, res);
+
+        expect(require('./chargeBackService.js').getChargeBacksBySearchService).toHaveBeenCalledWith(
+          { company_id: 1, search: 'test' },
+          'admin',
+          1,
+          10,
+          99,
+          undefined,
+          'OPERATIONS'
+        );
+        expect(require('../../utils/responseHandlers.js').sendSuccess).toHaveBeenCalledWith(
+          res,
+          mockData,
+          'ChargeBacks fetched successfully'
+        );
+      });
+
+      test('should handle service errors', async () => {
+        const error = new Error('Service error');
+        require('./chargeBackService.js').getChargeBacksBySearchService.mockRejectedValue(error);
+
+        await expect(controller.getChargeBacksBySearch(req, res)).rejects.toThrow(error);
+      });
+    });
+
+    describe('getChargeBacks', () => {
+      test('should fetch chargebacks successfully', async () => {
+        const mockData = [{ id: 1, amount: 100 }];
+        require('./chargeBackService.js').getChargeBacksService.mockResolvedValue(mockData);
+        req.query = { page: 1, limit: 10 };
+
+        await controller.getChargeBacks(req, res);
+
+        expect(require('./chargeBackService.js').getChargeBacksService).toHaveBeenCalledWith(
+          { company_id: 1 },
+          'admin',
+          1,
+          10,
+          99,
+          undefined,
+          'OPERATIONS'
+        );
+        expect(require('../../utils/responseHandlers.js').sendSuccess).toHaveBeenCalledWith(
+          res,
+          mockData,
+          'ChargeBacks fetched successfully'
+        );
+      });
+
+      test('should handle service errors', async () => {
+        const error = new Error('Service error');
+        require('./chargeBackService.js').getChargeBacksService.mockRejectedValue(error);
+
+        await expect(controller.getChargeBacks(req, res)).rejects.toThrow(error);
+      });
+    });
+  
     // ========================
     // blockChargebackUser
     // ========================
