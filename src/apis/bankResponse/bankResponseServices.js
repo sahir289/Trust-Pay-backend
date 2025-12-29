@@ -458,9 +458,12 @@ const createBankResponseService = async (
         ]);
 
         if (getDataByUtr) {
-          const botUtrIsUsed =
-            getDataByUtr.rows.length > 1 &&
-            getDataByUtr.some((item) => item.is_used);
+          // Normalize result: some DAOs return an object with `rows`,
+          // others return an array. Ensure we always work with an array.
+          const rowsArray = Array.isArray(getDataByUtr)
+            ? getDataByUtr
+            : getDataByUtr.rows || [];
+          const botUtrIsUsed = rowsArray.length > 1 && rowsArray.some((item) => item.is_used);
           if (!acceptedStatus.includes(payInUtr.status) && botUtrIsUsed) {
             await commit(conn);
             committed = true;
