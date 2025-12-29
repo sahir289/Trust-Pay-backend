@@ -73,7 +73,7 @@ import {
 } from '../../clickrr/clickrr.js';
 import { createPayAssistPayout } from '../../payassist/payassist.js';
 import { createTataPayPayout } from '../../tatapay/tatapay.js';
-import { createRupeeFlowBulkPayout } from '../../rupeeflow/rupeeflow.js';
+import { createRupeeFlowBulkPayout, createRupeeFlowPayout } from '../../rupeeflow/rupeeflow.js';
 // import { notifyNewCalculationTableEntry } from '../../utils/sockets.js';
 
 // Helper function to check if vendor is sub-vendor and get parent info
@@ -742,7 +742,8 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     if (
       !payload?.config?.method === Method.CLICKRR &&
       !payload?.config?.method === Method.PAYASSIST &&
-      !payload?.config?.method === Method.TATAPAY
+      !payload?.config?.method === Method.TATAPAY && 
+      !payload?.config?.method === Method.RUPEEFLOW
     )
       await checkLockEdit(conn, ids.id);
 
@@ -891,6 +892,28 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         throw new NotFoundError(`Bank not found for ${method} payout`);
 
       const updatedPayload = await createTataPayPayout(
+        payload,
+        ids,
+        singleWithdrawData,
+        bankId,
+      );
+      payload = updatedPayload;
+    } else if (payload?.config?.method === Method.RUPEEFLOW) {
+      const method = payload.config.method;
+
+      const [company] = await getCompanyByIDDao({ id: ids.company_id });
+      if (!company) throw new NotFoundError('Company not found');
+
+      const bankId = company.config.RUPEE_FLOW.defaultBankId;
+      if (!bankId)
+        throw new NotFoundError(`Default bank ID not found for ${method}`);
+
+      bankDataArr = await getBankByIdDao({ id: bankId });
+
+      if (!bankDataArr[0])
+        throw new NotFoundError(`Bank not found for ${method} payout`);
+
+      const updatedPayload = await createRupeeFlowPayout(
         payload,
         ids,
         singleWithdrawData,
