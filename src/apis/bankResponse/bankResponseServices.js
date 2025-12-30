@@ -380,9 +380,10 @@ const createBankResponseService = async (
             utr: payInUtr.user_submitted_utr,
             company_id,
           });
-          const botUtrIsUsed =
-            getDataByUtr.rows.length > 1 &&
-            getDataByUtr.some((item) => item.is_used);
+          const utrRows = Array.isArray(getDataByUtr)
+            ? getDataByUtr
+            : getDataByUtr.rows || [];
+          const botUtrIsUsed = utrRows.length > 1 && utrRows.some((item) => item.is_used);
           if (!acceptedStatus.includes(payInUtr.status) && botUtrIsUsed) {
             await commit(localConn);
             // if (shouldRelease) localConn.release();

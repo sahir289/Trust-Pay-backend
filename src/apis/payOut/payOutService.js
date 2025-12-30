@@ -43,7 +43,6 @@ import config from '../../config/config.js';
 import { merchantPayoutCallback } from '../../callBacksAndWebHook/merchantCallBacks.js';
 import { Status, Method, tableName } from '../../constants/index.js';
 import { calculateCommission } from '../../helpers/index.js';
-import { createTataPayBulkPayout } from '../../tatapay/tatapay.js';
 import {
   columns,
   merchantColumns,
@@ -55,7 +54,11 @@ import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import { updateCalculationBalanceDao } from '../calculation/calculationDao.js';
 import { logger } from '../../utils/logger.js';
 // Import RabbitMQ for bulk status updates
-import { publishToDirectQueue, getRabbitChannel, connectRabbitMQ } from '../../utils/rabbitmq.js';
+import {
+  publishToDirectQueue,
+  getRabbitChannel,
+  connectRabbitMQ,
+} from '../../utils/rabbitmq.js';
 // import { updatePayout } from '../../utils/sockets.js';
 import { newTableEntry } from '../../utils/sockets.js';
 import { checkLockEdit } from '../../utils/advisoryLock.js';
@@ -69,6 +72,7 @@ import {
 } from '../../clickrr/clickrr.js';
 import { createPayAssistPayout } from '../../payassist/payassist.js';
 import { createTataPayPayout } from '../../tatapay/tatapay.js';
+import { createRupeeFlowPayout } from '../../rupeeflow/rupeeflow.js';
 // import { notifyNewCalculationTableEntry } from '../../utils/sockets.js';
 
 // Helper function to check if vendor is sub-vendor and get parent info
@@ -734,7 +738,12 @@ const getPayoutsBySearchService = async (
 
 const updatePayoutService = async (conn, ids, payload, role) => {
   try {
-    if (!payload?.config?.method === Method.CLICKRR && !payload?.config?.method === Method.PAYASSIST && !payload?.config?.method === Method.TATAPAY)
+    if (
+      !payload?.config?.method === Method.CLICKRR &&
+      !payload?.config?.method === Method.PAYASSIST &&
+      !payload?.config?.method === Method.TATAPAY && 
+      !payload?.config?.method === Method.RUPEEFLOW
+    )
       await checkLockEdit(conn, ids.id);
 
     // Early validation for UTR uniqueness
@@ -888,6 +897,28 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         bankId,
       );
       payload = updatedPayload;
+    } else if (payload?.config?.method === Method.RUPEEFLOW) {
+      const method = payload.config.method;
+
+      const [company] = await getCompanyByIDDao({ id: ids.company_id });
+      if (!company) throw new NotFoundError('Company not found');
+
+      const bankId = company.config.RUPEE_FLOW.defaultBankId;
+      if (!bankId)
+        throw new NotFoundError(`Default bank ID not found for ${method}`);
+
+      bankDataArr = await getBankByIdDao({ id: bankId });
+
+      if (!bankDataArr[0])
+        throw new NotFoundError(`Bank not found for ${method} payout`);
+
+      const updatedPayload = await createRupeeFlowPayout(
+        payload,
+        ids,
+        singleWithdrawData,
+        bankId,
+      );
+      payload = updatedPayload;
     }
 
     const data = await updatePayoutDao(ids, payload, conn);
@@ -966,27 +997,27 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     //   `Sub-vendor detection result: ${subVendorParentInfo ? 'Found parent info' : 'No parent info'}`,
     // );
     // if (subVendorParentInfo) {
-      // logger.info(
-      //   `Parent vendor details: userId=${subVendorParentInfo.parentUserId}, commission_rate=${subVendorParentInfo.parentVendor.payout_commission}`,
-      // );
-      // Calculate parent commission for payout
-      // parentCommission = calculateCommission(
-      //   data.amount,
-      //   Number(subVendorParentInfo.parentVendor.payout_commission),
-      // );
-      // totalVendorCommission = vendorCommission + parentCommission;
-      // brokerageCommission = parentCommission;
+    // logger.info(
+    //   `Parent vendor details: userId=${subVendorParentInfo.parentUserId}, commission_rate=${subVendorParentInfo.parentVendor.payout_commission}`,
+    // );
+    // Calculate parent commission for payout
+    // parentCommission = calculateCommission(
+    //   data.amount,
+    //   Number(subVendorParentInfo.parentVendor.payout_commission),
+    // );
+    // totalVendorCommission = vendorCommission + parentCommission;
+    // brokerageCommission = parentCommission;
 
-      // Preserve existing config and only update commission keys
-      // payoutConfig = {
-      //   ...(payoutExists?.config || {}), // Preserve existing config
-      //   actual_vendor_commission: vendorCommission,
-      //   brokerage_commission: brokerageCommission,
-      // };
+    // Preserve existing config and only update commission keys
+    // payoutConfig = {
+    //   ...(payoutExists?.config || {}), // Preserve existing config
+    //   actual_vendor_commission: vendorCommission,
+    //   brokerage_commission: brokerageCommission,
+    // };
 
-      // logger.info(
-      //   `Payout sub-vendor commission calculated: sub=${vendorCommission}, parent=${parentCommission}, total=${totalVendorCommission}`,
-      // );
+    // logger.info(
+    //   `Payout sub-vendor commission calculated: sub=${vendorCommission}, parent=${parentCommission}, total=${totalVendorCommission}`,
+    // );
     // }
     // else {
     //   logger.info(
@@ -1550,176 +1581,6 @@ const checkPayOutStatusService = async (
   }
 };
 
-/**
- * Create TataPay bulk payout service
- * @param {Object} params - Service parameters
- * @param {Array} params.payoutEntries - Array of payout entry objects
- * @param {Array} params.payoutIds - Array of payout IDs to fetch
- * @param {string} params.company_id - Company ID
- * @param {string} params.user_id - User ID
- * @returns {Promise<Object>} - Service response
- */
-const createTataPayBulkPayoutService = async (
-  conn,
-  {
-    payoutEntries,
-    payoutIds,
-    company_id,
-    user_id,
-  }
-) => {
-  try {
-    // Function to fetch payout data by IDs if needed
-    const getPayoutData = async (ids, companyId) => {
-      const payouts = await getPayoutsDao(
-        {
-          id: ids,
-          company_id: companyId,
-          status: [Status.INITIATED], // Only fetch processable payouts
-        },
-        companyId,
-        null,
-        null,
-        'DESC',
-        null,
-        conn
-      );
-      
-      if (!payouts || payouts.length === 0) {
-        throw new BadRequestError('No valid payout records found for the provided IDs');
-      }
-      
-      return payouts;
-    };
-    
-    // Function to update payout status in bulk
-    const updatePayoutStatusBulk = async (payoutIds, payload ) => {
-      try {
-        // Update payout records in database
-        for (const payoutId of payoutIds) {
-          await updatePayoutDao(
-            { id: payoutId }, // ids parameter
-            { // payload parameter
-              ...payload,
-              updated_at: new Date().toISOString(),
-            },
-            conn // use the transaction connection
-          );
-        }
-        
-        logger.info('Bulk payout status updated successfully:', {
-          payoutIds,
-          count: payoutIds.length,
-        });
-      } catch (error) {
-        logger.error('Error updating bulk payout status:', error);
-        throw error;
-      }
-    };
-    
-    // RabbitMQ instance with fallback to direct database updates
-    const rabbitMQ = {
-      sendMessage: async (queueName, data) => {
-        try {
-          // Attempt to get RabbitMQ channel
-          let channel = await getRabbitChannel();
-          
-          if (!channel || channel.connection.closed) {
-            logger.warn('RabbitMQ channel not available, attempting to reconnect...');
-            await connectRabbitMQ();
-            channel = await getRabbitChannel();
-          }
-          
-          if (channel) {
-            // Publish to RabbitMQ queue
-            const published = await publishToDirectQueue(queueName, data);
-            
-            if (published) {
-              logger.info(`RabbitMQ message sent to ${queueName}:`, {
-                totalUpdates: data.individualUpdates?.length || 0,
-                queueName,
-              });
-              return;
-            }
-          }
-          
-          // Fallback to direct database update if RabbitMQ fails
-          logger.warn('RabbitMQ publish failed, falling back to direct database update');
-          throw new Error('RabbitMQ publish failed');
-          
-        } catch (error) {
-          logger.error('RabbitMQ error, performing direct database update:', error.message);
-          
-          // Fallback: directly update the database
-          if (data.individualUpdates) {
-            for (const update of data.individualUpdates) {
-              try {
-                // Create proper payload structure for updatePayoutDao
-                const updatePayload = {
-                  status: update.status,
-                  config: update.config,
-                  utr_id: update.utr_id,
-                  approved_at: update.approved_at,
-                  rejected_reason: update.rejected_reason,
-                  rejected_at: update.rejected_at,
-                  updated_at: new Date().toISOString(),
-                };
-                
-                // Remove undefined fields to avoid database issues
-                Object.keys(updatePayload).forEach(key => {
-                  if (updatePayload[key] === undefined) {
-                    delete updatePayload[key];
-                  }
-                });
-                
-                await updatePayoutDao(
-                  { id: update.payoutId }, // ids parameter
-                  updatePayload, // payload parameter
-                  conn // use the transaction connection
-                );
-                
-                logger.info(`Direct database update completed for payout ID: ${update.payoutId}`);
-              } catch (updateError) {
-                logger.error(`Failed to update payout ID ${update.payoutId}:`, updateError.message);
-              }
-            }
-            logger.info('Direct database update completed for all bulk payout status updates');
-          }
-        }
-      },
-    };
-    
-    // Call TataPay bulk payout function
-    const result = await createTataPayBulkPayout(
-      payoutEntries || payoutIds,
-      company_id,
-      payoutIds ? getPayoutData : null, // Pass getPayoutData function if using IDs
-      updatePayoutStatusBulk,
-      rabbitMQ,
-    );
-    
-    logger.info('TataPay bulk payout service completed:', {
-      company_id,
-      user_id,
-      totalRecords: result.data.totalRecords,
-      successpayout: result.data.successpayout,
-      skippayout: result.data.skippayout,
-    });
-    
-    return result;
-    
-  } catch (error) {
-    logger.error('TataPay bulk payout service error:', {
-      error: error.message,
-      company_id,
-      user_id,
-      payoutEntries: payoutEntries?.length || 0,
-      payoutIds: payoutIds?.length || 0,
-    });
-    throw error;
-  }
-};
-
 export {
   createPayoutService,
   getPayoutsService,
@@ -1728,5 +1589,4 @@ export {
   updatePayoutService,
   deletePayoutService,
   assignedPayoutService,
-  createTataPayBulkPayoutService,
 };

@@ -6,7 +6,8 @@ import { cashfreeWebHook } from './cashfree.js';
 import { zenTechIndWebhook } from './zenTechInd.js';
 import { clickrrWebhook } from './clickrr.js';
 import { nmplPayWebhook } from './nmplPay.js';
-import { handleRazorpayWebhook } from './razorPay.js';    
+import { handleRazorpayWebhook } from './razorPay.js';   
+import { rupeeFlowWebhook } from './rupeeflow.js'; 
 
 
 const router = express.Router();
@@ -16,5 +17,6 @@ router.post('/zenTechInd', tryCatchHandler(zenTechIndWebhook));
 router.post('/nmplPay', tryCatchHandler(nmplPayWebhook));
 router.post('/clickrr', tryCatchHandler(clickrrWebhook)); 
 router.post('/razorpay', tryCatchHandler(handleRazorpayWebhook));
+router.post('/rupeeflow', tryCatchHandler(rupeeFlowWebhook));
 
 export default router;
