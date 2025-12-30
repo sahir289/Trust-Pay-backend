@@ -54,11 +54,6 @@ import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import { updateCalculationBalanceDao } from '../calculation/calculationDao.js';
 import { logger } from '../../utils/logger.js';
 // Import RabbitMQ for bulk status updates
-import {
-  publishToDirectQueue,
-  getRabbitChannel,
-  connectRabbitMQ,
-} from '../../utils/rabbitmq.js';
 // import { updatePayout } from '../../utils/sockets.js';
 import { newTableEntry } from '../../utils/sockets.js';
 import { checkLockEdit } from '../../utils/advisoryLock.js';
