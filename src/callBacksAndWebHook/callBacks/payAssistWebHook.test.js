@@ -52,7 +52,7 @@ describe('payAssistTransactionStatusCallback', () => {
 
     await payAssistTransactionStatusCallback(req, res);
 
-    expect(getPayoutsDao).toHaveBeenCalledWith({ id: 1 });
+    expect(getPayoutsDao).toHaveBeenCalledWith({ merchant_order_id : 1 });
     expect(res.status).toHaveBeenCalledWith(404);
     expect(res.send).toHaveBeenCalledWith('Payment not found');
     expect(conn.release).toHaveBeenCalled();
@@ -75,27 +75,15 @@ describe('payAssistTransactionStatusCallback', () => {
     getBankByIdDao.mockResolvedValue([{ user_id: 200 }]);
     getVendorsDao.mockResolvedValue([{ id: 300 }]);
     getUserByCompanyCreatedAtDao.mockResolvedValue({ id: 400 });
-    // Mock axios.post to return a successful payout status
-    axios.post.mockResolvedValue({
-      data: {
-        ErrorCode: '0',
-        Response: { txnid: 'tx123', message: 'Transaction Successful' }
-      }
-    });
     updatePayoutService.mockResolvedValue();
   
     await payAssistTransactionStatusCallback(req, res);
   
-    expect(getPayoutsDao).toHaveBeenCalledWith({ id: 1 });
+    expect(getPayoutsDao).toHaveBeenCalledWith({ merchant_order_id: 1 });
     expect(getCompanyByIDDao).toHaveBeenCalledWith({ id: 100 });
     expect(getBankByIdDao).toHaveBeenCalledWith({ id: 10 });
     expect(getVendorsDao).toHaveBeenCalledWith({ user_id: 200 });
     expect(getUserByCompanyCreatedAtDao).toHaveBeenCalledWith(100, 'ADMIN');
-    expect(axios.post).toHaveBeenCalledWith(
-      'url/payoutStatus',
-      { apitxnid: 1 },
-      { headers: { APIAGENT: 'agent', APIKEY: 'key' } }
-    );
     expect(updatePayoutService).toHaveBeenCalledWith(
       conn,
       { id: 1, company_id: 100 },
@@ -118,7 +106,7 @@ describe('payAssistTransactionStatusCallback', () => {
   });
 
   it('should handle payout with errorCode "TUP" as pending', async () => {
-    req.body = { Response: { apitxnid: 1 }, ErrorCode: 'TUP' };
+    req.body = { Response: { apitxnid: 1, txnid: 'tx123' }, ErrorCode: 'TUP' };
     getPayoutsDao.mockResolvedValue([{ id: 1, company_id: 100 }]);
     getCompanyByIDDao.mockResolvedValue([{
       config: {
@@ -134,16 +122,10 @@ describe('payAssistTransactionStatusCallback', () => {
     getBankByIdDao.mockResolvedValue([{ user_id: 200 }]);
     getVendorsDao.mockResolvedValue([{ id: 300 }]);
     getUserByCompanyCreatedAtDao.mockResolvedValue({ id: 400 });
-    axios.post.mockResolvedValue({ data: { ErrorCode: 'TUP', Response: { txnid: 'tx123' } } });
     updatePayoutService.mockResolvedValue();
 
     await payAssistTransactionStatusCallback(req, res);
 
-    expect(axios.post).toHaveBeenCalledWith(
-      'url/payoutStatus',
-      { apitxnid: 1 },
-      { headers: { APIAGENT: 'agent', APIKEY: 'key' } }
-    );
     expect(updatePayoutService).toHaveBeenCalledWith(
       conn,
       { id: 1, company_id: 100 },
@@ -165,7 +147,7 @@ describe('payAssistTransactionStatusCallback', () => {
   });
 
   it('should handle failed payout with errorCode other than TUP or 4', async () => {
-    req.body = { Response: { apitxnid: 1 }, ErrorCode: '14' };
+    req.body = { Response: { apitxnid: 1, txnid: 'tx123' }, ErrorCode: '14' };
     getPayoutsDao.mockResolvedValue([{ id: 1, company_id: 100 }]);
     getCompanyByIDDao.mockResolvedValue([{
       config: {
@@ -181,16 +163,10 @@ describe('payAssistTransactionStatusCallback', () => {
     getBankByIdDao.mockResolvedValue([{ user_id: 200 }]);
     getVendorsDao.mockResolvedValue([{ id: 300 }]);
     getUserByCompanyCreatedAtDao.mockResolvedValue({ id: 400 });
-    axios.post.mockResolvedValue({ data: { ErrorCode: '14', Response: { txnid: 'tx123' } } });
     updatePayoutService.mockResolvedValue();
 
     await payAssistTransactionStatusCallback(req, res);
 
-    expect(axios.post).toHaveBeenCalledWith(
-      'url/payoutStatus',
-      { apitxnid: 1 },
-      { headers: { APIAGENT: 'agent', APIKEY: 'key' } }
-    );
     expect(updatePayoutService).toHaveBeenCalledWith(
       conn,
       { id: 1, company_id: 100 },
@@ -212,6 +188,8 @@ describe('payAssistTransactionStatusCallback', () => {
     expect(res.send).toHaveBeenCalledWith('Payout Updated Successfully');
   });
 
+// ...existing code...
+
   it('should handle error when company configuration not found', async () => {
     req.body = { Response: { apitxnid: '123' }, ErrorCode: '0' };
     getPayoutsDao.mockResolvedValue([{ id: '123', company_id: 100 }]);
@@ -219,7 +197,7 @@ describe('payAssistTransactionStatusCallback', () => {
   
     await expect(payAssistTransactionStatusCallback(req, res)).rejects.toThrow();
   
-    expect(getPayoutsDao).toHaveBeenCalledWith({ id: '123' });
+    expect(getPayoutsDao).toHaveBeenCalledWith({ merchant_order_id: '123' });
     expect(getCompanyByIDDao).toHaveBeenCalledWith({ id: 100 });
     expect(rollback).toHaveBeenCalledWith(conn);
     expect(conn.release).toHaveBeenCalled();
@@ -235,7 +213,7 @@ describe('payAssistTransactionStatusCallback', () => {
       'Cannot read properties of undefined (reading \'config\')'
     );
   
-    expect(getPayoutsDao).toHaveBeenCalledWith({ id: '123' });
+    expect(getPayoutsDao).toHaveBeenCalledWith({ merchant_order_id: '123' });
     expect(getCompanyByIDDao).toHaveBeenCalledWith({ id: 100 });
     expect(rollback).toHaveBeenCalledWith(conn);
     expect(conn.release).toHaveBeenCalled();
@@ -244,4 +222,20 @@ describe('payAssistTransactionStatusCallback', () => {
       expect.any(Error)
     );
   });
+
+
+  it('should handle error when company configuration not found', async () => {
+    req.body = { Response: { apitxnid: '123' }, ErrorCode: '0' };
+    getPayoutsDao.mockResolvedValue([{ id: '123', company_id: 100 }]);
+    getCompanyByIDDao.mockResolvedValue([]);
+  
+    await expect(payAssistTransactionStatusCallback(req, res)).rejects.toThrow();
+  
+    expect(getPayoutsDao).toHaveBeenCalledWith({ merchant_order_id: '123' });
+    expect(getCompanyByIDDao).toHaveBeenCalledWith({ id: 100 });
+    expect(rollback).toHaveBeenCalledWith(conn);
+    expect(conn.release).toHaveBeenCalled();
+    expect(logger.error).toHaveBeenCalledWith('getting error while updating payout', expect.any(Error));
+  });
+
 });

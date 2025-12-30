@@ -76,6 +76,7 @@ describe('tataPayTransactionStatusCallback', () => {
 
   // Test Case 3: Successful payout update with approved status
   test('should update payout with approved status', async () => {
+    req.body = { payoutId: '12345', status: 'approved', _id: 'txn123', utr: 'utr123' };
     const mockPayout = {
       id: 1,
       company_id: 'company1',
@@ -94,37 +95,18 @@ describe('tataPayTransactionStatusCallback', () => {
     const mockBank = [{ user_id: 'user1' }];
     const mockVendor = [{ id: 'vendor1' }];
     const mockAdminUser = { id: 'admin1' };
-    const mockAxiosResponse = {
-      data: {
-        payouts: [{
-          status: 'approved',
-          _id: 'txn123',
-          utr: 'utr123',
-        }],
-      },
-    };
 
     getPayoutByTxnId.mockResolvedValue(mockPayout);
     getCompanyByIDDao.mockResolvedValue(mockCompany);
     getBankByIdDao.mockResolvedValue(mockBank);
     getVendorsDao.mockResolvedValue(mockVendor);
     getUserByCompanyCreatedAtDao.mockResolvedValue(mockAdminUser);
-    axios.get.mockResolvedValue(mockAxiosResponse);
     updatePayoutService.mockResolvedValue();
 
     await tataPayTransactionStatusCallback(req, res);
 
     expect(getPayoutByTxnId).toHaveBeenCalledWith('12345');
     expect(getCompanyByIDDao).toHaveBeenCalledWith({ id: mockPayout.company_id });
-    expect(axios.get).toHaveBeenCalledWith(
-      'https://api.tatapay.com/Search_payout',
-      expect.objectContaining({
-        headers: { 'x-api-key': 'apiKey' },
-        params: { searchKey: '12345', page: 1, limit: 10 },
-        timeout: 15000,
-        maxRedirects: 3,
-      }),
-    );
     expect(updatePayoutService).toHaveBeenCalledWith(
       conn,
       { id: mockPayout.id, company_id: mockPayout.company_id },
@@ -144,6 +126,7 @@ describe('tataPayTransactionStatusCallback', () => {
 
   // Test Case 4: Payout with pending status
   test('should update payout with pending status', async () => {
+    req.body = { payoutId: '12345', status: 'processing', _id: 'txn123' };
     const mockPayout = {
       id: 1,
       company_id: 'company1',
@@ -162,21 +145,12 @@ describe('tataPayTransactionStatusCallback', () => {
     const mockBank = [{ user_id: 'user1' }];
     const mockVendor = [{ id: 'vendor1' }];
     const mockAdminUser = { id: 'admin1' };
-    const mockAxiosResponse = {
-      data: {
-        payouts: [{
-          status: 'processing',
-          _id: 'txn123',
-        }],
-      },
-    };
 
     getPayoutByTxnId.mockResolvedValue(mockPayout);
     getCompanyByIDDao.mockResolvedValue(mockCompany);
     getBankByIdDao.mockResolvedValue(mockBank);
     getVendorsDao.mockResolvedValue(mockVendor);
     getUserByCompanyCreatedAtDao.mockResolvedValue(mockAdminUser);
-    axios.get.mockResolvedValue(mockAxiosResponse);
     updatePayoutService.mockResolvedValue();
 
     await tataPayTransactionStatusCallback(req, res);
@@ -199,6 +173,7 @@ describe('tataPayTransactionStatusCallback', () => {
 
   // Test Case 5: Payout with rejected status (not previously approved)
   test('should update payout with rejected status', async () => {
+    req.body = { payoutId: '12345', status: 'rejected', _id: 'txn123', remark: 'Insufficient funds' };
     const mockPayout = {
       id: 1,
       company_id: 'company1',
@@ -217,22 +192,12 @@ describe('tataPayTransactionStatusCallback', () => {
     const mockBank = [{ user_id: 'user1' }];
     const mockVendor = [{ id: 'vendor1' }];
     const mockAdminUser = { id: 'admin1' };
-    const mockAxiosResponse = {
-      data: {
-        payouts: [{
-          status: 'rejected',
-          _id: 'txn123',
-          remark: 'Insufficient funds',
-        }],
-      },
-    };
 
     getPayoutByTxnId.mockResolvedValue(mockPayout);
     getCompanyByIDDao.mockResolvedValue(mockCompany);
     getBankByIdDao.mockResolvedValue(mockBank);
     getVendorsDao.mockResolvedValue(mockVendor);
     getUserByCompanyCreatedAtDao.mockResolvedValue(mockAdminUser);
-    axios.get.mockResolvedValue(mockAxiosResponse);
     updatePayoutService.mockResolvedValue();
 
     await tataPayTransactionStatusCallback(req, res);
@@ -255,6 +220,7 @@ describe('tataPayTransactionStatusCallback', () => {
 
   // Test Case 6: Payout with rejected status (previously approved, reversed)
   test('should update payout with reversed status if previously approved', async () => {
+    req.body = { payoutId: '12345', status: 'rejected', _id: 'txn123', remark: 'Chargeback' };
     const mockPayout = {
       id: 1,
       company_id: 'company1',
@@ -273,22 +239,12 @@ describe('tataPayTransactionStatusCallback', () => {
     const mockBank = [{ user_id: 'user1' }];
     const mockVendor = [{ id: 'vendor1' }];
     const mockAdminUser = { id: 'admin1' };
-    const mockAxiosResponse = {
-      data: {
-        payouts: [{
-          status: 'rejected',
-          _id: 'txn123',
-          remark: 'Chargeback',
-        }],
-      },
-    };
 
     getPayoutByTxnId.mockResolvedValue(mockPayout);
     getCompanyByIDDao.mockResolvedValue(mockCompany);
     getBankByIdDao.mockResolvedValue(mockBank);
     getVendorsDao.mockResolvedValue(mockVendor);
     getUserByCompanyCreatedAtDao.mockResolvedValue(mockAdminUser);
-    axios.get.mockResolvedValue(mockAxiosResponse);
     updatePayoutService.mockResolvedValue();
 
     await tataPayTransactionStatusCallback(req, res);
@@ -307,8 +263,9 @@ describe('tataPayTransactionStatusCallback', () => {
     expect(conn.release).toHaveBeenCalled();
   });
 
-  // Test Case 7: Invalid response from TataPay (empty payouts array)
-  test('should return 400 if payouts array is empty', async () => {
+  // Test Case 7: Unknown status from TataPay
+  test('should return 400 for unknown status', async () => {
+    req.body = { payoutId: '12345', status: 'unknown', _id: 'txn123' };
     const mockPayout = {
       id: 1,
       company_id: 'company1',
@@ -324,24 +281,14 @@ describe('tataPayTransactionStatusCallback', () => {
         },
       },
     }];
-    const mockAxiosResponse = {
-      data: {
-        payouts: [],
-      },
-    };
 
     getPayoutByTxnId.mockResolvedValue(mockPayout);
     getCompanyByIDDao.mockResolvedValue(mockCompany);
-    axios.get.mockResolvedValue(mockAxiosResponse);
 
     await tataPayTransactionStatusCallback(req, res);
 
     expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.send).toHaveBeenCalledWith('Invalid response from payment provider');
-    expect(logger.error).toHaveBeenCalledWith(
-      'Invalid response from TataPay: payouts array is missing or empty',
-      mockAxiosResponse.data,
-    );
+    expect(res.send).toHaveBeenCalledWith('Unknown status from payment provider');
     expect(conn.release).toHaveBeenCalled();
   });
 
@@ -382,130 +329,9 @@ describe('tataPayTransactionStatusCallback', () => {
     expect(conn.release).toHaveBeenCalled();
   });
 
-  // Test Case 9: Axios retry logic on network error
-  test('should retry on network error and succeed on second attempt', async () => {
-    const mockPayout = {
-      id: 1,
-      company_id: 'company1',
-      status: Status.PENDING,
-    };
-    const mockCompany = [{
-      id: 'company1',
-      config: {
-        TATA_PAY: {
-          walletsPayoutsApiKey: 'apiKey',
-          walletsPayoutsUrl: 'https://api.tatapay.com',
-          defaultBankId: 'bank1',
-        },
-      },
-    }];
-    const mockBank = [{ user_id: 'user1' }];
-    const mockVendor = [{ id: 'vendor1' }];
-    const mockAdminUser = { id: 'admin1' };
-    const mockAxiosResponse = {
-      data: {
-        payouts: [{
-          status: 'approved',
-          _id: 'txn123',
-          utr: 'utr123',
-        }],
-      },
-    };
-
-    getPayoutByTxnId.mockResolvedValue(mockPayout);
-    getCompanyByIDDao.mockResolvedValue(mockCompany);
-    getBankByIdDao.mockResolvedValue(mockBank);
-    getVendorsDao.mockResolvedValue(mockVendor);
-    getUserByCompanyCreatedAtDao.mockResolvedValue(mockAdminUser);
-    updatePayoutService.mockResolvedValue();
-
-    // Mock axios to fail on first attempt and succeed on second
-    axios.get
-      .mockRejectedValueOnce(new Error('Network Error'))
-      .mockResolvedValueOnce(mockAxiosResponse);
-
-    await tataPayTransactionStatusCallback(req, res);
-
-    expect(axios.get).toHaveBeenCalledTimes(2);
-    expect(logger.info).toHaveBeenCalledWith(
-      expect.stringContaining('TataPay payoutStatus response'),
-      mockAxiosResponse.data,
-    );
-    expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.send).toHaveBeenCalledWith('Payout Updated Successfully');
-    expect(conn.release).toHaveBeenCalled();
-  });
-
-  // Test Case 10: Axios retry logic fails after max retries
-  test('should fail after max retries on network error', async () => {
-    const mockPayout = {
-      id: 1,
-      company_id: 'company1',
-      status: Status.PENDING,
-    };
-    const mockCompany = [{
-      id: 'company1',
-      config: {
-        TATA_PAY: {
-          walletsPayoutsApiKey: 'apiKey',
-          walletsPayoutsUrl: 'https://api.tatapay.com',
-          defaultBankId: 'bank1',
-        },
-      },
-    }];
-
-    getPayoutByTxnId.mockResolvedValue(mockPayout);
-    getCompanyByIDDao.mockResolvedValue(mockCompany);
-    axios.get.mockRejectedValue(new Error('Network Error'));
-
-    await tataPayTransactionStatusCallback(req, res);
-
-    expect(axios.get).toHaveBeenCalledTimes(2); // 2 retries
-    expect(logger.error).toHaveBeenCalledWith(
-      'getting error while updating payout',
-      expect.any(Error),
-    );
-    expect(rollback).toHaveBeenCalled();
-    expect(conn.release).toHaveBeenCalled();
-  });
-
-  // Test Case 11: Client error (4xx) does not trigger retry
-  test('should not retry on 4xx error', async () => {
-    const mockPayout = {
-      id: 1,
-      company_id: 'company1',
-      status: Status.PENDING,
-    };
-    const mockCompany = [{
-      id: 'company1',
-      config: {
-        TATA_PAY: {
-          walletsPayoutsApiKey: 'apiKey',
-          walletsPayoutsUrl: 'https://api.tatapay.com',
-          defaultBankId: 'bank1',
-        },
-      },
-    }];
-
-    getPayoutByTxnId.mockResolvedValue(mockPayout);
-    getCompanyByIDDao.mockResolvedValue(mockCompany);
-    axios.get.mockRejectedValue({
-      response: { status: 400, data: { ErrorMessage: 'Bad Request' } },
-    });
-
-    await tataPayTransactionStatusCallback(req, res);
-
-    expect(axios.get).toHaveBeenCalledTimes(1); // No retries
-    expect(logger.error).toHaveBeenCalledWith(
-      'getting error while updating payout',
-      expect.any(Object),
-    );
-    expect(rollback).toHaveBeenCalled();
-    expect(conn.release).toHaveBeenCalled();
-  });
-
-  // Test Case 12: Error during payout update rolls back transaction
+  // Test Case 9: Error during payout update rolls back transaction
   test('should rollback transaction on update error', async () => {
+    req.body = { payoutId: '12345', status: 'approved', _id: 'txn123', utr: 'utr123' };
     const mockPayout = {
       id: 1,
       company_id: 'company1',
@@ -524,22 +350,12 @@ describe('tataPayTransactionStatusCallback', () => {
     const mockBank = [{ user_id: 'user1' }];
     const mockVendor = [{ id: 'vendor1' }];
     const mockAdminUser = { id: 'admin1' };
-    const mockAxiosResponse = {
-      data: {
-        payouts: [{
-          status: 'approved',
-          _id: 'txn123',
-          utr: 'utr123',
-        }],
-      },
-    };
 
     getPayoutByTxnId.mockResolvedValue(mockPayout);
     getCompanyByIDDao.mockResolvedValue(mockCompany);
     getBankByIdDao.mockResolvedValue(mockBank);
     getVendorsDao.mockResolvedValue(mockVendor);
     getUserByCompanyCreatedAtDao.mockResolvedValue(mockAdminUser);
-    axios.get.mockResolvedValue(mockAxiosResponse);
     updatePayoutService.mockRejectedValue(new Error('Update failed'));
 
     await tataPayTransactionStatusCallback(req, res);

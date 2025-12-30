@@ -93,7 +93,6 @@ describe('Auth DAO Tests', () => {
       expect(executeQuery).toHaveBeenCalledWith(
         expect.stringContaining('UPDATE'),
         expect.any(Array),
-        null
       );
     });
   });
@@ -115,7 +114,6 @@ describe('Auth DAO Tests', () => {
       expect(executeQuery).toHaveBeenCalledWith(
         'UPDATE "User" SET password = $2 WHERE id = $1 RETURNING id',
         ['user1', 'newpass'],
-        null
       );
       expect(result).toEqual(mockResult);
     });

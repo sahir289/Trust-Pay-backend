@@ -17,8 +17,11 @@ jest.mock('../../zentechind/zentechInd');
 jest.mock('../../../version', () => ({
   getVersion: jest.fn()
 }));
+jest.mock('../../intent/createIntentTransaction');
+
 
 describe('zenTechIndWebhook', () => {
+  const { generateHash } = require('../../intent/createIntentTransaction');
   let req, res;
 
   beforeEach(() => {
@@ -69,7 +72,7 @@ describe('zenTechIndWebhook', () => {
     await zenTechIndWebhook(req, res);
 
     expect(sendSuccess).toHaveBeenCalledWith(res, {}, 'Webhook received successfully');
-    expect(generateHash).toHaveBeenCalledWith(expectedTransaction);
+    expect(generateHash).toHaveBeenCalledWith(expectedTransaction,'zentechind');
     expect(getPayInIntentDao).toHaveBeenCalledWith('12345');
     expect(createBankResponseWebHookService).toHaveBeenCalledWith(
       '1000 nil UTR123 bank123',
@@ -97,7 +100,7 @@ describe('zenTechIndWebhook', () => {
     await zenTechIndWebhook(req, res);
 
     expect(sendSuccess).toHaveBeenCalledWith(res, {}, 'Webhook received successfully');
-    expect(generateHash).toHaveBeenCalledWith(req.body.transaction);
+    expect(generateHash).toHaveBeenCalledWith(req.body.transaction, 'zentechind');
     expect(logger.error).toHaveBeenCalledWith('Invalid hash in ZenTechInd webhook');
   });
 
@@ -109,7 +112,7 @@ describe('zenTechIndWebhook', () => {
     await zenTechIndWebhook(req, res);
 
   expect(sendSuccess).toHaveBeenCalledWith(res, {}, 'Webhook received successfully');
-    expect(generateHash).toHaveBeenCalledWith(req.body.transaction);
+    expect(generateHash).toHaveBeenCalledWith(req.body.transaction, 'zentechind');
     expect(logger.error).toHaveBeenCalledWith('zenTechInd webhook error:', error);
     expect(getPayInIntentDao).toHaveBeenCalledWith('12345');
     expect(createBankResponseWebHookService).not.toHaveBeenCalled();
