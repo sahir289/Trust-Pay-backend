@@ -2491,7 +2491,12 @@ export const processPayInByImageService = async (payload) => {
       };
       return { error: `This payin url is already used`, result };
     }
-    if (!content || !content.utr) {
+    const isUtrMissing =
+      !content ||
+      content.utr === null ||
+      content.utr === undefined ||
+      content.utr === '';
+    if (isUtrMissing) {
       const duration = calculateDuration(payInData.created_at);
       const payIn = await updatePayInUrlDao(
         payInData.id,
@@ -2503,10 +2508,11 @@ export const processPayInByImageService = async (payload) => {
           user_submitted_image: payload.fileKey,
           duration,
         },
-        undefined,
+        null,
         conn,
       );
-
+      await commit(conn);
+      committed = true;
       return {
         status: 'IMG_PENDING',
         amount: payload.amount,
