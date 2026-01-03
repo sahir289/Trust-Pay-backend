@@ -459,7 +459,7 @@ const createBankResponseService = async (
 
         if (getDataByUtr) {
           const botUtrIsUsed =
-            getDataByUtr.rows.length > 1 &&
+            getDataByUtr.rows?.length > 1 &&
             getDataByUtr.some((item) => item.is_used);
           if (!acceptedStatus.includes(payInUtr.status) && botUtrIsUsed) {
             await commit(conn);
