@@ -44,7 +44,7 @@ export const getClientIp = (req) => {
 
 const createGeoGuard = (options = {}) => {
   const {
-    maxAccuracy = 100,
+    // maxAccuracy = 100,
     restrictVpnForRoles = ['VENDOR'],
     blockedCountries = [],
     roleRegionRules = {
@@ -77,7 +77,7 @@ const createGeoGuard = (options = {}) => {
           location = defaultLocation;
         }
       }
-
+      console.log(location, "location ++++");
       const { latitude, longitude, accuracy } = location;
 
       if (!latitude || !longitude) {
@@ -87,7 +87,7 @@ const createGeoGuard = (options = {}) => {
       }
 
       // if (accuracy > maxAccuracy) {
-        console.log(accuracy, "accuracy", maxAccuracy, "max accuracy ++++");
+      //   console.log(accuracy, "accuracy", maxAccuracy, "max accuracy ++++");
       //   return next( new BadRequestError(
       //     `Location accuracy too low (${accuracy}m). Maximum allowed: ${maxAccuracy}m.`,
       //   ));
