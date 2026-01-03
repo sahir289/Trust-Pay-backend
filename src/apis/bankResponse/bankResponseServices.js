@@ -251,7 +251,7 @@ const createBankResponseService = async (
       ),
       isValidAmountCode
         ? getCheckBankResponseDao(
-            { upi_short_code, company_id },
+            {upi_short_code,utr,company_id },
             null,
             conn,
           ).then(
@@ -1044,6 +1044,7 @@ const createBankResponseWebHookService = async (
       utrAlreadyExist = await getCheckBankResponseDao(
         {
           upi_short_code,
+          utr,
           company_id,
         },
         null,
