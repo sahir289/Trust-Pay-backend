@@ -190,7 +190,7 @@ const createBankResponseService = async (
     const isValidAmountCode = !!(
       upi_short_code &&
       upi_short_code !== 'nil' &&
-      upi_short_code.length === 5
+      upi_short_code.length === 10
     );
 
     const acceptedStatus = [
@@ -899,7 +899,7 @@ const createBankResponseWebHookService = async (
     const isValidAmountCode = !!(
       upi_short_code &&
       upi_short_code !== 'nil' &&
-      upi_short_code.length === 5
+      upi_short_code.length === 10
     );
     
     if (
