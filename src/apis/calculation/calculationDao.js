@@ -161,6 +161,60 @@ export const getCalculationDashBoardReportDao = async (filters = {}) => {
     throw error;
   }
 };
+export const getCalculationByDateAndUserDao = async (date) => {
+  if (!date) {
+    throw new Error('date are required');
+  }
+  const parsedDate = new Date(date);
+  if (isNaN(parsedDate.getTime())) {
+    throw new Error('Invalid date format. Use YYYY-MM-DD');
+  }
+  const isoDate = parsedDate.toISOString().split('T')[0]; 
+  try {
+    const sql = `
+      SELECT
+        id,
+        user_id,
+        role_id,
+        company_id,
+        current_balance,
+        net_balance,
+        created_at
+      FROM "${tableName.CALCULATION}"
+      WHERE created_at::DATE = $1   
+    `;
+    const params = [isoDate];
+    const result = await executeQuery(sql, params);
+    return result.rows || null;
+  } catch (error) {
+    logger.error(
+      `Error in getCalculationByDateAndUserDao for  date ${date}:`,
+      error,
+    );
+    throw error;
+  }
+};
+export const updateTodayNetBalanceDao = async (Id, net_balance, conn) => {
+  try {
+    const sql = `
+      UPDATE "${tableName.CALCULATION}"
+      SET net_balance = $2 + current_balance
+      WHERE id = $1 
+    `;
+    const params = [Id, net_balance];
+    const result = conn 
+      ? await conn.query(sql, params)
+      : await executeQuery(sql, params);
+    return result.rows[0] || null;
+
+  } catch (error) {
+    logger.error(
+      `Failed to update net_balance for user ${Id}:`,
+      error.message
+    );
+    throw error;
+  }
+};
 
 export const getCalculationsSumDao = async (filters) => {
   try {
@@ -546,6 +600,7 @@ export const getCalculationsSumDao = async (filters) => {
         CAST(ROUND(SUM(COALESCE((c.config->>'total_bankSentSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_bankSentSettlement_amount,
         CAST(ROUND(SUM(COALESCE((c.config->>'total_cashSentSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_cashSentSettlement_amount,
         CAST(ROUND(SUM(COALESCE((c.config->>'total_internalSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_internalSettlement_amount,
+        CAST(ROUND(SUM(COALESCE((c.config->>'total_cryptoSentSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_cryptoSentSettlement_amount,
         CAST(ROUND(SUM(COALESCE((c.config->>'total_aedReceivedSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_aedReceivedSettlement_amount,
         CAST(ROUND(SUM(COALESCE((c.config->>'total_bankReceivedSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_bankReceivedSettlement_amount,
         CAST(ROUND(SUM(COALESCE((c.config->>'total_cashReceivedSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_cashReceivedSettlement_amount,
@@ -593,6 +648,7 @@ export const getCalculationsSumDao = async (filters) => {
       CAST(ROUND(SUM(COALESCE((c.config->>'total_bankSentSettlement_amount')::NUMERIC,0))::NUMERIC,2) AS FLOAT) AS total_bankSentSettlement_amount,
       CAST(ROUND(SUM(COALESCE((c.config->>'total_cashSentSettlement_amount')::NUMERIC,0))::NUMERIC,2) AS FLOAT) AS total_cashSentSettlement_amount,
       CAST(ROUND(SUM(COALESCE((c.config->>'total_internalSettlement_amount')::NUMERIC,0))::NUMERIC,2) AS FLOAT) AS total_internalSettlement_amount,
+      CAST(ROUND(SUM(COALESCE((c.config->>'total_cryptoSentSettlement_amount')::NUMERIC,0))::NUMERIC,2) AS FLOAT) AS total_cryptoSentSettlement_amount,
       CAST(ROUND(SUM(COALESCE((c.config->>'total_aedReceivedSettlement_amount')::NUMERIC,0))::NUMERIC,2) AS FLOAT) AS total_aedReceivedSettlement_amount,
       CAST(ROUND(SUM(COALESCE((c.config->>'total_bankReceivedSettlement_amount')::NUMERIC,0))::NUMERIC,2) AS FLOAT) AS total_bankReceivedSettlement_amount,
       CAST(ROUND(SUM(COALESCE((c.config->>'total_cashReceivedSettlement_amount')::NUMERIC,0))::NUMERIC,2) AS FLOAT) AS total_cashReceivedSettlement_amount,
@@ -1141,6 +1197,7 @@ export const getCalculationsForInternalUseDao = async (filters) => {
         CAST(ROUND(SUM(COALESCE((c.config->>'total_bankSentSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_bankSentSettlement_amount,
         CAST(ROUND(SUM(COALESCE((c.config->>'total_cashSentSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_cashSentSettlement_amount,
         CAST(ROUND(SUM(COALESCE((c.config->>'total_internalSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_internalSettlement_amount,
+        CAST(ROUND(SUM(COALESCE((c.config->>'total_cryptoSentSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_cryptoSentSettlement_amount,
         CAST(ROUND(SUM(COALESCE((c.config->>'total_aedReceivedSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_aedReceivedSettlement_amount,
         CAST(ROUND(SUM(COALESCE((c.config->>'total_bankReceivedSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_bankReceivedSettlement_amount,
         CAST(ROUND(SUM(COALESCE((c.config->>'total_cashReceivedSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_cashReceivedSettlement_amount,
@@ -1181,6 +1238,7 @@ export const getCalculationsForInternalUseDao = async (filters) => {
         CAST(ROUND(SUM(COALESCE((c.config->>'total_bankSentSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_bankSentSettlement_amount,
         CAST(ROUND(SUM(COALESCE((c.config->>'total_cashSentSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_cashSentSettlement_amount,
         CAST(ROUND(SUM(COALESCE((c.config->>'total_internalSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_internalSettlement_amount,
+        CAST(ROUND(SUM(COALESCE((c.config->>'total_cryptoSentSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_cryptoSentSettlement_amount,
         CAST(ROUND(SUM(COALESCE((c.config->>'total_aedReceivedSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_aedReceivedSettlement_amount,
         CAST(ROUND(SUM(COALESCE((c.config->>'total_bankReceivedSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_bankReceivedSettlement_amount,
         CAST(ROUND(SUM(COALESCE((c.config->>'total_cashReceivedSettlement_amount')::NUMERIC, 0))::NUMERIC, 2) AS FLOAT) AS total_cashReceivedSettlement_amount,

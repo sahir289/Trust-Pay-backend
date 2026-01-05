@@ -29,7 +29,7 @@ const getCompanyDao = async (filters, page, pageSize, sortBy, sortOrder) => {
 };
 const getCompanyDetailsByIdDao = async (id) => {
   try {
-    const baseQuery = `SELECT CONCAT(first_name, ' ', last_name) AS full_name, config ->> 'allowPayAssist' AS allowPayAssist, config ->> 'allowTataPay' AS allowTataPay, config ->> 'allow_clickrr' AS allow_clickrr FROM "${tableName.COMPANY}" WHERE 1 = 1`;
+    const baseQuery = `SELECT CONCAT(first_name, ' ', last_name) AS full_name, config ->> 'allowPayAssist' AS allowPayAssist, config ->> 'allowTataPay' AS allowTataPay, config ->> 'allow_clickrr' AS allow_clickrr, config ->> 'allowRupeeFlow' AS allowRupeeFlow FROM "${tableName.COMPANY}" WHERE 1 = 1`;
     const [sql, queryParams] = buildSelectQuery(baseQuery, id);
     const result = await executeQuery(sql, queryParams);
     return result.rows.length > 0 ? result.rows : result.rows[0];
@@ -52,6 +52,19 @@ const getClickrrDetailsByCompanyIdDao = async (id) => {
   }
 };
 
+const getBepayDetailsByCompanyIdDao = async (id) => {
+  try {
+    const sql = `SELECT config -> 'Bepay' ->> 'api_key' AS api_key,
+    config -> 'Bepay' ->> 'api_secret' AS api_secret FROM "${tableName.COMPANY}" WHERE id = $1`;
+    const queryParams = [id];
+    const result = await executeQuery(sql, queryParams);
+    return result.rows.length > 0 ? result.rows[0] : result.rows;
+  } catch (error) {
+    logger.error('Error fetching Bepay details by companyId:', error);
+    throw error;
+  }
+};
+
 const getCashfreeAllowByCompanyIdDao = async (id) => {
   try {
     const sql = `
@@ -59,7 +72,8 @@ const getCashfreeAllowByCompanyIdDao = async (id) => {
         CONCAT(first_name, ' ', last_name) AS full_name, 
         COALESCE((config ->> 'allow_cashfree')::boolean, false) AS allow_cashfree,
         COALESCE((config ->> 'allow_zentechind')::boolean, false) AS allow_zentechind,
-        COALESCE((config ->> 'allow_nmplpay')::boolean, false) AS allow_nmplpay
+        COALESCE((config ->> 'allow_nmplpay')::boolean, false) AS allow_nmplpay,
+        COALESCE((config ->> 'allow_razorpay')::boolean, false) AS allow_razorpay,
       FROM "${tableName.COMPANY}"
       WHERE id = $1
     `
@@ -138,6 +152,7 @@ export {
   deleteCompanyDao,
   getCompanyByIDDao,
   getClickrrDetailsByCompanyIdDao,
+  getBepayDetailsByCompanyIdDao,
   getCashfreeAllowByCompanyIdDao,
   updateCompanyConfigDao,
   getCompanyDetailsByIdDao,

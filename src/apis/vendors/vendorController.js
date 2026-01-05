@@ -81,6 +81,7 @@ const getVendorCodes = async (req, res) => {
     excludeDisabledVendor,
     includeSeperateSubVendors,
     includeVendorAdmin,
+    isEnabled,
   } = req.query;
   const filters = { company_id };
   const data = await getVendorsCodeService(
@@ -93,6 +94,7 @@ const getVendorCodes = async (req, res) => {
     excludeDisabledVendor,
     includeSeperateSubVendors,
     includeVendorAdmin,
+    isEnabled,
   );
   // Log success message
   // Send success response
@@ -190,12 +192,12 @@ const getVendorByCode = async (req, res) => {
 };
 
 const linkVendor = async (req, res) => {
-  const { vendorUserId, subVendorUserId } = req.body;
+  const { vendorUserId, subVendorUserId, mediator_payin_commission, mediator_payout_commission } = req.body;
   const { user_id } = req.user;
   if (!vendorUserId || !subVendorUserId) {
     throw new BadRequestError('vendorUserId and subVendorUserId are required');
   }
-  const result = await linkVendorService(vendorUserId, subVendorUserId, user_id);
+  const result = await linkVendorService(vendorUserId, subVendorUserId, user_id, mediator_payin_commission, mediator_payout_commission);
   return sendSuccess(res, result, 'Vendor linked successfully');
 };
 

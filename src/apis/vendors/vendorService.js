@@ -191,6 +191,7 @@ const getVendorsCodeService = async (
   excludeDisabledVendor,
   includeSeperateSubVendors,
   includeVendorAdmin,
+  isEnabled,
 ) => {
   let conn;
   try {
@@ -244,6 +245,7 @@ const getVendorsCodeService = async (
       excludeDisabledVendor,
       includeSeperateSubVendors,
       includeVendorAdmin,
+      isEnabled,
     );
     await commit(conn);
     return codes;
@@ -369,11 +371,11 @@ const updateVendorService = async (ids, payload) => {
          data.user_id,
       );
       if (
-        (userHierarchys.designation === Role.VENDOR_ADMIN)&& (payload.payin_commission > 1 ||
-        payload.payout_commission > 1)
+        (userHierarchys.designation === Role.VENDOR_ADMIN)&& (payload.payin_commission > 5 ||
+        payload.payout_commission > 5)
       ) {
         throw new BadRequestError(
-          'Vendor commission must be less than or equal to 1%.',
+          'Vendor commission must be less than or equal to 5%.',
         );
       }
     }
@@ -533,7 +535,7 @@ const getVendorsByCodeService = async (code) => {
   }
 };
 
-const linkVendorService = async (vendorUserId, subVendorUserId, user_id) => {
+const linkVendorService = async (vendorUserId, subVendorUserId, user_id, mediator_payin_commission, mediator_payout_commission) => {
   let conn;
   try {
     conn = await getConnection();
@@ -549,14 +551,14 @@ const linkVendorService = async (vendorUserId, subVendorUserId, user_id) => {
       );
     }
     if (
-      parent.payin_commission > 1 &&
-      parent.payout_commission > 1
+      parent.payin_commission > 5 &&
+      parent.payout_commission > 5
     ) {
       throw new BadRequestError(
-        'Parent Vendor commission must be less than or equal to 1%.',
+        'Parent Vendor commission must be less than or equal to 5%.',
       );
     }
-    const result = await linkVendorDao(vendorUserId, subVendorUserId, user_id);
+    const result = await linkVendorDao(vendorUserId, subVendorUserId, user_id, mediator_payin_commission, mediator_payout_commission);
     // Change designation to SUB_VENDOR in user table using DAO
     const subVendorDesignationId = await getDesignationIdDao(
       Role.SUB_VENDOR,
@@ -658,11 +660,11 @@ const transferVendorService = async (
       );
     }
     if (
-      parent.payin_commission > 1 &&
-      parent.payout_commission > 1
+      parent.payin_commission > 5 &&
+      parent.payout_commission > 5
     ) {
       throw new BadRequestError(
-        'Parent Vendor commission must be less than or equal to 1%.',
+        'Parent Vendor commission must be less than or equal to 5%.',
       );
     }
     const result = await transferVendorDao(

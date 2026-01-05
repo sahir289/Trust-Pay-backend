@@ -5,7 +5,10 @@ import {
   buildUpdateQuery,
   executeQuery,
 } from '../../utils/db.js';
-import { getUserHierarchyVendor , updateUserHierarchyVendor } from '../userHierarchy/userHierarchyDao.js';
+import {
+  getUserHierarchyVendor,
+  updateUserHierarchyVendor,
+} from '../userHierarchy/userHierarchyDao.js';
 // import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 import { logger } from '../../utils/logger.js';
 import { enhanceVendorsWithSubVendors } from '../../utils/enhanceSubVendor.js';
@@ -52,10 +55,10 @@ export const getVendorsBankReponseDao = async (filters = {}) => {
       LEFT JOIN "${tableName.DESIGNATION}" d ON u.designation_id = d.id 
       WHERE v.is_obsolete = false AND u.is_obsolete = false
     `;
-    
+
     const params = [];
     let paramIndex = 1;
-    
+
     // Handle filters manually
     if (filters.user_id) {
       if (Array.isArray(filters.user_id)) {
@@ -67,21 +70,21 @@ export const getVendorsBankReponseDao = async (filters = {}) => {
       }
       paramIndex++;
     }
-    
+
     if (filters.company_id) {
       sql += ` AND v.company_id = $${paramIndex}`;
       params.push(filters.company_id);
       paramIndex++;
     }
-    
+
     if (filters.code) {
       sql += ` AND v.code = $${paramIndex}`;
       params.push(filters.code);
       paramIndex++;
     }
-    
+
     sql += ` ORDER BY v.created_at DESC`;
-    
+
     const result = await executeQuery(sql, params);
     return result.rows || [];
   } catch (error) {
@@ -115,6 +118,7 @@ export const getVendorsCodeDao = async (
   excludeDisabledVendor = false,
   includeSeperateSubVendors = false,
   includeVendorAdmin = false,
+  isEnabled = false,
 ) => {
   try {
     // Convert string to boolean
@@ -124,14 +128,16 @@ export const getVendorsCodeDao = async (
     if (includeOnlyVendors) {
       includeOnlyVendors = includeOnlyVendors.toLowerCase() === 'true';
     }
-    if (includeVendorAdmin) { 
+    if (includeVendorAdmin) {
       includeVendorAdmin = includeVendorAdmin.toLowerCase() === 'true';
     }
     if (includeSeperateSubVendors) {
       includeSeperateSubVendors =
         includeSeperateSubVendors.toLowerCase() === 'true';
     }
-
+    if (isEnabled) {
+      isEnabled = isEnabled.toLowerCase() === 'true';
+    }
     let sql = `
       SELECT 
         v.code AS label, 
@@ -176,8 +182,8 @@ export const getVendorsCodeDao = async (
 
     const queryParams = [];
     let paramIndex = 1;
-     if (includeVendorAdmin && includeOnlyVendors && includeSubVendors) {
-       sql += `
+    if (includeVendorAdmin && includeOnlyVendors && includeSubVendors) {
+      sql += `
          AND v.user_id IN (
              SELECT u.id 
              FROM "${tableName.USER}" u
@@ -186,9 +192,8 @@ export const getVendorsCodeDao = async (
              WHERE d.designation IN ('VENDOR_ADMIN','VENDOR','SUB_VENDOR')  
          )
        `;
-     }
-     else if (includeVendorAdmin && includeOnlyVendors) {
-       sql += `
+    } else if (includeVendorAdmin && includeOnlyVendors) {
+      sql += `
          AND v.user_id IN (
              SELECT u.id 
              FROM "${tableName.USER}" u
@@ -197,8 +202,8 @@ export const getVendorsCodeDao = async (
              WHERE d.designation IN ('VENDOR_ADMIN', 'VENDOR')  
          )
        `;
-     } else if (includeOnlyVendors && !includeVendorAdmin) {
-       sql += `
+    } else if (includeOnlyVendors && !includeVendorAdmin) {
+      sql += `
       AND v.user_id IN (
           SELECT u.id 
           FROM "${tableName.USER}" u
@@ -207,8 +212,8 @@ export const getVendorsCodeDao = async (
           WHERE d.designation = 'VENDOR'
         )
       `;
-     } else if (includeVendorAdmin && !includeOnlyVendors) {
-       sql += `
+    } else if (includeVendorAdmin && !includeOnlyVendors) {
+      sql += `
       AND v.user_id IN (
           SELECT u.id 
           FROM "${tableName.USER}" u
@@ -217,8 +222,8 @@ export const getVendorsCodeDao = async (
           WHERE d.designation = 'VENDOR_ADMIN'
         )
       `;
-     } else {
-       sql += `
+    } else {
+      sql += `
       AND v.user_id IN (
           SELECT u.id 
           FROM "${tableName.USER}" u
@@ -227,7 +232,10 @@ export const getVendorsCodeDao = async (
           WHERE d.designation != 'VENDOR_ADMIN'
       )
     `;
-     }
+    }
+    if (isEnabled) {
+      sql += ` AND (v.config->>'is_enabled')::boolean = true`;
+    }
 
     if (filters.company_id) {
       sql += ` AND v.company_id = $${paramIndex++}`;
@@ -383,6 +391,7 @@ export const getVendorByIdDao = async (user_id, company_id) => {
         v.id, 
         v.user_id, 
         v.payout_commission, 
+        v.config,
         d.designation AS designation_name
     FROM "${tableName.VENDOR}" v
     JOIN "User" u ON v.user_id = u.id
@@ -399,7 +408,7 @@ export const getVendorByIdDao = async (user_id, company_id) => {
     logger.error('Error fetching vendor by ID:', error);
     throw error;
   }
-}
+};
 
 export const getVendorIdsByUserIds = async (user_ids) => {
   try {
@@ -414,7 +423,7 @@ export const getVendorIdsByUserIds = async (user_ids) => {
         AND is_obsolete = false
     `;
     const result = await executeQuery(query, ids);
-    return result.rows.map(row => row.id);
+    return result.rows.map((row) => row.id);
   } catch (error) {
     logger.error('Error in getVendorIdsByUserIds:', error);
     throw error;
@@ -562,6 +571,7 @@ export const getVendorsBySearchDao = async (
         `"Vendor".company_id`,
         `"Vendor".config`,
         `COALESCE("Vendor".config->>'is_owned') AS is_owned`,
+        `COALESCE(NULLIF("Vendor".config->>'is_enabled', ''), 'false')::boolean AS is_enabled`, //Empty string '' casts to true; NULLIF prevents that bug.
         `"user_main".designation_id`,
         `u.user_name AS created_by`,
         `uu.user_name AS updated_by`,
@@ -986,10 +996,15 @@ const updateSubCodeWithHistory = (vendorConfig, newSubCode) => ({
   sub_code: newSubCode,
 });
 
-
 //linkVendorDao links a sub-vendor to a parent vendor
 
-export const linkVendorDao = async (vendorUserId, subVendorUserId, user_id) => {
+export const linkVendorDao = async (
+  vendorUserId,
+  subVendorUserId,
+  user_id,
+  mediator_payin_commission,
+  mediator_payout_commission,
+) => {
   try {
     const parentConfig = await getUserHierarchyVendor(vendorUserId);
     const childConfig = await getUserHierarchyVendor(subVendorUserId);
@@ -1010,7 +1025,12 @@ export const linkVendorDao = async (vendorUserId, subVendorUserId, user_id) => {
         await getVendorConfig(subVendorUserId);
       const subCode = buildSubCode(parentCode, childCode);
 
-      const updatedVendorConfig = { ...vendorConfig, sub_code: subCode };
+      const updatedVendorConfig = {
+        ...vendorConfig,
+        sub_code: subCode,
+        mediator_payin_commission: mediator_payin_commission,
+        mediator_payout_commission: mediator_payout_commission,
+      };
       await updateVendorConfig(subVendorUserId, updatedVendorConfig, user_id);
     }
 
@@ -1062,7 +1082,8 @@ export const transferVendorDao = async (
   user_id,
 ) => {
   try {
-    const currentParentConfig = await getUserHierarchyVendor(currentVendorUserId);
+    const currentParentConfig =
+      await getUserHierarchyVendor(currentVendorUserId);
     const newParentConfig = await getUserHierarchyVendor(newVendorUserId);
     const childConfig = await getUserHierarchyVendor(vendorUserId);
     const updatedCurrentConfig = removeSubVendorFromParent(
@@ -1112,4 +1133,4 @@ export const getVendorByUserId = async (user_id) => {
     logger.error('Error fetching vendor by user_id:', error);
     throw error;
   }
-}
+};
