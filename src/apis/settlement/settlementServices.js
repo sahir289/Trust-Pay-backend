@@ -149,16 +149,16 @@ const updateParentVendorSettlementCalculation = async (
   conn = null,
 ) => {
   try {
-    logger.info(
-      `Settlement: updateParentVendorSettlementCalculation called with: parentUserId=${parentUserId}, amount=${amount}, rate=${vendorCommissionRate}, isApproved=${isApproved}`,
-    );
+    logger.info(`Settlement: updateParentVendorSettlementCalculation called with: parentUserId=${parentUserId}, amount=${amount}, rate=${vendorCommissionRate}, isApproved=${isApproved}`);
+    // Ensure numeric inputs to avoid NaN being persisted to DB
+    const safeAmount = Number(amount) || 0;
+    let safeRate = Number(vendorCommissionRate);
+    if (!Number.isFinite(safeRate)) safeRate = 0;
 
-    const parentCommission = calculateCommission(amount, vendorCommissionRate);
-
-    logger.info(
-      `Settlement: Calculated parent commission: ${parentCommission}`,
-    );
-
+    const parentCommission = calculateCommission(safeAmount, safeRate);
+    
+    logger.info(`Settlement: Calculated parent commission: ${parentCommission}`);
+    
     // Get parent calculation data
     const parentCalculationData = await getCalculationforCronDao(
       parentUserId,

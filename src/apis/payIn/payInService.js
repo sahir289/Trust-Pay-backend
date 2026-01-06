@@ -400,7 +400,7 @@ export const generatePayInUrlService = async (payload, role, userIp) => {
     }
 
     const data = {
-      upi_short_code: nanoid(5),
+      upi_short_code: nanoid(10),
       amount: amount || 0,
       status: Status.INITIATED,
       currency: Currency.INR,
@@ -2533,7 +2533,12 @@ export const processPayInByImageService = async (payload) => {
       };
       return { error: `This payin url is already used`, result };
     }
-    if (!content || !content.utr) {
+    const isUtrMissing =
+      !content ||
+      content.utr === null ||
+      content.utr === undefined ||
+      content.utr === '';
+    if (isUtrMissing) {
       const duration = calculateDuration(payInData.created_at);
       const payIn = await updatePayInUrlDao(
         payInData.id,
@@ -2545,10 +2550,11 @@ export const processPayInByImageService = async (payload) => {
           user_submitted_image: payload.fileKey,
           duration,
         },
-        undefined,
+        null,
         conn,
       );
-
+      await commit(conn);
+      committed = true;
       return {
         status: 'IMG_PENDING',
         amount: payload.amount,

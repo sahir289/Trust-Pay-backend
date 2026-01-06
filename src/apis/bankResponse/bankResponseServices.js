@@ -221,7 +221,7 @@ const createBankResponseService = async (
     const isValidAmountCode = !!(
       upi_short_code &&
       upi_short_code !== 'nil' &&
-      upi_short_code.length === 5
+      upi_short_code.length === 10
     );
 
     const acceptedStatus = [
@@ -251,7 +251,9 @@ const createBankResponseService = async (
       ),
       isValidAmountCode
         ? getCheckBankResponseDao(
-            { upi_short_code, company_id },
+          {
+            upi_short_code,company_id
+          },
             null,
             conn,
           ).then(
@@ -458,12 +460,9 @@ const createBankResponseService = async (
         ]);
 
         if (getDataByUtr) {
-          // Normalize result: some DAOs return an object with `rows`,
-          // others return an array. Ensure we always work with an array.
-          const rowsArray = Array.isArray(getDataByUtr)
-            ? getDataByUtr
-            : getDataByUtr.rows || [];
-          const botUtrIsUsed = rowsArray.length > 1 && rowsArray.some((item) => item.is_used);
+          const botUtrIsUsed =
+            getDataByUtr.rows?.length > 1 &&
+            getDataByUtr.some((item) => item.is_used);
           if (!acceptedStatus.includes(payInUtr.status) && botUtrIsUsed) {
             await commit(conn);
             committed = true;
@@ -1033,7 +1032,7 @@ const createBankResponseWebHookService = async (
     const isValidAmountCode = !!(
       upi_short_code &&
       upi_short_code !== 'nil' &&
-      upi_short_code.length === 5
+      upi_short_code.length === 10
     );
 
     if (
