@@ -1,8 +1,9 @@
 import Redis from 'ioredis';
 import { logger } from './logger.js';
 import chalk from 'chalk';
+import config from '../config/config.js';
 
-const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
+const redisUrl = config.redis?.url || 'redis://localhost:6379';
 
 const redisClient = new Redis(redisUrl);
 

@@ -11,7 +11,6 @@ import {
 } from './userService.js';
 import { CREATE_USER_SCHEMA } from '../../schemas/userSchema.js';
 import { ValidationError } from '../../utils/appErrors.js';
-import { transactionWrapper } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
 import { getUsersContactDao } from './userDao.js';
 const getUsers = async (req, res) => {
@@ -88,7 +87,7 @@ const createUser = async (req, res) => {
   payload.company_id = company_id;
   payload.created_by = user_id;
   payload.updated_by = user_id;
-  const user = await transactionWrapper(createUserService)(
+  const user = await createUserService(
     payload,
   );
   return sendSuccess(
@@ -104,7 +103,7 @@ const updateUser = async (req, res) => {
   payload.updated_by = user_id;
   const id = req.params.id;
   const ids = { id, company_id };
-  const user = await transactionWrapper(userUpdateService)(ids, payload);
+  const user = await userUpdateService(ids, payload);
   return sendSuccess(
     res,
     { id: user.id, updated_by: user_name },

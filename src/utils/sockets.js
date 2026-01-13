@@ -1,17 +1,16 @@
 import { Server } from 'socket.io';
+import { createAdapter } from '@socket.io/redis-adapter';
+import { createClient } from 'redis'; // Official redis package for Socket.IO
 import config from '../config/config.js';
 import chalk from 'chalk';
 import { logger } from './logger.js';
-// import {
-//   getBankaccountDao,
-//   updateBankaccountDao,
-// } from '../apis/bankAccounts/bankaccountDao.js';
-// import { getUserByIdDao } from '../apis/users/userDao.js';
 
 const userSockets = new Map();
 let ioInstance = null;
+let socketRedisPub = null; // Separate Redis clients for Socket.IO only
+let socketRedisSub = null;
 
-const initializeSocket = (server) => {
+const initializeSocket = async (server) => {
   ioInstance = new Server(server, {
     transports: ['websocket', 'polling'],
     cors: {
@@ -19,6 +18,30 @@ const initializeSocket = (server) => {
       methods: ['GET', 'POST'],
     },
   });
+
+  // Configure Redis adapter for PM2 cluster mode 
+  // (Separate from ioredis used in business logic)
+  try {
+    const redisUrl = config.redis?.url || 'redis://localhost:6379';
+    
+    // Create dedicated Redis clients for Socket.IO adapter
+    socketRedisPub = createClient({ url: redisUrl });
+    socketRedisSub = socketRedisPub.duplicate();
+
+    // Connect both clients
+    await Promise.all([socketRedisPub.connect(), socketRedisSub.connect()]);
+
+    // Setup adapter
+    ioInstance.adapter(createAdapter(socketRedisPub, socketRedisSub));
+    logger.info('[SOCKET] Redis adapter configured for PM2 cluster mode');
+
+    // Handle Redis adapter errors
+    socketRedisPub.on('error', (err) => logger.error('[SOCKET] Redis pub client error:', err));
+    socketRedisSub.on('error', (err) => logger.error('[SOCKET] Redis sub client error:', err));
+  } catch (error) {
+    logger.error('[SOCKET] Failed to setup Redis adapter:', error);
+    logger.warn('[SOCKET] Socket.IO running without Redis adapter - will NOT work in cluster mode!');
+  }
 
   ioInstance.on('connection', (socket) => {
     socket.on('connect', () => {
@@ -314,16 +337,16 @@ const initializeSocket = (server) => {
           `[SOCKET] User login event received for userId: ${userId}, sessionId: ${sessionId}, socketId: ${socket.id}`,
         ),
       );
-      logger.log(
-        chalk.cyan(
-          `[SOCKET] Config origins: Front=${config?.reactFrontOrigin}, Payment=${config?.reactPaymentOrigin}`,
-        ),
-      );
-      logger.log(
-        chalk.yellow(
-          `[SOCKET] Socket origin: ${socket.handshake.headers.origin || 'N/A'}, Referer: ${socket.handshake.headers.referer || 'N/A'}`,
-        ),
-      );
+      // logger.log(
+      //   chalk.cyan(
+      //     `[SOCKET] Config origins: Front=${config?.reactFrontOrigin}, Payment=${config?.reactPaymentOrigin}`,
+      //   ),
+      // );
+      // logger.log(
+      //   chalk.yellow(
+      //     `[SOCKET] Socket origin: ${socket.handshake.headers.origin || 'N/A'}, Referer: ${socket.handshake.headers.referer || 'N/A'}`,
+      //   ),
+      // );
 
       // Store socket metadata for better tracking - ensure binding happens only once
       if (!socket.userId) {
@@ -473,23 +496,8 @@ const initializeSocket = (server) => {
         // Add this socket to our tracking map - only track the new socket
         userSockets.set(userId, [socket.id]);
 
-        // Ultra-aggressive cleanup - INSTANT socket operations
-        setTimeout(async () => {
-          try {
-            // Force logout other sessions immediately for maximum aggressiveness
-            await forceLogoutUser(userId, null, sessionId);
-
-            logger.log(
-              chalk.bgMagenta.white(
-                `[SOCKET] Instant socket cleanup completed for user ${userId}`,
-              ),
-            );
-          } catch (cleanupError) {
-            logger.error(
-              `[SOCKET] Error in socket cleanup: ${cleanupError.message}`,
-            );
-          }
-        }, 10); // 10ms ultra-fast cleanup
+        // Note: Removed ultra-aggressive cleanup timeout
+        // The instant pre-termination logic above already handles this
 
         const loginMessage = chalk.bold.green(
           `[SOCKET] User ${userId} logged in with socket ${socket.id}, ${userActiveSockets.length} old sessions terminated`,
@@ -574,7 +582,7 @@ const initializeSocket = (server) => {
   const lastCleanupState = new Map(); // Track last state to prevent spam logging
   const lastCleanupAction = new Map(); // Track when actual cleanup actions occurred
 
-  setInterval(async () => {
+  const cleanupInterval = setInterval(async () => {
     try {
       if (!ioInstance) return;
 
@@ -769,6 +777,52 @@ const initializeSocket = (server) => {
       logger.error(`[SOCKET] Error in cleanup: ${error.message}`);
     }
   }, 5000); // Check every 5 seconds
+
+  // Store cleanup interval for graceful shutdown
+  if (!ioInstance._cleanupInterval) {
+    ioInstance._cleanupInterval = cleanupInterval;
+  }
+};
+
+export const shutdownSocket = async () => {
+  if (ioInstance) {
+    // Clear cleanup interval
+    if (ioInstance._cleanupInterval) {
+      clearInterval(ioInstance._cleanupInterval);
+    }
+
+    // Close all connections
+    const allSockets = await ioInstance.fetchSockets();
+    await Promise.all(
+      allSockets.map((socket) =>
+        socket.disconnect(true).catch((err) => logger.error('[SOCKET] Disconnect error:', err))
+      )
+    );
+
+    // Close Socket.IO server
+    await new Promise((resolve) => {
+      ioInstance.close(() => {
+        logger.info('[SOCKET] Socket.IO server closed');
+        resolve();
+      });
+    });
+
+    ioInstance = null;
+  }
+
+  // Close Socket.IO dedicated Redis clients
+  try {
+    if (socketRedisPub?.isOpen) {
+      await socketRedisPub.quit();
+      logger.info('[SOCKET] Redis pub client closed');
+    }
+    if (socketRedisSub?.isOpen) {
+      await socketRedisSub.quit();
+      logger.info('[SOCKET] Redis sub client closed');
+    }
+  } catch (err) {
+    logger.error('[SOCKET] Error closing Redis clients:', err);
+  }
 };
 
 const forceLogoutUser = async (

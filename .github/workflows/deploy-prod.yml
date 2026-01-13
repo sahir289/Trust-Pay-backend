@@ -81,5 +81,5 @@ jobs:
           echo "Testing SSH connection..."
           ssh -o StrictHostKeyChecking=no -i private_key $USER@$HOST "whoami" || { echo "SSH connection failed"; exit 1; }
           echo "Deploying to EC2..."
-          ssh -o StrictHostKeyChecking=no -i private_key $USER@$HOST "cd '$TARGET_DIR' && pwd && sudo git fetch origin && sudo git status && sudo git pull origin main --verbose && git log -1 --oneline && sudo npm install && pm2 reload all --update-env" || { echo "Deployment failed"; exit 1; }
+          ssh -o StrictHostKeyChecking=no -i private_key $USER@$HOST "cd '$TARGET_DIR' && pwd && sudo git fetch origin && sudo git status && sudo git pull origin main --verbose && git log -1 --oneline && sudo npm install && pm2 delete trust-pay-backend || true && pm2 start ecosystem.config.cjs --env production" || { echo "Deployment failed"; exit 1; }
           rm -f private_key

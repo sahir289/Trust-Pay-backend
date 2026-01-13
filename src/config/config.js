@@ -11,8 +11,8 @@ function config(Env) {
     },
     aws: {
       region: Env?.AWS_REGION || 'us-east-1',
-      accessKeyId: Env?.ACCESS_KEY,
-      secretAccessKey: Env.secretKeyS3,
+      accessKeyId: Env?.AWS_ACCESS_KEY_ID,
+      secretAccessKey: Env?.AWS_SECRET_ACCESS_KEY,
       cloudWatchLogGroup: Env?.AWS_LOG_GROUP_NAME,
     },
     jwt: {
@@ -41,8 +41,11 @@ function config(Env) {
     ocr: {
       url: Env?.OCR_URL,
     },
+    redis: {
+      url: Env?.REDIS_URL || 'redis://localhost:6379',
+    },
     rateLimiter: {
-      points: parseInt(Env?.RATE_LIMIT_POINTS) || 20,
+      points: parseInt(Env?.RATE_LIMIT_POINTS) || 300, // Increased to 300 req/min (5 req/sec)
       duration: parseInt(Env?.RATE_LIMIT_DURATION) || 60,
       blockDuration: parseInt(Env?.RATE_LIMIT_BLOCK_DURATION) || 30,
     },
@@ -80,6 +83,16 @@ function config(Env) {
       walletBalance: Env?.CLICKRR_WALLET_BALANCE_API_URL,
       apiKey: Env?.CLICKRR_API_KEY,
       apiSecret: Env?.CLICKRR_API_SECRET,
+    },
+    payAssist : {
+      baseUrl: Env?.PAY_ASSIST_API_URL,
+    },
+    tataPay : {
+      baseUrl: Env?.TATA_PAY_BASE_API_URL,
+      bulkUrl: Env?.TATA_PAY_BULK_API_URL,
+    },
+    rupeeFlow : {
+      baseUrl: Env?.RUPEE_FLOW_BASE_API_URL,
     },
     openStreetApi:{
       openStreetMapUrl: Env?.OPEN_STREET_MAP_URL,
