@@ -79,10 +79,9 @@ const _createChargeBackServiceInternal = async (
       Array.isArray(existingBlockedUsers) && existingBlockedUsers[0]?.user_ip
         ? { user_ip: existingBlockedUsers[0].user_ip }
         : { user_ip: [] };
-
-    const userIp = PayinDetails[0]?.user_ip?.trim();
-    const isAlreadyBlocked =
-      userIp && companyBlockedUsersObj?.user_ip.includes(userIp);
+        const userIp = PayinDetails[0]?.user_ip?.trim();
+        const isAlreadyBlocked =
+          userIp && companyBlockedUsersObj?.user_ip.includes(userIp);
     let updatedCompanyBlockedUsers;
     if (!isAlreadyBlocked && userIp) {
       updatedCompanyBlockedUsers = {
