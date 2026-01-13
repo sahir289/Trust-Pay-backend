@@ -104,6 +104,11 @@ export const getPayoutsDao = async (
   conn,
 ) => {
   try {
+    // Ensure sortOrder has a valid value
+    if (!sortOrder) {
+      sortOrder = 'DESC';
+    }
+
     if (typeof company_id === 'string') {
       company_id = company_id.trim();
     }

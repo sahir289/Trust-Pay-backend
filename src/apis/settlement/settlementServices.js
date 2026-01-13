@@ -490,6 +490,30 @@ const _createSettlementServiceInternal = async (payload, role, conn) => {
   // Early return for non-internal transfers without reference_id
   if (!isInternalTransfer || !payload.config?.reference_id) {
     const result = await createSettlementDao(payload, conn);
+
+    // Emit socket event for new settlement
+    const settlementResponseObj = {
+      id: result.id,
+      sno: result.sno || null,
+      user_id: result.user_id || null,
+      status: result.status || null,
+      amount: result.amount || 0,
+      method: result.method || null,
+      config: result.config || {},
+      approved_at: result.approved_at || null,
+      rejected_at: result.rejected_at || null,
+      created_by: result.created_by || '',
+      updated_by: result.updated_by || '',
+      created_at: result.created_at,
+      updated_at: result.updated_at,
+      code: result.code || null,
+    };
+    setImmediate(() => {
+      newTableEntry(tableName.SETTLEMENT, settlementResponseObj).catch((err) =>
+        logger.error('Socket emit failed for settlement:', err),
+      );
+    });
+
     return result;
   }
 
@@ -643,7 +667,31 @@ const handleVendorInternalTransferByAdmin = async (
       true,
     );
   }
-  return await createSettlementDao(payload, conn);
+  const settlementResult = await createSettlementDao(payload, conn);
+
+  // Emit socket event for new settlement
+  const settlementResponseObj = {
+    id: settlementResult.id,
+    sno: settlementResult.sno,
+    amount: settlementResult.amount,
+    status: settlementResult.status,
+    method: settlementResult.method,
+    user_id: settlementResult.user_id,
+    company_id: settlementResult.company_id,
+    role: settlementResult.role,
+    created_at: settlementResult.created_at,
+    updated_at: settlementResult.updated_at,
+    created_by: settlementResult.created_by,
+    approved_at: settlementResult.approved_at,
+    config: settlementResult.config,
+  };
+  setImmediate(() => {
+    newTableEntry(tableName.SETTLEMENT, settlementResponseObj).catch((err) =>
+      logger.error('Socket emit failed for settlement:', err),
+    );
+  });
+
+  return settlementResult;
 };
 
 // Helper function for internal transfers from vendors
@@ -662,7 +710,32 @@ const handleVendorInternalTransfer = async (payload, conn) => {
       : Math.abs(amount);
   }
 
-  return await createSettlementDao(payload, conn);
+  const settlementResult = await createSettlementDao(payload, conn);
+
+  // Emit socket event for new settlement
+  const settlementResponseObj = {
+    id: settlementResult.id,
+    sno: settlementResult.sno || null,
+    user_id: settlementResult.user_id || null,
+    status: settlementResult.status || null,
+    amount: settlementResult.amount || 0,
+    method: settlementResult.method || null,
+    config: settlementResult.config || {},
+    approved_at: settlementResult.approved_at || null,
+    rejected_at: settlementResult.rejected_at || null,
+    created_by: settlementResult.created_by || '',
+    updated_by: settlementResult.updated_by || '',
+    created_at: settlementResult.created_at,
+    updated_at: settlementResult.updated_at,
+    code: settlementResult.code || null,
+  };
+  setImmediate(() => {
+    newTableEntry(tableName.SETTLEMENT, settlementResponseObj).catch((err) =>
+      logger.error('Socket emit failed for settlement:', err),
+    );
+  });
+
+  return settlementResult;
 };
 
 // Helper function to get config based on method
@@ -1278,6 +1351,29 @@ const _updateSettlementServiceInternal = async (ids, payload, conn) => {
     payload,
     conn,
   );
+
+  // Emit socket event for updated settlement
+  const settlementResponseObj = {
+    id: updateData.id,
+    sno: updateData.sno || null,
+    user_id: updateData.user_id || null,
+    status: updateData.status || null,
+    amount: updateData.amount || 0,
+    method: updateData.method || null,
+    config: updateData.config || {},
+    approved_at: updateData.approved_at || null,
+    rejected_at: updateData.rejected_at || null,
+    created_by: updateData.created_by || '',
+    updated_by: updateData.updated_by || '',
+    created_at: updateData.created_at,
+    updated_at: updateData.updated_at,
+    code: updateData.code || null,
+  };
+  setImmediate(() => {
+    newTableEntry(tableName.SETTLEMENT, settlementResponseObj).catch((err) =>
+      logger.error('Socket emit failed for settlement update:', err),
+    );
+  });
 
   // Update calculation config for success/reversed status
   if (
