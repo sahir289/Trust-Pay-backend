@@ -72,14 +72,13 @@ const createChargeBackService = async (
       Array.isArray(existingBlockedUsers) && existingBlockedUsers[0]?.user_ip
         ? { user_ip: existingBlockedUsers[0].user_ip }
         : { user_ip: [] };
-
-    const isAlreadyBlocked = companyBlockedUsersObj.user_ip.includes(
-      PayinDetails[0].user_ip.trim(),
-    );
+        const userIp = PayinDetails[0]?.user_ip?.trim();
+        const isAlreadyBlocked =
+          userIp && companyBlockedUsersObj?.user_ip.includes(userIp);
     let updatedCompanyBlockedUsers;
-    if (!isAlreadyBlocked) {
+    if (!isAlreadyBlocked && userIp) {
       updatedCompanyBlockedUsers = {
-        user_ip: [...companyBlockedUsersObj.user_ip, PayinDetails[0].user_ip],
+        user_ip: [...companyBlockedUsersObj.user_ip, userIp],
       };
     } else {
       updatedCompanyBlockedUsers = companyBlockedUsersObj;
