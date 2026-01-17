@@ -70,7 +70,7 @@ import {
   createClickrrPayout,
   getClickrrWalletBalance,
 } from '../../clickrr/clickrr.js';
-import { createPayAssistPayout } from '../../payassist/payassist.js';
+import { createPayAssistPayout, getPayAssistWalletBalance } from '../../payassist/payassist.js';
 import { createTataPayPayout } from '../../tatapay/tatapay.js';
 import {
   createRupeeFlowBulkPayout,
@@ -193,11 +193,9 @@ const _createPayoutServiceInternal = async (
     const details = await getMerchantsByCodeDao(code);
 
     if (!details[0] || details[0].length === 0) {
-      const data = {
-        status: 404,
-        message: 'Merchant is inactive. Contact support for help!',
-      };
-      return data;
+      const error = new BadRequestError('Merchant is inactive. Contact support for help!');
+      error.statusCode = 404;
+      throw error;
     }
 
     if (details[0]?.config?.whitelist_ips && role !== Role.ADMIN) {
@@ -213,26 +211,13 @@ const _createPayoutServiceInternal = async (
       } else {
         whitelist = [];
       }
-      // Check if userIp is in whitelist (if whitelist is not empty)
-      if (
-        whitelist.length &&
-        !whitelist.includes(userIp) &&
-        role !== Role.ADMIN
-      ) {
-        const data = {
-          status: 400,
-          message: 'IP not whitelisted',
-        };
-        return data;
+      if (whitelist.length && !whitelist.includes(userIp) && role !== Role.ADMIN) {
+        throw new BadRequestError('IP not whitelisted');
       }
     }
 
     if (details[0]?.balance < 0 && !details[0]?.config?.allow_payout) {
-      const data = {
-        status: 400,
-        message: 'Merchant balance is less than payout amount',
-      };
-      return data;
+      throw new BadRequestError('Merchant balance is less than payout amount');
     }
 
     const { config, user_id } = details[0];
@@ -262,60 +247,25 @@ const _createPayoutServiceInternal = async (
     );
 
     if (isOrderIdExist) {
-      const data = {
-        status: 400,
-        message: 'Merchant Order ID already exists',
-      };
-      return data;
+      throw new BadRequestError('Merchant Order ID already exists');
     }
 
     if (!x_api_key || !merchantAPIKey) {
-      const data = {
-        status: 404,
-        message: 'Enter valid Api key',
-      };
-      return data;
+      throw new NotFoundError('Enter valid Api key');
     }
 
     if (
       x_api_key !== merchantAPIKey?.private &&
       x_api_key !== merchantAPIKey?.public
     ) {
-      const data = {
-        status: 404,
-        message: 'Enter valid Api key',
-      };
-      return data;
+      throw new NotFoundError('Enter valid Api key');
     }
     if (
       (amount < details[0].min_payout || amount > details[0].max_payout) &&
       role !== Role.ADMIN
     ) {
-      const data = {
-        status: 400,
-        message: `Amount should be between ${details[0].min_payout} and ${details[0].max_payout}`,
-      };
-      return data;
+      throw new BadRequestError(`Amount should be between ${details[0].min_payout} and ${details[0].max_payout}`);
     }
-
-    // if (payload.merchant_order_id) {
-    //   const data = await getPayoutsDao(
-    //     { merchant_order_id: merchant_order_id },
-    //     payload.company_id,
-    //     null,
-    //     null,
-    //     'DESC',
-    //     role,
-    //     conn,
-    //   );
-    //   if (data.length > 0) {
-    //     const data = {
-    //       status: 400,
-    //       message: 'Merchant Order ID already exists',
-    //     };
-    //     return data;
-    //   }
-    // }
 
     delete payload.x_api_key;
     let data = await createPayoutDao(payload, conn);
@@ -324,24 +274,47 @@ const _createPayoutServiceInternal = async (
       const { totalNetBalance } = await getCalculationDao({ user_id });
 
       if (totalNetBalance < payoutAmount) {
-        const data = {
-          status: 400,
-          message: 'Insufficient Balance to create Payout',
-        };
-        return data;
+        throw new BadRequestError('Insufficient Balance to create Payout');
       }
       const ekoBalanceEnquiry = await ekoWalletBalanceEnquiryInternally();
       if (Number(ekoBalanceEnquiry.data.balance) < payoutAmount) {
-        const data = {
-          status: 400,
-          message: 'Insufficient Balance in Wallet',
-        };
-        return data;
+        throw new BadRequestError('Insufficient Balance in Wallet');
       }
     }
 
-    const { allow_clickrr, clickrr_auto_approval_limit } =
+    const { allow_clickrr, clickrr_auto_approval_limit, allow_payassist, payassist_auto_approval_limit } =
       details[0]?.config || {};
+
+    if (allow_payassist) {
+      const ids = { id: data.id, company_id: payload.company_id };
+      const payassistWalletBalance = await getPayAssistWalletBalance({
+        company_id: payload.company_id,
+      });
+      let updatedData;
+      if (Number(payoutAmount) < Number(payassist_auto_approval_limit)) {
+        if (
+          
+          Number(payassistWalletBalance?.data?.walletBalance) <
+          Number(payoutAmount)
+        ) {
+          data = {
+            status: 201,
+            message: 'Insufficient Balance in Wallet',
+          };
+          return data;
+        }
+        // specific to clickrr max payout limit
+        const updatedPayload = { config: { method: 'PAYASSIST' } };
+        // Use the DAO directly since we're already in a transaction
+        updatedData = await _updatePayoutServiceInternal(
+          ids,
+          updatedPayload,
+          role,
+          conn,
+        );
+        data = updatedData;
+      }
+    }
 
     if (allow_clickrr) {
       const ids = { id: data.id, company_id: payload.company_id };
@@ -375,11 +348,7 @@ const _createPayoutServiceInternal = async (
     }
 
     if (!code) {
-      const data = {
-        status: 404,
-        message: 'Merchant does not exist',
-      };
-      return data;
+      throw new NotFoundError('Merchant does not exist');
     }
 
     // const finalResult = filterResponse(data, filterColumns);
