@@ -75,14 +75,45 @@ export const connectRabbitMQ = async (rabbitConfig = config.rabbitmq) => {
   }
 };
 
-const reconnectRabbitMQ = async () => {
+const cleanup = () => {
   try {
-    channel = null;
-    connection = null;
+    channel?.close();
+  } catch (error) {
+    logger.error('Error closing RabbitMQ channel during cleanup:', error);
+  }
+
+  try {
+    connection?.close();
+  } catch (error) {
+    logger.error('Error closing RabbitMQ connection during cleanup:', error);
+  }
+
+  channel = null;
+  connection = null;
+};
+
+let isReconnecting = false;
+
+const reconnectRabbitMQ = async () => {
+  if (isReconnecting) return;
+  isReconnecting = true;
+
+  cleanup();
+
+  logger.warn('Reconnecting to RabbitMQ in 5s...');
+  await new Promise((resolve) => setTimeout(resolve, 5000));
+
+  try {
     await connectRabbitMQ();
   } catch (err) {
     logger.error('RabbitMQ reconnection failed, retrying...', err.message);
-    setTimeout(reconnectRabbitMQ, config.rabbitmq.retryDelay);
+    setTimeout(() => {
+      isReconnecting = false;
+      reconnectRabbitMQ();
+    }, config.rabbitmq.retryDelay);
+    return;
+  } finally {
+    if (isReconnecting) isReconnecting = false;
   }
 };
 
