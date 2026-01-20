@@ -138,7 +138,7 @@ export const generatePayInUrl = async (req, res) => {
 
   let updateRes;
 
-  if (result.merchant?.is_h2h) {
+  if (result.merchant?.h2h) {
     updateRes = {
       ...baseRes,
       bank: result?.bank,
