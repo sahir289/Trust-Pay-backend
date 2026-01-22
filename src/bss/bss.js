@@ -119,6 +119,9 @@ export async function rechargeWallet(req) {
       timeout: 15000,
     });
     console.log(response.data, "responseeeee");
+    if (response.data.code === 'ERR') {
+      throw new BadRequestError(response.data.mess);
+    }
     logger.log('BSS recharge initiated successfully:', {
       mobile: MobileNo,
       amount: Amount,
