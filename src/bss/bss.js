@@ -91,7 +91,8 @@ export const initiateBSSPayout = async (payload, company_id) => {
   }
 }
 
-export async function rechargeWallet(payload) {
+export async function rechargeWallet(req) {
+  const payload = req.body;
   try {
     const {
       APIID,
@@ -103,7 +104,7 @@ export async function rechargeWallet(payload) {
       Amount,
     } = payload;
 
-    const url = `${baseUrl}/rechargeapi`;
+    const url = `${baseUrl}rechargeapi`;
 
     const response = await axios.get(url, {
       params: {
@@ -117,7 +118,7 @@ export async function rechargeWallet(payload) {
       },
       timeout: 15000,
     });
-
+    console.log(response.data, "responseeeee");
     logger.log('BSS recharge initiated successfully:', {
       mobile: MobileNo,
       amount: Amount,
