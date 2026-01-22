@@ -65,19 +65,6 @@ const getBSSDetailsByCompanyIdDao = async (id) => {
     const sql = `SELECT config -> 'BSS' ->> 'api_key' AS api_key,
     config -> 'BSS' ->> 'api_secret' AS api_secret FROM "${tableName.COMPANY}" WHERE id = $1`;
     const queryParams = [id];
-    const result = await executeQuery(sql, queryParams, conn);
-    return result.rows.length > 0 ? result.rows[0] : result.rows;
-  } catch (error) {
-    logger.error('Error fetching clickrr details by companyId:', error);
-    throw error;
-  }
-};
-
-const getBSSDetailsByCompanyIdDao = async (id) => {
-  try {
-    const sql = `SELECT config -> 'BSS' ->> 'api_key' AS api_key,
-    config -> 'BSS' ->> 'api_secret' AS api_secret FROM "${tableName.COMPANY}" WHERE id = $1`;
-    const queryParams = [id];
     const result = await executeQuery(sql, queryParams);
     return result.rows.length > 0 ? result.rows[0] : result.rows;
   } catch (error) {
