@@ -43,12 +43,14 @@ export const getClientIp = (req) => {
 };
 
 const createGeoGuard = (options = {}) => {
+  const raw = process.env.STATE_RISTRICTION_ARRAY;
+  const blockedRegions = raw ? JSON.parse(raw) : [];
   const {
     // maxAccuracy = 100,
     restrictVpnForRoles = ['VENDOR'],
     blockedCountries = [],
     roleRegionRules = {
-      VENDOR: { country: 'India', blockedRegions: ['Gujarat', 'Goa'] },
+      VENDOR: { country: 'India', blockedRegions: blockedRegions},
     },
     defaultLocation = { latitude: 0, longitude: 0, accuracy: 1000 }, // Default fallback location
   } = { ...config.geoGuard, ...options };

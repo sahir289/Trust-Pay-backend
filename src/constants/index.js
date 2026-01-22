@@ -32,6 +32,7 @@ export const Method = {
   TATAPAY: 'TATAPAY',
   PAYASSIST: 'PAYASSIST',
   RUPEEFLOW: 'RUPEEFLOW',
+  BSS: 'BSS',
 };
 
 export const Type = {
