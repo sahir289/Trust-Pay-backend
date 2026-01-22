@@ -49,7 +49,7 @@ export const initiateBSSPayout = async (payload, company_id) => {
   try {
     const clickrrWalletBalance = await getBSSWalletBalance({ company_id });
     if (clickrrWalletBalance.data.wallet_balance < Number(payload.amount)) {
-      throw new BadRequestError('Insufficient Clickrr wallet balance');
+      throw new BadRequestError('Insufficient BSS wallet balance');
     }
     const clickrrDetails = await getBSSDetailsByCompanyIdDao(company_id);
 
@@ -76,7 +76,7 @@ export const initiateBSSPayout = async (payload, company_id) => {
     const url = `${baseUrl}${initiatePayoutUrl}`;
     const response = await axios.post(url, newPayload);
 
-    logger.log('Clickrr payout initiated successfully:', {
+    logger.log('BSS payout initiated successfully:', {
       merchant_order_id: payload?.merchant_order_id,
       data: response.data,
     });
@@ -117,7 +117,7 @@ export async function getBSSWalletBalance(reqOrParams, res) {
     }
   } catch (error) {
     logger.error(
-      'Error fetching Clickrr payout status:',
+      'Error fetching BSS payout status:',
       error.response?.data || error.message || error,
     );
     throw error;
