@@ -91,6 +91,48 @@ export const initiateBSSPayout = async (payload, company_id) => {
   }
 }
 
+export async function rechargeWallet(payload) {
+  try {
+    const {
+      APIID,
+      Token,
+      MobileNo,
+      OperatorCode,
+      CircleID,
+      ClientID,
+      Amount,
+    } = payload;
+
+    const url = `${baseUrl}/rechargeapi`;
+
+    const response = await axios.get(url, {
+      params: {
+        APIID,
+        Token,
+        MobileNo,
+        SPkey: OperatorCode, // operator code
+        CircleID,
+        ClientID,
+        Amount,
+      },
+      timeout: 15000,
+    });
+
+    logger.log('BSS recharge initiated successfully:', {
+      mobile: MobileNo,
+      amount: Amount,
+      response: response.data,
+    });
+
+    return response.data;
+  } catch (error) {
+    logger.error(
+      'Recharge initiation failed:',
+      error.response?.data || error.message || error,
+    );
+    throw error;
+  }
+}
 
 
 export async function getBSSWalletBalance(reqOrParams, res) {
