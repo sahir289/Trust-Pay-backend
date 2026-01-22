@@ -75,35 +75,76 @@ export const connectRabbitMQ = async (rabbitConfig = config.rabbitmq) => {
   }
 };
 
-const reconnectRabbitMQ = async () => {
+const cleanup = () => {
   try {
-    channel = null;
-    connection = null;
+    channel?.close();
+  } catch (error) {
+    logger.error('Error closing RabbitMQ channel during cleanup:', error);
+  }
+
+  try {
+    connection?.close();
+  } catch (error) {
+    logger.error('Error closing RabbitMQ connection during cleanup:', error);
+  }
+
+  channel = null;
+  connection = null;
+};
+
+let isReconnecting = false;
+
+const reconnectRabbitMQ = async () => {
+  if (isReconnecting) return;
+  isReconnecting = true;
+
+  cleanup();
+
+  logger.warn('Reconnecting to RabbitMQ in 5s...');
+  await new Promise((resolve) => setTimeout(resolve, 5000));
+
+  try {
     await connectRabbitMQ();
   } catch (err) {
     logger.error('RabbitMQ reconnection failed, retrying...', err.message);
-    setTimeout(reconnectRabbitMQ, config.rabbitmq.retryDelay);
+    setTimeout(() => {
+      isReconnecting = false;
+      reconnectRabbitMQ();
+    }, config.rabbitmq.retryDelay);
+    return;
+  } finally {
+    if (isReconnecting) isReconnecting = false;
   }
 };
 
 export const getRabbitChannel = async () => {
-  if (!channel || channel.connection.closed) {
-    logger.warn('RabbitMQ channel closed, reconnecting...');
-    await connectRabbitMQ(); // reconnects connection + channel
+  try {
+    if (!channel || channel.connection.closed) {
+      logger.warn('RabbitMQ channel closed, reconnecting...');
+      await connectRabbitMQ(); // reconnects connection + channel
+    }
+    return channel;
+  } catch (err) {
+    logger.error('Error getting RabbitMQ channel:', err);
+    throw err;
   }
-  return channel;
 };
 
-export const publishWithRetry = async (channel, queue, message, attempts = 3) => {
+export const publishWithRetry = async (
+  channel,
+  queue,
+  message,
+  attempts = 3,
+) => {
   for (let i = 0; i < attempts; i++) {
     try {
       const ok = channel.sendToQueue(queue, message, { persistent: true });
       if (ok) return true;
       // If false, buffer is full, wait and retry
-      await new Promise(r => setTimeout(r, 1000));
+      await new Promise((r) => setTimeout(r, 1000));
     } catch (err) {
-      logger.error(`[RabbitMQ] Publish attempt ${i+1} failed`, err.message);
-      await new Promise(r => setTimeout(r, 1000));
+      logger.error(`[RabbitMQ] Publish attempt ${i + 1} failed`, err.message);
+      await new Promise((r) => setTimeout(r, 1000));
     }
   }
   return false;

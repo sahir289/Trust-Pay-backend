@@ -5,12 +5,14 @@ import {
   getCompanyDetailsByIdDao,
   updateCompanyDao,
 } from './companyDao.js';
-import { createUserService } from '../users/userService.js';
+import { _createUserServiceInternal } from '../users/userService.js';
 // import { createDesignationService } from '../designation/designationServices.js';
 import { getRoleDao } from '../roles/rolesDao.js';
 import { RoleIs, DesignationIs } from '../../constants/index.js';
 import { getDesignationDao } from '../designation/designationDao.js';
 import { logger } from '../../utils/logger.js';
+import config from '../../config/config.js';
+import { beginTransaction, commit, getConnection, rollback } from '../../utils/db.js';
 
 const getCompanyService = async (id) => {
   try {
@@ -32,7 +34,7 @@ const getCompanyByIdService = async (id) => {
   }
 };
 
-const createCompanyService = async (conn, payload) => {
+const _createCompanyServiceInternal = async (payload, conn) => {
   try {
     // Validate payload
     // Create company
@@ -60,8 +62,9 @@ const createCompanyService = async (conn, payload) => {
       allow_razorpay: false,
       allowTataPay: false,
       allow_clickrr: false,
+      allowRupeeFlow: false,
       PAY_ASSIST: {
-        walletsPayoutsUrl: 'https://payassist.co.in/apiPayout',
+        walletsPayoutsUrl: config.payAssist.baseUrl || '',
         walletsPayoutsAgentCode: '',
         walletsPayoutsAgent: '',
         walletsPayoutsApiKey: '',
@@ -69,8 +72,8 @@ const createCompanyService = async (conn, payload) => {
       },
       TATA_PAY: {
         defaultBankId: '',
-        walletsPayoutsUrl: 'http://13.234.69.235:5000/api/auth',
-        walletsBulkPayoutsUrl: 'http://13.234.69.235:5000/api/auth/Bulk_Create_Payout',
+        walletsPayoutsUrl: config.tataPay.baseUrl || '',
+        walletsBulkPayoutsUrl: config.tataPay.bulkUrl || '',
         walletsPayoutsApiKey: '',
       },
       CLICKRR: {
@@ -78,22 +81,28 @@ const createCompanyService = async (conn, payload) => {
         api_secret: '',
         defaultBankId: '',
       },
+      RUPEE_FLOW: {
+        defaultBankId: '',
+        walletsPayoutsUrl: config.rupeeFlow.baseUrl || '',
+        clientId: '',
+        clientSecret: '',
+      },
     };
 
-    const company = await createCompanyDao(conn, {
+    const company = await createCompanyDao({
       first_name: payload.first_name,
       last_name: payload.last_name,
       email: payload.email,
       contact_no: payload.contact_no,
       config: payload.config || {},
-    });
+    }, conn);
     let role = [];
     let designations = [];
 
-    role = await getRoleDao({ role: RoleIs.ADMIN });
+    role = await getRoleDao({ role: RoleIs.ADMIN }, conn);
     designations = await getDesignationDao({
       designation: DesignationIs.ADMIN,
-    });
+    }, conn);
 
     const userPayload = {
       role_id: role[0].id,
@@ -108,8 +117,9 @@ const createCompanyService = async (conn, payload) => {
       unique_admin_id: unique_id,
       code: payload.first_name.split('').reverse().join(''),
     };
-    // Create user
-    const user = await createUserService(conn, userPayload);
+    // Create user - this will manage its own transaction
+    const user = await _createUserServiceInternal(userPayload, conn);
+
     // Return result
     return {
       company_id: company.id,
@@ -118,8 +128,29 @@ const createCompanyService = async (conn, payload) => {
       user_id: user.id,
     };
   } catch (error) {
+    logger.error('error in _createCompanyServiceInternal', error);
+    throw error;
+  }
+};
+
+const createCompanyService = async (payload) => {
+  let conn
+  try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+    const result = await _createCompanyServiceInternal(payload, conn);
+    await commit(conn);
+    return result;
+  } catch (error) {
+    if (conn) {
+      await rollback(conn);
+    }
     logger.error('Error while creating company:', error);
     throw error;
+  } finally {
+    if (conn) {
+      conn.release();
+    }
   }
 };
 

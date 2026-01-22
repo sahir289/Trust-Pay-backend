@@ -16,23 +16,23 @@ const getRoleService = async (filters) => {
   }
 };
 
-const createRoleService = async (conn, payload) => {
+const createRoleService = async (payload) => {
   try {
-    const data = await createRoleDao(conn, payload);
+    const data = await createRoleDao(payload);
 
     return data;
   } catch (error) {
-    logger.error('Error while updating Role', error);
+    logger.error('Error while creating Role', error);
     throw error;
   }
 };
 
-const updateRoleService = async (conn, id, body) => {
+const updateRoleService = async (id, body) => {
   try {
-    const data = await updateRoleDao(conn, id, body);
+    const data = await updateRoleDao(id, body);
     return data;
   } catch (error) {
-    logger.error('Error while updating Role', 'error', error);
+    logger.error('Error while updating Role', error);
     throw error;
   }
 };

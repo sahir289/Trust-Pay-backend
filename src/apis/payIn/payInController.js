@@ -44,7 +44,6 @@ import {
   updatePayInService,
   getPayinsSummaryService,
 } from './payInService.js';
-import { transactionWrapper } from '../../utils/db.js';
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { streamToBase64 } from '../../helpers/index.js';
 import { s3 } from '../../helpers/Aws.js';
@@ -59,9 +58,7 @@ const TestingIp = process.env.LOCAL_IP;
 
 //  To Generate Url
 export const generateHashForPayIn = async (req, res) => {
-  const updateRes = await transactionWrapper(generatePayInUrlByHashService)(
-    req,
-  ); //-- sending res to resolve
+  const updateRes = await generatePayInUrlByHashService(req); //-- sending res to resolve
 
   if (updateRes.status === 400 || updateRes.status === 404) {
     return sendError(res, updateRes.message, updateRes.status);
@@ -175,7 +172,7 @@ export const validatePayInUrl = async (req, res) => {
   }
   const user_location = req.user_location;
   // req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'];
-  const result = await transactionWrapper(verifyPayinsService)(
+  const result = await verifyPayinsService(
     merchantOrderId,
     user_location,
     oneTimeUsed,
@@ -316,7 +313,7 @@ export const updateDepositStatus = async (req, res) => {
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
-  const updateRes = await transactionWrapper(updateDepositStatusService)(
+  const updateRes = await updateDepositStatusService(
     merchantOrderId,
     nick_name,
     req.user.company_id,
@@ -332,7 +329,7 @@ export const resetDeposit = async (req, res) => {
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
-  const data = await transactionWrapper(resetDepositService)(
+  const data = await resetDepositService(
     merchant_order_id,
     company_id,
     user_id,
@@ -402,7 +399,7 @@ export const processPayIn = async (req, res) => {
     throw new ValidationError(joiValidation.error);
   }
   //added check for manually utr for uplaoded screenshot
-  const data = await transactionWrapper(processPayInService)(
+  const data = await processPayInService(
     payload,
     payload.code,
     true,
@@ -421,7 +418,7 @@ export const processPayInH2H = async (req, res) => {
     throw new ValidationError(joiValidation.error);
   }
   //added check for manually utr for uplaoded screenshot
-  const data = await transactionWrapper(processPayInService)(
+  const data = await processPayInService(
     payload,
     payload.code,
     true,
@@ -441,7 +438,7 @@ export const processPayInIMGUTR = async (req, res) => {
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
-  const data = await transactionWrapper(processPayInService)(
+  const data = await processPayInService(
     payload,
     payload.code,
     false,
@@ -459,7 +456,7 @@ export const telegramOCR = async (req, res) => {
     return;
   }
 
-  await transactionWrapper(telegramResponseService)(message);
+  await telegramResponseService(message);
 };
 
 export const processPayInByImage = async (req, res) => {
@@ -487,7 +484,7 @@ export const processPayInByImage = async (req, res) => {
   const { Body } = await s3.send(command);
   const base64Image = await streamToBase64(Body);
 
-  const data = await transactionWrapper(processPayInByImageService)({
+  const data = await processPayInByImageService({
     ...payload,
     base64Image,
     fileKey: req.file.key,
@@ -507,7 +504,7 @@ export const disputeDuplicateTransaction = async (req, res) => {
     throw new ValidationError(joiValidation.error);
   }
 
-  const data = await transactionWrapper(disputeDuplicateTransactionService)(
+  const data = await disputeDuplicateTransactionService(
     payload,
     req.user.company_id,
     req.user.user_id,
@@ -519,7 +516,7 @@ export const updateUtrPayins = async (req, res) => {
   const { id } = req.params;
   const { utr } = req.body;
   const { user_id, user_name } = req.user;
-  const data = await transactionWrapper(updateUtrPayinService)(
+  const data = await updateUtrPayinService(
     id,
     user_id,
     utr,
@@ -533,7 +530,7 @@ export const updateUtrPayins = async (req, res) => {
 
 export const checkPendingPayinStatus = async (req, res) => {
   const { user_name, user_id, company_id } = req.user;
-  const data = await transactionWrapper(checkPendingPayinStatusService)(
+  const data = await checkPendingPayinStatusService(
     user_id,
     company_id,
     user_name,
@@ -547,7 +544,7 @@ export const telegramCheckUTR = async (req, res) => {
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
-  const result = await transactionWrapper(telegramCheckUTRService)(
+  const result = await telegramCheckUTRService(
     utr,
     merchantOrderId,
     req.user.company_id,
@@ -574,7 +571,7 @@ export const updatePayIn = async (req, res) => {
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
-  const data = await transactionWrapper(updatePayInService)(
+  const data = await updatePayInService(
     payload,
     merchant_order_id,
     user_id,

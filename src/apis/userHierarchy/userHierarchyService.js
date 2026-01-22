@@ -13,38 +13,43 @@ import {
 import { columns, merchantColumns, Role } from '../../constants/index.js';
 import { filterResponse } from '../../helpers/index.js';
 import { logger } from '../../utils/logger.js';
-const createUserHierarchyService = async (payload, role) => {
-  let conn;
+const _createUserHierarchyServiceInternal = async (payload, role, conn) => {
   try {
     const filterColumns =
       role === Role.MERCHANT
         ? merchantColumns.USER_HIERARCHY
         : columns.USER_HIERARCHY;
-    conn = await getConnection();
-    await beginTransaction(conn); // Start a transaction
-    const data = await createUserHierarchyDao(payload);
-    await commit(conn); // Commit the transaction
-
+    const data = await createUserHierarchyDao(payload, conn);
     const finalResult = filterResponse(data, filterColumns);
     return finalResult;
   } catch (error) {
-    if (conn) {
-      try {
-        await rollback(conn); // Rollback the transaction in case of error
-      } catch (rollbackError) {
-        logger.log('Error during transaction rollback', rollbackError);
-      }
+    logger.error('error in _createUserHierarchyServiceInternal', error);
+    throw error;
+  }
+};
+
+const createUserHierarchyService = async (payload, role) => {
+  let conn;
+  let committed = false;
+  try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+    const finalResult = await _createUserHierarchyServiceInternal(
+      payload,
+      role,
+      conn,
+    );
+    await commit(conn);
+    committed = true;
+    return finalResult;
+  } catch (error) {
+    if (conn && !committed) {
+      await rollback(conn); // Rollback the transaction in case of error
     }
     logger.error('Error while creating UserHierarchy', error);
     throw error;
   } finally {
-    if (conn) {
-      try {
-        conn.release(); // Release the connection back to the pool
-      } catch (releaseError) {
-        logger.log('Error while releasing the connection', releaseError);
-      }
-    }
+    if (conn) conn.release();
   }
 };
 
@@ -70,73 +75,91 @@ const getUserHierarchyService = async (filters, role, page, limit) => {
   }
 };
 
-const updateUserHierarchyService = async (id, payload, role) => {
-  let conn;
+const _updateUserHierarchyServiceInternal = async (id, payload, role, conn) => {
   try {
     const filterColumns =
       role === Role.MERCHANT
         ? merchantColumns.USER_HIERARCHY
         : columns.USER_HIERARCHY;
-    conn = await getConnection();
-    await beginTransaction(conn); // Start a transaction
-    const data = await updateUserHierarchyDao(id, payload); // Adjust DAO call for update
-    await commit(conn); // Commit the transaction
-
+    const data = await updateUserHierarchyDao(id, payload, conn);
     const finalResult = await filterResponse(data, filterColumns);
     return finalResult;
   } catch (error) {
-    if (conn) {
-      try {
-        await rollback(conn); // Rollback the transaction in case of error
-      } catch (rollbackError) {
-        logger.error('Error during transaction rollback', rollbackError);
-      }
+    logger.error('error in _updateUserHierarchyServiceInternal', error);
+    throw error;
+  }
+};
+
+const updateUserHierarchyService = async (id, payload, role) => {
+  let conn;
+  let committed = false;
+  try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+    const finalResult = await _updateUserHierarchyServiceInternal(
+      id,
+      payload,
+      role,
+      conn,
+    );
+    await commit(conn);
+    committed = true;
+    return finalResult;
+  } catch (error) {
+    if (conn && !committed) {
+      await rollback(conn); // Rollback the transaction in case of error
     }
     logger.error('Error while updating UserHierarchy', error);
     throw error;
   } finally {
-    if (conn) {
-      try {
-        conn.release(); // Release the connection back to the pool
-      } catch (releaseError) {
-        logger.error('Error while releasing the connection', releaseError);
-      }
-    }
+    if (conn) conn.release();
+  }
+};
+
+const _deleteUserHierarchyServiceInternal = async (
+  ids,
+  updated_by,
+  role,
+  conn,
+) => {
+  try {
+    const filterColumns =
+      role === Role.MERCHANT
+        ? merchantColumns.USER_HIERARCHY
+        : columns.USER_HIERARCHY;
+    const payload = { is_obsolete: true, updated_by };
+    const data = await deleteUserHierarchyDao(ids, payload, conn);
+    const finalResult = filterResponse(data, filterColumns);
+    return finalResult;
+  } catch (error) {
+    logger.error('error in _deleteUserHierarchyServiceInternal', error);
+    throw error;
   }
 };
 
 const deleteUserHierarchyService = async (ids, updated_by, role) => {
   let conn;
+  let committed = false;
   try {
-    const filterColumns =
-      role === Role.MERCHANT
-        ? merchantColumns.USER_HIERARCHY
-        : columns.USER_HIERARCHY;
     conn = await getConnection();
-    await beginTransaction(conn); // Start a transaction
-    const payload = { is_obsolete: true, updated_by };
-    const data = await deleteUserHierarchyDao(ids, payload); // Adjust DAO call for delete
-    await commit(conn); // Commit the transaction
-    const finalResult = await filterResponse(data, filterColumns);
+    await beginTransaction(conn);
+    const finalResult = await _deleteUserHierarchyServiceInternal(
+      ids,
+      updated_by,
+      role,
+      conn,
+    );
+    await commit(conn);
+    committed = true;
     return finalResult;
   } catch (error) {
-    if (conn) {
-      try {
-        await rollback(conn); // Rollback the transaction in case of error
-      } catch (rollbackError) {
-        logger.error('Error during transaction rollback', rollbackError);
-      }
+    if (conn && !committed) {
+      await rollback(conn); // Rollback the transaction in case of error
     }
     logger.error('Error while deleting UserHierarchy', error);
     throw error;
   } finally {
-    if (conn) {
-      try {
-        conn.release(); // Release the connection back to the pool
-      } catch (releaseError) {
-        logger.error('Error while releasing the connection', releaseError);
-      }
-    }
+    if (conn) conn.release();
   }
 };
 

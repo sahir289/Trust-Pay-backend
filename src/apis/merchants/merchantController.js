@@ -15,7 +15,6 @@ import {
   VALIDATE_MERCHANT_SCHEMA,
 } from '../../schemas/merchantSchema.js';
 import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
-import { transactionWrapper } from '../../utils/db.js';
 import { createHashApiKey } from '../../utils/cryptoAlgorithm.js';
 import { logger } from '../../utils/logger.js';
 
@@ -61,7 +60,7 @@ const createMerchant = async (req, res) => {
     created_by: user_id,
     updated_by: user_id,
   };
-  await transactionWrapper(createMerchantService)(finalPayload, role);
+  await createMerchantService(finalPayload, role);
 
   return sendSuccess(res, null, 'Merchant created successfully');
 };
@@ -163,7 +162,7 @@ const updateMerchant = async (req, res) => {
   payload.updated_by = user_id;
   const ids = { id, company_id };
   // Call the service to update the Merchant
-  const merchant = await transactionWrapper(updateMerchantService)(
+  const merchant = await updateMerchantService(
     ids,
     payload,
     role,
