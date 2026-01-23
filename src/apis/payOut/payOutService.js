@@ -853,7 +853,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     else if (payload?.config?.method === Method.BSS) {
       const method = payload.config.method;
 
-      const [company] = await getCompanyByIDDao({ id: ids.company_id });
+      const [company] = await getCompanyByIDDao({ id: ids.company_id }, conn);
       if (!company) throw new NotFoundError('Company not found');
 
       const bankId = company.config.BSS.defaultBankId;
