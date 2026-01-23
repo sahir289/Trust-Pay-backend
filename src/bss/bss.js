@@ -49,7 +49,7 @@ export const initiateBSSPayout = async (payload, company_id) => {
   try {
     const clickrrWalletBalance = await getBSSWalletBalance({ company_id });
     if (clickrrWalletBalance.data.wallet_balance < Number(payload.amount)) {
-      throw new BadRequestError('Insufficient Clickrr wallet balance');
+      throw new BadRequestError('Insufficient BSS wallet balance');
     }
     const clickrrDetails = await getBSSDetailsByCompanyIdDao(company_id);
 
@@ -67,7 +67,7 @@ export const initiateBSSPayout = async (payload, company_id) => {
       Name: payload?.user_bank_details?.account_holder_name,
       BankName: payload?.user_bank_details?.bank_name,
       Mode: "IMPS",
-      OrderID: "34324324342423",
+      OrderID: payload?.merchant_order_id,
       IP: "::1",
       Latitude: 26.78,
       Longitude: 26.78
@@ -76,7 +76,7 @@ export const initiateBSSPayout = async (payload, company_id) => {
     const url = `${baseUrl}${initiatePayoutUrl}`;
     const response = await axios.post(url, newPayload);
 
-    logger.log('Clickrr payout initiated successfully:', {
+    logger.log('BSS payout initiated successfully:', {
       merchant_order_id: payload?.merchant_order_id,
       data: response.data,
     });
@@ -85,6 +85,53 @@ export const initiateBSSPayout = async (payload, company_id) => {
   } catch (error) {
     logger.error(
       'Payout initiation failed:',
+      error.response?.data || error.message || error,
+    );
+    throw error;
+  }
+}
+
+export async function rechargeWallet(req) {
+  const payload = req.body;
+  try {
+    const {
+      APIID,
+      Token,
+      MobileNo,
+      OperatorCode,
+      CircleID,
+      ClientID,
+      Amount,
+    } = payload;
+
+    const url = `${baseUrl}rechargeapi`;
+
+    const response = await axios.get(url, {
+      params: {
+        APIID,
+        Token,
+        MobileNo,
+        SPkey: OperatorCode, // operator code
+        CircleID,
+        ClientID,
+        Amount,
+      },
+      timeout: 15000,
+    });
+    console.log(response.data, "responseeeee");
+    if (response.data.code === 'ERR') {
+      throw new BadRequestError(response.data.mess);
+    }
+    logger.log('BSS recharge initiated successfully:', {
+      mobile: MobileNo,
+      amount: Amount,
+      response: response.data,
+    });
+
+    return response.data;
+  } catch (error) {
+    logger.error(
+      'Recharge initiation failed:',
       error.response?.data || error.message || error,
     );
     throw error;
@@ -107,7 +154,7 @@ export async function getBSSWalletBalance(reqOrParams, res) {
     const url = `${baseUrl}${walletBalanceUrl}`;
     const response = await axios.post(url, { APIID: apiKey, Token: apiSecret, MethodName: MethodName });
     console.log(response.data, 'BSS WALLET BALANCE RESPONSE');
-    const data = response.data;
+    const data = response?.data?.data;
     const successMsg = 'BSS wallet balance fetched successfully';
     if (isExpress) {
       return sendSuccess(res, data, successMsg);
@@ -116,7 +163,7 @@ export async function getBSSWalletBalance(reqOrParams, res) {
     }
   } catch (error) {
     logger.error(
-      'Error fetching Clickrr payout status:',
+      'Error fetching BSS payout status:',
       error.response?.data || error.message || error,
     );
     throw error;
@@ -136,9 +183,9 @@ export async function createBSSPayout(
       throw new Error('Payout method missing in payload');
     }
 
-    if (payload.txnStatus) {
+    if (payload.status) {
       checkBSS = {...payload};
-      delete payload.txnStatus;
+      delete payload.status;
     } else {
       checkBSS = await initiateBSSPayout(
         singleWithdrawData,
@@ -146,19 +193,19 @@ export async function createBSSPayout(
       );
     }
 
-    const status = checkBSS?.Status;
+    const status = checkBSS?.Status || checkBSS?.status;
 
     payload.bank_acc_id = bankId;
 
-    if (status || status === 'Pending' || status === 'pending') {
+    if (status === 'Pending' || status === 'pending' || status === 'PENDING') {
       payload.status = Status.PENDING;
-    } else if (status === 'Success' || status === 'success') {
+    } else if (status === 'Success' || status === 'success' || status === Status.SUCCESS || status === Status.APPROVED) {
       (payload.bank_acc_id = bankId), (payload.status = Status.APPROVED);
-      payload.utr_id = checkBSS?.utr || '';
+      payload.utr_id = checkBSS?.RRN || '';
       payload.approved_at = new Date().toISOString();
-    } else if (status === 'Failed' || status === 'failed') {
+    } else if (status === 'Failed' || status === 'failed' || status === Status.FAILED) {
       payload.status = Status.REJECTED;
-      payload.rejected_reason = checkBSS?.message || 'Transaction failed';
+      payload.rejected_reason = checkBSS?.Message || 'Transaction failed';
       payload.rejected_at = new Date().toISOString();
     } else {
       payload.status = Status.PENDING;
