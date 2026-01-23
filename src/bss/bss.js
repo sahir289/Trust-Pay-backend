@@ -153,7 +153,10 @@ export async function getBSSWalletBalance(reqOrParams, res) {
 
     const url = `${baseUrl}${walletBalanceUrl}`;
     const response = await axios.post(url, { APIID: apiKey, Token: apiSecret, MethodName: MethodName });
-    console.log(response.data, 'BSS WALLET BALANCE RESPONSE');
+    if (response.data.code === "'ERR'") {
+      logger.error('Error fetching BSS wallet balance:', response.data.mess);
+      // throw new BadRequestError(response.data.mess);
+    }
     const data = response?.data?.data;
     const successMsg = 'BSS wallet balance fetched successfully';
     logger.log(successMsg, data);
