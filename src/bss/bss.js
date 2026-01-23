@@ -156,6 +156,7 @@ export async function getBSSWalletBalance(reqOrParams, res) {
     console.log(response.data, 'BSS WALLET BALANCE RESPONSE');
     const data = response?.data?.data;
     const successMsg = 'BSS wallet balance fetched successfully';
+    logger.log(successMsg, data);
     if (isExpress) {
       return sendSuccess(res, data, successMsg);
     } else {
