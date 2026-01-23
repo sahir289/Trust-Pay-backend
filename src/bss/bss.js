@@ -157,6 +157,7 @@ export async function getBSSWalletBalance(reqOrParams, res) {
       logger.error('Error fetching BSS wallet balance:', response.data.mess);
       // throw new BadRequestError(response.data.mess);
     }
+    logger.log('BSS wallet balance response:', response.data);
     const data = response?.data?.data;
     const successMsg = 'BSS wallet balance fetched successfully';
     logger.log(successMsg, data);
