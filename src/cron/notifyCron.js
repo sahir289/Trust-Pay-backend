@@ -28,7 +28,6 @@ if (config?.env == 'production') {
   });
   logger.info('Running cron job in production environment');
 } else {
-  console.log(config?.env, '=================== payin');
   logger.warn('Cron jobs are disabled in non-production environments.');
 }
 
