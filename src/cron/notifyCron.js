@@ -14,7 +14,7 @@ let notifyCronJob = null;
 let isNotifyCronRunning = false; // Prevent overlapping executions
 
 if (config?.env == 'production') {
-    logger.warn(config?.env, '=================== inside payin');
+    console.log(config?.env, '=================== inside payin');
   notifyCronJob = cron.schedule('*/10 * * * * *', async () => {
     if (isNotifyCronRunning) {
       logger.warn('Notify cron is already running, skipping this execution');
@@ -29,7 +29,7 @@ if (config?.env == 'production') {
   });
   logger.info('Running cron job in production environment');
 } else {
-  logger.warn(config?.env, '=================== payin');
+  console.log(config?.env, '=================== payin');
   logger.warn('Cron jobs are disabled in non-production environments.');
 }
 
