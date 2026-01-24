@@ -62,7 +62,7 @@ export const bssTransactionStatusCallback = async (req, res) => {
         Role.ADMIN,
       );
       if (adminUser) updatePayload.updated_by = adminUser.id;
-
+      logger.info('Preparing to update payout with payload:', updatePayload);
       if (isApproved) {
         Object.assign(updatePayload, {
           status: Status.APPROVED,
@@ -76,12 +76,14 @@ export const bssTransactionStatusCallback = async (req, res) => {
           status: Status.PENDING,
         });
       } else {
+        logger.info('Payout rejected with response data:', responseData);
         updatePayload.config.rejected_reason =
           responseData.Response.message ||
           payAssistErrorCodeMap[responseData.Response.statusCode] ||
           'Server Unreachable';
         updatePayload.rejected_at = new Date().toISOString();
       }
+      logger.info('Final update payload for payout:', updatePayload);
       // const data = await _updatePayoutServiceInternal(ids, payload, role, conn);
       await updatePayoutService(
         conn,
