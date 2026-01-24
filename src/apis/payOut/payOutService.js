@@ -738,7 +738,8 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       !payload?.config?.method === Method.CLICKRR &&
       !payload?.config?.method === Method.PAYASSIST &&
       !payload?.config?.method === Method.TATAPAY && 
-      !payload?.config?.method === Method.RUPEEFLOW
+      !payload?.config?.method === Method.RUPEEFLOW &&
+      !payload?.config?.method === Method.BSS
     )
       await checkLockEdit(conn, ids.id);
 
@@ -852,7 +853,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     }
     else if (payload?.config?.method === Method.BSS) {
       const method = payload.config.method;
-
+      logger.info(`Processing BSS payout for method: ${method}`);
       const [company] = await getCompanyByIDDao({ id: ids.company_id }, conn);
       if (!company) throw new NotFoundError('Company not found');
 
@@ -866,7 +867,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         throw new NotFoundError(`Bank not found for ${method} payout`);
 
       // const clientIp = getClientIp(req);
-
+      logger.info(`Creating BSS payout with bankId: ${bankId}`);
       const updatedPayload = await createBSSPayout(
         payload,
         ids,

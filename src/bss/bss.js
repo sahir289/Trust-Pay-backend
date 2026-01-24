@@ -45,13 +45,16 @@ const initiatePayoutUrl = config.bss.initiatePayout;
 const walletBalanceUrl = config.bss.walletBalance;
 
 export const initiateBSSPayout = async (payload, company_id) => {
-
+  logger.info('Initiating BSS payout with payload:', payload);
   try {
     const clickrrWalletBalance = await getBSSWalletBalance({ company_id });
-    if (clickrrWalletBalance.data.wallet_balance < Number(payload.amount)) {
+    logger.info('Sufficient BSS wallet balance:', clickrrWalletBalance.data);
+    if (clickrrWalletBalance?.data?.Balance < Number(payload.amount)) {
       throw new BadRequestError('Insufficient BSS wallet balance');
     }
+    logger.info('Sufficient BSS wallet balance:', clickrrWalletBalance.data.Balance);
     const clickrrDetails = await getBSSDetailsByCompanyIdDao(company_id);
+    logger.info('BSS details fetched for company_id:', clickrrDetails);
 
     const apiKey = clickrrDetails.api_key;
     const apiSecret = clickrrDetails.api_secret;
@@ -187,7 +190,7 @@ export async function createBSSPayout(
     if (!payload?.config?.method) {
       throw new Error('Payout method missing in payload');
     }
-
+    logger.info('Creating BSS payout with payload:', payload);
     if (payload.status) {
       checkBSS = {...payload};
       delete payload.status;
