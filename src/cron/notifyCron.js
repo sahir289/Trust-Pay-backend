@@ -14,7 +14,6 @@ let notifyCronJob = null;
 let isNotifyCronRunning = false; // Prevent overlapping executions
 
 if (config?.env == 'production') {
-    console.log(config?.env, '=================== inside payin');
   notifyCronJob = cron.schedule('*/10 * * * * *', async () => {
     if (isNotifyCronRunning) {
       logger.warn('Notify cron is already running, skipping this execution');
