@@ -28,7 +28,7 @@ let calculationCronJob = null;
 // Only run cron jobs in production environment
 if (config?.env === 'production') {
   // Main cron job at midnight
-  console.log(config?.env, '=================== inside');
+  logger.warn(config?.env, '=================== inside');
   calculationCronJob = cron.schedule(
     '0 0 * * *',
     async () => {
@@ -40,7 +40,7 @@ if (config?.env === 'production') {
     },
   );
 } else {
-  console.log(config?.env ,"===================");
+  logger.warn(config?.env, '===================');
   logger.warn('Cron jobs are disabled in non-production environments.');
 }
 
