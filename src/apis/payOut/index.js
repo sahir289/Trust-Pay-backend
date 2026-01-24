@@ -24,7 +24,7 @@ import {
 import { getPayAssistWalletBalance } from '../../payassist/payassist.js';
 import { getTataPayWalletBalance } from '../../tatapay/tatapay.js';
 import { getRupeeFlowWalletBalance, initiateRupeeFlowPayout } from '../../rupeeflow/rupeeflow.js';
-import { getBSSWalletBalance } from '../../bss/bss.js';
+import { getBSSWalletBalance, rechargeWallet } from '../../bss/bss.js';
 import { bssTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/bssWebHook.js';
 const router = express.Router();
 
@@ -270,6 +270,11 @@ router.get(
   tryCatchHandler(getBSSWalletBalance),
 );
 
+router.post(
+  '/recharge-wallet',
+  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  tryCatchHandler(rechargeWallet),
+);
 router.post(
   '/clickrr',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
