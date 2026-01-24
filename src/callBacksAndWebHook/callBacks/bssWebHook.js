@@ -22,7 +22,7 @@ export const bssTransactionStatusCallback = async (req, res) => {
   const payload = req.body;
   const apitxnid = payload?.CallBack?.OrderID;
   let conn;
-
+  logger.info('Received BSS callback payload:', payload);
   try {
     if (!apitxnid || apitxnid === '') {
       return res.status(404).send('Payment not found');
@@ -33,11 +33,12 @@ export const bssTransactionStatusCallback = async (req, res) => {
     if (!singleWithdrawData) {
       return res.status(404).send('Payment not found');
     }
+    logger.info('Fetched payout data for OrderID:', apitxnid);
 
     const [company] = await getCompanyByIDDao({
       id: singleWithdrawData.company_id,
     });
-
+    logger.info('Fetched company data for company_id:', singleWithdrawData.company_id);
     const handlePayoutUpdate = async (
       responseData,
       isApproved = false,
