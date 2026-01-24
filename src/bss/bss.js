@@ -75,10 +75,12 @@ export const initiateBSSPayout = async (payload, company_id) => {
       Latitude: 26.78,
       Longitude: 26.78
   }
+    logger.info('BSS payout request payload:', newPayload);
 
     const url = `${baseUrl}${initiatePayoutUrl}`;
+    logger.info('BSS payout request URL:', url);
     const response = await axios.post(url, newPayload);
-
+    logger.log(response, "bss payout response");
     logger.log('BSS payout initiated successfully:', {
       merchant_order_id: payload?.merchant_order_id,
       data: response.data,
@@ -234,6 +236,7 @@ export async function createBSSPayout(
     payload.rejected_at = new Date().toISOString();
 
     logger.error('BSS payout error:', error.message);
+
     logger.warn('BSS payout error response', payload);
     return payload;
   }
