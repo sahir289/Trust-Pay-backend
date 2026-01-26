@@ -26,7 +26,7 @@ const getUserLocationMiddleware = async (req, res, next) => {
   try {
     // Get the user's IP address (checking for reverse proxy headers)
     // Send a request to proxycheck.io to fetch the geolocation data
-    let url = PROXY_CHECK_URL.replace('$%7BuserIp%7D', userIp); 
+    let url = PROXY_CHECK_URL.replace('$%7BuserIp%7D', userIp);
     const response = await axios.get(url);
 
     const userData = response.data[userIp];
@@ -53,10 +53,7 @@ const getUserLocationMiddleware = async (req, res, next) => {
         payInUrl,
         `Restricted User IP: ${userIp}`,
       );
-      logger.warn(
-        'Blocked user IP. Access denied.',
-        { userIp },
-      );
+      logger.warn('Blocked user IP. Access denied.', { userIp });
       return res.status(403).json({
         error: { message: 'Access Denied!', data: { url } },
       });
@@ -69,19 +66,18 @@ const getUserLocationMiddleware = async (req, res, next) => {
         payInUrl,
         `Restricted User: ${payInUrl.userid}`,
       );
-      logger.warn(
-        'Blocked user ID. Access denied.',
-      );
+      logger.warn('Blocked user ID. Access denied.');
       return res.status(403).json({
         error: { message: 'Access Denied!', data: { url } },
       });
     }
-    if (vpn === 'yes') {
+    //remove vpn restriction for main
+    if (vpn === 'yes404') {
       // const id = req.params.merchantOrderId;
       payInUrl.config = {
         ...payInUrl.config,
         user: user,
-      }
+      };
       const url = await processPayInRestricted(payInUrl, 'VPN detected');
       logger.warn('VPN detected. Access denied.', userData);
       return res.status(403).json({
@@ -124,7 +120,6 @@ const getUserLocationMiddleware = async (req, res, next) => {
         );
         logger.error(`Access restricted for users in ${region}.`, userData);
         return res.status(403).json({
-        
           error: { message: 'Oops ! Service not available', data: { url } },
         });
       }
