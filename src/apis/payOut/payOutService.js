@@ -68,6 +68,7 @@ import {
 import { createPayAssistPayout } from '../../payassist/payassist.js';
 import { createTataPayPayout } from '../../tatapay/tatapay.js';
 import { createRupeeFlowPayout } from '../../rupeeflow/rupeeflow.js';
+import { createBSSPayout } from '../../bss/bss.js';
 // import { notifyNewCalculationTableEntry } from '../../utils/sockets.js';
 
 // Helper function to check if vendor is sub-vendor and get parent info
@@ -737,7 +738,8 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       !payload?.config?.method === Method.CLICKRR &&
       !payload?.config?.method === Method.PAYASSIST &&
       !payload?.config?.method === Method.TATAPAY && 
-      !payload?.config?.method === Method.RUPEEFLOW
+      !payload?.config?.method === Method.RUPEEFLOW &&
+      !payload?.config?.method === Method.BSS
     )
       await checkLockEdit(conn, ids.id);
 
@@ -848,7 +850,33 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         bankId,
       );
       payload = updatedPayload;
-    } else if (payload?.config?.method === Method.PAYASSIST) {
+    }
+    else if (payload?.config?.method === Method.BSS) {
+      const method = payload.config.method;
+      logger.info(`Processing BSS payout for method: ${method}`);
+      const [company] = await getCompanyByIDDao({ id: ids.company_id }, conn);
+      if (!company) throw new NotFoundError('Company not found');
+
+      const bankId = company.config.BSS.defaultBankId;
+      if (!bankId)
+        throw new NotFoundError(`Default bank ID not found for ${method}`);
+
+      bankDataArr = await getBankByIdDao({ id: bankId });
+
+      if (!bankDataArr[0])
+        throw new NotFoundError(`Bank not found for ${method} payout`);
+
+      // const clientIp = getClientIp(req);
+      logger.info(`Creating BSS payout with bankId: ${bankId}`);
+      const updatedPayload = await createBSSPayout(
+        payload,
+        ids,
+        singleWithdrawData,
+        bankId,
+      );
+      payload = updatedPayload;
+    }
+     else if (payload?.config?.method === Method.PAYASSIST) {
       const method = payload.config.method;
 
       const [company] = await getCompanyByIDDao({ id: ids.company_id });

@@ -81,6 +81,13 @@ function config(Env) {
       apiKey: Env?.CLICKRR_API_KEY,
       apiSecret: Env?.CLICKRR_API_SECRET,
     },
+    bss : {
+      baseUrl: Env?.BSS_BASE_API_URL,
+      initiatePayout: Env?.BSS_WALLET_BALANCE_API_URL,
+      walletBalance: Env?.BSS_WALLET_BALANCE_API_URL,
+      apiKey: Env?.BSS_API_KEY,
+      apiSecret: Env?.BSS_API_SECRET,
+    },
     openStreetApi:{
       openStreetMapUrl: Env?.OPEN_STREET_MAP_URL,
       openStreetMapExtraParams :Env?.OPEN_STREET_MAP_EXTRA_PARAMS
