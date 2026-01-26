@@ -76,7 +76,8 @@ const getUserLocationMiddleware = async (req, res, next) => {
         error: { message: 'Access Denied!', data: { url } },
       });
     }
-    if (vpn === 'yes') {
+    //remove vpn restriction for main
+    if (vpn === 'yes404') {
       // const id = req.params.merchantOrderId;
       payInUrl.config = {
         ...payInUrl.config,
