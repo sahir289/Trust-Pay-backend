@@ -17,7 +17,7 @@ export async function checkLockEdit(id, payin, conn = null) {
       [lockKey],
       conn,
     );
-    if (!lockResult.rows[0]?.acquired) {
+    if (!lockResult?.rows[0]?.acquired) {
       throw new BadRequestError(
         'This record is currently being updated by another user. Please try again later.',
       );
