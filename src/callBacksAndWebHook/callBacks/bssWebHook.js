@@ -95,11 +95,11 @@ export const bssTransactionStatusCallback = async (req, res) => {
       );
     };
 
-      if (payload?.CallBack?.Status === Status.SUCCESS) {
+      if (payload?.CallBack?.Status === Status.SUCCESS || payload?.CallBack?.Status === 'Success') {
         await handlePayoutUpdate(payload, true);
-      } else if (payload?.CallBack?.Status === 'Pending') {
+      } else if (payload?.CallBack?.Status === 'Pending' || payload?.CallBack?.Status === Status.PENDING) {
         await handlePayoutUpdate(payload, false, true);
-      } else if (payload?.CallBack?.Status === 'Failed') {
+      } else if (payload?.CallBack?.Status === 'Failed' || payload?.CallBack?.Status === Status.FAILED) {
         await handlePayoutUpdate(payload, false);
       } else {
         return res.status(400).send(payload.ErrorMessage);
