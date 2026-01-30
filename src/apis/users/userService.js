@@ -334,7 +334,7 @@ const getUsersBySearchService = async (
       pageNumber,
       pageSize,
       role,
-      filterColumns
+      // filterColumns
     );
 
     return data;
