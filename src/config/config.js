@@ -25,15 +25,16 @@ function config(Env) {
     },
     rabbitmq : {
       url: Env?.RABBITMQ_URL || 'amqp://localhost:5672',
-      queueName: Env?.RABBITMQ_QUEUE_NAME || 'trust-pay-queue',
       exchangeName: Env?.RABBITMQ_EXCHANGE_NAME || 'trust-pay-exchange',
-      routingKey: Env?.RABBITMQ_ROUTING_KEY || 'trust-pay-routing-key',
       prefetchCount: parseInt(Env?.RABBITMQ_PREFETCH_COUNT) || 1,
       connectionTimeout: parseInt(Env?.RABBITMQ_CONNECTION_TIMEOUT) || 10000, // in milliseconds
       heartbeat: parseInt(Env?.RABBITMQ_HEARTBEAT) || 60,
       retryAttempts: parseInt(Env?.RABBITMQ_RETRY_ATTEMPTS) || 5,
       retryDelay: parseInt(Env?.RABBITMQ_RETRY_DELAY) || 5000, // in milliseconds
-      bankResponseQueue: 'bank-response-queue', // Add this line
+      bankResponseQueue: process.env.RABBITMQ_BANK_RESPONSE_QUEUE || 'bank_response_queue',
+      bulkBankResponseQueue: process.env.RABBITMQ_BULK_BANK_RESPONSE_QUEUE || 'bulk_bank_response_queue',
+      routingKey: process.env.RABBITMQ_ROUTING_KEY || 'bank_response',
+      bulkRoutingKey: process.env.RABBITMQ_BULK_ROUTING_KEY || 'bulk_bank_response',
     },
     telegram: {
       telegram_url: Env?.TELEGRAM_URL,

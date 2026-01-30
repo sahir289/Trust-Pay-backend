@@ -24,7 +24,6 @@ import resetHistory from './resetHistory/index.js';
 import checkUtr from './checkutr/index.js';
 import common from './common/index.js';
 import beneficiaryAccounts from './beneficiaryAccounts/index.js';
-import consumeBankResponseRouter from './consume-bank-response.js';
 import dashboardReport from './dashboardReport/index.js';
 import webhooks from './webhooks/index.js';
 import { getVersion } from '../../version.js';
@@ -55,7 +54,6 @@ router.use('/reports', reports);
 router.use('/checkUtr', checkUtr);
 router.use('/resetHistory', resetHistory);
 router.use('/beneficiaryAccounts', beneficiaryAccounts);
-router.use('/consume-bank-response', consumeBankResponseRouter);
 // Public routes (no authorization required)
 router.use('/ping', ping);
 router.use('/auth', auth);
