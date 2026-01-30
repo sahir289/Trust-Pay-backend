@@ -199,7 +199,6 @@ export const getUsersBySearchDao = async (
     const offset = (validatedPageNumber - 1) * validatedPageSize;
 
     let queryText;
-
     if (role !== Role.ADMIN) {
       queryText = `
       SELECT 
@@ -296,6 +295,8 @@ export const getUsersBySearchDao = async (
               OR LOWER("User".user_name) LIKE LOWER($${paramIndex})
               OR LOWER("User".code) LIKE LOWER($${paramIndex})
               OR LOWER("User".created_by::text) LIKE LOWER($${paramIndex})
+              OR LOWER(cu."user_name") LIKE LOWER($${paramIndex})
+              OR LOWER(uu."user_name") LIKE LOWER($${paramIndex})
               OR LOWER("User".updated_by::text) LIKE LOWER($${paramIndex})
               OR LOWER("User".first_name || ' ' || "User".last_name) LIKE LOWER($${paramIndex})
               OR LOWER("Designation".designation) LIKE LOWER($${paramIndex})
@@ -329,7 +330,6 @@ export const getUsersBySearchDao = async (
       searchResult = await executeQuery(queryText, values, conn);
       totalPages = Math.ceil(totalItems / validatedPageSize);
     }
-
     data = {
       totalCount: totalItems,
       totalPages,

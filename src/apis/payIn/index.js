@@ -94,7 +94,7 @@ router.get('/generate-payin', tryCatchHandler(generatePayInUrl));
  */
 router.get(
   '/validate-payIn-url/:merchantOrderId',
-  getUserLocationMiddleware,
+  // getUserLocationMiddleware,
   tryCatchHandler(validatePayInUrl),
 );
 
