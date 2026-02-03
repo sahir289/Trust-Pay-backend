@@ -130,6 +130,7 @@ import { createCashfreeOrder } from '../../cashfree/cashfree.js';
 import { createRazorPayOrder } from '../../razorpay/razorpay.js';
 // import { createZenTechIndTransaction } from '../../zentechind/zentechInd.js';
 import { createPaymentTransaction } from '../../intent/createIntentTransaction.js';
+import { createSilkPaymentTransaction } from '../../intent/createSilkIntentTransaction.js';
 
 export const generatePayInUrlByHashService = async (conn, req) => {
   try {
@@ -843,6 +844,10 @@ export const payInIntentGenerateOrderService = async (
           payIn,
           amount,
         );
+        return order?.payment_url;
+      },
+      silkPay: async () => {
+        const order = await createSilkPaymentTransaction('silkPay', payIn, amount);
         return order?.payment_url;
       },
       NMPLPay: async () => {
@@ -3261,7 +3266,7 @@ export const verifyPayinsService = async (
     if (merchantIntent && bankIntent) {
       cashfreeDetails = await getCashfreeAllowByCompanyIdDao(payIn.company_id);
     }
-
+    console.log('cashfreeDetailssss', cashfreeDetails);
     const result = {
       expiryTime: payIn.expiration_date,
       amount: payIn.amount,
@@ -3269,6 +3274,7 @@ export const verifyPayinsService = async (
       allowCashfree: cashfreeDetails?.allow_cashfree || false,
       allowZenTechInd: cashfreeDetails?.allow_zentechind || false,
       allowNmplPay: cashfreeDetails?.allow_nmplpay || false,
+      allowSilkPay: cashfreeDetails?.allow_silkpay || false,
       allowRazorPay: cashfreeDetails?.allow_razorpay || false,
       status: payIn.status,
       min_amount: merchant[0].min_payin,
