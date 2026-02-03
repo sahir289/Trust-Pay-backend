@@ -524,7 +524,8 @@ export const getMerchantsForSuccessRatioDao = async (filters = {}) => {
     const selectColumns = `
       id,
       code,
-      company_id
+      company_id,
+      config
     `;
     const [sql, params] = buildSelectQuery(
       `SELECT ${selectColumns} FROM "${tableName.MERCHANT}" WHERE is_obsolete = false`,

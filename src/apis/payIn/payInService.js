@@ -397,7 +397,7 @@ export const generatePayInUrlService = async (payload, role, userIp) => {
       .toISOString();
 
     const data = {
-      upi_short_code: nanoid(5),
+      upi_short_code: nanoid(10),
       amount: amount || 0,
       status: Status.INITIATED,
       currency: Currency.INR,

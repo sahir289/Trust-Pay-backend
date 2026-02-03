@@ -12,7 +12,6 @@ import {
   getPayoutsBySearchService,
   checkPayOutStatusService,
   assignedPayoutService,
-  createTataPayBulkPayoutService,
 } from './payOutService.js';
 import {
   PAYOUT_DETAILS_SCHEMA,
@@ -20,7 +19,6 @@ import {
   VALIDATE_CHECK_PAY_OUT_STATUS,
   VALIDATE_PAYOUT_BY_ID,
   ASSIGNED_VENDOR_SCHEMA,
-  TATAPAY_BULK_PAYOUT_SCHEMA,
 } from '../../schemas/payoutSchema.js';
 import { ValidationError } from '../../utils/appErrors.js';
 // import { BadRequestError } from '../../utils/appErrors.js';
@@ -219,26 +217,6 @@ const checkPayOutStatus = async (req, res) => {
   }
 };
 
-const createTataPayBulkPayoutController = async (req, res) => {
-  // Validate request body
-  const joiValidation = TATAPAY_BULK_PAYOUT_SCHEMA.validate(req.body);
-  if (joiValidation.error) {
-    throw new ValidationError(joiValidation.error);
-  }
-
-  const { payoutEntries, payoutIds } = req.body;
-  const { company_id, user_id } = req.user;
-
-  const result = await transactionWrapper(createTataPayBulkPayoutService)({
-    payoutEntries,
-    payoutIds,
-    company_id,
-    user_id,
-  });
-
-  return sendSuccess(res, result.data, result.message);
-};
-
 export {
   createPayout,
   getPayoutsBySearch,
@@ -248,5 +226,4 @@ export {
   deletePayout,
   getPayoutsById,
   assignedPayout,
-  createTataPayBulkPayoutController,
 };

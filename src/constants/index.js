@@ -31,6 +31,8 @@ export const Method = {
   CLICKRR: 'CLICKRR',
   TATAPAY: 'TATAPAY',
   PAYASSIST: 'PAYASSIST',
+  RUPEEFLOW: 'RUPEEFLOW',
+  BSS: 'BSS',
 };
 
 export const Type = {

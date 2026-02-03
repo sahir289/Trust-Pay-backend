@@ -105,8 +105,12 @@ const getSubVendorParentInfo = async (vendor) => {
 const updateParentVendorSettlementCalculation = async (parentUserId, amount, vendorCommissionRate, isApproved, conn) => {
   try {
     logger.info(`Settlement: updateParentVendorSettlementCalculation called with: parentUserId=${parentUserId}, amount=${amount}, rate=${vendorCommissionRate}, isApproved=${isApproved}`);
-    
-    const parentCommission = calculateCommission(amount, vendorCommissionRate);
+    // Ensure numeric inputs to avoid NaN being persisted to DB
+    const safeAmount = Number(amount) || 0;
+    let safeRate = Number(vendorCommissionRate);
+    if (!Number.isFinite(safeRate)) safeRate = 0;
+
+    const parentCommission = calculateCommission(safeAmount, safeRate);
     
     logger.info(`Settlement: Calculated parent commission: ${parentCommission}`);
     

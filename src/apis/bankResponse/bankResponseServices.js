@@ -190,7 +190,7 @@ const createBankResponseService = async (
     const isValidAmountCode = !!(
       upi_short_code &&
       upi_short_code !== 'nil' &&
-      upi_short_code.length === 5
+      upi_short_code.length === 10
     );
 
     const acceptedStatus = [
@@ -380,9 +380,10 @@ const createBankResponseService = async (
             utr: payInUtr.user_submitted_utr,
             company_id,
           });
-          const botUtrIsUsed =
-            getDataByUtr.rows.length > 1 &&
-            getDataByUtr.some((item) => item.is_used);
+          const utrRows = Array.isArray(getDataByUtr)
+            ? getDataByUtr
+            : getDataByUtr.rows || [];
+          const botUtrIsUsed = utrRows.length > 1 && utrRows.some((item) => item.is_used);
           if (!acceptedStatus.includes(payInUtr.status) && botUtrIsUsed) {
             await commit(localConn);
             // if (shouldRelease) localConn.release();
@@ -898,7 +899,7 @@ const createBankResponseWebHookService = async (
     const isValidAmountCode = !!(
       upi_short_code &&
       upi_short_code !== 'nil' &&
-      upi_short_code.length === 5
+      upi_short_code.length === 10
     );
     
     if (
