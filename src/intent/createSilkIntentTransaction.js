@@ -30,23 +30,22 @@ export const createSilkPaymentTransaction = async (
     }
 
     const body = {
-      mId: deposit.merchant_id,
+      mId: providerConfig.silkPayMerchant,
       mOrderId: deposit.merchant_order_id,
       amount: deposit.amount,
       timestamp: Date.now(),
       notifyUrl: "http://localhost/silkpay",
-      secret: providerConfig.secret,
     };
 
-    console.log('Creating transaction with body:', body);
-    if ( !body.mId || !body.mOrderId || !body.amount || !body.timestamp || !body.secret) {
+    if ( !body.mId || !body.mOrderId || !body.amount || !body.timestamp) {
       throw new Error('Invalid transaction data');
     }
 
-    const sign = generateSign(body);
+    const sign = generateSign({ ...body, secret: providerConfig.secret });
     const requestBody = { ...body, sign };
+    console.log('Sending request to SilkPay with body:', requestBody);
 
-    const response = await axios.post('https://api.dev.silkpay.ai/transaction/payin/v2', requestBody, {
+    const response = await axios.post('https://api.silkpay.ai/transaction/payin/v2', requestBody, {
       headers: { 
               'Content-Type': 'application/json',
             },
@@ -58,7 +57,7 @@ export const createSilkPaymentTransaction = async (
       response: response.data,
     });
 
-    return response.data;
+    return response.data.data;
   } catch (error) {
     logger.error(`Error creating ${providerKey} transaction:`, {
       error: error.response?.data || error.message || error,

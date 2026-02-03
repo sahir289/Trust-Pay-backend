@@ -848,7 +848,7 @@ export const payInIntentGenerateOrderService = async (
       },
       silkPay: async () => {
         const order = await createSilkPaymentTransaction('silkPay', payIn, amount);
-        return order?.payment_url;
+        return order?.paymentUrl;
       },
       NMPLPay: async () => {
         const order = await createPaymentTransaction('nmplPay', payIn, amount);
@@ -870,6 +870,10 @@ export const payInIntentGenerateOrderService = async (
     }
 
     const session_id = await handler();
+
+    if (!session_id) {
+      throw new NotFoundError(`No session_id found for provider: ${provider}`);
+    }
 
     return { id: payIn.id, session_id, return: payIn.config?.urls?.return || '' };
   } catch (error) {
