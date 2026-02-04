@@ -21,7 +21,8 @@ export function generateSign({ mId, mOrderId, amount, timestamp, secret }) {
 
 export const createSilkPaymentTransaction = async (
   providerKey,
-  deposit
+  deposit,
+  amount
 ) => {
   try {
     const providerConfig = config[providerKey];
@@ -32,7 +33,7 @@ export const createSilkPaymentTransaction = async (
     const body = {
       mId: providerConfig.silkPayMerchant,
       mOrderId: deposit.merchant_order_id,
-      amount: deposit.amount,
+      amount: deposit.amount || amount,
       timestamp: Date.now(),
       notifyUrl: providerConfig.silkPayCallbackUrl,
       returnUrl: deposit?.config?.urls?.return || '',
