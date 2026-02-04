@@ -45,7 +45,7 @@ export const createSilkPaymentTransaction = async (
     const requestBody = { ...body, sign };
     console.log('Sending request to SilkPay with body:', requestBody);
 
-    const response = await axios.post('https://api.silkpay.ai/transaction/payin/v2', requestBody, {
+    const response = await axios.post(`${providerConfig.url}transaction/payin/v2`, requestBody, {
       headers: { 
               'Content-Type': 'application/json',
             },
