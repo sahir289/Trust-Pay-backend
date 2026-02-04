@@ -12,9 +12,10 @@ const processingSet = new Set();
 export const silkPayWebhook = async (req, res) => {
   try {
     sendSuccess(res, 200, 'Webhook received successfully');
-    const body = req.body?.transaction;
-    const merchantOrderId = body?.order_id
+    const body = req.body;
+    const merchantOrderId = body?.mOrderId;
     const utr = body?.utr;
+    
     if (processingSet.has(utr)) {
       logger.warn(`Duplicate concurrent webhook skipped for ${utr} and merchantOrderId ${merchantOrderId}`);
       return;
@@ -23,18 +24,21 @@ export const silkPayWebhook = async (req, res) => {
     processingSet.add(utr);
 
     const hash = generateHash(body, 'silkPay');
-    if (hash !== body.hash) {
+    if (hash !== body.sign) {
       logger.error('Invalid hash in silkPay webhook');
       // return;
     }
 
+    // status: 1 = payment successful, anything else = payment failed
+    const isSuccess = body?.status === 1 || body?.status === '1';
+    
     const payload = {
-      merchantOrderId: body?.order_id,
+      merchantOrderId: merchantOrderId,
       userSubmittedUtr: body?.utr,
       amount: Number(body?.amount),
-      status: body?.status,
+      status: isSuccess ? 'success' : 'failed',
     };
-    const payIn = await getPayInIntentDao(body?.order_id);
+    const payIn = await getPayInIntentDao(merchantOrderId);
 
     const bankResponsePayload = `${body?.amount} nil ${payload.userSubmittedUtr} ${payIn.bank_acc_id}`;
 
@@ -50,7 +54,7 @@ export const silkPayWebhook = async (req, res) => {
       return;
     }
 
-    if (body?.status === 'success') {
+    if (isSuccess) {
       const bankResponse = await createBankResponseWebHookService(
         bankResponsePayload,
         payIn.company_id,
@@ -69,6 +73,6 @@ export const silkPayWebhook = async (req, res) => {
   } catch (error) {
     logger.error('silkPay webhook error:', error);
   } finally {
-    processingSet.delete(req.body?.transaction?.utr);
+    processingSet.delete(req.body?.utr);
   }
 };
