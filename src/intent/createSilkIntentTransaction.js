@@ -45,17 +45,15 @@ export const createSilkPaymentTransaction = async (
 
     const sign = generateSign({ ...body, secret: providerConfig.secret });
     const requestBody = { ...body, sign };
-    console.log('Sending request to SilkPay with body:', requestBody);
 
     const response = await axios.post(`${providerConfig.url}transaction/payin/v2`, requestBody, {
       headers: { 
               'Content-Type': 'application/json',
             },
     });
-    console.log('Received response:', response.data);
 
     logger.info(`${providerKey} transaction created:`, {
-      body,
+      requestBody,
       response: response.data,
     });
 
