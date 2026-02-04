@@ -35,6 +35,7 @@ export const createSilkPaymentTransaction = async (
       amount: deposit.amount,
       timestamp: Date.now(),
       notifyUrl: providerConfig.silkPayCallbackUrl,
+      returnUrl: deposit?.config?.urls?.return || '',
     };
 
     if ( !body.mId || !body.mOrderId || !body.amount || !body.timestamp) {
