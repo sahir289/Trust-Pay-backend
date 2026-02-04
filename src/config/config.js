@@ -70,6 +70,7 @@ function config(Env) {
       secret: Env?.SILK_PAY_SECRET,
       collectionId: Env?.SILK_PAY_COLLECTION_ID,
       silkPayMerchant: Env?.SILK_PAY_MERCHANT_ID,
+      silkPayCallbackUrl: Env?.SILK_PAY_CALLBACK_URL
     },
     nmplPay: {
       url: Env?.NMPL_PAY_API_URL,

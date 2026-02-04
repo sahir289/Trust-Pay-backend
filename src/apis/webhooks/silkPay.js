@@ -10,6 +10,7 @@ import { getBankResponseByUTR } from '../bankResponse/bankResponseDao.js';
 const processingSet = new Set();
 
 export const silkPayWebhook = async (req, res) => {
+  logger.info('silkPayWebhook called', req.body);
   try {
     sendSuccess(res, 200, 'Webhook received successfully');
     const body = req.body;
