@@ -67,7 +67,7 @@ import { calculateDuration } from '../../helpers/index.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import { trackVendorsNetBalance } from '../../utils/trackVendorsNetBalance.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
-
+import { getCachedData ,setCachedData } from '../../utils/redishashkey.js';
 // Helper function to check if vendor is sub-vendor and get parent info
 const getSubVendorParentInfo = async (vendor) => {
   try {
@@ -150,7 +150,20 @@ const createBankResponseService = async (
     const bank_id = splitData[3];
     const from_UI = splitData[4];
     let vendor;
-
+    //temporary duplicate utr check using redis
+     const KEY_PREFIX = companyId;
+      const cacheKey = `${KEY_PREFIX}:${utr}`;
+      const HOLD_TIME = 1;
+      const cooldownActive = await getCachedData(cacheKey);
+      if (cooldownActive) {
+        logger.log(
+          `Duplicate UTR ${utr}  ${HOLD_TIME}s`,
+        );
+        return;
+      }
+      else {
+          await setCachedData(cacheKey, '1', HOLD_TIME);
+    }
     // Early validation
     const isValidAmount = amount >= 1 && amount <= 500000;
     if (!isValidAmount) {
