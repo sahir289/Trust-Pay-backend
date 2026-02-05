@@ -53,10 +53,7 @@ const getUserLocationMiddleware = async (req, res, next) => {
         payInUrl,
         `Restricted User IP: ${userIp}`,
       );
-      logger.warn(
-        'Blocked user IP. Access denied.',
-        { userIp },
-      );
+      logger.warn('Blocked user IP. Access denied.', { userIp });
       return res.status(403).json({
         error: { message: 'Access Denied!', data: { url } },
       });
@@ -69,9 +66,7 @@ const getUserLocationMiddleware = async (req, res, next) => {
         payInUrl,
         `Restricted User: ${payInUrl.userid}`,
       );
-      logger.warn(
-        'Blocked user ID. Access denied.',
-      );
+      logger.warn('Blocked user ID. Access denied.');
       return res.status(403).json({
         error: { message: 'Access Denied!', data: { url } },
       });
@@ -82,7 +77,7 @@ const getUserLocationMiddleware = async (req, res, next) => {
       payInUrl.config = {
         ...payInUrl.config,
         user: user,
-      }
+      };
       const url = await processPayInRestricted(payInUrl, 'VPN detected');
       logger.warn('VPN detected. Access denied.', userData);
       return res.status(403).json({
@@ -125,7 +120,6 @@ const getUserLocationMiddleware = async (req, res, next) => {
         );
         logger.error(`Access restricted for users in ${region}.`, userData);
         return res.status(403).json({
-        
           error: { message: 'Oops ! Service not available', data: { url } },
         });
       }
@@ -162,7 +156,7 @@ const getUserLocationMiddleware = async (req, res, next) => {
     };
     next();
   } catch (error) {
-    logger.error('Error fetching user location:', error);
+    logger.error('Error fetching user location:', error.message);
     res.status(500).json({ message: 'Error fetching user location' });
   }
 };

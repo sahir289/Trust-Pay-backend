@@ -30,8 +30,12 @@ import {
 } from './payInController.js';
 // import { payInUpdateCashfreeWebhook } from '../../webhooks/index.js';
 import { multerUpload } from '../../utils/index.js';
+<<<<<<< HEAD
 import getUserLocationMiddleware from '../../middlewares/locationRestrict.js';
 import dbConnScope from '../../middlewares/dbConnScope.js';
+=======
+// import getUserLocationMiddleware from '../../middlewares/locationRestrict.js';
+>>>>>>> 446971f5c13cb6745a4dc008d031715af64d5422
 
 const router = express.Router();
 
@@ -94,7 +98,7 @@ router.get('/generate-payin', tryCatchHandler(generatePayInUrl));
  */
 router.get(
   '/validate-payIn-url/:merchantOrderId',
-  getUserLocationMiddleware,
+  // getUserLocationMiddleware,
   tryCatchHandler(validatePayInUrl),
 );
 

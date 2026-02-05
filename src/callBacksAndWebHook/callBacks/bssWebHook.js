@@ -20,9 +20,9 @@ import {
 // Define the optimized payAssistTransactionStatusCallback function
 export const bssTransactionStatusCallback = async (req, res) => {
   const payload = req.body;
-  const apitxnid = payload?.Response?.apitxnid;
+  const apitxnid = payload?.CallBack?.OrderID;
   let conn;
-
+  logger.info('Received BSS callback payload:', payload);
   try {
     if (!apitxnid || apitxnid === '') {
       return res.status(404).send('Payment not found');
@@ -33,17 +33,18 @@ export const bssTransactionStatusCallback = async (req, res) => {
     if (!singleWithdrawData) {
       return res.status(404).send('Payment not found');
     }
+    logger.info('Fetched payout data for OrderID:', apitxnid);
 
     const [company] = await getCompanyByIDDao({
       id: singleWithdrawData.company_id,
     });
-
+    logger.info('Fetched company data for company_id:', singleWithdrawData.company_id);
     const handlePayoutUpdate = async (
       responseData,
       isApproved = false,
       isTransactionUnderProcess = false,
     ) => {
-      const bankId = company.config.PAY_ASSIST.defaultBankId;
+      const bankId = company.config.BSS.defaultBankId;
       const [bankVendor] = await getBankByIdDao({ id: bankId });
       const [vendor] = await getVendorsDao({
         user_id: bankVendor.user_id,
@@ -52,8 +53,8 @@ export const bssTransactionStatusCallback = async (req, res) => {
         bank_acc_id: bankId,
         vendor_id: vendor.id,
         config: {
-          method: 'PayAssist',
-          description: 'Payout processing via PayAssist',
+          method: 'BSS',
+          description: 'Payout processing via BSS',
         },
       };
       const adminUser = await getUserByCompanyCreatedAtDao(
@@ -61,17 +62,13 @@ export const bssTransactionStatusCallback = async (req, res) => {
         Role.ADMIN,
       );
       if (adminUser) updatePayload.updated_by = adminUser.id;
-
-      if (responseData.Response?.txnid) {
-        updatePayload.config.txnid = responseData.Response.txnid;
-      }
-
+      logger.info('Preparing to update payout with payload:', updatePayload);
       if (isApproved) {
         Object.assign(updatePayload, {
           status: Status.APPROVED,
           utr_id: isTransactionUnderProcess
-            ? responseData.Response.txnid
-            : responseData.Response.refno || responseData.Response?.utr,
+            ? null
+            : responseData.CallBack.RRN,
           approved_at: new Date().toISOString(),
         });
       } else if (!isApproved && isTransactionUnderProcess) {
@@ -79,38 +76,34 @@ export const bssTransactionStatusCallback = async (req, res) => {
           status: Status.PENDING,
         });
       } else {
+        logger.info('Payout rejected with response data:', responseData);
         updatePayload.config.rejected_reason =
           responseData.Response.message ||
           payAssistErrorCodeMap[responseData.Response.statusCode] ||
           'Server Unreachable';
         updatePayload.rejected_at = new Date().toISOString();
       }
-
+      logger.info('Final update payload for payout:', updatePayload);
+      // const data = await _updatePayoutServiceInternal(ids, payload, role, conn);
       await updatePayoutService(
         conn,
         {
           id: singleWithdrawData.id,
           company_id: singleWithdrawData.company_id,
         },
-        updatePayload,
+        updatePayload
       );
     };
 
-    // Handle response based on ErrorCode
-    let errorCode = payload.ErrorCode;
-    // let statusResponse = null;
-
-    if (errorCode) {
-      if (errorCode === '0') {
+      if (payload?.CallBack?.Status === Status.SUCCESS || payload?.CallBack?.Status === 'Success') {
         await handlePayoutUpdate(payload, true);
-      } else if (errorCode === 'TUP') {
+      } else if (payload?.CallBack?.Status === 'Pending' || payload?.CallBack?.Status === Status.PENDING) {
         await handlePayoutUpdate(payload, false, true);
-      } else if (errorCode !== 'TUP' && errorCode !== '0') {
+      } else if (payload?.CallBack?.Status === 'Failed' || payload?.CallBack?.Status === Status.FAILED) {
         await handlePayoutUpdate(payload, false);
       } else {
         return res.status(400).send(payload.ErrorMessage);
       }
-    }
 
     // Log the updated payout status
     logger.info('Payout Updated by PayAssist callback', {
