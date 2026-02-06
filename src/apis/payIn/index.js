@@ -42,6 +42,7 @@ router.use(dbConnScope);
 
 // Public API's
 
+
 router.get(
   '/generate-hash',
   isAuthenticated,
