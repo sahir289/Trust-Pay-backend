@@ -1,21 +1,21 @@
 import { BadRequestError } from './appErrors.js';
 import { executeQuery } from './db.js';
 import { logger } from './logger.js';
-// function stringToInt(str) {
-//   let hash = 0;
-//   for (let i = 0; i < str.length; i++) {
-//     hash = (hash * 31 + str.charCodeAt(i)) | 0;
-//   }
-//   return Math.abs(hash);
-// }
+function stringToInt(str) {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash * 31 + str.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash);
+}
 
 export async function checkLockEdit(id, payin, conn = null) {
   try {
-    const lockKey = parseInt(id.replace(/-/g, ''), 16) % 1000000;
+    const lockKey = stringToInt(id);
     const lockResult = await conn.query(
       'SELECT pg_try_advisory_xact_lock($1) AS acquired',
       [lockKey],
-      conn,
+      // conn,
     );
     if (!lockResult?.rows[0]?.acquired) {
       throw new BadRequestError(
