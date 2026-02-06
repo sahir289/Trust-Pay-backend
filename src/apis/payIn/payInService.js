@@ -5,7 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 import config from '../../config/config.js';
 // import { razorpay } from '../webhooks/razorPay.js';
 import { getPayoutsDao } from '../payOut/payOutDao.js';
-// import { checkLockEdit } from '../../utils/advisoryLock.js';
+import { checkLockEdit } from '../../utils/advisoryLock.js';
 import {
   BankTypes,
   Currency,
@@ -1600,8 +1600,8 @@ export const _processPayInServiceInternal = async (
   } = payload;
   // validate payIn
   // throw error if not exist or expires
-  // const orderid = merchantOrderId;
-  // await checkLockEdit(orderid, false, conn);
+  const orderid = merchantOrderId;
+  await checkLockEdit(orderid, true, conn);
   if (h2h) {
     const payin = await getPayInsForCronDao(
       {
@@ -1643,8 +1643,8 @@ export const _processPayInServiceInternal = async (
       'Missing bank_acc_id or userSubmittedUtr for transaction lock',
     );
   }
-  // const lockKey = `${payIn.bank_acc_id}${userSubmittedUtr}`;
-  // await checkLockEdit(lockKey, true, conn);
+  const lockKey = `${payIn.bank_acc_id}${userSubmittedUtr}`;
+  await checkLockEdit(lockKey, true, conn);
   const banks = await getBankaccountDao(
     { id: payIn?.bank_acc_id, company_id: payIn.company_id },
     null,
