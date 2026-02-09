@@ -573,7 +573,7 @@ const _blockChargebackUserServiceInternal = async (ids, data, conn) => {
           ? companyBlockedUsers[0].user_ip
           : [];
       companyBlockedIPs = companyBlockedIPs.filter(
-        (ip) => ip.trim() !== user_ip.trim(),
+        (ip) => ip?.trim() !== user_ip?.trim(),
       );
 
       const updatedCompanyBlockedUsers = companyBlockedIPs.length
