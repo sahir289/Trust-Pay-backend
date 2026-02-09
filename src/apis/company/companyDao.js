@@ -37,7 +37,7 @@ const getCompanyDao = async (
 
 const getCompanyDetailsByIdDao = async (id, conn = null) => {
   try {
-    const baseQuery = `SELECT CONCAT(first_name, ' ', last_name) AS full_name, config ->> 'allowPayAssist' AS allowPayAssist, config ->> 'allowTataPay' AS allowTataPay, config ->> 'allow_clickrr' AS allow_clickrr, config ->> 'allowRupeeFlow' AS allowRupeeFlow FROM "${tableName.COMPANY}" WHERE 1 = 1`;
+    const baseQuery = `SELECT CONCAT(first_name, ' ', last_name) AS full_name, config ->> 'allowPayAssist' AS allowPayAssist, config ->> 'allowTataPay' AS allowTataPay, config ->> 'allow_clickrr' AS allow_clickrr, config ->> 'allowRupeeFlow' AS allowRupeeFlow, config ->> 'allowBSS' AS allowBSS FROM "${tableName.COMPANY}" WHERE 1 = 1`;
     const [sql, queryParams] = buildSelectQuery(baseQuery, id);
     const result = await executeQuery(sql, queryParams, conn);
     return result.rows.length > 0 ? result.rows : result.rows[0];
@@ -53,6 +53,19 @@ const getClickrrDetailsByCompanyIdDao = async (id, conn = null) => {
     config -> 'CLICKRR' ->> 'api_secret' AS api_secret FROM "${tableName.COMPANY}" WHERE id = $1`;
     const queryParams = [id];
     const result = await executeQuery(sql, queryParams, conn);
+    return result.rows.length > 0 ? result.rows[0] : result.rows;
+  } catch (error) {
+    logger.error('Error fetching clickrr details by companyId:', error);
+    throw error;
+  }
+};
+
+const getBSSDetailsByCompanyIdDao = async (id) => {
+  try {
+    const sql = `SELECT config -> 'BSS' ->> 'api_key' AS api_key,
+    config -> 'BSS' ->> 'api_secret' AS api_secret FROM "${tableName.COMPANY}" WHERE id = $1`;
+    const queryParams = [id];
+    const result = await executeQuery(sql, queryParams);
     return result.rows.length > 0 ? result.rows[0] : result.rows;
   } catch (error) {
     logger.error('Error fetching clickrr details by companyId:', error);
@@ -82,6 +95,7 @@ const getCashfreeAllowByCompanyIdDao = async (id, conn = null) => {
         COALESCE((config ->> 'allow_zentechind')::boolean, false) AS allow_zentechind,
         COALESCE((config ->> 'allow_nmplpay')::boolean, false) AS allow_nmplpay,
         COALESCE((config ->> 'allow_razorpay')::boolean, false) AS allow_razorpay,
+        COALESCE((config ->> 'allow_silkpay')::boolean, false) AS allow_silkpay
       FROM "${tableName.COMPANY}"
       WHERE id = $1
     `;
@@ -160,4 +174,5 @@ export {
   getCashfreeAllowByCompanyIdDao,
   updateCompanyConfigDao,
   getCompanyDetailsByIdDao,
+  getBSSDetailsByCompanyIdDao,
 };

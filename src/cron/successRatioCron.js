@@ -246,6 +246,28 @@ const formattedSuccessRatiosByMerchant = async (company_id) => {
         intervalDetailsUtr,
       };
       fullMessages.push(fullMessage);
+      if (merchant?.config?.SUCCESSRATIOCHATID) {
+        try {
+          await sendTelegramDashboardSuccessRatioMessage(
+            merchant?.config?.SUCCESSRATIOCHATID,
+            [
+              {
+                merchantCode: merchant?.code,
+                intervalDetails,
+                intervalDetailsUtr,
+              },
+            ],
+            telegramBotToken,
+          );
+          logger.info(
+            `Sent success ratio message to merchant-specific chat for ${merchant?.code}`,
+          );
+        } catch (error) {
+          logger.error(
+            `Failed to send merchant-specific message for ${merchant?.code}: ${error?.message}`,
+          );
+        }
+      }
     }
 
     // Only send message if there are merchants to report

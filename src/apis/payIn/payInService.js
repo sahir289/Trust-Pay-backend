@@ -1081,7 +1081,7 @@ export const updateDepositStatusService = async (
 
     let successData = [];
     if (bankResponse.is_used) {
-      successData = await getOtherSuccessPayIns(bankResponse, false, conn);
+      successData = await getOtherSuccessPayIns(bankResponse, true, conn);
     }
     duration = calculateDuration(payInData.created_at);
     const updatePayInData = {

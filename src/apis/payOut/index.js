@@ -24,6 +24,8 @@ import {
 import { getPayAssistWalletBalance } from '../../payassist/payassist.js';
 import { getTataPayWalletBalance } from '../../tatapay/tatapay.js';
 import { getRupeeFlowWalletBalance, initiateRupeeFlowPayout } from '../../rupeeflow/rupeeflow.js';
+import { getBSSWalletBalance, rechargeWallet } from '../../bss/bss.js';
+import { bssTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/bssWebHook.js';
 const router = express.Router();
 
 /**
@@ -262,7 +264,17 @@ router.get(
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(getTataPayWalletBalance),
 );
+router.get(
+  '/bss/bss-balance',
+  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  tryCatchHandler(getBSSWalletBalance),
+);
 
+router.post(
+  '/recharge-wallet',
+  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  tryCatchHandler(rechargeWallet),
+);
 router.post(
   '/clickrr',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
@@ -273,6 +285,11 @@ router.get(
   '/clickrr/wallet-balance',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(getClickrrWalletBalance),
+);
+
+router.post(
+  '/bss-callback',
+  tryCatchHandler(bssTransactionStatusCallback),
 );
 
 router.post(
