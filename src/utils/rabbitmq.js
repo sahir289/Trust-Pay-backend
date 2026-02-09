@@ -30,19 +30,11 @@ export const connectRabbitMQ = async (rabbitConfig = config.rabbitmq) => {
       await channel.assertExchange(rabbitConfig.exchangeName, 'direct', {
         durable: true,
       });
-      await channel.assertQueue(rabbitConfig.bankResponseQueue, { durable: true });
+      await channel.assertQueue(rabbitConfig.queueName, { durable: true });
       await channel.bindQueue(
-        rabbitConfig.bankResponseQueue,
+        rabbitConfig.queueName,
         rabbitConfig.exchangeName,
         rabbitConfig.routingKey,
-      );
-
-      // Queue 2: Bulk bot bank response queue
-      await channel.assertQueue(rabbitConfig.bulkBankResponseQueue, { durable: true });
-      await channel.bindQueue(
-        rabbitConfig.bulkBankResponseQueue,
-        rabbitConfig.exchangeName,
-        rabbitConfig.bulkRoutingKey,
       );
 
       // Handle connection errors
@@ -58,10 +50,10 @@ export const connectRabbitMQ = async (rabbitConfig = config.rabbitmq) => {
         logger.log(styledMessageError);
       });
       const styledMessage = chalk.green(
-        `RabbitMQ connected to ${rabbitConfig.url} successfully. Queues: [${rabbitConfig.bankResponseQueue}, ${rabbitConfig.bulkBankResponseQueue}]`,
+        `RabbitMQ connected to ${rabbitConfig.url} successfully`,
       );
       logger.info(styledMessage);
-      return channel;
+      return;
     } catch (error) {
       retryCount++;
       logger.error(
@@ -177,6 +169,31 @@ export const publishToDirectQueue = async (queue, data) => {
   await channel.assertQueue(queue, { durable: true });
   const message = Buffer.from(JSON.stringify(data));
   return channel.sendToQueue(queue, message, { persistent: true });
+};
+
+export const consumeFromQueue = async (queueName, callback, options = {}) => {
+  if (!channel) throw new Error('RabbitMQ channel not initialized');
+
+  await channel.assertQueue(queueName, { durable: true });
+
+  return channel.consume(
+    queueName,
+    async (msg) => {
+      if (msg) {
+        try {
+          const data = JSON.parse(msg.content.toString());
+          await callback(data, msg);
+          channel.ack(msg);
+        } catch (error) {
+          logger.error('Error processing message:', error);
+          if (options.rejectOnError !== false) {
+            channel.nack(msg, false, false); // Don't requeue by default
+          }
+        }
+      }
+    },
+    { noAck: false, ...options },
+  );
 };
 
 export const closeRabbitMQ = async () => {
