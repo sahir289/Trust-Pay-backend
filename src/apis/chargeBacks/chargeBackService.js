@@ -530,8 +530,8 @@ const _blockChargebackUserServiceInternal = async (ids, data, conn) => {
         Array.isArray(companyBlockedUsers) && companyBlockedUsers[0]?.user_ip
           ? companyBlockedUsers[0].user_ip
           : [];
-      if (!companyBlockedIPs.includes(user_ip.trim())) {
-        companyBlockedIPs.push(user_ip.trim());
+      if (!companyBlockedIPs.includes(user_ip?.trim())) {
+        companyBlockedIPs.push(user_ip?.trim());
       }
       const updatedCompanyBlockedUsers = companyBlockedIPs.length
         ? [{ user_ip: companyBlockedIPs }]
