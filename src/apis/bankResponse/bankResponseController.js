@@ -29,7 +29,7 @@ import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { s3 } from '../../helpers/Aws.js';
 import { streamToBuffer } from '../../helpers/index.js';
 // import { newTableEntry } from '../../utils/sockets.js';
-import { publishBankResponse, publishBulkBankResponse } from '../../utils/rabbitmq-bank-response.js';
+import { publishBankResponse } from '../../utils/rabbitmq-bank-response.js';
 
 const getBankResponse = async (req, res) => {
   const { role, company_id, designation, user_id } = req.user;
@@ -169,7 +169,7 @@ const createBankBotResponseBulk = async (req, res) => {
       invalidPayloads.push({ index: idx, payload, error: error.message });
       validationErrors.push(error.message);
     } else {
-      publishBulkBankResponse({
+      publishBankResponse({
         payload,
         x_auth_token,
         role: Role.BOT,
