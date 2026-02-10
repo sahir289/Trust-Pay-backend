@@ -5,10 +5,10 @@ import timezone from 'dayjs/plugin/timezone.js';
 // import { transactionWrapper } from '../utils/db.js';
 import {
   createCalculationDao,
-  getCalculationforCronDao,
   checkCalculationEntryForDateDao,
+  getCalculationByDateAndUserDao,
+  getLatestCalculationsForAllUsersDao,
 } from '../apis/calculation/calculationDao.js';
-import { getUsersForCronDao } from '../apis/users/userDao.js';
 import { logger } from '../utils/logger.js';
 import config from '../config/config.js'; 
 import { beginTransaction, commit, getConnection, rollback } from '../utils/db.js';
@@ -97,34 +97,44 @@ const collectCalculationData = async () => {
       return;
     }
 
-    const users = await getUsersForCronDao(conn) || [];
-    const usersArray = users || [];
-
     // Create IST time in the exact format we want
     const currentTime = dayjs().tz(IST).format('YYYY-MM-DDTHH:mm:ssZ'); // Will create: 2025-04-23T19:26:00+05:30
     logger.info(`Calculation Cron Running Current time in IST: ${currentTime}`);
 
-    for (const user of usersArray) {
+    // Batch fetch: Get existing entries for today and latest calculations for all users
+    const [existingEntries, latestCalculations] = await Promise.all([
+      getCalculationByDateAndUserDao(currentDate, conn),
+      getLatestCalculationsForAllUsersDao(conn),
+    ]);
+
+    const existingUserIds = new Set((existingEntries || []).map(entry => entry.user_id));
+    logger.info(`Found ${existingUserIds.size} existing calculation entries for ${currentDate}`);
+
+    // Filter users who need new entries and prepare batch insert data
+    const insertData = latestCalculations
+      .filter(calc => !existingUserIds.has(calc.user_id))
+      .map(calc => ({
+        user_id: calc.user_id,
+        role_id: calc.role_id,
+        company_id: calc.company_id,
+        net_balance: parseFloat(calc.net_balance),
+        created_at: currentTime,
+      }));
+
+    const skippedCount = latestCalculations.length - insertData.length;
+    let createdCount = 0;
+
+    // Insert entries (sequential to maintain transaction integrity)
+    for (const data of insertData) {
       try {
-        const calculation = await getCalculationforCronDao(user.id, conn);
-        if (calculation.length > 0) {
-          const resetData = {
-            user_id: calculation[0].user_id,
-            role_id: calculation[0].role_id,
-            company_id: calculation[0].company_id,
-            net_balance: parseFloat(calculation[0].net_balance),
-            // config: calculation[0].config,
-            created_at: currentTime, // Store exact IST time
-          };
-          await processUpdate(resetData, conn);
-        }
+        await processUpdate(data, conn);
+        createdCount++;
       } catch (userError) {
-        logger.error(
-          `Error processing data for user ${user?.id}:`,
-          userError?.message,
-        );
+        logger.error(`Error creating entry for user ${data.user_id}:`, userError?.message);
       }
     }
+    
+    logger.info(`Calculation cron: Created ${createdCount} entries, Skipped ${skippedCount} existing entries`);
 
     const executionEndTime = dayjs().tz(IST).format('YYYY-MM-DDTHH:mm:ssZ');
     logger.info(
