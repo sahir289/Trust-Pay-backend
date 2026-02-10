@@ -160,3 +160,4 @@ async function processUpdate(data, conn = null) {
 }
 
 export default collectCalculationData;
+
