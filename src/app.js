@@ -27,7 +27,7 @@ app.use(
     },
   }),
 );
-app.use(bodyParser.urlencoded({ limit: '50mb', extended: true }));
+app.use(bodyParser.urlencoded({ limit: '50mb', extended: true, parameterLimit: 100000 }));
 app.use(express.static('public'));
 app.use(methodOverride());
 
