@@ -79,7 +79,7 @@ const getUsersDao = async (
     ];
     const baseQuery = buildJoinQuery(
       USER,
-      columns.length ? columns : '*',
+      columns?.length ? columns : '*',
       joins,
     );
     if (filters.search) {
@@ -138,7 +138,7 @@ const getAllUsersDao = async (
     ];
     const baseQuery = buildJoinQuery(
       USER,
-      columns.length ? columns : '*',
+      columns?.length ? columns : '*',
       joins,
     );
     if (filters.search) {
