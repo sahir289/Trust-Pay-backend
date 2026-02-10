@@ -50,7 +50,10 @@ const createGeoGuard = (options = {}) => {
     restrictVpnForRoles = ['VENDOR'],
     blockedCountries = [],
     roleRegionRules = {
-      VENDOR: { country: 'India', blockedRegions: blockedRegions},
+      VENDOR: {
+        country: 'United Arab Emirates',
+        blockedRegions: blockedRegions,
+      },
     },
     defaultLocation = { latitude: 0, longitude: 0, accuracy: 1000 }, // Default fallback location
   } = { ...config.geoGuard, ...options };
