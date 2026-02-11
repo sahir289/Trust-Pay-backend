@@ -1704,7 +1704,7 @@ export const _processPayInServiceInternal = async (
     status: payIn.status,
     merchantOrderId: payIn.merchant_order_id,
     payinId: payIn.id,
-    amount: bankResponse.amount,
+    amount: bankResponse.amount || null,
     req_amount: payIn.amount,
     utr_id: payIn.user_submitted_utr,
   };
@@ -2216,7 +2216,7 @@ export const processPayInWebHookService = async (payload, updated_by) => {
       status: finalStatus,
       merchantOrderId: payIn.merchant_order_id,
       payinId: payIn.id,
-      amount: bankResponse.amount,
+      amount: bankResponse.amount || null,
       req_amount: payIn.amount,
       utr_id: userSubmittedUtr,
     };
