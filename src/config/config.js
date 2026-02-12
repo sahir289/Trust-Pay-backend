@@ -67,10 +67,13 @@ function config(Env) {
     },
     silkPay: {
       url: Env?.SILK_PAY_API_URL,
+      initiatePayout: Env?.SILK_PAY_INITIATE_API_URL,
+      walletBalance: Env?.SILK_PAY_WALLET_BALANCE_API_URL,
       secret: Env?.SILK_PAY_SECRET,
       collectionId: Env?.SILK_PAY_COLLECTION_ID,
       silkPayMerchant: Env?.SILK_PAY_MERCHANT_ID,
-      silkPayCallbackUrl: Env?.SILK_PAY_CALLBACK_URL
+      silkPayCallbackUrl: Env?.SILK_PAY_CALLBACK_URL,
+      silkPayPayoutCallbackUrl: Env?.SILK_PAY_PAYOUT_CALLBACK_URL
     },
     nmplPay: {
       url: Env?.NMPL_PAY_API_URL,

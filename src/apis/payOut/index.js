@@ -24,6 +24,8 @@ import { getTataPayWalletBalance } from '../../tatapay/tatapay.js';
 import { getRupeeFlowWalletBalance, initiateRupeeFlowPayout } from '../../rupeeflow/rupeeflow.js';
 import { getBSSWalletBalance } from '../../bss/bss.js';
 import { bssTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/bssWebHook.js';
+import { silkPayTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/silkPayWebHook.js';
+import { getSilkPayWalletBalance } from '../../silkpay/silkpay.js';
 const router = express.Router();
 
 /**
@@ -266,6 +268,16 @@ router.get(
   '/bss/bss-balance',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(getBSSWalletBalance),
+);
+router.get(
+  '/silkpay/silkpay-balance',
+  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  tryCatchHandler(getSilkPayWalletBalance),
+);
+
+router.post(
+  '/silkpay-callback',
+  tryCatchHandler(silkPayTransactionStatusCallback),
 );
 
 router.post(
