@@ -95,6 +95,11 @@ function config(Env) {
       apiKey: Env?.BSS_API_KEY,
       apiSecret: Env?.BSS_API_SECRET,
     },
+    orvixPay: {
+      url: Env?.ORVIX_PAY_API_URL,
+      salt: Env?.ORVIX_PAY_SALT,
+      collectionId: Env?.ORVIX_PAY_COLLECTION_ID,
+    },
     openStreetApi:{
       openStreetMapUrl: Env?.OPEN_STREET_MAP_URL,
       openStreetMapExtraParams :Env?.OPEN_STREET_MAP_EXTRA_PARAMS
