@@ -1090,7 +1090,7 @@ export const updateDepositStatusService = async (
 
     let successData = [];
     if (bankResponse.is_used) {
-      successData = await getOtherSuccessPayIns(bankResponse, false, conn);
+      successData = await getOtherSuccessPayIns(bankResponse, true, conn);
     }
     duration = calculateDuration(payInData.created_at);
     const updatePayInData = {
@@ -1610,7 +1610,7 @@ export const _processPayInServiceInternal = async (
   // validate payIn
   // throw error if not exist or expires
   const orderid = merchantOrderId;
-  await checkLockEdit(orderid, false, conn);
+  await checkLockEdit(orderid, true, conn);
   if (h2h) {
     const payin = await getPayInsForCronDao(
       {
@@ -1713,7 +1713,7 @@ export const _processPayInServiceInternal = async (
     status: payIn.status,
     merchantOrderId: payIn.merchant_order_id,
     payinId: payIn.id,
-    amount: bankResponse.amount,
+    amount: bankResponse.amount || null,
     req_amount: payIn.amount,
     utr_id: payIn.user_submitted_utr,
   };
@@ -2225,7 +2225,7 @@ export const processPayInWebHookService = async (payload, updated_by) => {
       status: finalStatus,
       merchantOrderId: payIn.merchant_order_id,
       payinId: payIn.id,
-      amount: bankResponse.amount,
+      amount: bankResponse.amount || null,
       req_amount: payIn.amount,
       utr_id: userSubmittedUtr,
     };
