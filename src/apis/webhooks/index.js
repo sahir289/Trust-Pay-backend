@@ -9,6 +9,7 @@ import { nmplPayWebhook } from './nmplPay.js';
 import { silkPayWebhook } from './silkPay.js';
 import { handleRazorpayWebhook } from './razorPay.js';    
 import { rupeeFlowWebhook } from './rupeeflow.js';
+import { orvixPayWebhook } from './orvixPay.js';
 
 
 const router = express.Router();
@@ -20,5 +21,6 @@ router.post('/silkPay', tryCatchHandler(silkPayWebhook));
 router.post('/clickrr', tryCatchHandler(clickrrWebhook)); 
 router.post('/razorpay', tryCatchHandler(handleRazorpayWebhook));
 router.post('/rupeeflow', tryCatchHandler(rupeeFlowWebhook));
+router.post('/orvixPay', tryCatchHandler(orvixPayWebhook));
 
 export default router;
