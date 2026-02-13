@@ -995,7 +995,7 @@ export async function sendBankNotAssignedAlertTelegram(
     const cooldownActive = await getCachedData(cacheKey);
     if (cooldownActive) {
       logger.log(
-        `⏳ Duplicate alert suppressed for code: ${code} (bank_alert active for ${HOLD_TIME}s)`,
+        `Duplicate alert suppressed for code: ${code} (bank_alert active for ${HOLD_TIME}s)`,
       );
       return; 
     }

@@ -68,6 +68,13 @@ function config(Env) {
       salt: Env?.ZENTECHIND_SALT,
       collectionId: Env?.ZENTECHIND_COLLECTION_ID,
     },
+    silkPay: {
+      url: Env?.SILK_PAY_API_URL,
+      secret: Env?.SILK_PAY_SECRET,
+      collectionId: Env?.SILK_PAY_COLLECTION_ID,
+      silkPayMerchant: Env?.SILK_PAY_MERCHANT_ID,
+      silkPayCallbackUrl: Env?.SILK_PAY_CALLBACK_URL
+    },
     nmplPay: {
       url: Env?.NMPL_PAY_API_URL,
       salt: Env?.NMPL_PAY_SALT,
@@ -100,6 +107,11 @@ function config(Env) {
       walletBalance: Env?.BSS_WALLET_BALANCE_API_URL,
       apiKey: Env?.BSS_API_KEY,
       apiSecret: Env?.BSS_API_SECRET,
+    },
+    orvixPay: {
+      url: Env?.ORVIX_PAY_API_URL,
+      salt: Env?.ORVIX_PAY_SALT,
+      collectionId: Env?.ORVIX_PAY_COLLECTION_ID,
     },
     openStreetApi:{
       openStreetMapUrl: Env?.OPEN_STREET_MAP_URL,
