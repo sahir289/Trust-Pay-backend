@@ -68,7 +68,7 @@ export async function acquireUTRLock(utr, conn) {
     const lockResult = await executeQuery(
       'SELECT pg_try_advisory_xact_lock($1) AS acquired',
       [lockKey],
-      conn,
+      // conn,
     );
 
     const acquired = lockResult.rows[0]?.acquired || false;

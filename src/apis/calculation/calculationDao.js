@@ -1401,6 +1401,27 @@ export const getCalculationforCronDao = async (userId, conn = null) => {
   }
 };
 
+// Batch fetch latest calculation for all users (for cron optimization)
+export const getLatestCalculationsForAllUsersDao = async (conn = null) => {
+  try {
+    const sql = `
+      SELECT DISTINCT ON (user_id)
+        user_id,
+        role_id,
+        company_id,
+        net_balance
+      FROM public."Calculation" 
+      WHERE is_obsolete = false
+      ORDER BY user_id, created_at DESC
+    `;
+    const result = await executeQuery(sql, [], conn);
+    return result.rows;
+  } catch (error) {
+    logger.error('Error fetching latest calculations for all users', error);
+    throw error;
+  }
+};
+
 export const getAllCalculationforCronDao = async (userId, conn = null) => {
   try {
     const sql = `
