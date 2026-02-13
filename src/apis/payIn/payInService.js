@@ -134,9 +134,6 @@ import { createCashfreeOrder } from '../../cashfree/cashfree.js';
 import { createRazorPayOrder } from '../../razorpay/razorpay.js';
 // import { createZenTechIndTransaction } from '../../zentechind/zentechInd.js';
 import { createPaymentTransaction } from '../../intent/createIntentTransaction.js';
-<<<<<<<<< Temporary merge branch 1
-import { createSilkPaymentTransaction } from '../../intent/createSilkIntentTransaction.js';
-=========
 // Transaction management imports
 import {
   getConnection,
