@@ -79,7 +79,6 @@ const createGeoGuard = (options = {}) => {
           location = defaultLocation;
         }
       }
-      console.log(location, "location ++++");
       const { latitude, longitude, accuracy } = location;
 
       if (!latitude || !longitude) {

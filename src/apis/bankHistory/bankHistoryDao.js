@@ -41,7 +41,6 @@ const getallBankHistoryDao = async (filters, conn = null) => {
       `;
     const params = [filters.date];
     const result = await executeQuery(query, params, conn);
-    console.log("result",result.rows);
     return result.rows;
   } catch (error) {
     logger.error(`Error in getBankHistoryDao: ${error.message}`, {
