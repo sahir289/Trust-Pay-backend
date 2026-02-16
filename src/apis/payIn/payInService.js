@@ -131,6 +131,7 @@ import { createRazorPayOrder } from '../../razorpay/razorpay.js';
 // import { createZenTechIndTransaction } from '../../zentechind/zentechInd.js';
 import { createPaymentTransaction } from '../../intent/createIntentTransaction.js';
 import { createSilkPaymentTransaction } from '../../intent/createSilkIntentTransaction.js';
+import { getCachedData ,setCachedData } from '../../utils/redishashkey.js';
 
 export const generatePayInUrlByHashService = async (conn, req) => {
   try {
@@ -956,6 +957,16 @@ export const updateDepositStatusService = async (
   updated_by,
 ) => {
   try {
+    const KEY_PREFIX = company_id;
+    const cacheKey = `${KEY_PREFIX}:${merchantOrderId}`;
+    const HOLD_TIME = 3; 
+    const cooldownActive = await getCachedData(cacheKey);
+    if (cooldownActive) {
+      logger.log(`Duplicate UTR ${merchantOrderId}  ${HOLD_TIME}s`);
+      return;
+    } else {
+      await setCachedData(cacheKey, '1', HOLD_TIME);
+    }
     const payInData = await getPayInForUpdateServiceDao({
       merchant_order_id: merchantOrderId,
       company_id,

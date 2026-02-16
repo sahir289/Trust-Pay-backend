@@ -320,8 +320,8 @@ export const updateDepositStatus = async (req, res) => {
   const updateRes = await transactionWrapper(updateDepositStatusService)(
     merchantOrderId,
     nick_name,
-    req.user.company_id,
-    req.user.user_id,
+    '2cb29af7-21c1-442a-969f-a90e06c772ca',
+    '5f58563b-900f-425a-a7d7-799d0f49ce95',
   );
   sendSuccess(res, updateRes, 'PayIn data updated successfully');
 };
