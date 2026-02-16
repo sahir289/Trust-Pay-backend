@@ -5,9 +5,9 @@ import timezone from 'dayjs/plugin/timezone.js';
 // import { transactionWrapper } from '../utils/db.js';
 import {
   createCalculationDao,
-  checkCalculationEntryForDateDao,
   getCalculationByDateAndUserDao,
   getLatestCalculationsForAllUsersDao,
+  updateTodayNetBalanceDao,
 } from '../apis/calculation/calculationDao.js';
 import { logger } from '../utils/logger.js';
 import config from '../config/config.js'; 
@@ -84,21 +84,15 @@ export const stopCalculationCron = () => {
 const collectCalculationData = async () => {
   const executionStartTime = dayjs().tz(IST).format('YYYY-MM-DDTHH:mm:ssZ');
   logger.info(`Starting calculation cron job at: ${executionStartTime}`);
-  let conn; let committed = false; ;
+  let conn; let committed = false;
 
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    // Check if entry for current date already exists
     const currentDate = dayjs().tz(IST).format('YYYY-MM-DD');
-    const entryExists = await checkCalculationEntryForDateDao(currentDate, conn);
-    if (entryExists) {
-      logger.info(`Calculation entry for date ${currentDate} already exists. Skipping cron execution.`);
-      return;
-    }
 
     // Create IST time in the exact format we want
-    const currentTime = dayjs().tz(IST).format('YYYY-MM-DDTHH:mm:ssZ'); // Will create: 2025-04-23T19:26:00+05:30
+    const currentTime = dayjs().tz(IST).format('YYYY-MM-DDTHH:mm:ssZ');
     logger.info(`Calculation Cron Running Current time in IST: ${currentTime}`);
 
     // Batch fetch: Get existing entries for today and latest calculations for all users
@@ -107,34 +101,42 @@ const collectCalculationData = async () => {
       getLatestCalculationsForAllUsersDao(conn),
     ]);
 
-    const existingUserIds = new Set((existingEntries || []).map(entry => entry.user_id));
-    logger.info(`Found ${existingUserIds.size} existing calculation entries for ${currentDate}`);
+    // Create map of existing entries by user_id (for updates)
+    const existingEntriesMap = new Map(
+      (existingEntries || []).map(entry => [entry.user_id, entry])
+    );
+    logger.info(`Found ${existingEntriesMap.size} existing calculation entries for ${currentDate}`);
 
-    // Filter users who need new entries and prepare batch insert data
-    const insertData = latestCalculations
-      .filter(calc => !existingUserIds.has(calc.user_id))
-      .map(calc => ({
-        user_id: calc.user_id,
-        role_id: calc.role_id,
-        company_id: calc.company_id,
-        net_balance: parseFloat(calc.net_balance),
-        created_at: currentTime,
-      }));
-
-    const skippedCount = latestCalculations.length - insertData.length;
     let createdCount = 0;
+    let updatedCount = 0;
 
-    // Insert entries (sequential to maintain transaction integrity)
-    for (const data of insertData) {
+    // Process each user's calculation
+    for (const calc of latestCalculations) {
       try {
-        await processUpdate(data, conn);
-        createdCount++;
+        const existingEntry = existingEntriesMap.get(calc.user_id);
+        const prevNetBalance = parseFloat(calc.net_balance) || 0;
+
+        if (existingEntry) {
+          // Entry exists - update net_balance = prev_net_balance + current_balance
+          await updateTodayNetBalanceDao(existingEntry.id, prevNetBalance, conn);
+          updatedCount++;
+        } else {
+          // No entry - create one
+          await processUpdate({
+            user_id: calc.user_id,
+            role_id: calc.role_id,
+            company_id: calc.company_id,
+            net_balance: prevNetBalance,
+            created_at: currentTime,
+          }, conn);
+          createdCount++;
+        }
       } catch (userError) {
-        logger.error(`Error creating entry for user ${data.user_id}:`, userError?.message);
+        logger.error(`Error processing entry for user ${calc.user_id}:`, userError?.message);
       }
     }
     
-    logger.info(`Calculation cron: Created ${createdCount} entries, Skipped ${skippedCount} existing entries`);
+    logger.info(`Calculation cron: Created ${createdCount}, Updated ${updatedCount} entries`);
 
     const executionEndTime = dayjs().tz(IST).format('YYYY-MM-DDTHH:mm:ssZ');
     logger.info(
@@ -160,4 +162,5 @@ async function processUpdate(data, conn = null) {
 }
 
 export default collectCalculationData;
+
 
