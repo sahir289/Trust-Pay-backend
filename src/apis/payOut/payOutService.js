@@ -69,6 +69,7 @@ import { createPayAssistPayout } from '../../payassist/payassist.js';
 import { createTataPayPayout } from '../../tatapay/tatapay.js';
 import { createRupeeFlowPayout } from '../../rupeeflow/rupeeflow.js';
 import { createBSSPayout } from '../../bss/bss.js';
+import { createBSS02Payout } from '../../bss/bss02.js';
 // import { notifyNewCalculationTableEntry } from '../../utils/sockets.js';
 
 // Helper function to check if vendor is sub-vendor and get parent info
@@ -869,6 +870,31 @@ const updatePayoutService = async (conn, ids, payload, role) => {
       // const clientIp = getClientIp(req);
       logger.info(`Creating BSS payout with bankId: ${bankId}`);
       const updatedPayload = await createBSSPayout(
+        payload,
+        ids,
+        singleWithdrawData,
+        bankId,
+      );
+      payload = updatedPayload;
+    }
+    else if (payload?.config?.method === Method.BSS02) {
+      const method = payload.config.method;
+      logger.info(`Processing BSS02 payout for method: ${method}`);
+      const [company] = await getCompanyByIDDao({ id: ids.company_id }, conn);
+      if (!company) throw new NotFoundError('Company not found');
+
+      const bankId = company.config.BSS02.defaultBankId;
+      if (!bankId)
+        throw new NotFoundError(`Default bank ID not found for ${method}`);
+
+      bankDataArr = await getBankByIdDao({ id: bankId });
+
+      if (!bankDataArr[0])
+        throw new NotFoundError(`Bank not found for ${method} payout`);
+
+      // const clientIp = getClientIp(req);
+      logger.info(`Creating BSS02 payout with bankId: ${bankId}`);
+      const updatedPayload = await createBSS02Payout(
         payload,
         ids,
         singleWithdrawData,
