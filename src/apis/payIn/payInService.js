@@ -131,7 +131,7 @@ import { createRazorPayOrder } from '../../razorpay/razorpay.js';
 // import { createZenTechIndTransaction } from '../../zentechind/zentechInd.js';
 import { createPaymentTransaction } from '../../intent/createIntentTransaction.js';
 import { createSilkPaymentTransaction } from '../../intent/createSilkIntentTransaction.js';
-
+import { getCachedData ,setCachedData } from '../../utils/redishashkey.js';
 export const generatePayInUrlByHashService = async (conn, req) => {
   try {
     const { user_id, code, ot, key, amount } = req.query;
@@ -847,11 +847,15 @@ export const payInIntentGenerateOrderService = async (
         return order?.payment_url;
       },
       silkPay: async () => {
-        const order = await createSilkPaymentTransaction('silkPay', payIn, amount);
+        const order = await createSilkPaymentTransaction('silkPay', payIn, amount,);
         return order?.paymentUrl;
       },
       NMPLPay: async () => {
         const order = await createPaymentTransaction('nmplPay', payIn, amount);
+        return order?.payment_url;
+      },
+      orvixPay: async () => {
+        const order = await createPaymentTransaction('orvixPay', payIn, amount);
         return order?.payment_url;
       },
       Cashfree: async () => {
@@ -863,7 +867,6 @@ export const payInIntentGenerateOrderService = async (
         return order?.id;
       }
     };
-
     const handler = providerHandlers[provider];
     if (!handler) {
       throw new NotFoundError(`No handler found for provider: ${provider}`);
@@ -956,6 +959,16 @@ export const updateDepositStatusService = async (
   updated_by,
 ) => {
   try {
+      const KEY_PREFIX = company_id;
+      const cacheKey = `${KEY_PREFIX}:${merchantOrderId}`;
+      const HOLD_TIME = 3;
+      const cooldownActive = await getCachedData(cacheKey);
+      if (cooldownActive) {
+        logger.log(`Duplicate merchantOrderId ${merchantOrderId}  ${HOLD_TIME}s`);
+        return;
+      } else {
+        await setCachedData(cacheKey, '1', HOLD_TIME);
+      }
     const payInData = await getPayInForUpdateServiceDao({
       merchant_order_id: merchantOrderId,
       company_id,
@@ -3279,6 +3292,7 @@ export const verifyPayinsService = async (
       allowNmplPay: cashfreeDetails?.allow_nmplpay || false,
       allowSilkPay: cashfreeDetails?.allow_silkpay || false,
       allowRazorPay: cashfreeDetails?.allow_razorpay || false,
+      allowOrvixPay: cashfreeDetails?.allow_orvixpay || false,
       status: payIn.status,
       min_amount: merchant[0].min_payin,
       max_amount: merchant[0].max_payin,
