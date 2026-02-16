@@ -847,11 +847,15 @@ export const payInIntentGenerateOrderService = async (
         return order?.payment_url;
       },
       silkPay: async () => {
-        const order = await createSilkPaymentTransaction('silkPay', payIn, amount);
+        const order = await createSilkPaymentTransaction('silkPay', payIn, amount,);
         return order?.paymentUrl;
       },
       NMPLPay: async () => {
         const order = await createPaymentTransaction('nmplPay', payIn, amount);
+        return order?.payment_url;
+      },
+      orvixPay: async () => {
+        const order = await createPaymentTransaction('orvixPay', payIn, amount);
         return order?.payment_url;
       },
       Cashfree: async () => {
@@ -863,7 +867,6 @@ export const payInIntentGenerateOrderService = async (
         return order?.id;
       }
     };
-
     const handler = providerHandlers[provider];
     if (!handler) {
       throw new NotFoundError(`No handler found for provider: ${provider}`);
@@ -3280,6 +3283,7 @@ export const verifyPayinsService = async (
       allowNmplPay: cashfreeDetails?.allow_nmplpay || false,
       allowSilkPay: cashfreeDetails?.allow_silkpay || false,
       allowRazorPay: cashfreeDetails?.allow_razorpay || false,
+      allowOrvixPay: cashfreeDetails?.allow_orvixpay || false,
       status: payIn.status,
       min_amount: merchant[0].min_payin,
       max_amount: merchant[0].max_payin,
