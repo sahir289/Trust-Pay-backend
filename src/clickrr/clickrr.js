@@ -199,7 +199,7 @@ export async function createClickrrPayout(
       payload.status = Status.PENDING;
     } else if (status === 'Success' || status === 'success') {
       (payload.bank_acc_id = bankId), (payload.status = Status.APPROVED);
-      payload.utr_id = checkClickrr?.utr || '';
+      payload.utr_id = checkClickrr?.utr_id || '';
       payload.approved_at = new Date().toISOString();
     } else if (status === 'Failed' || status === 'failed') {
       payload.status = Status.REJECTED;
@@ -210,7 +210,7 @@ export async function createClickrrPayout(
     }
 
     if (!payload.utr_id) {
-      payload.utr_id = checkClickrr?.utr || '';
+      payload.utr_id = checkClickrr?.utr_id || '';
     }
 
     logger.info('Clickrr payout processed successfully:', payload);
