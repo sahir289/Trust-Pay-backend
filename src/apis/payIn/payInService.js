@@ -3283,7 +3283,6 @@ export const verifyPayinsService = async (
     if (merchantIntent && bankIntent) {
       cashfreeDetails = await getCashfreeAllowByCompanyIdDao(payIn.company_id);
     }
-    console.log('cashfreeDetailssss', cashfreeDetails);
     const result = {
       expiryTime: payIn.expiration_date,
       amount: payIn.amount,
