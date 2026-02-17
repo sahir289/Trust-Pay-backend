@@ -142,7 +142,7 @@ import {
   rollback,
 } from '../../utils/db.js';
 import { createSilkPaymentTransaction } from '../../intent/createSilkIntentTransaction.js';
-
+import { getCachedData ,setCachedData } from '../../utils/redishashkey.js';
 export const generatePayInUrlByHashService = async (req) => {
   let conn;
   let committed = false; 
@@ -998,6 +998,16 @@ export const updateDepositStatusService = async (
   try {
     conn = await getConnection();
     await beginTransaction(conn);
+      const KEY_PREFIX = company_id;
+      const cacheKey = `${KEY_PREFIX}:${merchantOrderId}`;
+      const HOLD_TIME = 3;
+      const cooldownActive = await getCachedData(cacheKey);
+      if (cooldownActive) {
+        logger.log(`Duplicate merchantOrderId ${merchantOrderId}  ${HOLD_TIME}s`);
+        return;
+      } else {
+        await setCachedData(cacheKey, '1', HOLD_TIME);
+      }
     const payInData = await getPayInForUpdateServiceDao(
       {
         merchant_order_id: merchantOrderId,
