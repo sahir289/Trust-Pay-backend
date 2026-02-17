@@ -3,6 +3,9 @@ import config from '../config/config.js';
 import { Buffer } from 'buffer';
 import { logger } from './logger.js';
 import { createBankResponseService } from '../apis/bankResponse/bankResponseServices.js';
+
+const DLX_NAME = 'bank_responses.dlx';
+const DLQ_NAME = 'bank_responses.dlq';
 // Publish a bank response to the dedicated queue
 export const publishBankResponse = async (responseData) => {
   const queue = config.rabbitmq.bankResponseQueue;
@@ -16,7 +19,17 @@ export const publishBankResponse = async (responseData) => {
       channel = await connectRabbitMQ();
     }
 
-    await channel.assertQueue(queue, { durable: true });
+    // Ensure DLX and DLQ exist
+    await channel.assertExchange(DLX_NAME, 'direct', { durable: true });
+    await channel.assertQueue(DLQ_NAME, { durable: true });
+    await channel.bindQueue(DLQ_NAME, DLX_NAME, 'failed');
+    await channel.assertQueue(queue, {
+      durable: true,
+      arguments: {
+        'x-dead-letter-exchange': DLX_NAME,
+        'x-dead-letter-routing-key': 'failed',
+      },
+    });
     const published = await publishWithRetry(channel, queue, message, config.rabbitmq.retryAttempts);
 
     if (!published) {
@@ -52,7 +65,17 @@ export const consumeBankResponses = async (callback) => {
     const channel = await getRabbitChannel();
     if (!channel) throw new Error('RabbitMQ channel not initialized');
     const queue = config.rabbitmq.bankResponseQueue;
-    await channel.assertQueue(queue, { durable: true });
+    // Ensure DLX and DLQ exist
+    await channel.assertExchange(DLX_NAME, 'direct', { durable: true });
+    await channel.assertQueue(DLQ_NAME, { durable: true });
+    await channel.bindQueue(DLQ_NAME, DLX_NAME, 'failed');
+    await channel.assertQueue(queue, {
+      durable: true,
+      arguments: {
+        'x-dead-letter-exchange': DLX_NAME,
+        'x-dead-letter-routing-key': 'failed',
+      },
+    });
     return channel.consume(
       queue,
       async (msg) => {
@@ -81,7 +104,17 @@ export const startBankResponseWorker = async (processFn) => {
     const channel = await getRabbitChannel();
     if (!channel) throw new Error('RabbitMQ channel not initialized');
     const queue = config.rabbitmq.bankResponseQueue;
-    await channel.assertQueue(queue, { durable: true });
+    // Ensure DLX and DLQ exist
+    await channel.assertExchange(DLX_NAME, 'direct', { durable: true });
+    await channel.assertQueue(DLQ_NAME, { durable: true });
+    await channel.bindQueue(DLQ_NAME, DLX_NAME, 'failed');
+    await channel.assertQueue(queue, {
+      durable: true,
+      arguments: {
+        'x-dead-letter-exchange': DLX_NAME,
+        'x-dead-letter-routing-key': 'failed',
+      },
+    });
     await channel.consume(
       queue,
       async (msg) => {

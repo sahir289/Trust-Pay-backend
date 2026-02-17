@@ -3,6 +3,8 @@ import { getRabbitChannel } from '../utils/rabbitmq.js';
 import config from '../config/config.js';
 import { createBankResponseService } from './bankResponse/bankResponseServices.js';
 
+const DLX_NAME = 'bank_responses.dlx';
+const DLQ_NAME = 'bank_responses.dlq';
 
 const router = express.Router();
 
@@ -11,7 +13,18 @@ router.post('/consume-bank-response', async (req, res) => {
     const channel = await getRabbitChannel();
     if (!channel) throw new Error('RabbitMQ channel not initialized');
     const queue = config.rabbitmq.bankResponseQueue;
-    await channel.assertQueue(queue, { durable: true });
+    
+    // Ensure DLX and DLQ exist
+    await channel.assertExchange(DLX_NAME, 'direct', { durable: true });
+    await channel.assertQueue(DLQ_NAME, { durable: true });
+    await channel.bindQueue(DLQ_NAME, DLX_NAME, 'failed');
+    await channel.assertQueue(queue, {
+      durable: true,
+      arguments: {
+        'x-dead-letter-exchange': DLX_NAME,
+        'x-dead-letter-routing-key': 'failed',
+      },
+    });
 
     const results = [];
 
