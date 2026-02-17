@@ -4,10 +4,10 @@ import utc from 'dayjs/plugin/utc.js';
 import timezone from 'dayjs/plugin/timezone.js';
 // import { transactionWrapper } from '../utils/db.js';
 import {
-  createCalculationDao,
   getCalculationByDateAndUserDao,
   getLatestCalculationsForAllUsersDao,
-  updateTodayNetBalanceDao,
+  batchUpdateTodayNetBalanceDao,
+  batchCreateCalculationDao,
 } from '../apis/calculation/calculationDao.js';
 import { logger } from '../utils/logger.js';
 import config from '../config/config.js'; 
@@ -107,34 +107,34 @@ const collectCalculationData = async () => {
     );
     logger.info(`Found ${existingEntriesMap.size} existing calculation entries for ${currentDate}`);
 
-    let createdCount = 0;
-    let updatedCount = 0;
+    // Separate entries into updates and creates
+    const updates = [];
+    const creates = [];
 
-    // Process each user's calculation
     for (const calc of latestCalculations) {
-      try {
-        const existingEntry = existingEntriesMap.get(calc.user_id);
-        const prevNetBalance = parseFloat(calc.net_balance) || 0;
+      const existingEntry = existingEntriesMap.get(calc.user_id);
+      const prevNetBalance = parseFloat(calc.net_balance) || 0;
 
-        if (existingEntry) {
-          // Entry exists - update net_balance = prev_net_balance + current_balance
-          await updateTodayNetBalanceDao(existingEntry.id, prevNetBalance, conn);
-          updatedCount++;
-        } else {
-          // No entry - create one
-          await processUpdate({
-            user_id: calc.user_id,
-            role_id: calc.role_id,
-            company_id: calc.company_id,
-            net_balance: prevNetBalance,
-            created_at: currentTime,
-          }, conn);
-          createdCount++;
-        }
-      } catch (userError) {
-        logger.error(`Error processing entry for user ${calc.user_id}:`, userError?.message);
+      if (existingEntry) {
+        // Entry exists - queue for batch update
+        updates.push({ id: existingEntry.id, net_balance: prevNetBalance });
+      } else {
+        // No entry - queue for batch create
+        creates.push({
+          user_id: calc.user_id,
+          role_id: calc.role_id,
+          company_id: calc.company_id,
+          net_balance: prevNetBalance,
+          created_at: currentTime,
+        });
       }
     }
+
+    // Execute batch operations in parallel
+    const [updatedCount, createdCount] = await Promise.all([
+      updates.length > 0 ? batchUpdateTodayNetBalanceDao(updates, conn) : 0,
+      creates.length > 0 ? batchCreateCalculationDao(creates, conn) : 0,
+    ]);
     
     logger.info(`Calculation cron: Created ${createdCount}, Updated ${updatedCount} entries`);
 
@@ -151,15 +151,6 @@ const collectCalculationData = async () => {
     if (conn) conn.release();
   }
 };
-// Function to update the calculation data
-async function processUpdate(data, conn = null) {
-  try {
-    await createCalculationDao(data, conn);
-  } catch (error) {
-    logger.error('Error while updating calculation data:', error?.message);
-    throw error; // Re-throw to trigger transaction rollback
-  }
-}
 
 export default collectCalculationData;
 
