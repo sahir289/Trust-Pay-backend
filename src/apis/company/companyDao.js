@@ -62,8 +62,8 @@ const getClickrrDetailsByCompanyIdDao = async (id, conn = null) => {
 
 const getBSSDetailsByCompanyIdDao = async (id) => {
   try {
-    const sql = `SELECT config -> 'BSS02' ->> 'api_key' AS api_key,
-    config -> 'BSS02' ->> 'api_secret' AS api_secret FROM "${tableName.COMPANY}" WHERE id = $1`;
+    const sql = `SELECT config -> 'BSS' ->> 'api_key' AS api_key,
+    config -> 'BSS' ->> 'api_secret' AS api_secret FROM "${tableName.COMPANY}" WHERE id = $1`;
     const queryParams = [id];
     const result = await executeQuery(sql, queryParams);
     return result.rows.length > 0 ? result.rows[0] : result.rows;
@@ -75,8 +75,8 @@ const getBSSDetailsByCompanyIdDao = async (id) => {
 
 const getBSS02DetailsByCompanyIdDao = async (id) => {
   try {
-    const sql = `SELECT config -> 'BSS' ->> 'api_key' AS api_key,
-    config -> 'BSS' ->> 'api_secret' AS api_secret FROM "${tableName.COMPANY}" WHERE id = $1`;
+    const sql = `SELECT config -> 'BSS02' ->> 'api_key' AS api_key,
+    config -> 'BSS02' ->> 'api_secret' AS api_secret FROM "${tableName.COMPANY}" WHERE id = $1`;
     const queryParams = [id];
     const result = await executeQuery(sql, queryParams);
     return result.rows.length > 0 ? result.rows[0] : result.rows;
