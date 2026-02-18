@@ -75,35 +75,21 @@ export const connectRabbitMQ = async (rabbitConfig = config.rabbitmq) => {
   }
 };
 
-const cleanup = async () => {
-  const tempChannel = channel;
-  const tempConnection = connection;
-  
-  // Clear references first to prevent re-entry
+const cleanup = () => {
+  try {
+    channel?.close();
+  } catch (error) {
+    logger.error('Error closing RabbitMQ channel during cleanup:', error);
+  }
+
+  try {
+    connection?.close();
+  } catch (error) {
+    logger.error('Error closing RabbitMQ connection during cleanup:', error);
+  }
+
   channel = null;
   connection = null;
-
-  try {
-    if (tempChannel && !tempChannel.connection?.closed) {
-      await tempChannel.close();
-    }
-  } catch (error) {
-    // Ignore errors on already-closed channels
-    if (!error.message?.includes('Channel closed') && !error.message?.includes('Connection closed')) {
-      logger.error('Error closing RabbitMQ channel during cleanup:', error);
-    }
-  }
-
-  try {
-    if (tempConnection && !tempConnection.closed) {
-      await tempConnection.close();
-    }
-  } catch (error) {
-    // Ignore errors on already-closed connections
-    if (!error.message?.includes('Connection closed')) {
-      logger.error('Error closing RabbitMQ connection during cleanup:', error);
-    }
-  }
 };
 
 let isReconnecting = false;
@@ -112,7 +98,7 @@ const reconnectRabbitMQ = async () => {
   if (isReconnecting) return;
   isReconnecting = true;
 
-  await cleanup();
+  cleanup();
 
   logger.warn('Reconnecting to RabbitMQ in 5s...');
   await new Promise((resolve) => setTimeout(resolve, 5000));
