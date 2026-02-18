@@ -19,7 +19,7 @@ export const silkPayTransactionStatusCallback = async (req, res) => {
   const payload = req.body;
   const apitxnid = payload?.mOrderId;
   let conn;
-  logger.info('Received BSS callback payload:', payload);
+  logger.info('Received SILKPAY callback payload:', payload);
   try {
     if (!apitxnid || apitxnid === '') {
       return res.status(404).send('Payment not found');
@@ -92,9 +92,9 @@ export const silkPayTransactionStatusCallback = async (req, res) => {
       );
     };
 
-      if (payload?.status === 1 || payload?.status === '1' ) {
+      if (payload?.status === 2 || payload?.status === '2' ) {
         await handlePayoutUpdate(payload, true);
-      } else if (payload?.status === '2' || payload?.status === 2) {
+      } else if (payload?.status === 1 || payload?.status === '1') {
         await handlePayoutUpdate(payload, false, true);
       } else if (payload?.status === 3 || payload?.status === "3") {
         await handlePayoutUpdate(payload, false);
