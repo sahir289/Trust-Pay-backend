@@ -5,8 +5,8 @@ import chalk from 'chalk';
 import { connectRabbitMQ, getRabbitChannel } from '../utils/rabbitmq.js';
 
 const MAIN_QUEUE = config.rabbitmq.bankResponseQueue;
-const DLX = 'bank_responses.dlx';
-const DLQ = 'bank_responses.dlq';
+const DLX = 'failed_bank_responses_dlx';
+const DLQ = 'failed_bank_responses_dlq';
 
 const MAX_RETRIES = 3;
 const PREFETCH_COUNT = config.rabbitmq.prefetchCount || 10;
@@ -31,10 +31,8 @@ async function setupTopology(ch) {
       await ch.bindQueue(DLQ, DLX, 'failed');
       await ch.assertQueue(MAIN_QUEUE, {
         durable: true,
-        arguments: {
-          'x-dead-letter-exchange': DLX,
-          'x-dead-letter-routing-key': 'failed',
-        },
+        deadLetterExchange: DLX,
+        deadLetterRoutingKey: 'failed',
       });
       logger.info('Created queue with DLX configuration', err);
     }
