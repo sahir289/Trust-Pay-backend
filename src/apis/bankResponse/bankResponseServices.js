@@ -25,6 +25,7 @@ import {
   updateBankaccountDao,
   getBankaccountCheckDao,
   getBankaccountDashBoardReportDao,
+  getBankIdsOnlyDao,
 } from '../bankAccounts/bankaccountDao.js';
 import {
   // getPayInUrlsDao,
@@ -1472,17 +1473,12 @@ const getBankResponseBySearchService = async (
     );
     sortBy = sortBy ? sortBy : updated ? 'updated_at' : 'sno';
 
-    // Optimized: Single query to fetch bank IDs for multiple users
+    // Optimized: Use lightweight query for bank IDs only
     const fetchBankIds = async (user_ids) => {
       try {
-        const userIdArray = Array.isArray(user_ids) ? user_ids : [user_ids];
-        const banks = await getBankaccountDao({
-          user_id: userIdArray,
-          bank_used_for: 'PayIn',
-        });
-        return banks?.length ? banks.map((bank) => bank.id) : [];
+        return await getBankIdsOnlyDao(user_ids, 'PayIn');
       } catch (error) {
-        logger.error('Error fetching PayIn:', error);
+        logger.error('Error fetching PayIn bank IDs:', error);
         return [];
       }
     };
