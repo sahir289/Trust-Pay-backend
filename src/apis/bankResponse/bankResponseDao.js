@@ -262,20 +262,21 @@ const getBankResponseBySearchDao = async (
     // Track if nick_name filter is used (requires JOIN for count)
     let needsJoinForCount = false;
 
-    // Optimization: If no date filter provided, default to last 1 day for performance
+    // // Optimization: If no date filter provided, default to last 1 day for performance
     if (hasValidDates) {
       whereConditions.push(`"BankResponse".created_at BETWEEN $1 AND $2`);
       countWhereConditions.push(`"BankResponse".created_at BETWEEN $1 AND $2`);
       values.push(...dateParams);
-    } else {
-      // Default: last 1 day if no date range specified (750k records causes slow scans)
-      const defaultStart = dayjs().subtract(1, 'day').startOf('day').utc().format();
-      const defaultEnd = dayjs().endOf('day').utc().format();
-      whereConditions.push(`"BankResponse".created_at BETWEEN $1 AND $2`);
-      countWhereConditions.push(`"BankResponse".created_at BETWEEN $1 AND $2`);
-      values.push(defaultStart, defaultEnd);
-      paramIndex = 3;
-    }
+    } 
+    // else {
+    //   // Default: last 1 day if no date range specified (750k records causes slow scans)
+    //   const defaultStart = dayjs().subtract(1, 'day').startOf('day').utc().format();
+    //   const defaultEnd = dayjs().endOf('day').utc().format();
+    //   whereConditions.push(`"BankResponse".created_at BETWEEN $1 AND $2`);
+    //   countWhereConditions.push(`"BankResponse".created_at BETWEEN $1 AND $2`);
+    //   values.push(defaultStart, defaultEnd);
+    //   paramIndex = 3;
+    // }
 
     whereConditions.push(`"BankResponse".is_obsolete = false`);
     countWhereConditions.push(`"BankResponse".is_obsolete = false`);
