@@ -861,6 +861,28 @@ const updateBanktBalanceDao = async (
   }
 };
 
+/**
+ * Lightweight function to get only bank IDs for a given user_id(s)
+ * Used for filtering in other queries - avoids heavy JOINs
+ */
+const getBankIdsOnlyDao = async (userIds, bankUsedFor = 'PayIn', conn = null) => {
+  try {
+    const userIdArray = Array.isArray(userIds) ? userIds : [userIds];
+    const query = `
+      SELECT id 
+      FROM "BankAccount" 
+      WHERE user_id = ANY($1) 
+        AND bank_used_for = $2 
+        AND is_obsolete = false
+    `;
+    const result = await executeQuery(query, [userIdArray, bankUsedFor], conn);
+    return result.rows.map(row => row.id);
+  } catch (error) {
+    logger.error('Error in getBankIdsOnlyDao:', error);
+    throw error;
+  }
+};
+
 export {
   getBankaccountDao,
   getBankAccountsBySearchDao,
@@ -874,4 +896,5 @@ export {
   updateBanktBalanceDao,
   getBankAccountNickNameForEsDao,
   getBankAccountNickNameForPayinEsDao,
+  getBankIdsOnlyDao,
 };
