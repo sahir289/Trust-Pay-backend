@@ -858,6 +858,10 @@ export const payInIntentGenerateOrderService = async (
         const order = await createPaymentTransaction('orvixPay', payIn, amount);
         return order?.payment_url;
       },
+      orvixPay1: async () => {
+        const order = await createPaymentTransaction('orvixPay1', payIn, amount);
+        return order?.payment_url;
+      },
       Cashfree: async () => {
         const order = await createCashfreeOrder(payIn, amount);
         return order?.payment_session_id;
@@ -3293,6 +3297,7 @@ export const verifyPayinsService = async (
       allowSilkPay: cashfreeDetails?.allow_silkpay || false,
       allowRazorPay: cashfreeDetails?.allow_razorpay || false,
       allowOrvixPay: cashfreeDetails?.allow_orvixpay || false,
+      allowOrvixPay1: cashfreeDetails?.allow_orvixpay1 || false,
       status: payIn.status,
       min_amount: merchant[0].min_payin,
       max_amount: merchant[0].max_payin,

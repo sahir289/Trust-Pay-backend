@@ -110,6 +110,11 @@ function config(Env) {
       salt: Env?.ORVIX_PAY_SALT,
       collectionId: Env?.ORVIX_PAY_COLLECTION_ID,
     },
+     orvixPay1: {
+      url: Env?.ORVIX_PAY_API_URL,
+      salt: Env?.ORVIX_PAY_SALT_1,
+      collectionId: Env?.ORVIX_PAY_COLLECTION_ID_1,
+    },
     openStreetApi:{
       openStreetMapUrl: Env?.OPEN_STREET_MAP_URL,
       openStreetMapExtraParams :Env?.OPEN_STREET_MAP_EXTRA_PARAMS
