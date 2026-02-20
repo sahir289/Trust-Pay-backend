@@ -10,7 +10,6 @@ import {
   batchCreateCalculationDao,
 } from '../apis/calculation/calculationDao.js';
 import { logger } from '../utils/logger.js';
-import config from '../config/config.js'; 
 import { beginTransaction, commit, getConnection, rollback } from '../utils/db.js';
 // Initialize dayjs plugins
 dayjs.extend(utc);
@@ -25,11 +24,12 @@ const MAX_RETRIES = 3; // Total attempts: 1 initial + 2 retries
 let calculationCronJob = null;
 // let retryCronJob = null;
 
-// Only run cron jobs in production environment
-if (config?.env === 'production') {
+// Only run cron jobs in the dedicated cron worker process (works in both prod and local)
+const isCronWorker = process.env.CRON_WORKER === 'true';
+if (isCronWorker) {
   // Main cron job at midnight
   calculationCronJob = cron.schedule(
-    '0 0 * * *',
+    '*/5 * * * *',
     async () => {
       retryCount = 0; // Reset retry count for new day
       await executeWithRetry('12:00 AM IST (Attempt 1)');
@@ -38,14 +38,13 @@ if (config?.env === 'production') {
       timezone: IST,
     },
   );
-} else {
-  logger.warn('Cron jobs are disabled in non-production environments.');
+  logger.info('Calculation cron job initialized in cron worker');
 }
 
 // Function to execute cron with retry mechanism
 const executeWithRetry = async (attemptDescription) => {
   retryCount++;
-  logger.info(`Running calculation cron job in production mode at ${attemptDescription}`);
+  logger.info(`Running calculation cron job at ${attemptDescription}`);
   
   try {
     await collectCalculationData();

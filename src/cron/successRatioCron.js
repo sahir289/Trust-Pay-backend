@@ -452,13 +452,13 @@ export default formattedSuccessRatiosForAllCompanies;
 
 let successRatioCronJob = null;
 
-//run only on server - side /production level
-if (config?.env === 'production') {
+// Only run cron jobs in the dedicated cron worker process (works in both prod and local)
+const isCronWorker = process.env.CRON_WORKER === 'true';
+if (isCronWorker) {
   successRatioCronJob = cron.schedule('*/11 * * * *', () => {
     formattedSuccessRatiosForAllCompanies();
   });
-} else {
-  logger.warn('Cron jobs are disabled in non-production environments.');
+  logger.info('Success ratio cron job initialized in cron worker');
 }
 
 export const stopSuccessRatioCron = () => {

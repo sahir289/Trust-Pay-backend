@@ -6,7 +6,6 @@ import { getallBankHistoryDao } from '../apis/bankHistory/bankHistoryDao.js';
 import collectBankData from './bankCron.js';
 import collectCalculationData from './calculationCron.js';
 import { logger } from '../utils/logger.js';
-import config from '../config/config.js';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -14,16 +13,17 @@ const IST = 'Asia/Kolkata';
 
 let checkNetbalanceCronJob = null;
 
-if (config?.env === 'production') {
+// Only run cron jobs in the dedicated cron worker process (works in both prod and local)
+const isCronWorker = process.env.CRON_WORKER === 'true';
+if (isCronWorker) {
   checkNetbalanceCronJob = cron.schedule(
-    '2 0 * * *',  // Run at 00:02 IST as backup for calculationCron (00:00)
+    '*/2 * * * *',  // Run at 00:02 IST as backup for calculationCron (00:00)
     async () => {
       await runDailyCalculation();
     },
     { timezone: IST }
   );
-} else {
-  logger.warn('Daily calculation cron is disabled in non-production environment.');
+  logger.info('Check netbalance cron job initialized in cron worker');
 }
 
 const runDailyCalculation = async () => {

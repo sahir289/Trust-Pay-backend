@@ -27,8 +27,9 @@ const MAX_RETRIES = 3; // Total attempts: 1 initial + 2 retries
 let dailyCronJob = null;
 let hourlyCronJob = null;
 
-//run only on server - side /production level
-if (config?.env === 'production') {
+// Only run cron jobs in the dedicated cron worker process (works in both prod and local)
+const isCronWorker = process.env.CRON_WORKER === 'true';
+if (isCronWorker) {
   dailyCronJob = cron.schedule('0 0 * * *', async () => {
     dailyRetryCount = 0; // Reset retry count for new day
     await executeWithRetry(
@@ -52,8 +53,7 @@ if (config?.env === 'production') {
       `Hourly gather all cron job at ${currentHour}:00 IST (Attempt 1)`,
     );
   });
-} else {
-  logger.warn('Cron jobs are disabled in non-production environments.');
+  logger.info('Gather all data cron jobs initialized in cron worker');
 }
 
 // Function to execute cron with retry mechanism
