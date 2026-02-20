@@ -29,7 +29,7 @@ const getCompanyDao = async (filters, page, pageSize, sortBy, sortOrder) => {
 };
 const getCompanyDetailsByIdDao = async (id) => {
   try {
-    const baseQuery = `SELECT CONCAT(first_name, ' ', last_name) AS full_name, config ->> 'allowPayAssist' AS allowPayAssist, config ->> 'allowTataPay' AS allowTataPay, config ->> 'allow_clickrr' AS allow_clickrr, config ->> 'allowRupeeFlow' AS allowRupeeFlow, config ->> 'allowBSS' AS allowBSS, config ->> 'allowSilkPayOut' AS allowSilkPay FROM "${tableName.COMPANY}" WHERE 1 = 1`;
+    const baseQuery = `SELECT CONCAT(first_name, ' ', last_name) AS full_name, config ->> 'allowPayAssist' AS allowPayAssist, config ->> 'allowTataPay' AS allowTataPay, config ->> 'allow_clickrr' AS allow_clickrr, config ->> 'allowRupeeFlow' AS allowRupeeFlow, config ->> 'allowBSS' AS allowBSS, config ->> 'allowSilkPayOut' AS allowSilkPay, config ->> 'allowBSS02' AS allowBSS02  FROM "${tableName.COMPANY}" WHERE 1 = 1`;
     const [sql, queryParams] = buildSelectQuery(baseQuery, id);
     const result = await executeQuery(sql, queryParams);
     return result.rows.length > 0 ? result.rows : result.rows[0];
@@ -74,6 +74,19 @@ const getSilkPayDetailsByCompanyIdDao = async (id) => {
     return result.rows.length > 0 ? result.rows[0] : result.rows;
   } catch (error) {
     logger.error('Error fetching silkpay details by companyId:', error);
+    throw error;
+  }
+};
+
+const getBSS02DetailsByCompanyIdDao = async (id) => {
+  try {
+    const sql = `SELECT config -> 'BSS02' ->> 'api_key' AS api_key,
+    config -> 'BSS02' ->> 'api_secret' AS api_secret FROM "${tableName.COMPANY}" WHERE id = $1`;
+    const queryParams = [id];
+    const result = await executeQuery(sql, queryParams);
+    return result.rows.length > 0 ? result.rows[0] : result.rows;
+  } catch (error) {
+    logger.error('Error fetching clickrr details by companyId:', error);
     throw error;
   }
 };
@@ -187,4 +200,5 @@ export {
   getCompanyDetailsByIdDao,
   getBSSDetailsByCompanyIdDao,
   getSilkPayDetailsByCompanyIdDao,
+  getBSS02DetailsByCompanyIdDao,
 };

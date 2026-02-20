@@ -98,6 +98,13 @@ function config(Env) {
       apiKey: Env?.BSS_API_KEY,
       apiSecret: Env?.BSS_API_SECRET,
     },
+    bss02 : {
+      baseUrl: Env?.BSS_BASE_API_URL,
+      initiatePayout: Env?.BSS_WALLET_BALANCE_API_URL,
+      walletBalance: Env?.BSS_WALLET_BALANCE_API_URL,
+      apiKey: Env?.BSS02_API_KEY,
+      apiSecret: Env?.BSS02_API_KEY,
+    },
     orvixPay: {
       url: Env?.ORVIX_PAY_API_URL,
       salt: Env?.ORVIX_PAY_SALT,

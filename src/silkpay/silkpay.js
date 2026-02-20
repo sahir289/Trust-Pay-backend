@@ -61,6 +61,7 @@ export const initiateSilkPayPayout = async (payload, company_id) => {
 
     const mId = silkPayDetails.mid;
     const apiSecret = silkPayDetails.api_secret;
+    const callbackurl = config.silkPay.silkPayPayoutCallbackUrl;
 
     function generateSign({ mId, mOrderId, amount, timestamp, secret }) {
       const raw = `${mId}${mOrderId}${amount}${timestamp}${secret}`;
@@ -80,7 +81,7 @@ export const initiateSilkPayPayout = async (payload, company_id) => {
       mId: mId,
       mOrderId: payload?.merchant_order_id,
       timestamp: Date.now(),
-      notifyUrl: "http://localhost:8090/v1/payout/silkpay-callback",
+      notifyUrl: callbackurl,
       upi: "",
       bankNo: payload?.user_bank_details?.account_no,
       ifsc: payload?.user_bank_details?.ifsc_code,

@@ -34,6 +34,7 @@ export const Method = {
   RUPEEFLOW: 'RUPEEFLOW',
   BSS: 'BSS',
   SILKPAY: 'SILKPAY',
+  BSS02: 'BSS02',
 };
 
 export const Type = {

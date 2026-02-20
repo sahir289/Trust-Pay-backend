@@ -1,8 +1,11 @@
 // Import required functions and classes
 import { getBankByIdDao } from '../../apis/bankAccounts/bankaccountDao.js';
+// import { getMerchantsDao } from '../../apis/merchants/merchantDao.js';
 import { getPayoutsDao } from '../../apis/payOut/payOutDao.js';
+// import { merchantPayoutCallback } from '../merchantCallBacks.js';
 import { payAssistErrorCodeMap, Role, Status } from '../../constants/index.js';
 import { logger } from '../../utils/logger.js';
+// import axios from 'axios';
 import { getCompanyByIDDao } from '../../apis/company/companyDao.js';
 import { getVendorsDao } from '../../apis/vendors/vendorDao.js';
 import { updatePayoutService } from '../../apis/payOut/payOutService.js';
@@ -15,11 +18,11 @@ import {
 } from '../../utils/db.js';
 
 // Define the optimized payAssistTransactionStatusCallback function
-export const silkPayTransactionStatusCallback = async (req, res) => {
+export const bss02TransactionStatusCallback = async (req, res) => {
   const payload = req.body;
-  const apitxnid = payload?.mOrderId;
+  const apitxnid = payload?.CallBack?.OrderID;
   let conn;
-  logger.info('Received SILKPAY callback payload:', payload);
+  logger.info('Received BSS02 callback payload:', payload);
   try {
     if (!apitxnid || apitxnid === '') {
       return res.status(404).send('Payment not found');
@@ -41,7 +44,7 @@ export const silkPayTransactionStatusCallback = async (req, res) => {
       isApproved = false,
       isTransactionUnderProcess = false,
     ) => {
-      const bankId = company.config.SILKPAY.defaultBankId;
+      const bankId = company.config.BSS02.defaultBankId;
       const [bankVendor] = await getBankByIdDao({ id: bankId });
       const [vendor] = await getVendorsDao({
         user_id: bankVendor.user_id,
@@ -50,8 +53,8 @@ export const silkPayTransactionStatusCallback = async (req, res) => {
         bank_acc_id: bankId,
         vendor_id: vendor.id,
         config: {
-          method: 'SILKPAY',
-          description: 'Payout processing via SILKPAY',
+          method: 'BSS02',
+          description: 'Payout processing via BSS02',
         },
       };
       const adminUser = await getUserByCompanyCreatedAtDao(
@@ -65,7 +68,7 @@ export const silkPayTransactionStatusCallback = async (req, res) => {
           status: Status.APPROVED,
           utr_id: isTransactionUnderProcess
             ? null
-            : responseData.utr,
+            : responseData.CallBack.RRN,
           approved_at: new Date().toISOString(),
         });
       } else if (!isApproved && isTransactionUnderProcess) {
@@ -83,7 +86,7 @@ export const silkPayTransactionStatusCallback = async (req, res) => {
       logger.info('Final update payload for payout:', updatePayload);
       // const data = await _updatePayoutServiceInternal(ids, payload, role, conn);
       await updatePayoutService(
-        conn, 
+        conn,
         {
           id: singleWithdrawData.id,
           company_id: singleWithdrawData.company_id,
@@ -92,11 +95,11 @@ export const silkPayTransactionStatusCallback = async (req, res) => {
       );
     };
 
-      if (payload?.status === 2 || payload?.status === '2' ) {
+      if (payload?.CallBack?.Status === Status.SUCCESS || payload?.CallBack?.Status === 'Success') {
         await handlePayoutUpdate(payload, true);
-      } else if (payload?.status === 1 || payload?.status === '1') {
+      } else if (payload?.CallBack?.Status === 'Pending' || payload?.CallBack?.Status === Status.PENDING) {
         await handlePayoutUpdate(payload, false, true);
-      } else if (payload?.status === 3 || payload?.status === "3") {
+      } else if (payload?.CallBack?.Status === 'Failed' || payload?.CallBack?.Status === Status.FAILED) {
         await handlePayoutUpdate(payload, false);
       } else {
         return res.status(400).send(payload.ErrorMessage);

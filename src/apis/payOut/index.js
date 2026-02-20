@@ -23,9 +23,11 @@ import { getPayAssistWalletBalance } from '../../payassist/payassist.js';
 import { getTataPayWalletBalance } from '../../tatapay/tatapay.js';
 import { getRupeeFlowWalletBalance, initiateRupeeFlowPayout } from '../../rupeeflow/rupeeflow.js';
 import { getBSSWalletBalance } from '../../bss/bss.js';
+import { getBSS02WalletBalance } from '../../bss/bss02.js';
 import { bssTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/bssWebHook.js';
-import { silkPayTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/silkPayWebHook.js';
+import { silkPayTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/silkpayWebHook.js';
 import { getSilkPayWalletBalance } from '../../silkpay/silkpay.js';
+import { bss02TransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/bss02WebHook.js';
 const router = express.Router();
 
 /**
@@ -279,6 +281,11 @@ router.post(
   '/silkpay-callback',
   tryCatchHandler(silkPayTransactionStatusCallback),
 );
+router.get(
+  '/bss02/bss02-balance',
+  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  tryCatchHandler(getBSS02WalletBalance),
+);
 
 router.post(
   '/clickrr',
@@ -295,6 +302,11 @@ router.get(
 router.post(
   '/bss-callback',
   tryCatchHandler(bssTransactionStatusCallback),
+);
+
+router.post(
+  '/bss02-callback',
+  tryCatchHandler(bss02TransactionStatusCallback),
 );
 
 router.post(
