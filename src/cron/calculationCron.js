@@ -29,7 +29,7 @@ const isCronWorker = process.env.CRON_WORKER === 'true';
 if (isCronWorker) {
   // Main cron job at midnight
   calculationCronJob = cron.schedule(
-    '*/5 * * * *',
+    '0 0 * * *',
     async () => {
       retryCount = 0; // Reset retry count for new day
       await executeWithRetry('12:00 AM IST (Attempt 1)');
