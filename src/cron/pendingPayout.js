@@ -3,7 +3,7 @@ import { logger } from '../utils/logger.js';
 import { getInitiatedAndPendingSummaryByMerchant } from '../apis/payOut/payOutDao.js';
 import { getCompanyDao } from '../apis/company/companyDao.js';
 import { createTelegramSender } from '../helpers/telegramApi.js';
-import config from '../config/config.js';
+// import config from '../config/config.js';
 // Helper: format number with commas and 2 decimals (Indian format)
 const formatINR = (num) => {
   if (!num && num !== 0) return '0.00';
@@ -14,6 +14,10 @@ const formatINR = (num) => {
 };
 const telegramSender = createTelegramSender();
 let pendingPayoutCronJob = null;
+
+// Only run cron jobs in production environment AND in the dedicated cron worker process
+const isCronWorker = process.env.CRON_WORKER === 'true';
+
 const collectPayoutData = async () => {
   try {
     const companies = await getCompanyDao({});
@@ -65,11 +69,9 @@ const sendPayoutTelegramMessage = async (botToken, chatId, message) => {
   }
 };
 
-if (config?.env === 'production') {
+if (isCronWorker) {
   pendingPayoutCronJob = cron.schedule('0,30 * * * *', collectPayoutData);
-  logger.info('Running payout data cron job in production.');
-} else {
-  logger.warn('Cron jobs are disabled in non-production environments.');
+  logger.info('Pending payout cron job initialized in cron worker');
 }
 
 export const stopPendingPayoutCron = () => {

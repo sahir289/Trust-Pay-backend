@@ -1,15 +1,19 @@
-import { logger } from './src/utils/logger.js';
-import chalk from 'chalk';
+// Mark this as the cron worker process BEFORE importing cron modules
+process.env.CRON_WORKER = 'true';
+
+// Use dynamic imports to ensure CRON_WORKER is set before cron modules load
+const { logger } = await import('./src/utils/logger.js');
+const chalk = (await import('chalk')).default;
 
 logger.info(chalk.bold.green('Cron Worker Process Starting...'));
 
 // Import all cron jobs - they will auto-start on import
-import './src/cron/gatherAllData.js';
-import './src/cron/notifyCron.js';
-import './src/cron/calculationCron.js';
-import './src/cron/pendingPayout.js';
-import './src/cron/checkNetbalance.js';
-import './src/cron/successRatioCron.js';
+await import('./src/cron/gatherAllData.js');
+await import('./src/cron/notifyCron.js');
+await import('./src/cron/calculationCron.js');
+await import('./src/cron/pendingPayout.js');
+await import('./src/cron/checkNetbalance.js');
+await import('./src/cron/successRatioCron.js');
 
 logger.info(chalk.bold.green('All cron jobs initialized successfully'));
 

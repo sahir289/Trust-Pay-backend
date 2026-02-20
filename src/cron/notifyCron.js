@@ -8,12 +8,14 @@ import {
 import { merchantPayinCallback } from '../callBacksAndWebHook/merchantCallBacks.js';
 import { logger } from '../utils/logger.js';
 import { calculateDuration } from '../helpers/index.js';
-import config from '../config/config.js';
+// import config from '../config/config.js';
 
 let notifyCronJob = null;
 let isNotifyCronRunning = false; // Prevent overlapping executions
 
-if (config?.env == 'production') {
+// Only run cron jobs in the dedicated cron worker process (works in both prod and local)
+const isCronWorker = process.env.CRON_WORKER === 'true';
+if (isCronWorker) {
   notifyCronJob = cron.schedule('*/10 * * * * *', async () => {
     if (isNotifyCronRunning) {
       logger.warn('Notify cron is already running, skipping this execution');
@@ -26,9 +28,7 @@ if (config?.env == 'production') {
       isNotifyCronRunning = false;
     }
   });
-  logger.info('Running cron job in production environment');
-} else {
-  logger.warn('Cron jobs are disabled in non-production environments.');
+  logger.info('Notify cron job initialized in cron worker');
 }
 
 export const stopNotifyCron = () => {
