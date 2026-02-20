@@ -2166,7 +2166,7 @@ export const processPayInWebHookService = async (conn, payload, updated_by) => {
 
     await newTableEntry(tableName.PAYIN, responseObj);
     // This is async function but it's just the callback sending function there fore we are not using await
-    await merchantPayinCallback(payIn.config?.urls?.notify, result);
+    merchantPayinCallback(payIn.config?.urls?.notify, result);
 
     return result;
   } catch (error) {
