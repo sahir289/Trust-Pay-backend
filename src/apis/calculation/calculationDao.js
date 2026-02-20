@@ -2582,6 +2582,74 @@ const calculateAdjustmentDataDao = async (
   }
 };
 
+/**
+ * Batch update net_balance for multiple calculation entries in a single query.
+ * @param {Array<{id: string, net_balance: number}>} updates - Array of {id, net_balance} objects
+ * @param {Object} conn - Database connection
+ * @returns {Promise<number>} - Number of rows updated
+ */
+export const batchUpdateTodayNetBalanceDao = async (updates, conn = null) => {
+  if (!updates || updates.length === 0) return 0;
+
+  try {
+    // Build VALUES clause for batch update
+    const values = updates
+      .map((u, i) => `($${i * 2 + 1}::text, $${i * 2 + 2}::numeric)`)
+      .join(', ');
+
+    const params = updates.flatMap((u) => [u.id, u.net_balance]);
+
+    const sql = `
+      UPDATE "${tableName.CALCULATION}" AS c
+      SET net_balance = v.net_balance + c.current_balance
+      FROM (VALUES ${values}) AS v(id, net_balance)
+      WHERE c.id = v.id
+    `;
+
+    const result = await executeQuery(sql, params, conn);
+    return result.rowCount || updates.length;
+  } catch (error) {
+    logger.error('Failed to batch update net_balance:', error.message);
+    throw error;
+  }
+};
+
+/**
+ * Batch insert calculation entries in a single query.
+ * @param {Array<Object>} entries - Array of calculation data objects
+ * @param {Object} conn - Database connection
+ * @returns {Promise<number>} - Number of rows inserted
+ */
+export const batchCreateCalculationDao = async (entries, conn = null) => {
+  if (!entries || entries.length === 0) return 0;
+
+  try {
+    const columns = ['user_id', 'role_id', 'company_id', 'net_balance', 'created_at'];
+    const placeholders = entries
+      .map((_, i) => `($${i * 5 + 1}, $${i * 5 + 2}, $${i * 5 + 3}, $${i * 5 + 4}, $${i * 5 + 5})`)
+      .join(', ');
+
+    const params = entries.flatMap((e) => [
+      e.user_id,
+      e.role_id,
+      e.company_id,
+      e.net_balance,
+      e.created_at,
+    ]);
+
+    const sql = `
+      INSERT INTO "${tableName.CALCULATION}" (${columns.join(', ')})
+      VALUES ${placeholders}
+    `;
+
+    const result = await executeQuery(sql, params, conn);
+    return result.rowCount || entries.length;
+  } catch (error) {
+    logger.error('Failed to batch create calculations:', error.message);
+    throw error;
+  }
+};
+
 export {
   getCalculationDao,
   createCalculationDao,

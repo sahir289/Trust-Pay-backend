@@ -221,129 +221,65 @@ const getBankResponseBySearchDao = async (
 ) => {
   try {
     let data;
-    // if (filters.search) {
-    //   const filterBankResponseByRole = (bankResponse, role) => {
-    //     let allowedKeys;
-    //     switch (role) {
-    //       case Role.VENDOR:
-    //         allowedKeys = BankResponseKeys.VENDOR;
-    //         break;
-    //       case Role.MERCHANT:
-    //         allowedKeys = BankResponseKeys.MERCHANT;
-    //         break;
-    //       case Role.ADMIN:
-    //       default:
-    //         allowedKeys = BankResponseKeys.ADMIN;
-    //         break;
-    //     }
-    //     return Object.fromEntries(
-    //       Object.entries(bankResponse).filter(([key]) =>
-    //         allowedKeys.includes(key),
-    //       ),
-    //     );
-    //   };
-
-    //   delete filters.page;
-    //   delete filters.limit;
-    //   page = page - 1;
-    //   const { results, totalCount, totalPages } =
-    //     await getBankResponseByESSearch(
-    //       filters.search,
-    //       filters,
-    //       page,
-    //       pageSize,
-    //       sortBy,
-    //       sortOrder,
-    //     );
-    //   const filteredBankResponses = results.map((bankResponse) =>
-    //     filterBankResponseByRole(bankResponse, role),
-    //   );
-
-    //   // 🔹 Build final response
-    //   const data = {
-    //     totalCount,
-    //     totalPages,
-    //     rows: filteredBankResponses,
-    //   };
-
-    //   return data;
-    // }
-
     const selectCols = columns.length
-      ? `DISTINCT ON ("BankResponse".sno) ${columns.map((col) => `"BankResponse".${col}`).join(', ')}`
-      : `DISTINCT ON ("BankResponse".sno) ` +
-        [
-          `"BankResponse".*`,
+      ? columns.map((col) => `"BankResponse".${col}`).join(', ')
+      : [
+          `"BankResponse".id`,
+          `"BankResponse".sno`,
+          `"BankResponse".status`,
+          `"BankResponse".bank_id`,
+          `"BankResponse".amount`,
+          `"BankResponse".upi_short_code`,
+          `"BankResponse".utr`,
+          `"BankResponse".is_used`,
+          `"BankResponse".created_by`,
+          `"BankResponse".updated_by`,
+          `"BankResponse".company_id`,
+          `"BankResponse".config`,
           `"BankAccount".user_id`,
           `"BankAccount".nick_name`,
           `"BankAccount".bank_name`,
-          `"Vendor".code AS vendor_code`,
         ].join(', ');
     let start;
     let end;
     let dateParams = [];
-    if (start_date && end_date) {
+    // Check for valid date strings (not empty, not undefined)
+    const hasValidDates = start_date && end_date && start_date.trim() !== '' && end_date.trim() !== '';
+    if (hasValidDates) {
       start = dayjs.tz(`${start_date} 00:00:00`, IST).utc().format();
       end = dayjs.tz(`${end_date} 23:59:59.999`, IST).utc().format();
       dateParams = [start, end];
     }
-    let baseQuery = `
-      SELECT ${selectCols}, 
-        "BankResponse".created_at,
-        "BankAccount".nick_name,
-        "Vendor".user_id AS vendor_user_id,
-        "Vendor".code AS vendor_code
-      FROM "BankResponse"
-      JOIN "BankAccount" ON "BankResponse".bank_id = "BankAccount".id
-      LEFT JOIN "Vendor" ON "BankAccount".user_id = "Vendor".user_id
-    `;
+    
+    // Optimized count query - directly on BankResponse without unnecessary JOINs
+    let countBaseQuery = `SELECT COUNT(*) AS total FROM "BankResponse"`;
 
     const whereConditions = [];
+    // Separate conditions for count query (BankResponse only, no JOIN-dependent filters)
+    const countWhereConditions = [];
     const values = [];
     let paramIndex = dateParams.length ? 3 : 1;
+    // Track if nick_name filter is used (requires JOIN for count)
+    let needsJoinForCount = false;
 
-    if (start_date && end_date) {
+    // // Optimization: If no date filter provided, default to last 1 day for performance
+    if (hasValidDates) {
       whereConditions.push(`"BankResponse".created_at BETWEEN $1 AND $2`);
+      countWhereConditions.push(`"BankResponse".created_at BETWEEN $1 AND $2`);
       values.push(...dateParams);
-    }
-
-    // if (filters.search) {
-    //   const searchTerm = filters.search.trim().split(/\s+/);
-    //   if (searchTerm?.length) {
-    //     const searchConditions = [];
-    //     searchTerm.forEach((term) => {
-    //       if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
-    //         const boolValue = term.toLowerCase() === 'true';
-    //         searchConditions.push(`"BankResponse".is_used = $${paramIndex}`);
-    //         values.push(boolValue);
-    //         paramIndex++;
-    //       } else {
-    //         const likeVal = `%${term}%`;
-    //         searchConditions.push(`
-    //           (
-    //             "BankResponse".id::text ILIKE $${paramIndex}
-    //             OR "BankResponse".status ILIKE $${paramIndex}
-    //             OR "BankResponse".bank_id::text ILIKE $${paramIndex}
-    //             OR "BankResponse".amount::text ILIKE $${paramIndex}
-    //             OR "BankResponse".upi_short_code ILIKE $${paramIndex}
-    //             OR "BankResponse".utr ILIKE $${paramIndex}
-    //             OR "BankResponse".sno::text ILIKE $${paramIndex}
-    //             OR "BankResponse".created_by ILIKE $${paramIndex}
-    //             OR "BankResponse".updated_by ILIKE $${paramIndex}
-    //             OR "BankAccount".user_id::text ILIKE $${paramIndex}
-    //             OR "BankAccount".nick_name ILIKE $${paramIndex}
-    //           )
-    //         `);
-    //         values.push(likeVal);
-    //         paramIndex++;
-    //       }
-    //     });
-    //     whereConditions.push(`(${searchConditions.join(' OR ')})`);
-    //   }
-    //   delete filters.search;
+    } 
+    // else {
+    //   // Default: last 1 day if no date range specified (750k records causes slow scans)
+    //   const defaultStart = dayjs().subtract(1, 'day').startOf('day').utc().format();
+    //   const defaultEnd = dayjs().endOf('day').utc().format();
+    //   whereConditions.push(`"BankResponse".created_at BETWEEN $1 AND $2`);
+    //   countWhereConditions.push(`"BankResponse".created_at BETWEEN $1 AND $2`);
+    //   values.push(defaultStart, defaultEnd);
+    //   paramIndex = 3;
     // }
 
     whereConditions.push(`"BankResponse".is_obsolete = false`);
+    countWhereConditions.push(`"BankResponse".is_obsolete = false`);
 
     if (filters.bank_id) {
       if (
@@ -354,33 +290,40 @@ const getBankResponseBySearchDao = async (
       }
       if (Array.isArray(filters.bank_id)) {
         whereConditions.push(`"BankResponse"."bank_id" = ANY($${paramIndex})`);
+        countWhereConditions.push(`"BankResponse"."bank_id" = ANY($${paramIndex})`);
         values.push(filters.bank_id);
       } else {
         whereConditions.push(`"BankResponse"."bank_id" = $${paramIndex}`);
+        countWhereConditions.push(`"BankResponse"."bank_id" = $${paramIndex}`);
         values.push(filters.bank_id);
       }
       paramIndex++;
     }
     if (filters.nick_name) {
       whereConditions.push(`"BankAccount"."nick_name" = $${paramIndex}`);
+      countWhereConditions.push(`"BankAccount"."nick_name" = $${paramIndex}`);
+      needsJoinForCount = true;
       values.push(filters.nick_name);
       paramIndex++;
     }
 
     if (filters.utr) {
       whereConditions.push(`"BankResponse"."utr" = $${paramIndex}`);
+      countWhereConditions.push(`"BankResponse"."utr" = $${paramIndex}`);
       values.push(filters.utr);
       paramIndex++;
     }
 
     if (filters.company_id) {
       whereConditions.push(`"BankResponse"."company_id" = $${paramIndex}`);
+      countWhereConditions.push(`"BankResponse"."company_id" = $${paramIndex}`);
       values.push(filters.company_id);
       paramIndex++;
     }
 
     if (filters.updated_by) {
       whereConditions.push(`"BankResponse"."updated_by" = $${paramIndex}`);
+      countWhereConditions.push(`"BankResponse"."updated_by" = $${paramIndex}`);
       values.push(filters.updated_by);
       paramIndex++;
     }
@@ -388,6 +331,7 @@ const getBankResponseBySearchDao = async (
     if (filters.status) {
       filters.status = filters.status.split(',');
       whereConditions.push(`"BankResponse".status = ANY($${paramIndex})`);
+      countWhereConditions.push(`"BankResponse".status = ANY($${paramIndex})`);
       values.push(filters.status);
       paramIndex++;
     }
@@ -395,6 +339,7 @@ const getBankResponseBySearchDao = async (
     if (filters.amount) {
       filters.amount = [filters.amount];
       whereConditions.push(`"BankResponse".amount = ANY($${paramIndex})`);
+      countWhereConditions.push(`"BankResponse".amount = ANY($${paramIndex})`);
       values.push(filters.amount);
       paramIndex++;
     }
@@ -404,6 +349,9 @@ const getBankResponseBySearchDao = async (
       whereConditions.push(
         `"BankResponse".upi_short_code = ANY($${paramIndex})`,
       );
+      countWhereConditions.push(
+        `"BankResponse".upi_short_code = ANY($${paramIndex})`,
+      );
       values.push(filters.upi_short_code);
       paramIndex++;
     }
@@ -411,12 +359,17 @@ const getBankResponseBySearchDao = async (
     if (filters.is_used) {
       filters.is_used = [filters.is_used];
       whereConditions.push(`"BankResponse".is_used = ANY($${paramIndex})`);
+      countWhereConditions.push(`"BankResponse".is_used = ANY($${paramIndex})`);
       values.push(filters.is_used);
       paramIndex++;
     }
 
     if (updated) {
       whereConditions.push(
+        `"BankResponse".updated_at IS NOT NULL 
+        AND "BankResponse".updated_at != "BankResponse".created_at`,
+      );
+      countWhereConditions.push(
         `"BankResponse".updated_at IS NOT NULL 
         AND "BankResponse".updated_at != "BankResponse".created_at`,
       );
@@ -434,17 +387,26 @@ const getBankResponseBySearchDao = async (
       whereConditions.push(
         `"BankResponse".updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`,
       );
+      countWhereConditions.push(
+        `"BankResponse".updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`,
+      );
       values.push(startDate, endDate);
       paramIndex += 2;
     }
-    const queryIs = baseQuery;
 
-    let queryText = queryIs;
-    if (whereConditions.length) {
-      queryText += ' WHERE ' + whereConditions.join(' AND ');
+    // Build optimized count query - avoid JOINs when not needed for filtering
+    let countQuery;
+    if (needsJoinForCount) {
+      // If nick_name filter is used, we need JOIN with BankAccount for count
+      countQuery = `SELECT COUNT(*) AS total FROM "BankResponse" 
+        JOIN "BankAccount" ON "BankResponse".bank_id = "BankAccount".id`;
+    } else {
+      // Direct count on BankResponse table - much faster
+      countQuery = countBaseQuery;
     }
-
-    const countQuery = `SELECT COUNT(*) AS total FROM (${queryText}) AS count_table`;
+    if (countWhereConditions.length) {
+      countQuery += ' WHERE ' + countWhereConditions.join(' AND ');
+    }
 
     const validSortColumns = [
       'created_at',
@@ -461,28 +423,64 @@ const getBankResponseBySearchDao = async (
       : 'created_at';
     const safeSortOrder = sortOrder.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
 
-    // Always order by sno first for DISTINCT ON, then by created_at DESC for latest entry
-    queryText += ` ORDER BY "BankResponse"."sno" DESC, "BankResponse"."${safeSortBy}" ${safeSortOrder}`;
-
     const offset = (page - 1) * pageSize;
-    queryText += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    
+    // OPTIMIZATION: Use subquery to get paginated IDs first, then JOIN only those rows
+    // This avoids sorting the entire result set with JOINs
+    let idsSubquery;
+    if (needsJoinForCount) {
+      // If nick_name filter is used, we need JOIN with BankAccount in subquery
+      idsSubquery = `SELECT "BankResponse".id FROM "BankResponse"
+        JOIN "BankAccount" ON "BankResponse".bank_id = "BankAccount".id`;
+    } else {
+      idsSubquery = `SELECT "BankResponse".id FROM "BankResponse"`;
+    }
+    if (countWhereConditions.length) {
+      idsSubquery += ' WHERE ' + countWhereConditions.join(' AND ');
+    }
+    idsSubquery += ` ORDER BY "BankResponse"."${safeSortBy}" ${safeSortOrder}`;
+    idsSubquery += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
+    
+    // Build optimized data query using the IDs subquery
+    const optimizedDataQuery = `
+      SELECT ${selectCols}, 
+        "BankResponse".created_at,
+        "BankResponse".updated_at,
+        "BankAccount".nick_name,
+        "BankAccount".user_id AS vendor_user_id,
+        "Vendor".code AS vendor_code
+      FROM "BankResponse"
+      JOIN "BankAccount" ON "BankResponse".bank_id = "BankAccount".id
+      LEFT JOIN "Vendor" ON "Vendor".user_id = "BankAccount".user_id
+      WHERE "BankResponse".id IN (${idsSubquery})
+      ORDER BY "BankResponse"."${safeSortBy}" ${safeSortOrder}
+    `;
+    
+    // Clone values for count query (without LIMIT/OFFSET params)
+    const countValues = [...values];
     values.push(Number(pageSize), offset);
-    const countResult = await executeQuery(countQuery, values.slice(0, -2), conn);
-    let searchResult = await executeQuery(queryText, values, conn);
+    
+    // Run count and data queries in PARALLEL for better performance
+    const [countResult, searchResult] = await Promise.all([
+      executeQuery(countQuery, countValues, conn),
+      executeQuery(optimizedDataQuery, values, conn),
+    ]);
 
     const totalCount = parseInt(countResult.rows[0].total);
     let totalPages = Math.ceil(totalCount / Number(pageSize));
+    
+    // Handle edge case: offset beyond results
+    let finalSearchResult = searchResult;
     if (totalCount > 0 && searchResult.rows.length === 0 && offset > 0) {
       values[values.length - 1] = 0;
-      searchResult = await executeQuery(queryText, values, conn);
+      finalSearchResult = await executeQuery(optimizedDataQuery, values, conn);
       totalPages = Math.ceil(totalCount / pageSize);
     }
     data = {
       totalCount,
       totalPages,
-      rows: searchResult.rows,
+      rows: finalSearchResult.rows,
     };
-    // await setCachedData(cacheKey, result, 500);
     return data;
   } catch (error) {
     logger.error('Error in getBankResponseBySearchDao:', error);
