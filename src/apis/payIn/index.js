@@ -339,8 +339,8 @@ router.put(
  */
 router.put(
   '/update-deposit-status/:merchantOrderId',
-  // isAuthenticated,
-  // authorized(AccessRoles.PAYIN),
+  isAuthenticated,
+  authorized(AccessRoles.PAYIN),
   tryCatchHandler(updateDepositStatus),
 );
 
