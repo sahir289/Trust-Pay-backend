@@ -17,7 +17,7 @@ let checkNetbalanceCronJob = null;
 const isCronWorker = process.env.CRON_WORKER === 'true';
 if (isCronWorker) {
   checkNetbalanceCronJob = cron.schedule(
-    '*/2 * * * *',  // Run at 00:02 IST as backup for calculationCron (00:00)
+    '2 0 * * *',  // Run at 00:02 IST as backup for calculationCron (00:00)
     async () => {
       await runDailyCalculation();
     },
