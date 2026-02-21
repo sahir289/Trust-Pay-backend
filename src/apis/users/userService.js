@@ -736,7 +736,7 @@ const sendMailService = async (payload) => {
     return await sendCredentialsEmail({
       email: user[0].email,
       username: user[0].user_name,
-      code: merchant ? user[0].code : '',
+      code: merchant ? merchant[0].code : '',
       secretKey: merchant ? merchant[0].config.keys.private : '',
       publicKey: merchant ? merchant[0].config.keys.public : '',
       designation: designation[0].designation,
