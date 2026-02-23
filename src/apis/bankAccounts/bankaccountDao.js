@@ -82,14 +82,27 @@ const getBankaccountDao = async (filters, page, limit, role, designation, conn =
       });
     }
     let commissionSelect = '';
+    // Subquery to calculate dynamic payin_count and today_balance from BankResponse
+    const dynamicBalanceSubquery = `
+      LEFT JOIN LATERAL (
+        SELECT 
+          COALESCE(COUNT(*), 0)::INTEGER AS dynamic_payin_count,
+          COALESCE(SUM(br.amount), 0)::NUMERIC AS dynamic_today_balance
+        FROM public."BankResponse" br
+        WHERE br.bank_id = ba.id
+          AND br.status = '/success'
+          AND br.created_at >= DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Kolkata')
+          AND br.created_at < DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Kolkata') + INTERVAL '1 day'
+      ) br_stats ON TRUE
+    `;
     if (role === 'MERCHANT') {
       commissionSelect = '';
     } else if (role === 'VENDOR') {
       commissionSelect = `
         ba.ifsc AS ifsc_code, 
-        ba.payin_count, 
+        COALESCE(br_stats.dynamic_payin_count, 0) AS payin_count, 
         ba.balance, 
-        ba.today_balance, 
+        COALESCE(br_stats.dynamic_today_balance, 0) AS today_balance, 
         ba.bank_used_for,
         ba.user_id,
         ba.config->>'is_freeze' AS freezed,
@@ -103,9 +116,9 @@ const getBankaccountDao = async (filters, page, limit, role, designation, conn =
         ba.ifsc, 
         ba.min, 
         ba.max, 
-        ba.payin_count, 
+        COALESCE(br_stats.dynamic_payin_count, 0) AS payin_count, 
         ba.balance, 
-        ba.today_balance, 
+        COALESCE(br_stats.dynamic_today_balance, 0) AS today_balance, 
         ba.bank_used_for, 
         creator.user_name AS created_by, 
         updater.user_name AS updated_by, 
@@ -132,6 +145,7 @@ const getBankaccountDao = async (filters, page, limit, role, designation, conn =
           public."BankAccount" ba
       LEFT JOIN public."Vendor" v 
           ON ba.user_id = v.user_id
+      ${role !== 'MERCHANT' ? dynamicBalanceSubquery : ''}
       LEFT JOIN LATERAL (
           SELECT 
               jsonb_agg(jsonb_build_object('id', m.id, 'code', m.code)) AS merchant_details
@@ -223,14 +237,27 @@ const getAllBankaccountDao = async (
       });
     }
     let commissionSelect = '';
+    // Subquery to calculate dynamic payin_count and today_balance from BankResponse
+    const dynamicBalanceSubquery = `
+      LEFT JOIN LATERAL (
+        SELECT 
+          COALESCE(COUNT(*), 0)::INTEGER AS dynamic_payin_count,
+          COALESCE(SUM(br.amount), 0)::NUMERIC AS dynamic_today_balance
+        FROM public."BankResponse" br
+        WHERE br.bank_id = ba.id
+          AND br.status = '/success'
+          AND br.created_at >= DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Kolkata')
+          AND br.created_at < DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Kolkata') + INTERVAL '1 day'
+      ) br_stats ON TRUE
+    `;
     if (role === 'MERCHANT') {
       commissionSelect = '';
     } else if (role === 'VENDOR') {
       commissionSelect = `
         ba.ifsc AS ifsc_code, 
-        ba.payin_count, 
+        COALESCE(br_stats.dynamic_payin_count, 0) AS payin_count, 
         ba.balance, 
-        ba.today_balance,
+        COALESCE(br_stats.dynamic_today_balance, 0) AS today_balance,
         ba.is_enabled,   
         ba.bank_used_for,
         ba.config->>'max_limit' AS daily_limit`;
@@ -241,12 +268,12 @@ const getAllBankaccountDao = async (
         ba.ifsc, 
         ba.min, 
         ba.max, 
-        ba.payin_count, 
+        COALESCE(br_stats.dynamic_payin_count, 0) AS payin_count, 
         ba.balance, 
         ba.is_qr, 
         ba.is_bank, 
         ba.is_enabled, 
-        ba.today_balance, 
+        COALESCE(br_stats.dynamic_today_balance, 0) AS today_balance, 
         ba.bank_used_for, 
         creator.user_name AS created_by, 
         updater.user_name AS updated_by, 
@@ -269,6 +296,7 @@ const getAllBankaccountDao = async (
           public."BankAccount" ba
       LEFT JOIN public."Vendor" v 
           ON ba.user_id = v.user_id
+      ${role !== 'MERCHANT' ? dynamicBalanceSubquery : ''}
       LEFT JOIN LATERAL (
           SELECT 
               jsonb_agg(jsonb_build_object('id', m.id, 'code', m.code)) AS merchant_details
@@ -432,14 +460,27 @@ const getBankAccountsBySearchDao = async (
 
     // Role-based select fields
     let commissionSelect = '';
+    // Subquery to calculate dynamic payin_count and today_balance from BankResponse
+    const dynamicBalanceSubquery = `
+      LEFT JOIN LATERAL (
+        SELECT 
+          COALESCE(COUNT(*), 0)::INTEGER AS dynamic_payin_count,
+          COALESCE(SUM(br.amount), 0)::NUMERIC AS dynamic_today_balance
+        FROM public."BankResponse" br
+        WHERE br.bank_id = ba.id
+          AND br.status = '/success'
+          AND br.created_at >= DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Kolkata')
+          AND br.created_at < DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Kolkata') + INTERVAL '1 day'
+      ) br_stats ON TRUE
+    `;
     if (role === 'MERCHANT') {
       commissionSelect = '';
     } else if (role === 'VENDOR') {
       commissionSelect = `
         ba.ifsc AS ifsc_code, 
-        ba.payin_count, 
+        COALESCE(br_stats.dynamic_payin_count, 0) AS payin_count, 
         ba.balance, 
-        ba.today_balance,
+        COALESCE(br_stats.dynamic_today_balance, 0) AS today_balance,
         ba.is_enabled,   
         ba.bank_used_for,
         ba.config->>'max_limit' AS daily_limit,
@@ -450,12 +491,12 @@ const getBankAccountsBySearchDao = async (
         ba.ifsc, 
         ba.min, 
         ba.max, 
-        ba.payin_count, 
+        COALESCE(br_stats.dynamic_payin_count, 0) AS payin_count, 
         ba.balance, 
         ba.is_qr, 
         ba.is_bank, 
         ba.is_enabled, 
-        ba.today_balance, 
+        COALESCE(br_stats.dynamic_today_balance, 0) AS today_balance, 
         ba.bank_used_for, 
         creator.user_name AS created_by, 
         updater.user_name AS updated_by, 
@@ -482,6 +523,7 @@ const getBankAccountsBySearchDao = async (
         public."BankAccount" ba
       LEFT JOIN public."Vendor" v 
         ON ba.user_id = v.user_id
+      ${role !== 'MERCHANT' ? dynamicBalanceSubquery : ''}
       LEFT JOIN LATERAL (
         SELECT 
           jsonb_agg(jsonb_build_object('id', m.id, 'code', m.code)) AS merchant_details
@@ -862,6 +904,74 @@ const updateBanktBalanceDao = async (
 };
 
 /**
+ * Atomic update for bank account balance and payin_count
+ * Uses SQL increment to prevent race conditions on concurrent updates
+ * @param {Object} filters - { id, company_id }
+ * @param {number} amount - Amount to add to balance and today_balance
+ * @param {string|null} updated_by - User ID performing the update
+ * @param {Object|null} conn - Database connection for transaction support
+ * @returns {Object} Updated bank account row
+ */
+const atomicUpdateBankBalanceDao = async (
+  filters,
+  amount,
+  updated_by,
+  conn = null,
+) => {
+  try {
+    const [sql, params] = buildUpdateQuery(
+      tableName.BANK_ACCOUNT,
+      { balance: amount, today_balance: amount, payin_count: 1, updated_by },
+      filters,
+      { balance: '+', today_balance: '+', payin_count: '+' }, // Atomic increment for all three
+    );
+    
+    const result = conn 
+      ? await conn.query(sql, params)
+      : await executeQuery(sql, params);
+    
+    return result.rows[0];
+  } catch (error) {
+    logger.error('Error in atomicUpdateBankBalanceDao:', error);
+    throw error;
+  }
+};
+
+/**
+ * Atomic decrement for bank account balance and payin_count
+ * Uses SQL decrement to prevent race conditions on concurrent updates
+ * @param {Object} filters - { id, company_id }
+ * @param {number} amount - Amount to subtract from balance and today_balance
+ * @param {string|null} updated_by - User ID performing the update
+ * @param {Object|null} conn - Database connection for transaction support
+ * @returns {Object} Updated bank account row
+ */
+const atomicDecrementBankBalanceDao = async (
+  filters,
+  amount,
+  updated_by,
+  conn = null,
+) => {
+  try {
+    const [sql, params] = buildUpdateQuery(
+      tableName.BANK_ACCOUNT,
+      { balance: amount, today_balance: amount, payin_count: 1, updated_by },
+      filters,
+      { balance: '-', today_balance: '-', payin_count: '-' }, // Atomic decrement for all three
+    );
+    
+    const result = conn 
+      ? await conn.query(sql, params)
+      : await executeQuery(sql, params);
+    
+    return result.rows[0];
+  } catch (error) {
+    logger.error('Error in atomicDecrementBankBalanceDao:', error);
+    throw error;
+  }
+};
+
+/**
  * Lightweight function to get only bank IDs for a given user_id(s)
  * Used for filtering in other queries - avoids heavy JOINs
  */
@@ -894,6 +1004,8 @@ export {
   getBankAccountDaoNickName,
   getBankByIdDao,
   updateBanktBalanceDao,
+  atomicUpdateBankBalanceDao,
+  atomicDecrementBankBalanceDao,
   getBankAccountNickNameForEsDao,
   getBankAccountNickNameForPayinEsDao,
   getBankIdsOnlyDao,
