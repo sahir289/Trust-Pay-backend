@@ -54,7 +54,8 @@ import {
   getMerchantBankDao,
   updateBankaccountDao,
   getBankaccountPayinDao,
-  // updateBanktBalanceDao,
+  atomicUpdateBankBalanceDao,
+  atomicDecrementBankBalanceDao,
 } from '../bankAccounts/bankaccountDao.js';
 import {
   getBankResponseDao,
@@ -4539,25 +4540,18 @@ export const updatePayInService = async (
         }
       }
 
+      // Using atomic increment/decrement to prevent race conditions on concurrent updates
       const [newBankData] = await Promise.all([
-        updateBankaccountDao(
+        atomicDecrementBankBalanceDao(
           { id: prevBank[0].id, company_id: company_id },
-          {
-            balance: prevBank[0].balance - bankResponse.amount,
-            today_balance: prevBank[0].today_balance - bankResponse.amount,
-            payin_count: prevBank[0].payin_count - 1,
-            updated_by: user_id,
-          },
+          parseFloat(bankResponse.amount),
+          user_id,
           conn,
         ),
-        updateBankaccountDao(
+        atomicUpdateBankBalanceDao(
           { id: newBank[0].id, company_id: company_id },
-          {
-            balance: newBank[0].balance + bankResponse.amount,
-            today_balance: newBank[0].today_balance + bankResponse.amount,
-            payin_count: newBank[0].payin_count + 1,
-            updated_by: user_id,
-          },
+          parseFloat(bankResponse.amount),
+          user_id,
           conn,
         ),
         updateBankResponseDao(

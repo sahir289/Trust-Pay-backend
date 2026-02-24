@@ -26,6 +26,8 @@ import {
   getBankaccountCheckDao,
   getBankaccountDashBoardReportDao,
   getBankIdsOnlyDao,
+  atomicUpdateBankBalanceDao,
+  atomicDecrementBankBalanceDao,
 } from '../bankAccounts/bankaccountDao.js';
 import {
   // getPayInUrlsDao,
@@ -348,17 +350,11 @@ const createBankResponseService = async (
         }
 
         // Optimized: Parallelize bank account update and vendor fetch
+        // Using atomic increment to prevent race conditions on concurrent updates
         const [res, vendorResult] = await Promise.all([
-          updateBankaccountDao(
+          atomicUpdateBankBalanceDao(
             { id: botRes?.bank_id, company_id: companyId },
-            {
-              balance:
-                parseFloat(bankDetails[0].balance) + parseFloat(botRes.amount),
-              today_balance:
-                parseFloat(bankDetails[0].today_balance) +
-                parseFloat(botRes.amount),
-              payin_count: parseFloat(bankDetails[0].payin_count + 1),
-            },
+            parseFloat(botRes.amount),
             null,
             conn,
           ),
@@ -1143,17 +1139,11 @@ const createBankResponseWebHookService = async (
         ) {
           throw new BadRequestError('Invalid amount or commission');
         }
-        const res = await updateBankaccountDao(
+        // Using atomic increment to prevent race conditions on concurrent updates
+        const res = await atomicUpdateBankBalanceDao(
           { id: botRes?.bank_id, company_id: companyId },
-          {
-            balance:
-              parseFloat(bankDetails[0].balance) + parseFloat(botRes.amount),
-            today_balance:
-              parseFloat(bankDetails[0].today_balance) +
-              parseFloat(botRes.amount),
-            payin_count: parseFloat(bankDetails[0].payin_count + 1),
-          },
-          undefined,
+          parseFloat(botRes.amount),
+          null,
           conn,
         );
         await _updateBankaccountInternal(
@@ -2288,27 +2278,18 @@ const handleBankIdUpdate = async ({
     }
 
     // Prepare all other update promises
+    // Using atomic increment/decrement to prevent race conditions on concurrent updates
     let otherUpdatePromises = [
-      updateBankaccountDao(
+      atomicDecrementBankBalanceDao(
         { id: prevBank[0].id, company_id },
-        {
-          payin_count: prevBank[0].payin_count - 1,
-          balance: prevBank[0].balance - botRes.amount,
-          today_balance: prevBank[0].today_balance - botRes.amount,
-          updated_by: user_id,
-        },
-        undefined,
+        parseFloat(botRes.amount),
+        user_id,
         conn,
       ),
-      updateBankaccountDao(
+      atomicUpdateBankBalanceDao(
         { id: newBank[0].id, company_id },
-        {
-          payin_count: newBank[0].payin_count + 1,
-          balance: newBank[0].balance + botRes.amount,
-          today_balance: newBank[0].today_balance + botRes.amount,
-          updated_by: user_id,
-        },
-        undefined,
+        parseFloat(botRes.amount),
+        user_id,
         conn,
       ),
       updateBotResponseDao(botRes.id, updateData, conn),
