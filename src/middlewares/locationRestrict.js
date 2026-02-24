@@ -72,7 +72,7 @@ const getUserLocationMiddleware = async (req, res, next) => {
       });
     }
     //remove vpn restriction for main
-    if (vpn === 'yes404') {
+    if (vpn === 'yes') {
       // const id = req.params.merchantOrderId;
       payInUrl.config = {
         ...payInUrl.config,
