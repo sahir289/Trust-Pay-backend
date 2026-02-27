@@ -49,10 +49,11 @@ echo "🔧 Starting Application"
 echo "----------------------"
 
 # Stop existing PM2 processes
-if pm2 describe trust-pay-backend > /dev/null 2>&1; then
-    echo "Stopping existing instance..."
-    pm2 delete trust-pay-backend
-fi
+echo "Stopping existing PM2 processes (if any)..."
+pm2 delete all > /dev/null 2>&1 || true
+
+# Clear logger primary lock from previous run (safe after delete all)
+rm -f log/.primary-logger.lock
 
 # Start with PM2 cluster mode
 echo "Starting in cluster mode..."

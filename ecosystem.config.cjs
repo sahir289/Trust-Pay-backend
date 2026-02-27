@@ -13,11 +13,13 @@ module.exports = {
                 NODE_ENV: 'production',
                 PORT: 8090,
                 RUN_CRONS: 'false', // Don't run crons in cluster workers
+                CLOUDWATCH_MODE: 'all', // per-worker streams: best to avoid missing logs on worker rotation
             },
             env_development: {
                 NODE_ENV: 'development',
                 PORT: 8090,
                 RUN_CRONS: 'false',
+                CLOUDWATCH_MODE: 'all',
             },
             // Graceful shutdown
             kill_timeout: 5000,

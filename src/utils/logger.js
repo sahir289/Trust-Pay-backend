@@ -1,5 +1,6 @@
 import fs from 'fs';
 import os from 'os';
+import path from 'path';
 import winston, { createLogger, format } from 'winston';
 import DailyRotate from 'winston-daily-rotate-file';
 import CloudWatchTransport from 'winston-cloudwatch';
@@ -10,6 +11,16 @@ import { stringifyJSON } from './index.js';
 const env = appConfig?.nodeProductionLogs;
 const aws = appConfig?.aws;
 const logDir = 'log';
+const PRIMARY_LOCK_FILE = path.join(logDir, '.primary-logger.lock');
+const PRIMARY_LOCK_TTL_MS = 120000; // 2 min stale timeout
+const PRIMARY_LOCK_HEARTBEAT_MS = 30000; // refresh every 30s
+
+let isCurrentProcessPrimaryLogger = false;
+
+// CloudWatch modes:
+// - all (default): each worker writes to its own stream (recommended; no sequence-token contention)
+// - primary: only lock-elected primary worker writes to CloudWatch
+const CLOUDWATCH_MODE = (process.env.CLOUDWATCH_MODE || 'all').toLowerCase();
 
 // CloudWatch has a 256KB limit per log event
 // Using 240KB safe limit to account for JSON overhead and metadata
@@ -139,8 +150,96 @@ const truncateLogData = (data, forCloudWatch = false) => {
   }
 };
 
+const readLockPayload = () => {
+  try {
+    const raw = fs.readFileSync(PRIMARY_LOCK_FILE, 'utf8');
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+};
+
+const isPidAlive = (pid) => {
+  if (!Number.isInteger(pid) || pid <= 0) return false;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const isLockStale = () => {
+  try {
+    const stat = fs.statSync(PRIMARY_LOCK_FILE);
+    return Date.now() - stat.mtimeMs > PRIMARY_LOCK_TTL_MS;
+  } catch {
+    return true;
+  }
+};
+
+const tryAcquirePrimaryLoggerLock = () => {
+  const payload = {
+    pid: process.pid,
+    startedAt: new Date().toISOString(),
+    hostname: process.env.HOSTNAME || os.hostname(),
+  };
+
+  const data = JSON.stringify(payload);
+
+  // First attempt: create lock atomically
+  try {
+    fs.writeFileSync(PRIMARY_LOCK_FILE, data, { flag: 'wx' });
+    return true;
+  } catch {
+    // Lock exists - check whether stale/dead
+  }
+
+  try {
+    const existing = readLockPayload();
+    const ownerAlive = isPidAlive(existing?.pid);
+    const stale = isLockStale();
+
+    if (!ownerAlive || stale) {
+      fs.unlinkSync(PRIMARY_LOCK_FILE);
+      fs.writeFileSync(PRIMARY_LOCK_FILE, data, { flag: 'wx' });
+      return true;
+    }
+  } catch {
+    // Another worker may race and win lock; that's fine.
+  }
+
+  return false;
+};
+
+const refreshPrimaryLoggerLock = () => {
+  try {
+    const current = readLockPayload();
+    if (current?.pid !== process.pid) {
+      return false;
+    }
+    fs.utimesSync(PRIMARY_LOCK_FILE, new Date(), new Date());
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+const releasePrimaryLoggerLock = () => {
+  try {
+    const current = readLockPayload();
+    if (current?.pid === process.pid) {
+      fs.unlinkSync(PRIMARY_LOCK_FILE);
+    }
+  } catch {
+    // ignore best-effort cleanup failures
+  }
+};
+
 class Logger {
   #logger;
+  #isPrimaryWriter;
+  #lockHeartbeat;
   constructor() {
     try {
       if (!fs.existsSync(logDir)) {
@@ -157,72 +256,101 @@ class Logger {
     const hasAwsConfig = aws?.cloudWatchLogGroup && aws?.region && aws?.accessKeyId && aws?.secretAccessKey;
     
     // Get worker identification metadata
-    const instanceId = process.env.INSTANCE_ID || process.env.NODE_APP_INSTANCE || '0';
+    const instanceId = process.env.INSTANCE_ID || process.env.NODE_APP_INSTANCE || process.env.pm_id || '0';
     const workerId = process.env.pm_id || process.pid; // PM2 ID or Process ID
     const hostname = process.env.HOSTNAME || os.hostname();
+    const cloudWatchPrimaryOnly = CLOUDWATCH_MODE === 'primary';
+
+    // Use lock-based leader election so primary logger survives PM2 worker-id reshuffles
+    this.#isPrimaryWriter = tryAcquirePrimaryLoggerLock();
+    isCurrentProcessPrimaryLogger = this.#isPrimaryWriter;
+
+    if (this.#isPrimaryWriter) {
+      this.#lockHeartbeat = setInterval(() => {
+        const ok = refreshPrimaryLoggerLock();
+        if (!ok) {
+          // Lost lock unexpectedly; stop heartbeat.
+          clearInterval(this.#lockHeartbeat);
+          this.#lockHeartbeat = null;
+          this.#isPrimaryWriter = false;
+          isCurrentProcessPrimaryLogger = false;
+        }
+      }, PRIMARY_LOCK_HEARTBEAT_MS);
+      this.#lockHeartbeat.unref?.();
+    }
     
     if (isProduction && hasAwsConfig) {
-      // CloudWatch for production - SINGLE CENTRALIZED STREAM for all workers
+      // CloudWatch for production
       try {
-        // Centralized stream: env-date (all workers write here)
-        const streamName = `${env}-${new Date().toISOString().split('T')[0]}`;
+        // In primary mode, only elected primary logger sends to CloudWatch.
+        if (cloudWatchPrimaryOnly && !this.#isPrimaryWriter) {
+          console.log(`[CloudWatch] primary mode enabled - skipping transport on worker ${workerId}`);
+        } else {
+          const datePart = new Date().toISOString().split('T')[0];
+          // all mode => per-worker stream; primary mode => single stream
+          const streamName = cloudWatchPrimaryOnly
+            ? `${env}-${datePart}`
+            : `${env}-${datePart}-w${workerId}`;
         
-        const cloudWatchConfig = {
-          logGroupName: aws.cloudWatchLogGroup,
-          logStreamName: streamName,
-          awsRegion: aws.region,
-          awsAccessKeyId: aws.accessKeyId,
-          awsSecretAccessKey: aws.secretAccessKey,
-          retentionInDays: 30,
-          jsonMessage: true,
-          createLogGroup: true,
-          createLogStream: true,
-          uploadRate: 3000, // 3s upload - reduces API calls with shared stream
-          errorHandler: (error) => {
-            // Suppress non-critical errors (throttling/retries are normal with shared stream)
-            if (!error.message?.includes('retrying') && 
-                !error.message?.includes('throttl') && 
-                !error.message?.includes('sequence')) {
-              console.error('[CloudWatch] Upload error:', error.message);
+          const cloudWatchConfig = {
+            logGroupName: aws.cloudWatchLogGroup,
+            logStreamName: streamName,
+            awsRegion: aws.region,
+            awsAccessKeyId: aws.accessKeyId,
+            awsSecretAccessKey: aws.secretAccessKey,
+            retentionInDays: 30,
+            jsonMessage: true,
+            createLogGroup: true,
+            createLogStream: true,
+            uploadRate: 3000,
+            errorHandler: (error) => {
+              if (!error.message?.includes('retrying') && 
+                  !error.message?.includes('throttl') && 
+                  !error.message?.includes('sequence')) {
+                console.error('[CloudWatch] Upload error:', error.message);
+              }
+            },
+            messageFormatter: (logObject) => {
+              // Worker identification in EVERY log message
+              return {
+                ...logObject,
+                worker_id: workerId,
+                instance_id: instanceId,
+                hostname: hostname,
+                primary_writer: this.#isPrimaryWriter,
+              };
+            },
+          };
+
+          const cwTransport = new CloudWatchTransport(cloudWatchConfig);
+          
+          // Handle CloudWatch-specific errors gracefully
+          cwTransport.on('error', (error) => {
+            // Sequence token errors are expected mostly in shared-stream mode - library handles them
+            if (!error.message?.includes('sequence')) {
+              console.error('[CloudWatch] Transport error:', error.message);
             }
-          },
-          messageFormatter: (logObject) => {
-            // Worker identification in EVERY log message
-            return {
-              ...logObject,
-              worker_id: workerId,
-              instance_id: instanceId,
-              hostname: hostname,
-            };
-          },
-        };
+          });
 
-        const cwTransport = new CloudWatchTransport(cloudWatchConfig);
-        
-        // Handle CloudWatch-specific errors gracefully
-        cwTransport.on('error', (error) => {
-          // Sequence token errors are expected with concurrent writes - library handles them
-          if (!error.message?.includes('sequence')) {
-            console.error('[CloudWatch] Transport error:', error.message);
-          }
-        });
-
-        transports.push(cwTransport);
-        console.log(`CloudWatch enabled: ${streamName} (worker ${workerId})`);
+          transports.push(cwTransport);
+          console.log(`CloudWatch enabled: ${streamName} (worker ${workerId}, mode=${CLOUDWATCH_MODE})`);
+        }
       } catch (error) {
         console.error('CloudWatch init failed:', error.message);
         console.warn('Falling back to minimal local logging');
         
         // Fallback: Critical errors only to local file
-        transports.push(
-          new DailyRotate({
-            filename: `${logDir}/%DATE%-error-fallback-w${workerId}.log`,
-            datePattern: 'YYYY-MM-DD',
-            level: 'error',
-            maxFiles: '7d',
-            maxSize: '20m',
-          })
-        );
+        if (this.#isPrimaryWriter) {
+          transports.push(
+            new DailyRotate({
+              filename: `${logDir}/%DATE%-application.log`,
+              datePattern: 'YYYY-MM-DD',
+              level: 'error',
+              maxFiles: '14d',
+              zippedArchive: false,
+            })
+          );
+        }
       }
     } else {
       // DEVELOPMENT/STAGING: Use local file rotation (faster, no AWS costs)
@@ -232,45 +360,19 @@ class Logger {
         console.warn('Production mode but CloudWatch config missing. Using file logs only.');
       }
       
-      // Local file transports for non-production
-      transports.push(
-        // Combined log - everything for debugging
-        new DailyRotate({
-          filename: `${logDir}/%DATE%-combined.log`,
-          datePattern: 'YYYY-MM-DD',
-          level: 'debug',
-          maxFiles: '3d', // Keep only 3 days in dev
-          maxSize: '50m',
-          zippedArchive: true,
-        }),
-        // Errors - critical for investigation
-        new DailyRotate({
-          filename: `${logDir}/%DATE%-error-results.log`,
-          datePattern: 'YYYY-MM-DD',
-          level: 'error',
-          maxFiles: '7d', // Keep errors for a week
-          maxSize: '20m',
-          zippedArchive: true,
-        }),
-        // Info - general flow
-        new DailyRotate({
-          filename: `${logDir}/%DATE%-info-results.log`,
-          datePattern: 'YYYY-MM-DD',
-          level: 'info',
-          maxFiles: '3d', // Reduced retention in dev
-          maxSize: '20m',
-          zippedArchive: true,
-        }),
-        // Warnings
-        new DailyRotate({
-          filename: `${logDir}/%DATE%-warning-results.log`,
-          datePattern: 'YYYY-MM-DD',
-          level: 'warn',
-          maxFiles: '7d',
-          maxSize: '20m',
-          zippedArchive: true,
-        })
-      );
+      // Local file transport (single writer + single file per day)
+      if (this.#isPrimaryWriter) {
+        transports.push(
+          new DailyRotate({
+            filename: `${logDir}/%DATE%-application.log`,
+            datePattern: 'YYYY-MM-DD',
+            level: 'debug',
+            maxFiles: '7d',
+            zippedArchive: false,
+            // Intentionally NO maxSize: keep one file per day
+          })
+        );
+      }
     }
 
     // custom format to add IP address to metadata
@@ -289,7 +391,7 @@ class Logger {
         format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
         // Apply smart truncation to ALL logs (file + CloudWatch)
         format((info) => {
-          const forCloudWatch = isPrimaryWorker && isProduction && hasAwsConfig;
+          const forCloudWatch = isProduction && hasAwsConfig;
           return truncateLogData(info, forCloudWatch);
         })(),
         format.metadata({
@@ -300,25 +402,6 @@ class Logger {
       transports,
       exitOnError: false,
       silent: false,
-      // Handle unhandled exceptions and rejections
-      exceptionHandlers: [
-        new DailyRotate({
-          filename: `${logDir}/%DATE%-exceptions.log`,
-          datePattern: 'YYYY-MM-DD',
-          maxFiles: '30d',
-          maxSize: '20m',
-          zippedArchive: true,
-        }),
-      ],
-      rejectionHandlers: [
-        new DailyRotate({
-          filename: `${logDir}/%DATE%-rejections.log`,
-          datePattern: 'YYYY-MM-DD',
-          maxFiles: '30d',
-          maxSize: '20m',
-          zippedArchive: true,
-        }),
-      ],
     });
 
     // Add console transport for all environments
@@ -426,6 +509,15 @@ class Logger {
   // Graceful shutdown - flush all transports
   async close() {
     return new Promise((resolve) => {
+      if (this.#lockHeartbeat) {
+        clearInterval(this.#lockHeartbeat);
+        this.#lockHeartbeat = null;
+      }
+      if (this.#isPrimaryWriter) {
+        releasePrimaryLoggerLock();
+        this.#isPrimaryWriter = false;
+        isCurrentProcessPrimaryLogger = false;
+      }
       this.#logger.on('finish', () => resolve());
       this.#logger.end();
     });
@@ -437,8 +529,7 @@ const winstonLogger = new Logger();
 
 // Helper to check if current worker should log shared events
 const isPrimaryWorker = () => {
-  const instanceId = parseInt(process.env.INSTANCE_ID || '0', 10);
-  return instanceId === 0;
+  return isCurrentProcessPrimaryLogger;
 };
 
 export const logger = {
@@ -448,7 +539,7 @@ export const logger = {
   error: (message, meta) => winstonLogger.log('error', message, meta),
   debug: (message, meta) => winstonLogger.log('debug', message, meta),
   
-  // Only log from worker 0 to avoid duplicates for shared events (startup, config, etc.)
+  // Only log once from lock-elected primary logger to avoid duplicates for shared events.
   infoOnce: (message, meta) => {
     if (isPrimaryWorker()) {
       winstonLogger.log('info', message, meta);
