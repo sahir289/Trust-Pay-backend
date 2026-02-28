@@ -46,8 +46,16 @@ const cloudWatchLogger = hasAwsConfig
 
 const writeToSink = (event) => {
   if (cloudWatchLogger) {
-    cloudWatchLogger.log(event.level || 'info', event.message || 'log-event', {
-      ...event,
+    const {
+      level,
+      message,
+      timestamp,
+      ...meta
+    } = event || {};
+
+    cloudWatchLogger.log(level || 'info', message || 'log-event', {
+      source_timestamp: timestamp,
+      ...meta,
       ingested_at: new Date().toISOString(),
     });
     return;

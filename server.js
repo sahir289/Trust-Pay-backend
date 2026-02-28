@@ -225,19 +225,32 @@ if (config?.env === 'production') {
       const readerUtilization = stats.reader.total > 0 
         ? ((stats.reader.total - stats.reader.idle) / stats.reader.total) * 100 
         : 0;
+
+      const writerActive = stats.writer.total - stats.writer.idle;
+      const readerActive = stats.reader.total - stats.reader.idle;
+
+      // For tiny pools (total <= 2), 100% usage can be normal when one query is active.
+      // Alert only if there's queueing. For larger pools, alert on sustained high utilization.
+      const shouldAlertWriterUsage =
+        (stats.writer.total <= 2 && stats.writer.waiting > 0) ||
+        (stats.writer.total > 2 && writerUtilization > 80);
+
+      const shouldAlertReaderUsage =
+        (stats.reader.total <= 2 && stats.reader.waiting > 0) ||
+        (stats.reader.total > 2 && readerUtilization > 80);
       
       // Alert if pool utilization is too high (> 80%)
-      if (writerUtilization > 80) {
+      if (shouldAlertWriterUsage) {
         logger.warn(`DATABASE_ALERT: High writer pool usage: ${writerUtilization.toFixed(1)}%`, {
-          active: stats.writer.total - stats.writer.idle,
+          active: writerActive,
           total: stats.writer.total,
           waiting: stats.writer.waiting,
         });
       }
       
-      if (readerUtilization > 80) {
+      if (shouldAlertReaderUsage) {
         logger.warn(`DATABASE_ALERT: High reader pool usage: ${readerUtilization.toFixed(1)}%`, {
-          active: stats.reader.total - stats.reader.idle,
+          active: readerActive,
           total: stats.reader.total,
           waiting: stats.reader.waiting,
         });
