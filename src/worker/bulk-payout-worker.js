@@ -304,13 +304,13 @@ export async function startBulkPayoutWorker() {
     channel.on('close', () => {
       logger.warn('[BulkPayout] Channel closed');
       if (!isShuttingDown) {
-        logger.info('[BulkPayout] Reconnecting in 5s...');
+        logger.infoEvent('bulk-payout.reconnect.scheduled', '[BulkPayout] Reconnecting in 5s...', {}, 'bulk-payout:reconnect:5s');
         setTimeout(() => {
           startBulkPayoutWorker().catch(err =>
-            logger.error('[BulkPayout] Reconnection failed:', {
+            logger.errorEvent('bulk-payout.reconnect.failed', '[BulkPayout] Reconnection failed', {
               message: err.message,
               stack: err.stack
-            })
+            }, `bulk-payout:reconnect:failed:${err.code || err.message}`)
           );
         }, 5000);
       }
@@ -371,7 +371,10 @@ export async function startBulkPayoutWorker() {
       }, 300000);
     }
     
-    logger.info(`[BulkPayout] Worker started (tag: ${consumerTag}), Prefetch=${PREFETCH_COUNT}`);
+    logger.info(`[BulkPayout] Worker started (tag: ${consumerTag}), Prefetch=${PREFETCH_COUNT}`, {
+      consumerTag,
+      prefetch: PREFETCH_COUNT,
+    });
 
   } catch (error) {
     logger.error('[BulkPayout] Startup failed:', {
@@ -381,10 +384,15 @@ export async function startBulkPayoutWorker() {
     });
     
     if (!isShuttingDown) {
-      logger.info('[BulkPayout] Retrying in 10s...');
+      logger.infoEvent('bulk-payout.start.retry-scheduled', '[BulkPayout] Retrying in 10s...', {}, 'bulk-payout:start:retry:10s');
       setTimeout(() => {
         startBulkPayoutWorker().catch(err => 
-          logger.error('[BulkPayout] Retry failed:', err.message)
+          logger.errorEvent(
+            'bulk-payout.start.retry-failed',
+            '[BulkPayout] Retry failed',
+            { message: err.message },
+            `bulk-payout:start:retry-failed:${err.code || err.message}`,
+          )
         );
       }, 10000);
     }
@@ -400,7 +408,7 @@ export async function shutdownBulkPayoutWorker(signal) {
   if (isShuttingDown) return;
 
   isShuttingDown = true;
-  logger.warn(`[BulkPayout] ${signal} - Shutting down...`);
+  logger.warn(`[BulkPayout] ${signal} - Shutting down...`, { signal });
 
   try {
     if (metricsInterval) {

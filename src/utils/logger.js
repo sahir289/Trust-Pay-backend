@@ -1,15 +1,18 @@
 import fs from 'fs';
 import os from 'os';
 import path from 'path';
+import crypto from 'crypto';
 import winston, { createLogger, format } from 'winston';
 import DailyRotate from 'winston-daily-rotate-file';
 import CloudWatchTransport from 'winston-cloudwatch';
 import appConfig from '../config/config.js';
 import chalk from 'chalk';
 import { stringifyJSON } from './index.js';
+import { closeLogPublisher, publishLogEvent } from './rabbitLogPublisher.js';
 
 const env = appConfig?.nodeProductionLogs;
 const aws = appConfig?.aws;
+const loggingConfig = appConfig?.logging || {};
 const logDir = 'log';
 const PRIMARY_LOCK_FILE = path.join(logDir, '.primary-logger.lock');
 const PRIMARY_LOCK_TTL_MS = 120000; // 2 min stale timeout
@@ -20,7 +23,9 @@ let isCurrentProcessPrimaryLogger = false;
 // CloudWatch modes:
 // - all (default): each worker writes to its own stream (recommended; no sequence-token contention)
 // - primary: only lock-elected primary worker writes to CloudWatch
-const CLOUDWATCH_MODE = (process.env.CLOUDWATCH_MODE || 'all').toLowerCase();
+const CLOUDWATCH_MODE = (loggingConfig.cloudWatchMode || 'all').toLowerCase();
+const ENABLE_CENTRAL_LOG_INGESTOR = loggingConfig.enableCentralLogIngestor === true;
+const IS_LOG_INGESTOR_PROCESS = loggingConfig.isLogIngestorProcess === true;
 
 // CloudWatch has a 256KB limit per log event
 // Using 240KB safe limit to account for JSON overhead and metadata
@@ -179,10 +184,11 @@ const isLockStale = () => {
 };
 
 const tryAcquirePrimaryLoggerLock = () => {
+  const { hostname } = getRuntimeIdentity();
   const payload = {
     pid: process.pid,
     startedAt: new Date().toISOString(),
-    hostname: process.env.HOSTNAME || os.hostname(),
+    hostname,
   };
 
   const data = JSON.stringify(payload);
@@ -236,11 +242,50 @@ const releasePrimaryLoggerLock = () => {
   }
 };
 
+const getRuntimeIdentity = () => {
+  const instanceId =
+    loggingConfig.instanceId ||
+    loggingConfig.nodeAppInstance ||
+    loggingConfig.pmId ||
+    '0';
+  const workerId = loggingConfig.pmId || process.pid;
+  const hostname = loggingConfig.hostName || os.hostname();
+
+  return { instanceId, workerId, hostname };
+};
+
+const buildDedupeKey = (level, message, meta = {}) => {
+  if (meta?.dedupeKey) return meta.dedupeKey;
+  if (meta?.eventKey) return String(meta.eventKey);
+
+  const bucket = new Date().toISOString().slice(0, 16); // minute bucket
+  const seed = `${level}|${String(message)}|${bucket}`;
+  return crypto.createHash('sha256').update(seed).digest('hex');
+};
+
+const buildCentralLogPayload = (level, message, meta = {}) => {
+  const { instanceId, workerId, hostname } = getRuntimeIdentity();
+
+  return {
+    level,
+    message: typeof message === 'string' ? message : safeStringify(message),
+    metadata: meta && typeof meta === 'object' ? meta : {},
+    timestamp: new Date().toISOString(),
+    pid: process.pid,
+    worker_id: workerId,
+    instance_id: instanceId,
+    hostname,
+    dedupeKey: buildDedupeKey(level, message, meta),
+  };
+};
+
 class Logger {
   #logger;
   #isPrimaryWriter;
   #lockHeartbeat;
+  #isClosing;
   constructor() {
+    this.#isClosing = false;
     try {
       if (!fs.existsSync(logDir)) {
         fs.mkdirSync(logDir, { recursive: true });
@@ -256,9 +301,7 @@ class Logger {
     const hasAwsConfig = aws?.cloudWatchLogGroup && aws?.region && aws?.accessKeyId && aws?.secretAccessKey;
     
     // Get worker identification metadata
-    const instanceId = process.env.INSTANCE_ID || process.env.NODE_APP_INSTANCE || process.env.pm_id || '0';
-    const workerId = process.env.pm_id || process.pid; // PM2 ID or Process ID
-    const hostname = process.env.HOSTNAME || os.hostname();
+    const { instanceId, workerId, hostname } = getRuntimeIdentity();
     const cloudWatchPrimaryOnly = CLOUDWATCH_MODE === 'primary';
 
     // Use lock-based leader election so primary logger survives PM2 worker-id reshuffles
@@ -279,7 +322,7 @@ class Logger {
       this.#lockHeartbeat.unref?.();
     }
     
-    if (isProduction && hasAwsConfig) {
+    if (isProduction && hasAwsConfig && !ENABLE_CENTRAL_LOG_INGESTOR) {
       // CloudWatch for production
       try {
         // In primary mode, only elected primary logger sends to CloudWatch.
@@ -352,6 +395,8 @@ class Logger {
           );
         }
       }
+    } else if (isProduction && hasAwsConfig && ENABLE_CENTRAL_LOG_INGESTOR && !IS_LOG_INGESTOR_PROCESS) {
+      console.log('[Logger] Central ingestor mode enabled - skipping direct CloudWatch transport in app workers');
     } else {
       // DEVELOPMENT/STAGING: Use local file rotation (faster, no AWS costs)
       if (!isProduction) {
@@ -486,6 +531,10 @@ class Logger {
   }
 
   log(level, message, meta) {
+    if (this.#isClosing) {
+      return;
+    }
+
     // Handle cases where message is an object and no meta is provided
     if (typeof message === 'object' && !meta) {
       meta = message;
@@ -504,11 +553,20 @@ class Logger {
     } else {
       this.#logger.log(level, message);
     }
+
+    // Fire-and-forget centralized publishing (optional)
+    if (ENABLE_CENTRAL_LOG_INGESTOR && !IS_LOG_INGESTOR_PROCESS) {
+      const payload = buildCentralLogPayload(level, message, meta);
+      publishLogEvent(payload).catch(() => {
+        // Do not recurse into logger from logger internals
+      });
+    }
   }
 
   // Graceful shutdown - flush all transports
   async close() {
     return new Promise((resolve) => {
+      this.#isClosing = true;
       if (this.#lockHeartbeat) {
         clearInterval(this.#lockHeartbeat);
         this.#lockHeartbeat = null;
@@ -518,6 +576,11 @@ class Logger {
         this.#isPrimaryWriter = false;
         isCurrentProcessPrimaryLogger = false;
       }
+      if (ENABLE_CENTRAL_LOG_INGESTOR && !IS_LOG_INGESTOR_PROCESS) {
+        closeLogPublisher().catch(() => {
+          // best-effort shutdown
+        });
+      }
       this.#logger.on('finish', () => resolve());
       this.#logger.end();
     });
@@ -526,6 +589,18 @@ class Logger {
 
 export default Logger;
 const winstonLogger = new Logger();
+
+const buildEventMeta = (eventName, meta = {}, dedupeKey) => {
+  const safeMeta = meta && typeof meta === 'object' ? meta : {};
+  const finalDedupeKey = dedupeKey || safeMeta.dedupeKey || safeMeta.eventKey || eventName;
+
+  return {
+    ...safeMeta,
+    eventName,
+    eventKey: finalDedupeKey,
+    dedupeKey: finalDedupeKey,
+  };
+};
 
 // Helper to check if current worker should log shared events
 const isPrimaryWorker = () => {
@@ -538,6 +613,16 @@ export const logger = {
   warn: (message, meta) => winstonLogger.log('warn', message, meta),
   error: (message, meta) => winstonLogger.log('error', message, meta),
   debug: (message, meta) => winstonLogger.log('debug', message, meta),
+
+  // Standardized event logging helpers for centralized dedupe
+  infoEvent: (eventName, message, meta = {}, dedupeKey) =>
+    winstonLogger.log('info', message || eventName, buildEventMeta(eventName, meta, dedupeKey)),
+  warnEvent: (eventName, message, meta = {}, dedupeKey) =>
+    winstonLogger.log('warn', message || eventName, buildEventMeta(eventName, meta, dedupeKey)),
+  errorEvent: (eventName, message, meta = {}, dedupeKey) =>
+    winstonLogger.log('error', message || eventName, buildEventMeta(eventName, meta, dedupeKey)),
+  debugEvent: (eventName, message, meta = {}, dedupeKey) =>
+    winstonLogger.log('debug', message || eventName, buildEventMeta(eventName, meta, dedupeKey)),
   
   // Only log once from lock-elected primary logger to avoid duplicates for shared events.
   infoOnce: (message, meta) => {

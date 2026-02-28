@@ -60,19 +60,42 @@ const onListening = () => {
   const styledServerMessage = chalk.blue(
     `The server started listening on ${bind}`,
   );
-  logger.log(styledServerMessage);
+  logger.info(styledServerMessage, { bind, port: PORT });
   const docsUrl = `http://localhost:${PORT}/v1/api-docs`;
   const styledMessage = chalk.bold.yellow(`API docs available at ${docsUrl}`);
-  logger.log(styledMessage);
+  logger.info(styledMessage, { docsUrl, port: PORT });
   
   // Signal PM2 that the app is ready
   if (process.send) {
     process.send('ready');
-    logger.info('PM2 ready signal sent');
+    logger.info('PM2 ready signal sent', { pid: process.pid });
   }
 };
 
 let shuttingDown = false;
+
+const isRecoverableRuntimeConnectionError = (err) => {
+  if (!err) return false;
+
+  const recoverableCodes = new Set([
+    'ECONNRESET',
+    'EPIPE',
+    'ETIMEDOUT',
+    'ECONNREFUSED',
+    'ENOTFOUND',
+  ]);
+
+  if (recoverableCodes.has(err.code)) return true;
+
+  const msg = String(err.message || '').toLowerCase();
+  return (
+    msg.includes('connection terminated unexpectedly') ||
+    msg.includes('connection terminated due to connection timeout') ||
+    msg.includes('heartbeat timeout') ||
+    msg.includes('connection closed (error: heartbeat timeout)') ||
+    msg.includes('socket hang up')
+  );
+};
 
 async function gracefulShutdown(label, err) {
   if (shuttingDown) return;
@@ -83,12 +106,14 @@ async function gracefulShutdown(label, err) {
   if (err) console.error(`${label}:`, err);
 
   if (err) {
-    logger.error(styledMessageError, {
+    logger.errorEvent('server.shutdown.error', styledMessageError, {
+      label,
       message: err.message,
+      code: err.code,
       stack: err.stack,
-    });
+    }, `server:shutdown:error:${label}:${err.code || 'unknown'}`);
   } else {
-    logger.warn(styledMessageError);
+    logger.warnEvent('server.shutdown.signal', styledMessageError, { label }, `server:shutdown:signal:${label}`);
   }
 
   //  we need to close the resources (HTTP server, DB, etc.)
@@ -115,12 +140,13 @@ process.on('SIGTERM', () => gracefulShutdown('SIGTERM received'));
 
 process.on('uncaughtException', (err) => {
   // Don't shutdown on recoverable connection errors - they auto-retry
-  if (
-    err.code === 'ECONNRESET' ||
-    err.code === 'EPIPE' ||
-    err.code === 'ETIMEDOUT'
-  ) {
-    logger.error('Connection error (will auto-retry):', err);
+  if (isRecoverableRuntimeConnectionError(err)) {
+    logger.warnEvent(
+      'server.connection.recoverable',
+      'Recoverable runtime connection error (auto-retry active)',
+      { code: err.code, message: err.message },
+      `server:recoverable:${err.code || err.message || 'unknown'}`,
+    );
     return;
   }
   gracefulShutdown('Uncaught Exception', err);
@@ -130,14 +156,12 @@ process.on('unhandledRejection', (reason) => {
   const err = reason instanceof Error ? reason : new Error(String(reason));
 
   // Don't shutdown on recoverable connection errors - they auto-retry
-  if (
-    err.code === 'ECONNRESET' ||
-    err.code === 'EPIPE' ||
-    err.code === 'ETIMEDOUT'
-  ) {
-    logger.error(
-      'Unhandled Rejection (connection error, will auto-retry):',
-      err,
+  if (isRecoverableRuntimeConnectionError(err)) {
+    logger.warnEvent(
+      'server.unhandled-rejection.recoverable',
+      'Unhandled Rejection (recoverable connection error, auto-retry active)',
+      { code: err.code, message: err.message },
+      `server:unhandled:recoverable:${err.code || err.message || 'unknown'}`,
     );
     return;
   }
@@ -154,14 +178,24 @@ const instanceId = parseInt(process.env.INSTANCE_ID || '0', 10);
 if (instanceId === 0) {
   // Start workers asynchronously but don't block server startup
   startBankResponseHandler().catch(err => 
-    logger.error('[Worker 0] Bank response handler failed:', err)
+    logger.errorEvent(
+      'worker.bank-response.start.failed',
+      '[Worker 0] Bank response handler failed',
+      { message: err.message, stack: err.stack },
+      `worker:bank-response:start-failed:${err.code || err.message}`,
+    )
   );
   startBulkPayoutHandler().catch(err => 
-    logger.error('[Worker 0] Bulk payout handler failed:', err)
+    logger.errorEvent(
+      'worker.bulk-payout.start.failed',
+      '[Worker 0] Bulk payout handler failed',
+      { message: err.message, stack: err.stack },
+      `worker:bulk-payout:start-failed:${err.code || err.message}`,
+    )
   );
-  logger.info('[Worker 0] RabbitMQ consumers starting (bank-response + bulk-payout)');
+  logger.info('[Worker 0] RabbitMQ consumers starting (bank-response + bulk-payout)', { instanceId });
 } else {
-  logger.info(`[Worker ${instanceId}] Skipping RabbitMQ consumers (run only on worker 0)`);
+  logger.info(`[Worker ${instanceId}] Skipping RabbitMQ consumers (run only on worker 0)`, { instanceId });
 }
 
 server.on('error', onError);

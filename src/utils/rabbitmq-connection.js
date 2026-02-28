@@ -15,9 +15,34 @@ class RabbitMQConnection {
     this.connection = null;
     this.channel = null;
     this.isConnecting = false;
+    this.isShuttingDown = false;
     this.reconnectAttempts = 0;
     this.maxReconnectAttempts = config.rabbitmq.retryAttempts || 5;
     this.baseRetryDelay = config.rabbitmq.retryDelay || 5000;
+  }
+
+  /**
+   * Check if current AMQP connection is still usable.
+   * Required after laptop sleep/wake where heartbeat may close underlying socket.
+   */
+  _isConnectionUsable() {
+    if (!this.connection) return false;
+
+    const rawConn = this.connection.connection;
+    const stream = rawConn?.stream;
+
+    const isStreamUsable = !!stream && !stream.destroyed && stream.readable && stream.writable;
+    const isClosing =
+      this.connection?._closeCalled ||
+      this.connection?._closing ||
+      rawConn?.closing;
+
+    return isStreamUsable && !isClosing;
+  }
+
+  _invalidateState() {
+    this.channel = null;
+    this.connection = null;
   }
 
   /**
@@ -35,8 +60,15 @@ class RabbitMQConnection {
    * Establish connection to RabbitMQ
    */
   async connect() {
-    if (this.connection && !this.connection.connection.closed) {
+    if (this._isConnectionUsable()) {
       return this.connection;
+    }
+
+    // clear stale/closed connection references before reconnecting
+    this._invalidateState();
+
+    if (this.isShuttingDown) {
+      throw new Error(`[${this.connectionName}] Connection manager is shutting down`);
     }
 
     if (this.isConnecting) {
@@ -52,7 +84,9 @@ class RabbitMQConnection {
         connection_timeout: config.rabbitmq.connectionTimeout || 30000,
       };
 
-      logger.info(`[${this.connectionName}] Connecting to RabbitMQ...`);
+      logger.info(`[${this.connectionName}] Connecting to RabbitMQ...`, {
+        connectionName: this.connectionName,
+      });
       
       this.connection = await amqp.connect(config.rabbitmq.url, connectionOptions);
       this.channel = await this.connection.createChannel();
@@ -62,21 +96,35 @@ class RabbitMQConnection {
       this.reconnectAttempts = 0;
       this.isConnecting = false;
       
-      logger.info(`[${this.connectionName}] Connected to RabbitMQ`);
+      logger.info(`[${this.connectionName}] Connected to RabbitMQ`, {
+        connectionName: this.connectionName,
+      });
       
       return this.connection;
     } catch (error) {
       this.isConnecting = false;
       this.reconnectAttempts++;
 
-      logger.error(
-        `[${this.connectionName}] Connection failed (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts}):`,
-        error.message
+      logger.errorEvent(
+        'rabbitmq.connection.connect.failed',
+        `[${this.connectionName}] Connection failed (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`,
+        {
+          connectionName: this.connectionName,
+          attempt: this.reconnectAttempts,
+          maxAttempts: this.maxReconnectAttempts,
+          error: error.message,
+        },
+        `rabbitmq:${this.connectionName}:connect-failed:${this.reconnectAttempts}:${error.code || error.message}`,
       );
 
       if (this.reconnectAttempts < this.maxReconnectAttempts) {
         const delay = this._getRetryDelay();
-        logger.warn(`[${this.connectionName}] Retrying in ${delay}ms...`);
+        logger.warnEvent(
+          'rabbitmq.connection.retry.scheduled',
+          `[${this.connectionName}] Retrying in ${delay}ms...`,
+          { connectionName: this.connectionName, delay, attempt: this.reconnectAttempts },
+          `rabbitmq:${this.connectionName}:retry-scheduled:${this.reconnectAttempts}`,
+        );
         await new Promise(resolve => setTimeout(resolve, delay));
         return this.connect();
       }
@@ -93,22 +141,38 @@ class RabbitMQConnection {
   _setupConnectionHandlers() {
     this.connection.on('error', (err) => {
       if (err.message !== 'Connection closing') {
-        logger.error(`[${this.connectionName}] Connection error:`, err.message);
+        logger.errorEvent(
+          'rabbitmq.connection.error',
+          `[${this.connectionName}] Connection error`,
+          { connectionName: this.connectionName, error: err.message, code: err.code },
+          `rabbitmq:${this.connectionName}:connection-error:${err.code || err.message}`,
+        );
       }
     });
 
     this.connection.on('close', () => {
-      logger.warn(`[${this.connectionName}] Connection closed`);
-      this.channel = null;
-      this._handleReconnection();
+      logger.warn(`[${this.connectionName}] Connection closed`, {
+        connectionName: this.connectionName,
+      });
+      this._invalidateState();
+      if (!this.isShuttingDown) {
+        this._handleReconnection();
+      }
     });
 
     this.channel.on('error', (err) => {
-      logger.error(`[${this.connectionName}] Channel error:`, err.message);
+      logger.errorEvent(
+        'rabbitmq.channel.error',
+        `[${this.connectionName}] Channel error`,
+        { connectionName: this.connectionName, error: err.message, code: err.code },
+        `rabbitmq:${this.connectionName}:channel-error:${err.code || err.message}`,
+      );
     });
 
     this.channel.on('close', () => {
-      logger.warn(`[${this.connectionName}] Channel closed`);
+      logger.warn(`[${this.connectionName}] Channel closed`, {
+        connectionName: this.connectionName,
+      });
     });
   }
 
@@ -116,19 +180,29 @@ class RabbitMQConnection {
    * Handle automatic reconnection with exponential backoff
    */
   async _handleReconnection() {
-    if (this.isConnecting || this.reconnectAttempts >= this.maxReconnectAttempts) {
+    if (this.isShuttingDown || this.isConnecting || this.reconnectAttempts >= this.maxReconnectAttempts) {
       return;
     }
 
     const delay = this._getRetryDelay();
-    logger.info(`[${this.connectionName}] Reconnecting in ${delay}ms...`);
+    logger.infoEvent(
+      'rabbitmq.connection.reconnect.scheduled',
+      `[${this.connectionName}] Reconnecting in ${delay}ms...`,
+      { connectionName: this.connectionName, delay, attempt: this.reconnectAttempts },
+      `rabbitmq:${this.connectionName}:reconnect-scheduled:${this.reconnectAttempts}`,
+    );
     
     await new Promise(resolve => setTimeout(resolve, delay));
     
     try {
       await this.connect();
     } catch (error) {
-      logger.error(`[${this.connectionName}] Reconnection failed:`, error.message);
+      logger.errorEvent(
+        'rabbitmq.connection.reconnect.failed',
+        `[${this.connectionName}] Reconnection failed`,
+        { connectionName: this.connectionName, error: error.message, code: error.code },
+        `rabbitmq:${this.connectionName}:reconnect-failed:${error.code || error.message}`,
+      );
     }
   }
 
@@ -149,8 +223,12 @@ class RabbitMQConnection {
    * Get or create channel
    */
   async getChannel() {
-    if (!this.channel || this.channel.connection.closed) {
+    if (!this.channel || !this._isConnectionUsable()) {
       await this.connect();
+      // Create fresh channel after reconnect if needed
+      if (!this.channel && this.connection) {
+        this.channel = await this.connection.createChannel();
+      }
     }
     return this.channel;
   }
@@ -160,6 +238,7 @@ class RabbitMQConnection {
    */
   async close() {
     try {
+      this.isShuttingDown = true;
       if (this.channel) {
         await this.channel.close();
         this.channel = null;
@@ -168,9 +247,20 @@ class RabbitMQConnection {
         await this.connection.close();
         this.connection = null;
       }
-      logger.info(`[${this.connectionName}] Connection closed gracefully`);
+      logger.info(`[${this.connectionName}] Connection closed gracefully`, {
+        connectionName: this.connectionName,
+      });
     } catch (error) {
-      logger.error(`[${this.connectionName}] Error closing connection:`, error.message);
+      logger.errorEvent(
+        'rabbitmq.connection.close.error',
+        `[${this.connectionName}] Error closing connection`,
+        { connectionName: this.connectionName, error: error.message, code: error.code },
+        `rabbitmq:${this.connectionName}:close-error:${error.code || error.message}`,
+      );
+    } finally {
+      this._invalidateState();
+      this.isConnecting = false;
+      this.isShuttingDown = false;
     }
   }
 }

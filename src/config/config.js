@@ -44,6 +44,17 @@ function config(Env) {
     redis: {
       url: Env?.REDIS_URL || 'redis://localhost:6379',
     },
+    logging: {
+      cloudWatchMode: (Env?.CLOUDWATCH_MODE || 'all').toLowerCase(),
+      enableCentralLogIngestor: Env?.ENABLE_CENTRAL_LOG_INGESTOR === 'true',
+      isLogIngestorProcess: Env?.LOG_INGESTOR === 'true',
+      instanceId: Env?.INSTANCE_ID,
+      nodeAppInstance: Env?.NODE_APP_INSTANCE,
+      pmId: Env?.pm_id,
+      hostName: Env?.HOSTNAME,
+      logIngestorQueue: Env?.LOG_INGESTOR_QUEUE || 'trust-pay-central-logs',
+      logDedupeTtlSeconds: parseInt(Env?.LOG_DEDUPE_TTL_SECONDS, 10) || 300,
+    },
     rateLimiter: {
       points: parseInt(Env?.RATE_LIMIT_POINTS) || 300, // Increased to 300 req/min (5 req/sec)
       duration: parseInt(Env?.RATE_LIMIT_DURATION) || 60,
@@ -131,6 +142,16 @@ function config(Env) {
     databaseUrl: Env?.DATABASE_URL,
     databaseWriterUrl: Env?.DATABASE_WRITER_URL,
     databaseReaderUrl: Env?.DATABASE_READER_URL,
+    dbPool: {
+      globalMaxConnections: parseInt(Env?.DB_GLOBAL_MAX_CONNECTIONS, 10) || 150,
+      reservedConnections: parseInt(Env?.DB_RESERVED_CONNECTIONS, 10) || 30,
+      writerPoolRatio: parseFloat(Env?.DB_WRITER_POOL_RATIO) || 0.4,
+      readerPoolRatio: parseFloat(Env?.DB_READER_POOL_RATIO) || 0.6,
+      minPerProcess: parseInt(Env?.DB_POOL_MIN_PER_PROCESS, 10) || 3,
+      maxPerProcess: parseInt(Env?.DB_POOL_MAX_PER_PROCESS, 10) || undefined,
+      instanceCount: parseInt(Env?.DB_POOL_INSTANCE_COUNT, 10) || undefined,
+      webConcurrency: parseInt(Env?.WEB_CONCURRENCY, 10) || undefined,
+    },
     accessTokenSecretKey: Env?.ACCESS_TOKEN_SECRET_KEY,
     accessTokenExpireTime: 24 * 60 * 60, // in seconds
     reactFrontOrigin: Env?.REACT_FRONT_ORIGIN,

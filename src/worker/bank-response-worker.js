@@ -264,13 +264,13 @@ export async function startBankResponseWorker() {
     channel.on('close', () => {
       logger.warn('[Consumer] Channel closed');
       if (!isShuttingDown) {
-        logger.info('[Consumer] Reconnecting in 5s...');
+        logger.infoEvent('bank-response.reconnect.scheduled', '[Consumer] Reconnecting in 5s...', {}, 'bank-response:reconnect:5s');
         setTimeout(() => {
           startBankResponseWorker().catch(err =>
-            logger.error('[Consumer] Reconnection failed:', {
+            logger.errorEvent('bank-response.reconnect.failed', '[Consumer] Reconnection failed', {
               message: err.message,
               stack: err.stack
-            })
+            }, `bank-response:reconnect:failed:${err.code || err.message}`)
           );
         }, 5000);
       }
@@ -331,7 +331,10 @@ export async function startBankResponseWorker() {
       }, 300000);
     }
     
-    logger.info(`[Consumer] Worker started (tag: ${consumerTag}), Prefetch=${PREFETCH_COUNT}`);
+    logger.info(`[Consumer] Worker started (tag: ${consumerTag}), Prefetch=${PREFETCH_COUNT}`, {
+      consumerTag,
+      prefetch: PREFETCH_COUNT,
+    });
 
   } catch (error) {
     logger.error('[Consumer] Startup failed:', {
@@ -341,10 +344,15 @@ export async function startBankResponseWorker() {
     });
     
     if (!isShuttingDown) {
-      logger.info('[Consumer] Retrying in 10s...');
+      logger.infoEvent('bank-response.start.retry-scheduled', '[Consumer] Retrying in 10s...', {}, 'bank-response:start:retry:10s');
       setTimeout(() => {
         startBankResponseWorker().catch(err => 
-          logger.error('[Consumer] Retry failed:', err.message)
+          logger.errorEvent(
+            'bank-response.start.retry-failed',
+            '[Consumer] Retry failed',
+            { message: err.message },
+            `bank-response:start:retry-failed:${err.code || err.message}`,
+          )
         );
       }, 10000);
     }
@@ -360,7 +368,7 @@ export async function shutdownWorker(signal) {
   if (isShuttingDown) return;
 
   isShuttingDown = true;
-  logger.warn(`[Consumer] ${signal} - Shutting down...`);
+  logger.warn(`[Consumer] ${signal} - Shutting down...`, { signal });
 
   try {
     if (metricsInterval) {
