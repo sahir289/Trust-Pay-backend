@@ -4,7 +4,7 @@ import config from '../config/config.js';
 import { getRoleByUserNameDao } from '../apis/auth/authDao.js';
 import { setTimeout as delay } from 'node:timers/promises';
 import { checkProxyAndVpn } from '../utils/proxyCheckService.js';
-// import { reverseGeocode } from '../utils/reverseGeoCodeService.js';
+import { reverseGeocode } from '../utils/reverseGeoCodeService.js';
 
 // Helper - Promise with hard timeout (cancels after X ms)
 const withTimeout = async (promise, ms, name = 'operation') => {
@@ -52,6 +52,7 @@ const createGeoGuard = (options = {}) => {
     roleRegionRules = {
       VENDOR: { country: 'India', blockedRegions: blockedRegions},
     },
+    defaultLocation = { latitude: 0, longitude: 0, accuracy: 1000 }, // Default fallback location
   } = { ...config.geoGuard, ...options };
 
   const vpnRolesSet = new Set(restrictVpnForRoles.map((r) => r.toUpperCase()));
@@ -65,23 +66,29 @@ const createGeoGuard = (options = {}) => {
       let location = req.body?.user_location;
 
       if (!location || typeof location !== 'object') {
-        // return next(new BadRequestError(
-        //   'Precise location is required. Please enable GPS.',
-        // ));
+        logger.warn('Location not provided, attempting to fetch from Proxy/VPN service', { ip: clientIp });
+        const proxyInfo = await withTimeout(checkProxyAndVpn(clientIp), 3000, 'Proxy/VPN check');
+        if (proxyInfo && proxyInfo.raw.latitude && proxyInfo.raw.longitude) {
+          location = {
+            latitude: proxyInfo.raw.latitude,
+            longitude: proxyInfo.raw.longitude,
+            accuracy: proxyInfo.accuracy || null,
+          };
+        } else {
+          logger.error('Failed to fetch location from Proxy/VPN service', { ip: clientIp });
+          location = defaultLocation;
+        }
       }
-      console.log(location, "location ++++");
-      // const { latitude, longitude, accuracy } = location;
+      const { latitude, longitude, accuracy } = location;
 
-      // console.log(latitude, longitude, accuracy, "lat long accuracy ++++");
-
-      // if (!latitude || !longitude || accuracy == null) {
-      //   return next( new BadRequestError(
-      //     'Invalid location data. Latitude, longitude, and accuracy are required.',
-      //   ));
-      // }
+      if (!latitude || !longitude) {
+        return next( new BadRequestError(
+          'Invalid location data. Latitude, longitude, and accuracy are required.',
+        ));
+      }
 
       // if (accuracy > maxAccuracy) {
-        // console.log(accuracy, "accuracy", maxAccuracy, "max accuracy ++++");
+      //   console.log(accuracy, "accuracy", maxAccuracy, "max accuracy ++++");
       //   return next( new BadRequestError(
       //     `Location accuracy too low (${accuracy}m). Maximum allowed: ${maxAccuracy}m.`,
       //   ));
@@ -89,11 +96,11 @@ const createGeoGuard = (options = {}) => {
 
       const [proxyInfo, address] = await Promise.allSettled([
         withTimeout(checkProxyAndVpn(clientIp), 3000, 'Proxy/VPN check'),
-        // withTimeout(
-        //   reverseGeocode(latitude, longitude),
-        //   3000,
-        //   'Reverse geocoding',
-        // ),
+        withTimeout(
+          reverseGeocode(latitude, longitude),
+          3000,
+          'Reverse geocoding',
+        ),
       ]).then((results) =>
         results.map((r) => (r.status === 'fulfilled' ? r.value : null)),
       );
@@ -148,9 +155,9 @@ const createGeoGuard = (options = {}) => {
 
       req.geo = {
         ip: clientIp,
-        // latitude,
-        // longitude,
-        // accuracy,
+        latitude,
+        longitude,
+        accuracy,
         address: address || null,
         proxy: proxyInfo || null,
         role: userRole,
