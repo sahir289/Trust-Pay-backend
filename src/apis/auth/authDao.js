@@ -3,7 +3,13 @@ import { executeQuery } from '../../utils/db.js';
 import { stringifyJSON } from '../../utils/index.js';
 import { logger } from '../../utils/logger.js';
 
-const addLoginDao = async (user_id, config, company_id, sessionId, conn = null) => {
+const addLoginDao = async (
+  user_id,
+  config,
+  company_id,
+  sessionId,
+  conn = null,
+) => {
   try {
     // const id = generateUUID();
     const configData = stringifyJSON(config, (key, value) =>
@@ -18,13 +24,13 @@ const addLoginDao = async (user_id, config, company_id, sessionId, conn = null) 
       SET is_obsolete = true 
       WHERE user_id = $1 AND company_id = $2 AND is_obsolete = false
     `;
-    
+
     if (conn && conn.query) {
       await conn.query(cleanupSql, [user_id, company_id]);
     } else {
       await executeQuery(cleanupSql, [user_id, company_id]);
     }
-    
+
     // Now insert the new session
     const sql = `
       INSERT INTO public."AccessToken" (user_id, company_id, config, session_id)
@@ -32,14 +38,14 @@ const addLoginDao = async (user_id, config, company_id, sessionId, conn = null) 
       RETURNING id, session_id
     `;
     const values = [user_id, company_id, configData, sessionId];
-    
+
     let result;
     if (conn && conn.query) {
       result = await conn.query(sql, values);
     } else {
       result = await executeQuery(sql, values);
     }
-    
+
     return result.rows?.[0] || undefined;
   } catch (error) {
     logger.error('Error in adding login details', error);
@@ -74,9 +80,9 @@ const getSessionByIdDao = async (decodeToken) => {
     const query = `SELECT session_id, config FROM "${tableName.ACCESS_TOKEN}" WHERE user_id=$1 AND company_id=$2 and is_obsolete = false`;
 
     const result = await executeQuery(query, [
-      decodeToken.user_id,
-      decodeToken.company_id,
-    ]);
+          decodeToken.user_id,
+          decodeToken.company_id,
+        ]);
     return result.rows?.[0] || undefined;
   } catch (error) {
     logger.error('Error in getting session details', error);
@@ -115,7 +121,7 @@ const deleteUserSessionsDao = async (user_id, company_id, session_id, conn = nul
     } else {
       result = await executeQuery(query, params);
     }
-    
+
     return result.rows;
   } catch (error) {
     logger.error('Error while deleting user session:', error);
