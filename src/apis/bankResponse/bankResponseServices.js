@@ -1434,7 +1434,9 @@ const getBankResponseBySearchService = async (
   designation,
   user_id,
 ) => {
+  let conn;
   try {
+    conn = await getConnection();
     const filterColumns =
       role === Role.MERCHANT
         ? merchantColumns.BANK_RESPONSE
@@ -1466,7 +1468,7 @@ const getBankResponseBySearchService = async (
     // Optimized: Use lightweight query for bank IDs only
     const fetchBankIds = async (user_ids) => {
       try {
-        return await getBankIdsOnlyDao(user_ids, 'PayIn');
+        return await getBankIdsOnlyDao(user_ids, 'PayIn', conn);
       } catch (error) {
         logger.error('Error fetching PayIn bank IDs:', error);
         return [];
@@ -1476,7 +1478,7 @@ const getBankResponseBySearchService = async (
     // Optimized: Skip bank_id fetching if already provided
     if (!filters.bank_id) {
       if (designation === Role.VENDOR || designation === Role.VENDOR_ADMIN) {
-        const userHierarchys = await getUserHierarchysDao({ user_id });
+        const userHierarchys = await getUserHierarchysDao({ user_id }, null, null, null, null, null, conn);
         const userHierarchy = userHierarchys?.[0];
 
         const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
@@ -1488,14 +1490,14 @@ const getBankResponseBySearchService = async (
       } else if (designation === Role.SUB_VENDOR) {
         filters.bank_id = await fetchBankIds(user_id);
       } else if (designation === Role.VENDOR_OPERATIONS) {
-        const userHierarchys = await getUserHierarchysDao({ user_id });
+        const userHierarchys = await getUserHierarchysDao({ user_id }, null, null, null, null, null, conn);
         const userHierarchy = userHierarchys?.[0];
         const parentID = userHierarchy?.config?.parent;
 
         if (parentID) {
           const parentHierarchys = await getUserHierarchysDao({
             user_id: parentID,
-          });
+          }, null, null, null, null, null, conn);
           const parentHierarchy = parentHierarchys?.[0];
           const subVendors =
             parentHierarchy?.config?.siblings?.sub_vendors ?? [];
@@ -1515,13 +1517,15 @@ const getBankResponseBySearchService = async (
       sortOrder || 'DESC',
       payload.startDate || undefined,
       payload.endDate || undefined,
-      null, // conn
+      conn, 
     );
 
     return data;
   } catch (error) {
     logger.error('Error while fetching Payin by search', error);
     throw error;
+  } finally {
+    if (conn) conn.release();
   }
 };
 const _updateBankResponseServiceInternal = async (
