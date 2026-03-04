@@ -25,7 +25,11 @@ const addLoginDao = async (
       WHERE user_id = $1 AND company_id = $2 AND is_obsolete = false
     `;
 
-    await executeQuery(cleanupSql, [user_id, company_id], conn);
+    if (conn && conn.query) {
+      await conn.query(cleanupSql, [user_id, company_id]);
+    } else {
+      await executeQuery(cleanupSql, [user_id, company_id]);
+    }
 
     // Now insert the new session
     const sql = `
@@ -35,7 +39,12 @@ const addLoginDao = async (
     `;
     const values = [user_id, company_id, configData, sessionId];
 
-    const result = await executeQuery(sql, values, conn);
+    let result;
+    if (conn && conn.query) {
+      result = await conn.query(sql, values);
+    } else {
+      result = await executeQuery(sql, values);
+    }
 
     return result.rows?.[0] || undefined;
   } catch (error) {
@@ -44,10 +53,10 @@ const addLoginDao = async (
   }
 };
 
-const getRefreshTokenDao = async (hashedToken, company_id, conn = null) => {
+const getRefreshTokenDao = async (hashedToken, company_id) => {
   try {
     const query = `SELECT user_id FROM access_tokens WHERE config->>'refresh_token' = $1 AND company_id=$2`;
-    const result = await executeQuery(query, [hashedToken, company_id], conn);
+    const result = await executeQuery(query, [hashedToken, company_id]);
     return result.rows?.[0] || undefined;
   } catch (error) {
     logger.error('Error in getting refresh token', error);
@@ -55,10 +64,10 @@ const getRefreshTokenDao = async (hashedToken, company_id, conn = null) => {
   }
 };
 
-const getLoginDao = async (user_id, company_id, conn = null) => {
+const getLoginDao = async (user_id, company_id) => {
   try {
     const query = `SELECT config FROM "${tableName.ACCESS_TOKEN}" WHERE user_id=$1 AND company_id=$2`;
-    const result = await executeQuery(query, [user_id, company_id], conn);
+    const result = await executeQuery(query, [user_id, company_id]);
     return result.rows?.[0] || undefined;
   } catch (error) {
     logger.error('Error in getting login details', error);
@@ -66,14 +75,14 @@ const getLoginDao = async (user_id, company_id, conn = null) => {
   }
 };
 
-const getSessionByIdDao = async (decodeToken, conn = null) => {
+const getSessionByIdDao = async (decodeToken) => {
   try {
     const query = `SELECT session_id, config FROM "${tableName.ACCESS_TOKEN}" WHERE user_id=$1 AND company_id=$2 and is_obsolete = false`;
 
     const result = await executeQuery(query, [
           decodeToken.user_id,
           decodeToken.company_id,
-        ], conn);
+        ]);
     return result.rows?.[0] || undefined;
   } catch (error) {
     logger.error('Error in getting session details', error);
@@ -81,7 +90,7 @@ const getSessionByIdDao = async (decodeToken, conn = null) => {
   }
 };
 
-const updateSessionDao = async (user_id, company_id, session_id, config, conn = null) => {
+const updateSessionDao = async (user_id, company_id, session_id, config) => {
   const configData = stringifyJSON(config, (key, value) =>
     typeof value === 'object' && value !== null ? stringifyJSON(value) : value,
   );
@@ -89,7 +98,7 @@ const updateSessionDao = async (user_id, company_id, session_id, config, conn = 
     const query = `UPDATE "${tableName.ACCESS_TOKEN}" 
                    SET config = $1 
                    WHERE user_id = $2 AND company_id = $3 AND session_id = $4 AND is_obsolete = false`;
-    await executeQuery(query, [configData, user_id, company_id, session_id], conn);
+    await executeQuery(query, [configData, user_id, company_id, session_id]);
   } catch (error) {
     logger.error('Error updating session', error);
     throw error;
@@ -106,7 +115,12 @@ const deleteUserSessionsDao = async (user_id, company_id, session_id, conn = nul
       params.push(session_id);
     }
 
-    const result = await executeQuery(query, params, conn);
+    let result;
+    if (conn && conn.query) {
+      result = await conn.query(query, params);
+    } else {
+      result = await executeQuery(query, params);
+    }
 
     return result.rows;
   } catch (error) {
@@ -115,10 +129,10 @@ const deleteUserSessionsDao = async (user_id, company_id, session_id, conn = nul
   }
 };
 
-const changePasswordDao = async (id, password, conn = null) => {
+const changePasswordDao = async (id, password) => {
   try {
     const query = `UPDATE "${tableName.USER}" SET password = $2 WHERE id = $1 RETURNING id`;
-    const result = await executeQuery(query, [id, password], conn);
+    const result = await executeQuery(query, [id, password]);
     return result;
   } catch (error) {
     logger.error('Getting error while deleting user session', error);
@@ -126,10 +140,10 @@ const changePasswordDao = async (id, password, conn = null) => {
   }
 };
 
-const getAllActiveSessionsDao = async (user_id, company_id, conn = null) => {
+const getAllActiveSessionsDao = async (user_id, company_id) => {
   try {
     const query = `SELECT session_id, config, created_at FROM "${tableName.ACCESS_TOKEN}" WHERE user_id=$1 AND company_id=$2 AND is_obsolete = false ORDER BY created_at DESC`;
-    const result = await executeQuery(query, [user_id, company_id], conn);
+    const result = await executeQuery(query, [user_id, company_id]);
     return result.rows || [];
   } catch (error) {
     logger.error('Error in getting all active sessions', error);
@@ -137,7 +151,7 @@ const getAllActiveSessionsDao = async (user_id, company_id, conn = null) => {
   }
 };
 
-const getRoleByUserNameDao = async (userName, conn = null) => {
+const getRoleByUserNameDao = async (userName) => {
   try {
     const query = `
       SELECT d.designation ,r.role
@@ -147,7 +161,7 @@ const getRoleByUserNameDao = async (userName, conn = null) => {
       WHERE u.user_name = $1 AND u.is_obsolete = false
       LIMIT 1
     `;
-    const result = await executeQuery(query, [userName], conn);
+    const result = await executeQuery(query, [userName]);
     return result.rows?.[0] || undefined;
   } catch (error) {
     logger.error('Error in getting user role by username', error);
