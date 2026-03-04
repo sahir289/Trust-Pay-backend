@@ -7,6 +7,20 @@ import chalk from 'chalk';
 let connection;
 let channel;
 
+const ensureQueueExists = async (ch, queueName, options = { durable: true }) => {
+  try {
+    await ch.checkQueue(queueName);
+    return;
+  } catch (error) {
+    // 404 NOT-FOUND => queue doesn't exist, safe to create
+    if (error?.code === 404 || /NOT_FOUND|no queue/i.test(error?.message || '')) {
+      await ch.assertQueue(queueName, options);
+      return;
+    }
+    throw error;
+  }
+};
+
 export const connectRabbitMQ = async (rabbitConfig = config.rabbitmq) => {
   if (channel) return channel; // already connected
 
@@ -30,7 +44,9 @@ export const connectRabbitMQ = async (rabbitConfig = config.rabbitmq) => {
       await channel.assertExchange(rabbitConfig.exchangeName, 'direct', {
         durable: true,
       });
-      await channel.assertQueue(rabbitConfig.queueName, { durable: true });
+      await ensureQueueExists(channel, rabbitConfig.queueName, {
+        durable: true,
+      });
       await channel.bindQueue(
         rabbitConfig.queueName,
         rabbitConfig.exchangeName,
@@ -166,7 +182,7 @@ export const publishToQueue = async (
 
 export const publishToDirectQueue = async (queue, data) => {
   if (!channel) throw new Error('RabbitMQ channel not initialized');
-  await channel.assertQueue(queue, { durable: true });
+  await ensureQueueExists(channel, queue, { durable: true });
   const message = Buffer.from(JSON.stringify(data));
   return channel.sendToQueue(queue, message, { persistent: true });
 };
@@ -174,7 +190,7 @@ export const publishToDirectQueue = async (queue, data) => {
 export const consumeFromQueue = async (queueName, callback, options = {}) => {
   if (!channel) throw new Error('RabbitMQ channel not initialized');
 
-  await channel.assertQueue(queueName, { durable: true });
+  await ensureQueueExists(channel, queueName, { durable: true });
 
   return channel.consume(
     queueName,

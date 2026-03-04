@@ -28,9 +28,10 @@ async function gracefulShutdown(signal) {
   
   try {
     // Flush logger
-    await logger.close();
+      // Flush logger before exit (must be the last logger interaction)
+      await logger.close();
     
-    logger.info(chalk.bold.green('Cron Worker shutdown complete'));
+      // logger.info(chalk.bold.green('Cron Worker shutdown complete'));
     process.exit(0);
   } catch (error) {
     logger.error('Error during cron worker shutdown:', error);

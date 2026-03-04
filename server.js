@@ -101,8 +101,9 @@ async function gracefulShutdown(label, err) {
       shutdownBulkPayoutWorker(label),
       closeRabbitMQ(),
       closeRedis(),
-      logger.close(), // Flush logger before exit
     ]);
+    // Close logger LAST so no component writes after transports are ended
+    await logger.close();
   } finally {
     process.exit(err ? 1 : 0);
   }

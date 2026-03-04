@@ -18,14 +18,29 @@ import config from '../config/config.js';
 import { logger } from '../utils/logger.js';
 import { RabbitMQConnection } from '../utils/rabbitmq-connection.js';
 import { createBankResponseService } from '../apis/bankResponse/bankResponseServices.js';
+import { getPoolStats } from '../utils/db.js';
 
 // Queue configuration
 const QUEUE_NAME = config.rabbitmq.bankResponseQueue;
 const DLX_NAME = 'bank_responses.dlx';
 const DLQ_NAME = 'bank_responses.dlq';
-const PREFETCH_COUNT = 20; // Balanced: 20 concurrent transactions 
+const RETRY_QUEUE_NAME = 'bank_responses.retry';
+const PREFETCH_COUNT = Number(
+  process.env.BANK_RESPONSE_PREFETCH ||
+    (config.env === 'production' ? 8 : 20)
+);
 const MAX_RETRIES = 3;
-const PROCESSING_TIMEOUT = 30000; // 30 seconds max per message
+const PROCESSING_TIMEOUT = Number(
+  process.env.BANK_RESPONSE_PROCESSING_TIMEOUT_MS ||
+    (config.env === 'production' ? 120000 : 30000)
+);
+const RETRY_BASE_DELAY_MS = Number(
+  process.env.BANK_RESPONSE_RETRY_BASE_DELAY_MS ||
+    (config.env === 'production' ? 5000 : 2000)
+);
+const RETRY_MAX_DELAY_MS = Number(
+  process.env.BANK_RESPONSE_RETRY_MAX_DELAY_MS || 60000
+);
 
 // Dedicated connection
 const bankResponseConnection = new RabbitMQConnection('bank-response-worker');
@@ -73,6 +88,26 @@ function isRetryableError(error) {
  */
 function getRetryCount(msg) {
   return parseInt(msg?.properties?.headers?.['x-retry-count'] || '0', 10);
+}
+
+function getRetryDelayMs(nextRetryCount) {
+  const delay = RETRY_BASE_DELAY_MS * Math.pow(2, Math.max(0, nextRetryCount - 1));
+  return Math.min(delay, RETRY_MAX_DELAY_MS);
+}
+
+function logDbPoolSnapshot(context, extra = {}) {
+  try {
+    const pools = getPoolStats();
+    logger.warn(`[Consumer] ${context}`, {
+      ...extra,
+      pools,
+    });
+  } catch (poolError) {
+    logger.warn('[Consumer] Failed to read DB pool stats', {
+      error: poolError.message,
+      ...extra,
+    });
+  }
 }
 
 /**
@@ -150,6 +185,7 @@ async function processMessage(msg) {
 
   } catch (error) {
     const shouldRetry = isRetryableError(error) && retryCount < MAX_RETRIES;
+    const isProcessingTimeout = /processing timeout/i.test(error?.message || '');
     
     metrics.messagesFailed++;
     const duration = Date.now() - startTime;
@@ -163,20 +199,37 @@ async function processMessage(msg) {
       duration: `${duration}ms`,
     });
 
+    if (isProcessingTimeout || /connection|timeout/i.test(error?.message || '')) {
+      logDbPoolSnapshot('Pool snapshot on processing failure', {
+        error: error.message,
+        retryCount,
+        shouldRetry,
+      });
+    }
+
     if (shouldRetry) {
-      // Publish new message with incremented retry count
+      // Publish message to delayed retry queue with incremented retry count
       if (channel) {
         try {
-          const headers = { ...(msg.properties.headers || {}), 'x-retry-count': retryCount + 1 };
+          const nextRetryCount = retryCount + 1;
+          const retryDelayMs = getRetryDelayMs(nextRetryCount);
+          const headers = {
+            ...(msg.properties.headers || {}),
+            'x-retry-count': nextRetryCount,
+            'x-original-queue': QUEUE_NAME,
+          };
           
           // sendToQueue can throw - wrap it
-          await channel.sendToQueue(QUEUE_NAME, msg.content, {
+          await channel.sendToQueue(RETRY_QUEUE_NAME, msg.content, {
             persistent: true,
-            headers: headers
+            headers,
+            expiration: String(retryDelayMs),
           });
           
           channel.ack(msg);
-          logger.warn(`[Consumer] Message requeued with retry count ${retryCount + 1} (will be attempt ${retryCount + 2}/${MAX_RETRIES + 1})`);
+          logger.warn(
+            `[Consumer] Message scheduled for retry count ${nextRetryCount} in ${retryDelayMs}ms (will be attempt ${nextRetryCount + 1}/${MAX_RETRIES + 1})`
+          );
         } catch (requeueError) {
           logger.error('[Consumer] Failed to requeue:', {
             error: requeueError.message,
@@ -220,6 +273,15 @@ async function setupQueueTopology(ch) {
   await ch.assertQueue(DLQ_NAME, { durable: true });
   await ch.bindQueue(DLQ_NAME, DLX_NAME, 'failed');
 
+  // Delayed retry queue: messages expire then dead-letter back to main queue
+  await ch.assertQueue(RETRY_QUEUE_NAME, {
+    durable: true,
+    arguments: {
+      'x-dead-letter-exchange': '',
+      'x-dead-letter-routing-key': QUEUE_NAME,
+    },
+  });
+
   // Assert main queue with DLX configuration (idempotent - creates if not exists)
   const queueInfo = await ch.assertQueue(QUEUE_NAME, {
     durable: true,
@@ -231,7 +293,9 @@ async function setupQueueTopology(ch) {
 
   await ch.prefetch(PREFETCH_COUNT);
   
-  logger.info(`[Consumer] Queue ready: ${queueInfo.messageCount} messages, ${queueInfo.consumerCount} consumers, Prefetch=${PREFETCH_COUNT}`);
+  logger.info(
+    `[Consumer] Queue ready: ${queueInfo.messageCount} messages, ${queueInfo.consumerCount} consumers, Prefetch=${PREFETCH_COUNT}, Timeout=${PROCESSING_TIMEOUT}ms, RetryBaseDelay=${RETRY_BASE_DELAY_MS}ms, RetryMaxDelay=${RETRY_MAX_DELAY_MS}ms`
+  );
 }
 
 /**
@@ -331,7 +395,9 @@ export async function startBankResponseWorker() {
       }, 300000);
     }
     
-    logger.info(`[Consumer] Worker started (tag: ${consumerTag}), Prefetch=${PREFETCH_COUNT}`);
+    logger.info(
+      `[Consumer] Worker started (tag: ${consumerTag}), Prefetch=${PREFETCH_COUNT}, Timeout=${PROCESSING_TIMEOUT}ms, RetryBaseDelay=${RETRY_BASE_DELAY_MS}ms`
+    );
 
   } catch (error) {
     logger.error('[Consumer] Startup failed:', {

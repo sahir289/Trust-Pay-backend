@@ -47,6 +47,32 @@ export const createPool = (connectionString, name) => {
     );
   }
 
+  const parsePositiveInt = (value, fallback) => {
+    const parsed = Number.parseInt(value, 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+  };
+
+  const isWriter = name === 'Writer';
+  const defaultMax = config.env === 'production' ? 20 : 10;
+  const defaultMin = config.env === 'production' ? 2 : 1;
+
+  const globalMax = parsePositiveInt(process.env.DB_POOL_MAX, defaultMax);
+  const globalMin = parsePositiveInt(process.env.DB_POOL_MIN, defaultMin);
+  const poolMax = parsePositiveInt(
+    isWriter ? process.env.DB_WRITER_POOL_MAX : process.env.DB_READER_POOL_MAX,
+    globalMax,
+  );
+  const poolMinRaw = parsePositiveInt(
+    isWriter ? process.env.DB_WRITER_POOL_MIN : process.env.DB_READER_POOL_MIN,
+    globalMin,
+  );
+  const poolMin = Math.min(poolMinRaw, poolMax);
+  const poolConnectionTimeout = parsePositiveInt(
+    process.env.DB_CONNECTION_TIMEOUT_MS,
+    20000,
+  );
+  const poolIdleTimeout = parsePositiveInt(process.env.DB_IDLE_TIMEOUT_MS, 30000);
+
   const pool = new Pool({
     connectionString: connectionString,
     ssl:
@@ -56,14 +82,12 @@ export const createPool = (connectionString, name) => {
             // ca: fs.readFileSync(path.join(__dirname, 'ap-south-1-bundle.pem')).toString(),
           }
         : { rejectUnauthorized: false },
-    max: config.env === 'production' ? 60 : 10, // 10 for dev, 60 for prod
-    min: config.env === 'production' ? 10 : 2, // 2 for dev, 10 for prod
-    idleTimeoutMillis: 30000,
-    connectionTimeoutMillis: 20000, // 20s for both - AWS RDS needs more time under load
+    max: poolMax,
+    min: poolMin,
+    idleTimeoutMillis: poolIdleTimeout,
+    connectionTimeoutMillis: poolConnectionTimeout,
     keepAlive: true,
     maxUses: 7500,
-    // Queue timeout - wait for available connection from pool
-    acquireTimeoutMillis: 20000, // 20s to acquire connection from pool
   });
 
   pool.on('connect', async (client) => {
@@ -210,17 +234,46 @@ export const checkDatabaseHealth = async () => {
 const getConnection = async (type = 'writer') => {
   const maxRetries = 5;
   const baseDelay = 2000;
+  const acquireTimeoutMs = 30000;
 
   for (let retryCount = 0; retryCount < maxRetries; retryCount++) {
     try {
       const pool = type === 'reader' ? readerPool : writerPool;
-      
-      // Add connection timeout (30 seconds)
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Connection acquisition timeout')), 30000)
-      );
-      
-      const client = await Promise.race([pool.connect(), timeoutPromise]);
+
+      // Add safe acquisition timeout (no leaked clients on late resolve)
+      const client = await new Promise((resolve, reject) => {
+        let settled = false;
+
+        const timeoutId = setTimeout(() => {
+          settled = true;
+          reject(new Error(`Connection acquisition timeout after ${acquireTimeoutMs}ms`));
+        }, acquireTimeoutMs);
+
+        pool
+          .connect()
+          .then((acquiredClient) => {
+            if (settled) {
+              // Timeout already fired - release late client to avoid pool leak
+              try {
+                acquiredClient.release();
+              } catch {
+                // no-op
+              }
+              return;
+            }
+
+            settled = true;
+            clearTimeout(timeoutId);
+            resolve(acquiredClient);
+          })
+          .catch((connectError) => {
+            if (settled) return;
+
+            settled = true;
+            clearTimeout(timeoutId);
+            reject(connectError);
+          });
+      });
       
       // Add tracking (capture caller file/line best-effort)
       const stack = new Error().stack?.split('\n').slice(2, 6).join('\n');
