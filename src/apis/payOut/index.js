@@ -26,8 +26,10 @@ import { getTataPayWalletBalance } from '../../tatapay/tatapay.js';
 import { getRupeeFlowWalletBalance, initiateRupeeFlowPayout } from '../../rupeeflow/rupeeflow.js';
 import { getBSSWalletBalance, rechargeWallet } from '../../bss/bss.js';
 import { getBSS02WalletBalance } from '../../bss/bss02.js';
+import { getBSS03WalletBalance } from '../../bss/bss03.js';
 import { bssTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/bssWebHook.js';
 import { bss02TransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/bss02WebHook.js';
+import { bss03TransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/bss03WebHook.js';
 const router = express.Router();
 
 /**
@@ -276,6 +278,11 @@ router.get(
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(getBSS02WalletBalance),
 );
+router.get(
+  '/bss03/bss03-balance',
+  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  tryCatchHandler(getBSS03WalletBalance),
+);
 
 router.post(
   '/recharge-wallet',
@@ -302,6 +309,11 @@ router.post(
 router.post(
   '/bss02-callback',
   tryCatchHandler(bss02TransactionStatusCallback),
+);
+
+router.post(
+  '/bss03-callback',
+  tryCatchHandler(bss03TransactionStatusCallback),
 );
 
 router.post(

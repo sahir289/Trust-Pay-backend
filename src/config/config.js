@@ -1,4 +1,5 @@
 import dotenv from 'dotenv';
+import getGeoGuardConfig from './geoGuard.js';
 dotenv.config({ path: '.env' });
 
 // Env file configuration
@@ -113,7 +114,14 @@ function config(Env) {
       initiatePayout: Env?.BSS_WALLET_BALANCE_API_URL,
       walletBalance: Env?.BSS_WALLET_BALANCE_API_URL,
       apiKey: Env?.BSS02_API_KEY,
-      apiSecret: Env?.BSS02_API_KEY,
+      apiSecret: Env?.BSS02_API_SECRET,
+    },
+    bss03 : {
+      baseUrl: Env?.BSS_BASE_API_URL,
+      initiatePayout: Env?.BSS_WALLET_BALANCE_API_URL,
+      walletBalance: Env?.BSS_WALLET_BALANCE_API_URL,
+      apiKey: Env?.BSS03_API_KEY,
+      apiSecret: Env?.BSS03_API_SECRET,
     },
     orvixPay: {
       url: Env?.ORVIX_PAY_API_URL,
@@ -176,4 +184,5 @@ function config(Env) {
 
 export default {
   ...config(process.env),
+  geoGuard: getGeoGuardConfig(),
 };
