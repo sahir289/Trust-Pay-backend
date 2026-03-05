@@ -64,6 +64,7 @@ const createGeoGuard = (options = {}) => {
       if (!location || typeof location !== 'object') {
         logger.warn('Location not provided, attempting to fetch from Proxy/VPN service', { ip: clientIp });
         const proxyInfo = await withTimeout(checkProxyAndVpn(clientIp), 3000, 'Proxy/VPN check');
+        console.log(proxyInfo, "proxyInfo ++++");
         if (proxyInfo && proxyInfo.raw.latitude && proxyInfo.raw.longitude) {
           location = {
             latitude: proxyInfo.raw.latitude,
