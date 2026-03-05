@@ -1,11 +1,14 @@
-export default function getGeoGuardConfig() {
-  const raw = process.env.STATE_RESTRICTION_ARRAY;
+import dotenv from 'dotenv';
+dotenv.config({ path: '.env' });
+
+export default function getGeoGuardConfig(ENV) {
+  const raw = ENV.STATE_RESTRICTION_ARRAY;
   const blockedRegions = raw ? JSON.parse(raw) : [];
 
-  const rawCountries = process.env.COUNTRY_RESTRICTION_ARRAY;
+  const rawCountries = ENV.COUNTRY_RESTRICTION_ARRAY;
   const blockedCountries = rawCountries ? JSON.parse(rawCountries) : [];
 
-  const rawRoleCountries = process.env.ROLE_REGION_COUNTRY;
+  const rawRoleCountries = ENV.ROLE_REGION_COUNTRY;
   const roleRegionCountries = rawRoleCountries ? JSON.parse(rawRoleCountries) : [];
 
   return {

@@ -184,5 +184,5 @@ function config(Env) {
 
 export default {
   ...config(process.env),
-  geoGuard: getGeoGuardConfig(),
+  geoGuard: getGeoGuardConfig(process.env),
 };
