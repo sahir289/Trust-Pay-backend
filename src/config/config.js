@@ -1,4 +1,5 @@
 import dotenv from 'dotenv';
+import getGeoGuardConfig from './geoGuard.js';
 dotenv.config({ path: '.env' });
 
 // Env file configuration
@@ -183,4 +184,5 @@ function config(Env) {
 
 export default {
   ...config(process.env),
+  geoGuard: getGeoGuardConfig(),
 };
