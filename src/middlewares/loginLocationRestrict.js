@@ -133,9 +133,12 @@ const createGeoGuard = (options = {}) => {
         }
 
         const rule = roleRegionRules[userRole];
+        console.log(rule, "rule ++++");
         const ruleCountries = rule?.countries?.map((c) => c.toLowerCase()) || [];
+        console.log(ruleCountries, "ruleCountries ++++", country?.toLowerCase(), "country ++++");
         if (rule && ruleCountries.includes(country?.toLowerCase())) {
           const blocked = rule.blockedRegions.map((r) => r.toLowerCase());
+          console.log(blocked, "blocked ++++", region?.toLowerCase(), "region ++++");
           if (region && blocked.includes(region.toLowerCase())) {
             logger.warn('Region blocked', {
               region,
