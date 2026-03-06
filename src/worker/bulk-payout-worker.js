@@ -24,7 +24,7 @@ const DLQ_NAME = 'bulk_payout.dlq';
 const RETRY_QUEUE_NAME = 'bulk_payout.retry';
 const PREFETCH_COUNT = Number(
   process.env.BULK_PAYOUT_PREFETCH ||
-    (config.env === 'production' ? 2 : 3)
+    (config.env === 'production' ? 10 : 20)
 );
 const MAX_RETRIES = 3;
 const BATCH_SIZE = Number(process.env.BULK_PAYOUT_BATCH_SIZE || 10); // Process updates in parallel per batch

@@ -27,7 +27,7 @@ const DLQ_NAME = 'bank_responses.dlq';
 const RETRY_QUEUE_NAME = 'bank_responses.retry';
 const PREFETCH_COUNT = Number(
   process.env.BANK_RESPONSE_PREFETCH ||
-    (config.env === 'production' ? 8 : 20)
+    (config.env === 'production' ? 20 : 20)
 );
 const MAX_RETRIES = 3;
 const PROCESSING_TIMEOUT = Number(
