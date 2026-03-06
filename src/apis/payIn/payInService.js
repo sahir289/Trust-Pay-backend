@@ -246,6 +246,8 @@ export const generatePayInUrlByHashService = async (req) => {
     if (conn && !committed) await rollback(conn);
     logger.error('Error generating payin hash:', error);
     throw error;
+  } finally {
+    if (conn) conn.release();
   }
 };
 

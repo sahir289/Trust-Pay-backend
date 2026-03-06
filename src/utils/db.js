@@ -207,10 +207,10 @@ export const getPoolStats = () => {
  * Check database health
  */
 export const checkDatabaseHealth = async () => {
+  let client;
   try {
-    const client = await writerPool.connect();
+    client = await writerPool.connect();
     await client.query('SELECT 1');
-    client.release();
     return {
       status: 'healthy',
       timestamp: new Date().toISOString(),
@@ -224,6 +224,8 @@ export const checkDatabaseHealth = async () => {
       timestamp: new Date().toISOString(),
       pools: getPoolStats(),
     };
+  } finally {
+    if (client) client.release();
   }
 };
 
