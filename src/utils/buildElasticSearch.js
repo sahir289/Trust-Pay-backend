@@ -1,10 +1,8 @@
 import config from '../config/config.js';
 import getESClient from '../utils/elasticClient.js';
 import { BadRequestError } from './appErrors.js';
-import { createPool } from './db.js';
+import { getConnection } from './db.js';
 import { logger } from './logger.js';
-
-const readerPool = createPool(config?.databaseReaderUrl, 'Reader');
 
 export const buildESQuery = (
   searchQuery,
@@ -236,8 +234,7 @@ export const bulkIndexFromPG = async (
   const indexName = indexBaseName;
   const esClient = await getESClient();
 
-  const pool = readerPool;
-  const client = await pool.connect();
+  const client = await getConnection('reader');
 
   try {
     // 1️⃣ Check table/view exists

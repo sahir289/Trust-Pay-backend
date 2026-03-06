@@ -13,6 +13,16 @@ import { trackDbConnection } from './dbConnectionTracker.js';
 // const __dirname = path.dirname(__filename);
 const { Pool } = pkg;
 
+const parseEnvPositiveInt = (value, fallback) => {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+const DB_CONN_HOLD_WARN_MS = parseEnvPositiveInt(
+  process.env.DB_CONN_HOLD_WARN_MS,
+  config.env === 'production' ? 60000 : 30000,
+);
+
 const sslConfig =
   config.env === 'production'
     ? {
@@ -207,10 +217,10 @@ export const getPoolStats = () => {
  * Check database health
  */
 export const checkDatabaseHealth = async () => {
+  let client;
   try {
-    const client = await writerPool.connect();
+    client = await writerPool.connect();
     await client.query('SELECT 1');
-    client.release();
     return {
       status: 'healthy',
       timestamp: new Date().toISOString(),
@@ -224,6 +234,8 @@ export const checkDatabaseHealth = async () => {
       timestamp: new Date().toISOString(),
       pools: getPoolStats(),
     };
+  } finally {
+    if (client) client.release();
   }
 };
 
@@ -278,6 +290,55 @@ const getConnection = async (type = 'writer') => {
       // Add tracking (capture caller file/line best-effort)
       const stack = new Error().stack?.split('\n').slice(2, 6).join('\n');
       trackDbConnection({ stack });
+
+      const checkoutAt = Date.now();
+      const checkoutStack = new Error().stack?.split('\n').slice(2, 8).join('\n');
+      const originalRelease = client.release.bind(client);
+      let released = false;
+
+      const holdWarnTimer = setTimeout(() => {
+        if (released) return;
+
+        logger.warn('[DB Connection] Connection held beyond threshold', {
+          type,
+          heldMs: Date.now() - checkoutAt,
+          thresholdMs: DB_CONN_HOLD_WARN_MS,
+          pools: getPoolStats(),
+          checkoutStack,
+        });
+      }, DB_CONN_HOLD_WARN_MS);
+
+      if (typeof holdWarnTimer.unref === 'function') {
+        holdWarnTimer.unref();
+      }
+
+      client.release = (...args) => {
+        if (released) {
+          if (config.env !== 'production') {
+            logger.warn('[DB Connection] Duplicate release detected', {
+              type,
+              checkoutStack,
+            });
+          }
+          return undefined;
+        }
+
+        released = true;
+        clearTimeout(holdWarnTimer);
+
+        const heldMs = Date.now() - checkoutAt;
+        if (heldMs >= DB_CONN_HOLD_WARN_MS) {
+          logger.warn('[DB Connection] Long-held connection released', {
+            type,
+            heldMs,
+            thresholdMs: DB_CONN_HOLD_WARN_MS,
+            pools: getPoolStats(),
+            checkoutStack,
+          });
+        }
+
+        return originalRelease(...args);
+      };
 
       // Only log in development or on first connection
       if (config.env !== 'production' || retryCount > 0) {
