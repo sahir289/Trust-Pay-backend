@@ -20,6 +20,47 @@ const DLQ_NAME = 'bank_responses.dlq';
 const MAX_PUBLISH_RETRIES = 3;
 const RETRY_DELAY_MS = 1000;
 
+const parseBoolean = (value, fallback) => {
+  if (value === undefined || value === null || value === '') return fallback;
+  return String(value).toLowerCase() === 'true';
+};
+
+const ENABLE_DB_FALLBACK = parseBoolean(
+  process.env.BANK_RESPONSE_PUBLISH_DB_FALLBACK,
+  config.env !== 'production',
+);
+
+let cachedChannel = null;
+let topologyReadyPromise = null;
+
+async function ensurePublisherTopology(channel) {
+  if (cachedChannel !== channel) {
+    cachedChannel = channel;
+    topologyReadyPromise = null;
+  }
+
+  if (!topologyReadyPromise) {
+    topologyReadyPromise = (async () => {
+      await channel.assertExchange(DLX_NAME, 'direct', { durable: true });
+      await channel.assertQueue(DLQ_NAME, { durable: true });
+      await channel.bindQueue(DLQ_NAME, DLX_NAME, 'failed');
+
+      await channel.assertQueue(BANK_RESPONSE_QUEUE, {
+        durable: true,
+        arguments: {
+          'x-dead-letter-exchange': DLX_NAME,
+          'x-dead-letter-routing-key': 'failed',
+        },
+      });
+    })().catch((error) => {
+      topologyReadyPromise = null;
+      throw error;
+    });
+  }
+
+  return topologyReadyPromise;
+}
+
 /**
  * Publish message with retry logic
  */
@@ -51,6 +92,11 @@ async function publishWithRetry(channel, queue, message, attempts = MAX_PUBLISH_
  * Fallback to database when RabbitMQ fails
  */
 async function fallbackToDatabase(responseData) {
+  if (!ENABLE_DB_FALLBACK) {
+    logger.error('Publisher - DB fallback disabled, preserving queue-first behavior');
+    return false;
+  }
+
   logger.warn('Publisher - Using database fallback');
   
   try {
@@ -77,19 +123,7 @@ export async function publishBankResponse(responseData) {
   try {
     const channel = await publisherConnection.getChannel();
 
-    // Ensure DLX and DLQ exist
-    await channel.assertExchange(DLX_NAME, 'direct', { durable: true });
-    await channel.assertQueue(DLQ_NAME, { durable: true });
-    await channel.bindQueue(DLQ_NAME, DLX_NAME, 'failed');
-
-    // Ensure queue exists with DLX configuration (idempotent)
-    await channel.assertQueue(BANK_RESPONSE_QUEUE, {
-      durable: true,
-      arguments: {
-        'x-dead-letter-exchange': DLX_NAME,
-        'x-dead-letter-routing-key': 'failed',
-      },
-    });
+    await ensurePublisherTopology(channel);
 
     const published = await publishWithRetry(channel, BANK_RESPONSE_QUEUE, message);
 

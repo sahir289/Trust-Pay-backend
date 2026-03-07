@@ -48,6 +48,7 @@ let channel = null;
 let consumerTag = null;
 let isShuttingDown = false;
 let metricsInterval = null;
+let reconnectTimer = null;
 
 // Metrics for monitoring
 const metrics = {
@@ -363,9 +364,24 @@ export async function startBulkPayoutWorker() {
 
   logger.info('[BulkPayout] Starting worker...');
 
+  const scheduleReconnect = (delayMs = 10000, reason = 'unknown') => {
+    if (isShuttingDown || reconnectTimer) return;
+
+    logger.info(`[BulkPayout] Reconnecting in ${delayMs / 1000}s (${reason})...`);
+    reconnectTimer = setTimeout(() => {
+      reconnectTimer = null;
+      startBulkPayoutWorker().catch((err) =>
+        logger.error('[BulkPayout] Retry failed:', {
+          message: err?.message || String(err),
+          stack: err?.stack,
+          code: err?.code,
+        }),
+      );
+    }, delayMs);
+  };
+
   try {
-    const connection = await bulkPayoutConnection.connect();
-    channel = await connection.createChannel();
+    channel = await bulkPayoutConnection.getChannel();
     
     await setupQueueTopology(channel);
 
@@ -383,15 +399,7 @@ export async function startBulkPayoutWorker() {
     channel.on('close', () => {
       logger.warn('[BulkPayout] Channel closed');
       if (!isShuttingDown) {
-        logger.info('[BulkPayout] Reconnecting in 5s...');
-        setTimeout(() => {
-          startBulkPayoutWorker().catch(err =>
-            logger.error('[BulkPayout] Reconnection failed:', {
-              message: err.message,
-              stack: err.stack
-            })
-          );
-        }, 5000);
+        scheduleReconnect(5000, 'channel-closed');
       }
     });
 
@@ -462,15 +470,10 @@ export async function startBulkPayoutWorker() {
     });
     
     if (!isShuttingDown) {
-      logger.info('[BulkPayout] Retrying in 10s...');
-      setTimeout(() => {
-        startBulkPayoutWorker().catch(err => 
-          logger.error('[BulkPayout] Retry failed:', err.message)
-        );
-      }, 10000);
+      scheduleReconnect(10000, 'startup-failure');
     }
-    
-    throw error;
+
+    return;
   }
 }
 
@@ -484,6 +487,11 @@ export async function shutdownBulkPayoutWorker(signal) {
   logger.warn(`[BulkPayout] ${signal} - Shutting down...`);
 
   try {
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+    }
+
     if (metricsInterval) {
       clearInterval(metricsInterval);
       metricsInterval = null;

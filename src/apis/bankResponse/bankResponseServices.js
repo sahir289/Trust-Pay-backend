@@ -74,6 +74,12 @@ import { trackVendorsNetBalance } from '../../utils/trackVendorsNetBalance.js';
 
 const processingSet = new Set();
 
+const emitTableEntryAsync = (table, payload) => {
+  void newTableEntry(table, payload).catch((error) => {
+    logger.error(`Failed to emit socket table entry for ${table}:`, error);
+  });
+};
+
 // Helper function to check if vendor is sub-vendor and get parent info
 const getSubVendorParentInfo = async (vendor, conn = null) => {
   try {
@@ -184,7 +190,6 @@ const createBankResponseService = async (
 
   try {
     conn = await getConnection();
-    await beginTransaction(conn);
 
     // Database-level lock to prevent race condition with concurrent requests
     // const lockAcquired = await acquireUTRLock(utr, conn);
@@ -307,7 +312,8 @@ const createBankResponseService = async (
 
     // Use a transaction for all DB operations for a single entry
     try {
-      // Transaction already started at function beginning
+      // Start transaction only when write phase begins to reduce connection hold time
+      await beginTransaction(conn);
       botRes = await createBankResponseDao(updatedData, conn);
       // await sendNotification(updatedData.status.replace('/', ''), {
       //   id: botRes.id,
@@ -579,7 +585,7 @@ const createBankResponseService = async (
                 amount: botRes.amount || 0,
               },
             };
-            await newTableEntry(tableName.PAYIN, obj);
+            emitTableEntryAsync(tableName.PAYIN, obj);
             // This is async function but it's just the callback sending function there fore we are not using await
             merchantPayinCallback(updatePayInDataRes.config.urls?.notify, {
               status: updatePayInDataRes.status,
@@ -777,7 +783,7 @@ const createBankResponseService = async (
             },
           };
 
-          await newTableEntry(tableName.PAYIN, obj);
+          emitTableEntryAsync(tableName.PAYIN, obj);
           // This is async function but it's just the callback sending function there fore we are not using await
           merchantPayinCallback(updatePayin.config.urls?.notify, {
             status: updatePayin.status,
@@ -886,7 +892,7 @@ const createBankResponseService = async (
                 amount: botRes.amount || 0,
               },
             };
-            await newTableEntry(tableName.PAYIN, obj);
+            emitTableEntryAsync(tableName.PAYIN, obj);
             // This is async function but it's just the callback sending function there fore we are not using await
             merchantPayinCallback(updatePayInDataRes.config.urls?.notify, {
               status: updatePayInDataRes.status,
@@ -952,7 +958,7 @@ const createBankResponseService = async (
         company_id: companyId,
       };
       // Send to socket for real-time update
-      await newTableEntry(tableName.BANK_RESPONSE, responseObj);
+      emitTableEntryAsync(tableName.BANK_RESPONSE, responseObj);
       return { message: `Entry created successfully`, data: responseObj };
     } catch (err) {
       logger.error('Error performating transactions', err);
@@ -1240,7 +1246,7 @@ const createBankResponseWebHookService = async (
         company_id: companyId,
       };
       // Send to socket for real-time update
-      await newTableEntry(tableName.BANK_RESPONSE, responseObj);
+      emitTableEntryAsync(tableName.BANK_RESPONSE, responseObj);
       return { message: `Entry created successfully`, data: responseObj };
     } catch (err) {
       logger.error('Error performing transactions', err);

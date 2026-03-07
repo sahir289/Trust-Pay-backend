@@ -50,6 +50,7 @@ let channel = null;
 let consumerTag = null;
 let isShuttingDown = false;
 let metricsInterval = null;
+let reconnectTimer = null;
 
 // Metrics
 const metrics = {
@@ -308,9 +309,24 @@ export async function startBankResponseWorker() {
 
   logger.info('[Consumer] Starting worker...');
 
+  const scheduleReconnect = (delayMs = 10000, reason = 'unknown') => {
+    if (isShuttingDown || reconnectTimer) return;
+
+    logger.info(`[Consumer] Reconnecting in ${delayMs / 1000}s (${reason})...`);
+    reconnectTimer = setTimeout(() => {
+      reconnectTimer = null;
+      startBankResponseWorker().catch((err) =>
+        logger.error('[Consumer] Retry failed:', {
+          message: err?.message || String(err),
+          stack: err?.stack,
+          code: err?.code,
+        }),
+      );
+    }, delayMs);
+  };
+
   try {
-    const connection = await bankResponseConnection.connect();
-    channel = await connection.createChannel();
+    channel = await bankResponseConnection.getChannel();
     
     await setupQueueTopology(channel);
 
@@ -328,15 +344,7 @@ export async function startBankResponseWorker() {
     channel.on('close', () => {
       logger.warn('[Consumer] Channel closed');
       if (!isShuttingDown) {
-        logger.info('[Consumer] Reconnecting in 5s...');
-        setTimeout(() => {
-          startBankResponseWorker().catch(err =>
-            logger.error('[Consumer] Reconnection failed:', {
-              message: err.message,
-              stack: err.stack
-            })
-          );
-        }, 5000);
+        scheduleReconnect(5000, 'channel-closed');
       }
     });
 
@@ -407,15 +415,10 @@ export async function startBankResponseWorker() {
     });
     
     if (!isShuttingDown) {
-      logger.info('[Consumer] Retrying in 10s...');
-      setTimeout(() => {
-        startBankResponseWorker().catch(err => 
-          logger.error('[Consumer] Retry failed:', err.message)
-        );
-      }, 10000);
+      scheduleReconnect(10000, 'startup-failure');
     }
-    
-    throw error;
+
+    return;
   }
 }
 
@@ -429,6 +432,11 @@ export async function shutdownWorker(signal) {
   logger.warn(`[Consumer] ${signal} - Shutting down...`);
 
   try {
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+    }
+
     if (metricsInterval) {
       clearInterval(metricsInterval);
       metricsInterval = null;
