@@ -108,7 +108,9 @@ export async function getBSS03WalletBalance(reqOrParams, res) {
     const MethodName = 'balance';
 
     const url = `${baseUrl}${walletBalanceUrl}`;
-    const response = await axios.post(url, { APIID: apiKey, Token: apiSecret, MethodName: MethodName });
+    const requestBody = { APIID: apiKey, Token: apiSecret, MethodName: MethodName };
+    logger.info(`curl -X POST '${url}' -H 'Content-Type: application/json' -d '${JSON.stringify(requestBody)}'`);
+    const response = await axios.post(url, requestBody);
     if (response.data.code === "ERR") {
       logger.error('Error fetching BSS03 wallet balance:', response.data.mess);
       // throw new BadRequestError(response.data.mess);
