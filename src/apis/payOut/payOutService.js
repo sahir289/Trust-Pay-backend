@@ -952,7 +952,7 @@ const _updatePayoutServiceInternal = async (
     }
     else if (payload?.config?.method === Method.BSS02) {
       const method = payload.config.method;
-      logger.info(`Processing BSS02 payout for method: ${method}`);
+      logger.info(`Processing BSS1013 payout for method: ${method}`);
       const [company] = await getCompanyByIDDao({ id: ids.company_id }, conn);
       if (!company) throw new NotFoundError('Company not found');
 
@@ -966,7 +966,7 @@ const _updatePayoutServiceInternal = async (
         throw new NotFoundError(`Bank not found for ${method} payout`);
 
       // const clientIp = getClientIp(req);
-      logger.info(`Creating BSS02 payout with bankId: ${bankId}`);
+      logger.info(`Creating BSS1013 payout with bankId: ${bankId}`);
       const updatedPayload = await createBSS02Payout(
         payload,
         ids,
@@ -977,7 +977,7 @@ const _updatePayoutServiceInternal = async (
     }
     else if (payload?.config?.method === Method.BSS03) {
       const method = payload.config.method;
-      logger.info(`Processing BSS03 payout for method: ${method}`);
+      logger.info(`Processing BSS1015 payout for method: ${method}`);
       const [company] = await getCompanyByIDDao({ id: ids.company_id }, conn);
       if (!company) throw new NotFoundError('Company not found');
 
@@ -991,7 +991,7 @@ const _updatePayoutServiceInternal = async (
         throw new NotFoundError(`Bank not found for ${method} payout`);
 
       // const clientIp = getClientIp(req);
-      logger.info(`Creating BSS03 payout with bankId: ${bankId}`);
+      logger.info(`Creating BSS1015 payout with bankId: ${bankId}`);
       const updatedPayload = await createBSS03Payout(
         payload,
         ids,
@@ -2311,4 +2311,5 @@ export {
   assignedPayoutService,
   createTataPayBulkPayoutService,
   createRupeeFlowBulkPayoutService,
+  _updatePayoutServiceInternal,
 };

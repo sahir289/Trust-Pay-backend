@@ -8,7 +8,7 @@ import { logger } from '../../utils/logger.js';
 // import axios from 'axios';
 import { getCompanyByIDDao } from '../../apis/company/companyDao.js';
 import { getVendorsDao } from '../../apis/vendors/vendorDao.js';
-import { updatePayoutService } from '../../apis/payOut/payOutService.js';
+import { _updatePayoutServiceInternal } from '../../apis/payOut/payOutService.js';
 import { getUserByCompanyCreatedAtDao } from '../../apis/users/userDao.js';
 import {
   beginTransaction,
@@ -108,13 +108,13 @@ export const bssTransactionStatusCallback = async (req, res) => {
       }
       logger.info('Final update payload for payout:', updatePayload);
       // const data = await _updatePayoutServiceInternal(ids, payload, role, conn);
-      await updatePayoutService(
-        conn,
+      await _updatePayoutServiceInternal(
         {
           id: singleWithdrawData.id,
           company_id: singleWithdrawData.company_id,
         },
         updatePayload,
+        conn,
       );
     };
 

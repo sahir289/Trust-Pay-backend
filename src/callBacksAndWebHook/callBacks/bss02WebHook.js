@@ -8,7 +8,7 @@ import { logger } from '../../utils/logger.js';
 // import axios from 'axios';
 import { getCompanyByIDDao } from '../../apis/company/companyDao.js';
 import { getVendorsDao } from '../../apis/vendors/vendorDao.js';
-import { updatePayoutService } from '../../apis/payOut/payOutService.js';
+import { _updatePayoutServiceInternal } from '../../apis/payOut/payOutService.js';
 import { getUserByCompanyCreatedAtDao } from '../../apis/users/userDao.js';
 import {
   beginTransaction,
@@ -22,7 +22,7 @@ export const bss02TransactionStatusCallback = async (req, res) => {
   const payload = req.body;
   const apitxnid = payload?.CallBack?.OrderID;
   let conn;
-  logger.info('Received BSS02 callback payload:', payload);
+  logger.info('Received BSS1013 callback payload:', payload);
   try {
     if (!apitxnid || apitxnid === '') {
       return res.status(404).send('Payment not found');
@@ -77,8 +77,8 @@ export const bss02TransactionStatusCallback = async (req, res) => {
         bank_acc_id: bankId,
         vendor_id: vendor.id,
         config: {
-          method: 'BSS02',
-          description: 'Payout processing via BSS02',
+          method: 'BSS1013',
+          description: 'Payout processing via BSS1013',
         },
       };
       const adminUser = await getUserByCompanyCreatedAtDao(
@@ -108,13 +108,13 @@ export const bss02TransactionStatusCallback = async (req, res) => {
       }
       logger.info('Final update payload for payout:', updatePayload);
       // const data = await _updatePayoutServiceInternal(ids, payload, role, conn);
-      await updatePayoutService(
-        conn,
+      await _updatePayoutServiceInternal(
         {
           id: singleWithdrawData.id,
           company_id: singleWithdrawData.company_id,
         },
         updatePayload,
+        conn,
       );
     };
 

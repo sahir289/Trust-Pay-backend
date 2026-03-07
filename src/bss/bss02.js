@@ -44,15 +44,15 @@ const initiatePayoutUrl = config.bss02.initiatePayout;
 const walletBalanceUrl = config.bss02.walletBalance;
 
 export const initiateBSS02Payout = async (payload, company_id) => {
-  logger.info('Initiating BSS02 payout with payload:', payload);
+  logger.info('Initiating BSS1013 payout with payload:', payload);
   try {
     const bss02WalletBalance = await getBSS02WalletBalance({ company_id });
-    logger.info('Sufficient BSS02 wallet balance:', bss02WalletBalance.data);
+    logger.info('Sufficient BSS1013 wallet balance:', bss02WalletBalance.data);
     if (bss02WalletBalance?.data?.Balance < Number(payload.amount)) {
-      throw new BadRequestError('Insufficient BSS wallet balance');
+      throw new BadRequestError('Insufficient BSS1013 wallet balance');
     }
     const bss02Details = await getBSS02DetailsByCompanyIdDao(company_id);
-    logger.info('BSS02 details fetched for company_id:', bss02Details);
+    logger.info('BSS1013 details fetched for company_id:', bss02Details);
 
     const apiKey = bss02Details.api_key;
     const apiSecret = bss02Details.api_secret;
@@ -73,13 +73,13 @@ export const initiateBSS02Payout = async (payload, company_id) => {
       Latitude: 26.78,
       Longitude: 26.78
   }
-    logger.info('BSS02 payout request payload:', newPayload);
+    logger.info('BSS1013 payout request payload:', newPayload);
 
     const url = `${baseUrl}${initiatePayoutUrl}`;
-    logger.info('BSS02 payout request URL:', url);
+    logger.info('BSS1013 payout request URL:', url);
     const response = await axios.post(url, newPayload);
-    logger.log(response, "bss payout response");
-    logger.log('BSS02 payout initiated successfully:', {
+    logger.log(response, "bss1013 payout response");
+    logger.log('BSS1013 payout initiated successfully:', {
       merchant_order_id: payload?.merchant_order_id,
       data: response.data,
     });
@@ -87,7 +87,7 @@ export const initiateBSS02Payout = async (payload, company_id) => {
     return response.data.data;
   } catch (error) {
     logger.error(
-      'Payout initiation failed:',
+      'BSS1013 payout initiation failed:',
       error.response?.data || error.message || error,
     );
     throw error;
@@ -110,12 +110,12 @@ export async function getBSS02WalletBalance(reqOrParams, res) {
     const url = `${baseUrl}${walletBalanceUrl}`;
     const response = await axios.post(url, { APIID: apiKey, Token: apiSecret, MethodName: MethodName });
     if (response.data.code === "ERR") {
-      logger.error('Error fetching BSS02 wallet balance:', response.data.mess);
+      logger.error('Error fetching BSS1013 wallet balance:', response.data.mess);
       // throw new BadRequestError(response.data.mess);
     }
-    logger.log('BSS02 wallet balance response:', response.data);
+    logger.log('BSS1013 wallet balance response:', response.data);
     const data = response?.data?.data;
-    const successMsg = 'BSS02 wallet balance fetched successfully';
+    const successMsg = 'BSS1013 wallet balance fetched successfully';
     logger.log(successMsg, data);
     if (isExpress) {
       return sendSuccess(res, data, successMsg);
@@ -124,7 +124,7 @@ export async function getBSS02WalletBalance(reqOrParams, res) {
     }
   } catch (error) {
     logger.error(
-      'Error fetching BSS02 payout status:',
+      'Error fetching BSS1013 payout status:',
       error.response?.data || error.message || error,
     );
     throw error;
@@ -143,7 +143,7 @@ export async function createBSS02Payout(
     if (!payload?.config?.method) {
       throw new Error('Payout method missing in payload');
     }
-    logger.info('Creating BSS02 payout with payload:', payload);
+    logger.info('Creating BSS1013 payout with payload:', payload);
     if (payload.status) {
       checkBSS = {...payload};
       delete payload.status;
@@ -176,7 +176,7 @@ export async function createBSS02Payout(
       payload.utr_id = checkBSS?.utr || '';
     }
 
-    logger.info('BSS02 payout processed successfully:', payload);
+    logger.info('BSS1013 payout processed successfully:', payload);
     return payload;
   } catch (error) {
     payload.status = Status.REJECTED;
@@ -186,7 +186,7 @@ export async function createBSS02Payout(
       error?.response?.data?.message || error.message || 'API call failed';
     payload.rejected_at = new Date().toISOString();
 
-    logger.error('BSS02 payout error:', error.message);
+    logger.error('BSS1013 payout error:', error.message);
     return payload;
   }
 }
