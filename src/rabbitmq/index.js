@@ -1,6 +1,10 @@
 import { logger } from '../utils/logger.js';
 import { rabbitMQConnectionManager } from './connection.js';
 import {
+  startBankResponseBulkConsumer,
+  stopBankResponseBulkConsumer,
+} from './consumers/bankResponseBulkConsumer.js';
+import {
   startBankResponseConsumer,
   stopBankResponseConsumer,
 } from './consumers/bankResponseConsumer.js';
@@ -17,7 +21,11 @@ export async function startRabbitMQConsumers() {
   }
 
   await rabbitMQConnectionManager.connect();
-  await Promise.all([startBankResponseConsumer(), startBulkPayoutConsumer()]);
+  await Promise.all([
+    startBankResponseConsumer(),
+    startBankResponseBulkConsumer(),
+    startBulkPayoutConsumer(),
+  ]);
 
   consumersStarted = true;
   logger.info('[RabbitMQ] All consumers started');
@@ -25,7 +33,11 @@ export async function startRabbitMQConsumers() {
 
 export async function stopRabbitMQ() {
   if (consumersStarted) {
-    await Promise.all([stopBankResponseConsumer(), stopBulkPayoutConsumer()]);
+    await Promise.all([
+      stopBankResponseConsumer(),
+      stopBankResponseBulkConsumer(),
+      stopBulkPayoutConsumer(),
+    ]);
   }
 
   await rabbitMQConnectionManager.close();

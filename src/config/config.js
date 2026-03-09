@@ -33,6 +33,7 @@ function config(Env) {
       producerRetryAttempts: parseInt(Env?.RABBITMQ_PRODUCER_RETRY_ATTEMPTS) || 3,
       producerRetryDelayMs: parseInt(Env?.RABBITMQ_PRODUCER_RETRY_DELAY_MS) || 500,
       bankResponseQueue: Env?.RABBITMQ_BANK_RESPONSE_QUEUE || 'bank_response_queue',
+      bankResponseBotBulkQueue: Env?.RABBITMQ_BANK_RESPONSE_BOT_BULK_QUEUE || 'bank_response_bot_bulk_queue',
       bulkPayoutQueue: Env?.RABBITMQ_BULK_PAYOUT_QUEUE || 'bulk_payout_queue',
     },
     telegram: {

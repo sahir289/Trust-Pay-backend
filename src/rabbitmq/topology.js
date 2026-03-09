@@ -57,8 +57,8 @@ export async function assertQueueTopology(channel, topology) {
 
 export async function assertAllTopologies(channel) {
   await assertQueueTopology(channel, TOPOLOGY.bankResponse);
-  await assertQueueTopology(channel, TOPOLOGY.bulkPayout);
   await assertQueueTopology(channel, TOPOLOGY.bankResponseBotBulk);
+  await assertQueueTopology(channel, TOPOLOGY.bulkPayout);
   logger.info('[RabbitMQ] Queue topology ensured', {
     bankResponseQueue: TOPOLOGY.bankResponse.queue,
     bankResponseRetryQueue: TOPOLOGY.bankResponse.retryQueue,
