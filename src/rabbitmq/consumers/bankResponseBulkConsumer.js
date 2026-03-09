@@ -4,7 +4,7 @@ import { rabbitMQConnectionManager } from '../connection.js';
 import { assertQueueTopology, TOPOLOGY } from '../topology.js';
 
 const PREFETCH_COUNT = Number(
-  process.env.BANK_RESPONSE_BOT_BULK_PREFETCH || 4,
+  process.env.BANK_RESPONSE_BOT_BULK_PREFETCH || 20,
 );
 const MAX_RETRIES = Number(
   process.env.BANK_RESPONSE_BOT_BULK_MAX_RETRIES || 3,

@@ -74,6 +74,29 @@ import { trackVendorsNetBalance } from '../../utils/trackVendorsNetBalance.js';
 
 const processingSet = new Set();
 
+const parsePositiveInt = (value, fallback) => {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+const BANK_RESPONSE_LOCK_TIMEOUT_MS = parsePositiveInt(
+  process.env.BANK_RESPONSE_DB_LOCK_TIMEOUT_MS,
+  10000,
+);
+const BANK_RESPONSE_STATEMENT_TIMEOUT_MS = parsePositiveInt(
+  process.env.BANK_RESPONSE_DB_STATEMENT_TIMEOUT_MS,
+  45000,
+);
+
+const applyBankResponseTxTimeouts = async (conn) => {
+  await conn.query(
+    `SET LOCAL lock_timeout = '${BANK_RESPONSE_LOCK_TIMEOUT_MS}ms'`,
+  );
+  await conn.query(
+    `SET LOCAL statement_timeout = '${BANK_RESPONSE_STATEMENT_TIMEOUT_MS}ms'`,
+  );
+};
+
 const emitTableEntryAsync = (table, payload) => {
   void newTableEntry(table, payload).catch((error) => {
     logger.error(`Failed to emit socket table entry for ${table}:`, error);
@@ -314,6 +337,7 @@ const createBankResponseService = async (
     try {
       // Start transaction only when write phase begins to reduce connection hold time
       await beginTransaction(conn);
+      await applyBankResponseTxTimeouts(conn);
       botRes = await createBankResponseDao(updatedData, conn);
       // await sendNotification(updatedData.status.replace('/', ''), {
       //   id: botRes.id,
@@ -1109,6 +1133,7 @@ const createBankResponseWebHookService = async (
     try {
       // conn = await getConnection();
       await beginTransaction(conn);
+      await applyBankResponseTxTimeouts(conn);
       botRes = await createBankResponseDao(updatedData, conn);
       // await sendNotification(updatedData.status.replace('/', ''), {
       //   id: botRes.id,
@@ -1562,6 +1587,7 @@ const updateBankResponseService = async (id, payload, role) => {
   try {
     conn = await getConnection();
     await beginTransaction(conn);
+    await applyBankResponseTxTimeouts(conn);
     const finalResult = await _updateBankResponseServiceInternal(
       id,
       payload,
@@ -1830,6 +1856,7 @@ const resetBankResponseService = async (id, userData) => {
   try {
     conn = await getConnection();
     await beginTransaction(conn);
+    await applyBankResponseTxTimeouts(conn);
     const results = await _resetBankResponseServiceInternal(id, userData, conn);
     await commit(conn);
     committed = true;
