@@ -393,7 +393,7 @@ const _createPayoutServiceInternal = async (
       },
       user_bank_details: {
         account_holder_name: data.acc_holder_name || null,
-        account_no: data.ac_no || null,
+        account_no: data.acc_no || null,
         ifsc_code: data.ifsc_code || null,
         bank_name: data.bank_name || null,
       },
@@ -1316,7 +1316,7 @@ const _updatePayoutServiceInternal = async (
       },
       user_bank_details: {
         account_holder_name: data.acc_holder_name || null,
-        account_no: data.ac_no || null,
+        account_no: data.acc_no || null,
         ifsc_code: data.ifsc_code || null,
         bank_name: data.bank_name || null,
       },
@@ -1663,7 +1663,7 @@ const _assignedPayoutServiceInternal = async (
       },
       user_bank_details: {
         account_holder_name: data.acc_holder_name || null,
-        account_no: data.ac_no || null,
+        account_no: data.acc_no || null,
         ifsc_code: data.ifsc_code || null,
         bank_name: data.bank_name || null,
       },
