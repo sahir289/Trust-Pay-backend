@@ -3,8 +3,12 @@ import { createBankResponseService } from '../../apis/bankResponse/bankResponseS
 import { rabbitMQConnectionManager } from '../connection.js';
 import { assertQueueTopology, TOPOLOGY } from '../topology.js';
 
-const PREFETCH_COUNT = Number(process.env.BANK_RESPONSE_PREFETCH || 20);
-const MAX_RETRIES = Number(process.env.BANK_RESPONSE_MAX_RETRIES || 3);
+const PREFETCH_COUNT = Number(
+  process.env.BANK_RESPONSE_BOT_BULK_PREFETCH || 4,
+);
+const MAX_RETRIES = Number(
+  process.env.BANK_RESPONSE_BOT_BULK_MAX_RETRIES || 3,
+);
 
 let channel = null;
 let consumerTag = null;
