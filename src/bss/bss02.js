@@ -164,7 +164,7 @@ export async function createBSS02Payout(
       (payload.bank_acc_id = bankId), (payload.status = Status.APPROVED);
       payload.utr_id = checkBSS?.utr_id || '';
       payload.approved_at = new Date().toISOString();
-    } else if (status === 'Failed' || status === 'failed' || status === Status.FAILED) {
+    } else if (status === 'Failed' || status === 'failed' || status === Status.FAILED || status === Status.REJECTED) {
       payload.status = Status.REJECTED;
       payload.rejected_reason = checkBSS?.Message || 'Transaction failed';
       payload.rejected_at = new Date().toISOString();
