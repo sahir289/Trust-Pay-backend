@@ -2,6 +2,7 @@ import { logger } from '../utils/logger.js';
 
 export const QUEUES = {
   BANK_RESPONSE: process.env.RABBITMQ_BANK_RESPONSE_QUEUE || 'bank_response_queue',
+  BANK_RESPONSE_BOT_BULK: process.env.RABBITMQ_BANK_RESPONSE_BOT_BULK_QUEUE || 'bank_response_bot_bulk_queue',
   BULK_PAYOUT: process.env.RABBITMQ_BULK_PAYOUT_QUEUE || 'bulk_payout_queue',
 };
 
@@ -20,6 +21,10 @@ export const TOPOLOGY = {
   bankResponse: queueTopology(
     QUEUES.BANK_RESPONSE,
     Number(process.env.BANK_RESPONSE_RETRY_DELAY_MS || 10000),
+  ),
+  bankResponseBotBulk: queueTopology(
+    QUEUES.BANK_RESPONSE_BOT_BULK,
+    Number(process.env.BANK_RESPONSE_BOT_BULK_RETRY_DELAY_MS || 10000),
   ),
   bulkPayout: queueTopology(
     QUEUES.BULK_PAYOUT,
@@ -53,11 +58,14 @@ export async function assertQueueTopology(channel, topology) {
 export async function assertAllTopologies(channel) {
   await assertQueueTopology(channel, TOPOLOGY.bankResponse);
   await assertQueueTopology(channel, TOPOLOGY.bulkPayout);
-
+  await assertQueueTopology(channel, TOPOLOGY.bankResponseBotBulk);
   logger.info('[RabbitMQ] Queue topology ensured', {
     bankResponseQueue: TOPOLOGY.bankResponse.queue,
     bankResponseRetryQueue: TOPOLOGY.bankResponse.retryQueue,
     bankResponseDLQ: TOPOLOGY.bankResponse.dlq,
+    bankResponseBotBulkQueue: TOPOLOGY.bankResponseBotBulk.queue,
+    bankResponseBotBulkRetryQueue: TOPOLOGY.bankResponseBotBulk.retryQueue,
+    bankResponseBotBulkDLQ: TOPOLOGY.bankResponseBotBulk.dlq,
     bulkPayoutQueue: TOPOLOGY.bulkPayout.queue,
     bulkPayoutRetryQueue: TOPOLOGY.bulkPayout.retryQueue,
     bulkPayoutDLQ: TOPOLOGY.bulkPayout.dlq,
