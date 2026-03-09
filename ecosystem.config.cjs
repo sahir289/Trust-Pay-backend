@@ -62,5 +62,28 @@ module.exports = {
             out_file: './logs/pm2-cron-out.log',
             log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
         },
+        {
+            name: 'trust-pay-rabbitmq',
+            script: './rabbitmq-worker.js',
+            instances: 1,
+            exec_mode: 'fork',
+            max_memory_restart: '512M',
+            node_args: '--max-old-space-size=1024',
+            env_production: {
+                NODE_ENV: 'production',
+            },
+            env_development: {
+                NODE_ENV: 'development',
+            },
+            kill_timeout: 5000,
+            wait_ready: true,
+            listen_timeout: 10000,
+            autorestart: true,
+            max_restarts: 10,
+            min_uptime: '10s',
+            error_file: './logs/pm2-rabbitmq-error.log',
+            out_file: './logs/pm2-rabbitmq-out.log',
+            log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
+        },
     ],
 };

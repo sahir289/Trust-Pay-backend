@@ -5,7 +5,7 @@ import config from './src/config/config.js';
 import { initializeSocket, shutdownSocket } from './src/utils/sockets.js';
 import { logger } from './src/utils/logger.js';
 import { closePool, checkDatabaseHealth, dbPoolMonitor } from './src/utils/db.js';
-import { startRabbitMQConsumers, stopRabbitMQ } from './src/rabbitmq/index.js';
+import { stopRabbitMQ } from './src/rabbitmq/index.js';
 import { closeRedis } from './src/utils/redisClient.js';
 // import { migrateUsersToES } from './src/elasticSearch/user/migrate.js';
 
@@ -137,22 +137,6 @@ process.on('unhandledRejection', (reason) => {
 });
 
 server.listen(PORT, onListening);
-
-// Start RabbitMQ consumers ONLY on primary worker (worker 0)
-// to avoid duplicate message processing
-// Note: Cron jobs run in separate 'trust-pay-crons' PM2 process
-const instanceId = parseInt(process.env.INSTANCE_ID || '0', 10);
-if (instanceId === 0) {
-  // Start workers asynchronously but don't block server startup
-  try {
-    await startRabbitMQConsumers();
-    logger.info('[Worker 0] RabbitMQ consumers started (bank_response_queue + bulk_payout_queue)');
-  } catch (err) {
-    logger.error('[Worker 0] RabbitMQ consumers failed:', err);
-  }
-} else {
-  logger.info(`[Worker ${instanceId}] Skipping RabbitMQ consumers (run only on worker 0)`);
-}
 
 server.on('error', onError);
 
