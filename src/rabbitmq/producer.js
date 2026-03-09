@@ -86,6 +86,10 @@ export async function publishBankResponse(payload) {
   return publishMessage(QUEUES.BANK_RESPONSE, payload);
 }
 
+export async function publishBankResponseBotBulk(payload) {
+  return publishMessage(QUEUES.BANK_RESPONSE_BOT_BULK, payload);
+}
+
 export async function publishBulkPayout(payload) {
   return publishMessage(QUEUES.BULK_PAYOUT, payload);
 }
