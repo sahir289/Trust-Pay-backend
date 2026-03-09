@@ -81,7 +81,10 @@ export const createPool = (connectionString, name) => {
     process.env.DB_CONNECTION_TIMEOUT_MS,
     20000,
   );
-  const poolIdleTimeout = parsePositiveInt(process.env.DB_IDLE_TIMEOUT_MS, 30000);
+  const poolIdleTimeout = parsePositiveInt(
+    process.env.DB_IDLE_TIMEOUT_MS,
+    30000,
+  );
 
   const pool = new Pool({
     connectionString: connectionString,
@@ -113,10 +116,12 @@ export const createPool = (connectionString, name) => {
 
   pool.on('error', async (err, client) => {
     logger.error(`Unexpected error on idle client (${name}):`, err);
-    
+
     // For connection reset errors (laptop sleep/wake, network issues)
     if (err.code === 'ECONNRESET' || err.code === 'EPIPE') {
-      logger.warn(`Connection reset detected for ${name} pool. Pool will automatically recover.`);
+      logger.warn(
+        `Connection reset detected for ${name} pool. Pool will automatically recover.`,
+      );
       // The pool will automatically remove the bad connection and create new ones
       // No manual intervention needed
       return;
@@ -124,7 +129,9 @@ export const createPool = (connectionString, name) => {
 
     // Prevent multiple concurrent reconnection attempts
     if (reconnecting) {
-      logger.warn(`Reconnection already in progress for ${name}, skipping duplicate attempt`);
+      logger.warn(
+        `Reconnection already in progress for ${name}, skipping duplicate attempt`,
+      );
       return;
     }
 
@@ -173,23 +180,29 @@ const readerPool = createPool(config?.databaseReaderUrl, 'Reader');
 if (config.env === 'production') {
   const POOL_CHECK_INTERVAL = 30000; // Check every 30s in production
   const WARNING_THRESHOLD = 0.8; // Warn when 80% of pool used
-  
+
   setInterval(() => {
     const stats = getPoolStats();
-    
+
     // Check writer pool
     if (stats.writer.total > 0) {
-      const writerUsage = (stats.writer.total - stats.writer.idle) / stats.writer.total;
+      const writerUsage =
+        (stats.writer.total - stats.writer.idle) / stats.writer.total;
       if (writerUsage >= WARNING_THRESHOLD) {
-        logger.warn(`[DB Pool] Writer pool ${(writerUsage * 100).toFixed(0)}% used (${stats.writer.total - stats.writer.idle}/${stats.writer.total}), ${stats.writer.waiting} waiting`);
+        logger.warn(
+          `[DB Pool] Writer pool ${(writerUsage * 100).toFixed(0)}% used (${stats.writer.total - stats.writer.idle}/${stats.writer.total}), ${stats.writer.waiting} waiting`,
+        );
       }
     }
-    
+
     // Check reader pool
     if (stats.reader.total > 0) {
-      const readerUsage = (stats.reader.total - stats.reader.idle) / stats.reader.total;
+      const readerUsage =
+        (stats.reader.total - stats.reader.idle) / stats.reader.total;
       if (readerUsage >= WARNING_THRESHOLD) {
-        logger.warn(`[DB Pool] Reader pool ${(readerUsage * 100).toFixed(0)}% used (${stats.reader.total - stats.reader.idle}/${stats.reader.total}), ${stats.reader.waiting} waiting`);
+        logger.warn(
+          `[DB Pool] Reader pool ${(readerUsage * 100).toFixed(0)}% used (${stats.reader.total - stats.reader.idle}/${stats.reader.total}), ${stats.reader.waiting} waiting`,
+        );
       }
     }
   }, POOL_CHECK_INTERVAL);
@@ -258,7 +271,11 @@ const getConnection = async (type = 'writer') => {
 
         const timeoutId = setTimeout(() => {
           settled = true;
-          reject(new Error(`Connection acquisition timeout after ${acquireTimeoutMs}ms`));
+          reject(
+            new Error(
+              `Connection acquisition timeout after ${acquireTimeoutMs}ms`,
+            ),
+          );
         }, acquireTimeoutMs);
 
         pool
@@ -286,13 +303,16 @@ const getConnection = async (type = 'writer') => {
             reject(connectError);
           });
       });
-      
+
       // Add tracking (capture caller file/line best-effort)
       const stack = new Error().stack?.split('\n').slice(2, 6).join('\n');
       trackDbConnection({ stack });
 
       const checkoutAt = Date.now();
-      const checkoutStack = new Error().stack?.split('\n').slice(2, 8).join('\n');
+      const checkoutStack = new Error().stack
+        ?.split('\n')
+        .slice(2, 8)
+        .join('\n');
       const originalRelease = client.release.bind(client);
       let released = false;
 
@@ -373,6 +393,57 @@ export async function closePool() {
   }
 }
 
+export const dbPoolMonitor = () => {
+  try {
+    const stats = getPoolStats();
+
+    // Validate stats exist
+    if (!stats || !stats.writer || !stats.reader) {
+      logger.warn('DATABASE_ALERT: Pool stats unavailable');
+      return;
+    }
+
+    // Alert if connection wait queue is building up (> 5 waiting connections)
+    if (stats.writer.waiting > 5 || stats.reader.waiting > 5) {
+      logger.error('DATABASE_ALERT: High connection wait queue!', stats);
+    }
+
+    // Calculate pool utilization (prevent division by zero)
+    const writerUtilization =
+      stats.writer.total > 0
+        ? ((stats.writer.total - stats.writer.idle) / stats.writer.total) * 100
+        : 0;
+    const readerUtilization =
+      stats.reader.total > 0
+        ? ((stats.reader.total - stats.reader.idle) / stats.reader.total) * 100
+        : 0;
+
+    // Alert if pool utilization is too high (> 80%)
+    if (writerUtilization > 80) {
+      logger.warn(
+        `DATABASE_ALERT: High writer pool usage: ${writerUtilization.toFixed(1)}%`,
+        {
+          active: stats.writer.total - stats.writer.idle,
+          total: stats.writer.total,
+          waiting: stats.writer.waiting,
+        },
+      );
+    }
+
+    if (readerUtilization > 80) {
+      logger.warn(
+        `DATABASE_ALERT: High reader pool usage: ${readerUtilization.toFixed(1)}%`,
+        {
+          active: stats.reader.total - stats.reader.idle,
+          total: stats.reader.total,
+          waiting: stats.reader.waiting,
+        },
+      );
+    }
+  } catch (error) {
+    logger.error('DATABASE_ALERT: Pool monitoring error:', error);
+  }
+};
 
 // RULE: BEGIN & COMMIT bubble errors.
 // ROLLBACK is best-effort and must never throw.
@@ -420,7 +491,6 @@ const commit = async (client) => {
   logger.info('Transaction committed');
 };
 
-
 /**
  * Rolls back the current transaction (best-effort cleanup).
  *
@@ -443,7 +513,10 @@ const rollback = async (client) => {
     await client.query('ROLLBACK');
     logger.info('Transaction rolled back');
   } catch (error) {
-    logger.warn('Rollback skipped / failed (transaction already closed or connection dead)', error);
+    logger.warn(
+      'Rollback skipped / failed (transaction already closed or connection dead)',
+      error,
+    );
   }
 };
 
@@ -451,13 +524,12 @@ export const executeQuery = async (query, queryParams = [], conn = null) => {
   const maxRetries = 3;
   const isSelect = query.trim().toUpperCase().startsWith('SELECT');
   const pool = isSelect ? readerPool : writerPool;
-  
+
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     let client = null;
     const db = conn ?? (client = await pool.connect());
 
     try {
-
       const result = await db.query(query, queryParams);
       return result;
     } catch (error) {
@@ -483,7 +555,7 @@ export const executeQuery = async (query, queryParams = [], conn = null) => {
       if (isTransientError && attempt < maxRetries) {
         const delay = attempt * 1000;
         logger.warn(`Retrying DB query in ${delay}ms (Attempt ${attempt + 1})`);
-        await new Promise(res => setTimeout(res, delay));
+        await new Promise((res) => setTimeout(res, delay));
         continue;
       }
 
@@ -751,10 +823,10 @@ export const buildAndExecuteUpdateQuery = async (
 export const transactionWrapper =
   (fn, maxDeadlockRetries = 3) =>
   async (...args) => {
-    let conn; 
+    let conn;
     let committed = false;
     let deadlockAttempts = 0;
-    
+
     const executeWithRetry = async () => {
       try {
         conn = await getConnection();
@@ -764,7 +836,7 @@ export const transactionWrapper =
 
         const data = await fn(conn, ...args);
 
-        await commit(conn); 
+        await commit(conn);
         committed = true;
         return data;
       } catch (error) {
@@ -797,16 +869,23 @@ export const transactionWrapper =
         if (isDeadlock) {
           deadlockAttempts++;
           if (deadlockAttempts >= maxDeadlockRetries) {
-            logger.error(`Max deadlock retries (${maxDeadlockRetries}) exceeded. Giving up.`);
+            logger.error(
+              `Max deadlock retries (${maxDeadlockRetries}) exceeded. Giving up.`,
+            );
             throw error;
           }
-          
-          logger.warn(`Deadlock detected. Retry ${deadlockAttempts}/${maxDeadlockRetries}...`);
+
+          logger.warn(
+            `Deadlock detected. Retry ${deadlockAttempts}/${maxDeadlockRetries}...`,
+          );
           if (conn) {
             try {
               conn.release();
             } catch {
-              logger.error('Failed to release connection after deadlock:', error);
+              logger.error(
+                'Failed to release connection after deadlock:',
+                error,
+              );
             }
             conn = null;
           }
@@ -822,7 +901,7 @@ export const transactionWrapper =
         if (conn) conn.release();
       }
     };
-    
+
     return await executeWithRetry();
   };
 
@@ -882,7 +961,7 @@ export const buildJoinQuery = (table, columns = '*', joins = []) => {
   if (!isValidIdentifier(table)) {
     throw new Error(`Invalid table name: ${table}`);
   }
-  
+
   let selectCols =
     columns === '*'
       ? [`"${table}".*`]
@@ -903,12 +982,12 @@ export const buildJoinQuery = (table, columns = '*', joins = []) => {
       columns = [],
       columnAs = [],
     } = join;
-    
+
     // Validate join table name
     if (!isValidIdentifier(jTable)) {
       throw new Error(`Invalid join table name: ${jTable}`);
     }
-    
+
     const referenceTable = rTable || table;
     if (rTable && !isValidIdentifier(rTable)) {
       throw new Error(`Invalid reference table name: ${rTable}`);
