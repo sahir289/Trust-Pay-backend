@@ -14,6 +14,7 @@ let channel = null;
 let consumerTag = null;
 let unsubscribeReconnect = null;
 let stopping = false;
+const bankLocks = new Map();
 
 function getRetryCount(msg) {
   return Number(msg?.properties?.headers?.['x-retry-count'] || 0);
@@ -28,6 +29,36 @@ async function processBankResponse(payload) {
   );
 }
 
+function extractBankId(payloadString = '') {
+  const splitData = String(payloadString).split(' ');
+  return splitData[3] || null;
+}
+
+async function withBankLock(bankId, work) {
+  if (!bankId) {
+    return work();
+  }
+
+  const previous = bankLocks.get(bankId) || Promise.resolve();
+  let release;
+  const current = new Promise((resolve) => {
+    release = resolve;
+  });
+
+  bankLocks.set(bankId, previous.then(() => current));
+
+  await previous;
+
+  try {
+    return await work();
+  } finally {
+    release();
+    if (bankLocks.get(bankId) === current) {
+      bankLocks.delete(bankId);
+    }
+  }
+}
+
 async function handleMessage(msg) {
   if (!msg || stopping) {
     return;
@@ -37,15 +68,17 @@ async function handleMessage(msg) {
 
   try {
     const payload = JSON.parse(msg.content.toString());
+    const bankId = extractBankId(payload?.payload);
 
     if (!payload?.payload || !payload?.x_auth_token) {
       throw new Error('Invalid bank response bulk message');
     }
 
-    await processBankResponse(payload);
+    await withBankLock(bankId, () => processBankResponse(payload));
     channel.ack(msg);
 
     logger.info('[RabbitMQ][BankResponseBulk] Message processed', {
+      bankId,
       retryCount,
     });
   } catch (error) {

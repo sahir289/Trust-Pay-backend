@@ -379,24 +379,22 @@ const createBankResponseService = async (
           throw new BadRequestError('Invalid amount or commission');
         }
 
-        // Optimized: Parallelize bank account update and vendor fetch
-        // Using atomic increment to prevent race conditions on concurrent updates
-        const [res, vendorResult] = await Promise.all([
-          atomicUpdateBankBalanceDao(
-            { id: botRes?.bank_id, company_id: companyId },
-            parseFloat(botRes.amount),
-            null,
-            conn,
-          ),
-          getVendorsBankReponseDao(
-            {
-              user_id: bankDetails[0].user_id,
-            },
-            conn,
-          ),
-        ]);
+        // NOTE: keep these sequential in the same transaction.
+        // If the balance update hits a lock timeout (55P03), parallel queries on the
+        // same connection can trigger noisy 25P02 cascades (transaction aborted).
+        const res = await atomicUpdateBankBalanceDao(
+          { id: botRes?.bank_id, company_id: companyId },
+          parseFloat(botRes.amount),
+          null,
+          conn,
+        );
 
-        vendor = vendorResult;
+        vendor = await getVendorsBankReponseDao(
+          {
+            user_id: bankDetails[0].user_id,
+          },
+          conn,
+        );
 
         await _updateBankaccountInternal(
           { id: botRes?.bank_id, company_id: companyId },
