@@ -5,15 +5,7 @@ import config from './src/config/config.js';
 import { initializeSocket, shutdownSocket } from './src/utils/sockets.js';
 import { logger } from './src/utils/logger.js';
 import { closePool, getPoolStats, checkDatabaseHealth } from './src/utils/db.js';
-import { closeRabbitMQ } from './src/utils/rabbitmq.js';
-import {
-  shutdownWorker,
-  startBankResponseHandler,
-} from './src/worker/bank-response-worker.js';
-import {
-  startBulkPayoutHandler,
-  shutdownBulkPayoutWorker,
-} from './src/worker/bulk-payout-worker.js';
+import { startRabbitMQConsumers, stopRabbitMQ } from './src/rabbitmq/index.js';
 import { closeRedis } from './src/utils/redisClient.js';
 // import { migrateUsersToES } from './src/elasticSearch/user/migrate.js';
 
@@ -97,9 +89,7 @@ async function gracefulShutdown(label, err) {
       new Promise((res) => server.close(res)),
       shutdownSocket(),
       closePool(),
-      shutdownWorker(label),
-      shutdownBulkPayoutWorker(label),
-      closeRabbitMQ(),
+      stopRabbitMQ(),
       closeRedis(),
     ]);
     // Close logger LAST so no component writes after transports are ended
@@ -154,13 +144,12 @@ server.listen(PORT, onListening);
 const instanceId = parseInt(process.env.INSTANCE_ID || '0', 10);
 if (instanceId === 0) {
   // Start workers asynchronously but don't block server startup
-  startBankResponseHandler().catch(err => 
-    logger.error('[Worker 0] Bank response handler failed:', err)
-  );
-  startBulkPayoutHandler().catch(err => 
-    logger.error('[Worker 0] Bulk payout handler failed:', err)
-  );
-  logger.info('[Worker 0] RabbitMQ consumers starting (bank-response + bulk-payout)');
+  try {
+    await startRabbitMQConsumers();
+    logger.info('[Worker 0] RabbitMQ consumers started (bank_response_queue + bulk_payout_queue)');
+  } catch (err) {
+    logger.error('[Worker 0] RabbitMQ consumers failed:', err);
+  }
 } else {
   logger.info(`[Worker ${instanceId}] Skipping RabbitMQ consumers (run only on worker 0)`);
 }

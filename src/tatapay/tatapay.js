@@ -431,7 +431,7 @@ export const createTataPayBulkPayout = async (
         try {
           // Send to RabbitMQ for async processing (if worker exists)
           await rabbitMQ.sendMessage(
-            'bulk_payout_status_update',
+            'bulk_payout_queue',
             successBulkUpdateData,
           );
           logger.info(
@@ -500,7 +500,7 @@ export const createTataPayBulkPayout = async (
         try {
           // Send to RabbitMQ for async processing (if worker exists)
           await rabbitMQ.sendMessage(
-            'bulk_payout_status_update',
+            'bulk_payout_queue',
             failedBulkUpdateData,
           );
           logger.info('Failed payouts sent to RabbitMQ:', failedBulkUpdateData);

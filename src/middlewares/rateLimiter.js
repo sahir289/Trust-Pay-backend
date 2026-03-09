@@ -3,7 +3,7 @@ import { RateLimiterRedis, RateLimiterMemory } from 'rate-limiter-flexible';
 import redisClient from '../utils/redisClient.js';
 import config from '../config/config.js';
 import { logger } from '../utils/logger.js';
-import { publishBankResponse } from '../utils/rabbitmq-bank-response.js';
+import { publishBankResponse } from '../rabbitmq/producer.js';
 import { Role } from '../constants/index.js';
 
 

@@ -53,12 +53,7 @@ import { filterResponse } from '../../helpers/index.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import { updateCalculationBalanceDao } from '../calculation/calculationDao.js';
 import { logger } from '../../utils/logger.js';
-// Import RabbitMQ for bulk status updates
-import {
-  publishToDirectQueue,
-  getRabbitChannel,
-  connectRabbitMQ,
-} from '../../utils/rabbitmq.js';
+import { publishBulkPayout } from '../../rabbitmq/producer.js';
 // import { updatePayout } from '../../utils/sockets.js';
 import { newTableEntry } from '../../utils/sockets.js';
 import { checkLockEdit } from '../../utils/advisoryLock.js';
@@ -1952,35 +1947,12 @@ const _createTataPayBulkPayoutServiceInternal = async (
     const rabbitMQ = {
       sendMessage: async (queueName, data) => {
         try {
-          // Attempt to get RabbitMQ channel
-          let channel = await getRabbitChannel();
-
-          if (!channel || channel.connection.closed) {
-            logger.warn(
-              'RabbitMQ channel not available, attempting to reconnect...',
-            );
-            await connectRabbitMQ();
-            channel = await getRabbitChannel();
-          }
-
-          if (channel) {
-            // Publish to RabbitMQ queue
-            const published = await publishToDirectQueue(queueName, data);
-
-            if (published) {
-              logger.info(`RabbitMQ message sent to ${queueName}:`, {
-                totalUpdates: data.individualUpdates?.length || 0,
-                queueName,
-              });
-              return;
-            }
-          }
-
-          // Fallback to direct database update if RabbitMQ fails
-          logger.warn(
-            'RabbitMQ publish failed, falling back to direct database update',
-          );
-          throw new Error('RabbitMQ publish failed');
+          await publishBulkPayout(data);
+          logger.info(`RabbitMQ message sent to ${queueName}:`, {
+            totalUpdates: data.individualUpdates?.length || 0,
+            queueName,
+          });
+          return;
         } catch (error) {
           logger.error(
             'RabbitMQ error, performing direct database update:',
@@ -2161,35 +2133,12 @@ const _createRupeeFlowBulkPayoutServiceInternal = async (
     const rabbitMQ = {
       sendMessage: async (queueName, data) => {
         try {
-          // Attempt to get RabbitMQ channel
-          let channel = await getRabbitChannel();
-
-          if (!channel || channel.connection.closed) {
-            logger.warn(
-              'RabbitMQ channel not available, attempting to reconnect...',
-            );
-            await connectRabbitMQ();
-            channel = await getRabbitChannel();
-          }
-
-          if (channel) {
-            // Publish to RabbitMQ queue
-            const published = await publishToDirectQueue(queueName, data);
-
-            if (published) {
-              logger.info(`RabbitMQ message sent to ${queueName}:`, {
-                totalUpdates: data.individualUpdates?.length || 0,
-                queueName,
-              });
-              return;
-            }
-          }
-
-          // Fallback to direct database update if RabbitMQ fails
-          logger.warn(
-            'RabbitMQ publish failed, falling back to direct database update',
-          );
-          throw new Error('RabbitMQ publish failed');
+          await publishBulkPayout(data);
+          logger.info(`RabbitMQ message sent to ${queueName}:`, {
+            totalUpdates: data.individualUpdates?.length || 0,
+            queueName,
+          });
+          return;
         } catch (error) {
           logger.error(
             'RabbitMQ error, performing direct database update:',

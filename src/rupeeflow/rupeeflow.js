@@ -459,7 +459,8 @@ export const createRupeeFlowBulkPayout = async (
       // Try RabbitMQ first, fallback to direct update
       if (rabbitMQ) {
         try {
-          await rabbitMQ.sendMessage('bulk_payout_status_update', successBulkUpdateData);
+          await rabbitMQ.sendMessage('bulk_payout_queue', successBulkUpdateData);
+          
           logger.info('Successful payouts sent to RabbitMQ:', successfulPayouts.length);
         } catch (mqError) {
           logger.error('Failed to send to RabbitMQ, falling back to direct update:', mqError.message);
@@ -510,7 +511,7 @@ export const createRupeeFlowBulkPayout = async (
       // Try RabbitMQ first, fallback to direct update
       if (rabbitMQ) {
         try {
-          await rabbitMQ.sendMessage('bulk_payout_status_update', failedBulkUpdateData);
+          await rabbitMQ.sendMessage('bulk_payout_queue', failedBulkUpdateData);
           logger.info('Failed payouts sent to RabbitMQ:', failedPayouts.length);
         } catch (mqError) {
           logger.error('Failed to send to RabbitMQ, falling back to direct update:', mqError.message);
