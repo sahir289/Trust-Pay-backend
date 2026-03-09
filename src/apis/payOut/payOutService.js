@@ -1056,7 +1056,15 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     );
 
     const payoutExists = await getPayoutByIdDao(ids.id, ids.company_id);
-    if (payoutExists && payoutExists?.status === data?.status) {
+    if (
+      payoutExists &&
+      payoutExists?.status === data?.status &&
+      (payoutExists.status === Status.APPROVED ||
+        payoutExists.status === Status.REJECTED) &&
+      !data.utr_id && // No new UTR being added
+      !data.config && // No config updates
+      !data.bank_acc_id // No bank account updates
+    ) {
       throw new BadRequestError(`Payout is already ${payoutExists.status}`);
     }
 
