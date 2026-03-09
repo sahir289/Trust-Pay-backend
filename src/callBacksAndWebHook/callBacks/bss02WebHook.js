@@ -3,7 +3,7 @@ import { getBankByIdDao } from '../../apis/bankAccounts/bankaccountDao.js';
 // import { getMerchantsDao } from '../../apis/merchants/merchantDao.js';
 import { getPayoutsDao } from '../../apis/payOut/payOutDao.js';
 // import { merchantPayoutCallback } from '../merchantCallBacks.js';
-import { payAssistErrorCodeMap, Role, Status } from '../../constants/index.js';
+import { Role, Status } from '../../constants/index.js';
 import { logger } from '../../utils/logger.js';
 // import axios from 'axios';
 import { getCompanyByIDDao } from '../../apis/company/companyDao.js';
@@ -101,8 +101,7 @@ export const bss02TransactionStatusCallback = async (req, res) => {
       } else {
         logger.info('Payout rejected with response data:', responseData);
         updatePayload.config.rejected_reason =
-          responseData.Response.message ||
-          payAssistErrorCodeMap[responseData.Response.statusCode] ||
+          responseData.CallBack.Message ||
           'Server Unreachable';
         updatePayload.rejected_at = new Date().toISOString();
       }
