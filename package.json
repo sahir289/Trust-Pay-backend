@@ -1,6 +1,6 @@
 {
   "name": "trust-pay-new-backend",
-  "version": "2.0.76",
+  "version": "2.0.77",
   "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
