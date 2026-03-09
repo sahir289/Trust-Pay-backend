@@ -1,5 +1,5 @@
 import dotenv from 'dotenv';
-import getGeoGuardConfig from './geoGuard';
+import getGeoGuardConfig from './geoGuard.js';
 dotenv.config({ path: '.env' });
 
 // Env file configuration
