@@ -29,7 +29,7 @@ import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { s3 } from '../../helpers/Aws.js';
 import { streamToBuffer } from '../../helpers/index.js';
 // import { newTableEntry } from '../../utils/sockets.js';
-import { publishBankResponse } from '../../rabbitmq/producer.js';
+import { publishBankResponse, publishBankResponseBotBulk } from '../../rabbitmq/producer.js';
 
 const parsePositiveInt = (value, fallback) => {
   const parsed = Number.parseInt(value, 10);
@@ -207,7 +207,7 @@ const createBankBotResponseBulk = async (req, res) => {
   for (let i = 0; i < validMessages.length; i += BULK_PUBLISH_CONCURRENCY) {
     const chunk = validMessages.slice(i, i + BULK_PUBLISH_CONCURRENCY);
     const results = await Promise.allSettled(
-      chunk.map((message) => publishBankResponse(message)),
+      chunk.map((message) => publishBankResponseBotBulk(message)),
     );
 
     results.forEach((result) => {
