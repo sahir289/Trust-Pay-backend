@@ -11,6 +11,7 @@ import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import { BadRequestError, NotFoundError } from '../../utils/appErrors.js';
 import dayjs from 'dayjs';
 import { logger } from '../../utils/logger.js';
+import config from '../../config/config.js';
 
 const IST = 'Asia/Kolkata';
 
@@ -1632,9 +1633,11 @@ const getMerchantNetBalanceDao = async (
             `Merchant ${merchant.code} is active - balance variation found or less than 10 entries`,
           );
         } else {
+          if (config.env === 'production') {
           logger.info(
             `Merchant ${merchant.code} is inactive - same balance ${netBalances[0]} in last 10 entries`,
           );
+        }
         }
       } catch (error) {
         logger.warn(
@@ -1813,9 +1816,11 @@ const getVendorNetBalanceDao = async (
             `Vendor ${vendor.code} is active - balance variation found or less than 10 entries`,
           );
         } else {
+          if (config.env === 'production') {
           logger.info(
             `Vendor ${vendor.code} is inactive - same balance ${netBalances[0]} in last 10 entries`,
           );
+        }
         }
       } catch (error) {
         logger.warn(`Error checking vendor ${vendor.code} activity:`, error);

@@ -2,6 +2,14 @@ import dotenv from 'dotenv';
 import getGeoGuardConfig from './geoGuard.js';
 dotenv.config({ path: '.env' });
 
+const parsePositiveInt = (value, fallback) => {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+const withLegacy = (env, primary, legacy, fallback) =>
+  parsePositiveInt(env?.[primary] || env?.[legacy], fallback);
+
 // Env file configuration
 function config(Env) {
   return {
@@ -122,6 +130,93 @@ function config(Env) {
       walletBalance: Env?.BSS_WALLET_BALANCE_API_URL,
       apiKey: Env?.BSS03_API_KEY,
       apiSecret: Env?.BSS03_API_SECRET,
+    },
+    controllerCacheTtls: {
+      payin: {
+        search: withLegacy(
+          Env,
+          'PAYIN_SEARCH_CACHE_TTL_SEC',
+          'PAYIN_CACHE_TTL_SEC',
+          20,
+        ),
+        summary: withLegacy(
+          Env,
+          'PAYIN_SUMMARY_CACHE_TTL_SEC',
+          'PAYIN_CACHE_TTL_SEC',
+          10,
+        ),
+      },
+      payout: {
+        byId: withLegacy(
+          Env,
+          'PAYOUT_BY_ID_CACHE_TTL_SEC',
+          'PAYOUT_CACHE_TTL_SEC',
+          15,
+        ),
+        list: withLegacy(
+          Env,
+          'PAYOUT_LIST_CACHE_TTL_SEC',
+          'PAYOUT_CACHE_TTL_SEC',
+          20,
+        ),
+        search: withLegacy(
+          Env,
+          'PAYOUT_SEARCH_CACHE_TTL_SEC',
+          'PAYOUT_CACHE_TTL_SEC',
+          20,
+        ),
+      },
+      bankAccounts: {
+        byId: parsePositiveInt(Env?.BANK_ACCOUNTS_BY_ID_CACHE_TTL_SEC, 15),
+        list: parsePositiveInt(Env?.BANK_ACCOUNTS_LIST_CACHE_TTL_SEC, 20),
+        search: parsePositiveInt(Env?.BANK_ACCOUNTS_SEARCH_CACHE_TTL_SEC, 20),
+        merchantBank: parsePositiveInt(
+          Env?.BANK_ACCOUNTS_MERCHANT_BANK_CACHE_TTL_SEC,
+          20,
+        ),
+      },
+      users: {
+        byId: parsePositiveInt(Env?.USER_BY_ID_CACHE_TTL_SEC, 15),
+        list: parsePositiveInt(Env?.USERS_LIST_CACHE_TTL_SEC, 20),
+        search: parsePositiveInt(Env?.USERS_SEARCH_CACHE_TTL_SEC, 20),
+        byUsername: parsePositiveInt(Env?.USERS_BY_USERNAME_CACHE_TTL_SEC, 15),
+      },
+      merchants: {
+        byId: parsePositiveInt(Env?.MERCHANT_BY_ID_CACHE_TTL_SEC, 15),
+        byCode: parsePositiveInt(Env?.MERCHANT_BY_CODE_CACHE_TTL_SEC, 20),
+        list: parsePositiveInt(Env?.MERCHANTS_LIST_CACHE_TTL_SEC, 20),
+        search: parsePositiveInt(Env?.MERCHANTS_SEARCH_CACHE_TTL_SEC, 20),
+        codes: parsePositiveInt(Env?.MERCHANT_CODES_CACHE_TTL_SEC, 30),
+      },
+      vendors: {
+        byId: parsePositiveInt(Env?.VENDOR_BY_ID_CACHE_TTL_SEC, 15),
+        byCode: parsePositiveInt(Env?.VENDOR_BY_CODE_CACHE_TTL_SEC, 20),
+        list: parsePositiveInt(Env?.VENDORS_LIST_CACHE_TTL_SEC, 20),
+        search: parsePositiveInt(Env?.VENDORS_SEARCH_CACHE_TTL_SEC, 20),
+        codes: parsePositiveInt(Env?.VENDOR_CODES_CACHE_TTL_SEC, 30),
+      },
+      settlement: {
+        byId: parsePositiveInt(Env?.SETTLEMENT_BY_ID_CACHE_TTL_SEC, 15),
+        list: parsePositiveInt(Env?.SETTLEMENT_LIST_CACHE_TTL_SEC, 20),
+        search: parsePositiveInt(Env?.SETTLEMENT_SEARCH_CACHE_TTL_SEC, 20),
+      },
+      userHierarchy: {
+        byId: parsePositiveInt(Env?.USER_HIERARCHY_BY_ID_CACHE_TTL_SEC, 15),
+        list: parsePositiveInt(Env?.USER_HIERARCHY_LIST_CACHE_TTL_SEC, 20),
+      },
+      beneficiary: {
+        byId: parsePositiveInt(Env?.BENEFICIARY_BY_ID_CACHE_TTL_SEC, 15),
+        list: parsePositiveInt(Env?.BENEFICIARY_LIST_CACHE_TTL_SEC, 20),
+        search: parsePositiveInt(Env?.BENEFICIARY_SEARCH_CACHE_TTL_SEC, 20),
+        byBankName: parsePositiveInt(
+          Env?.BENEFICIARY_BY_BANKNAME_CACHE_TTL_SEC,
+          20,
+        ),
+      },
+      calculation: {
+        byId: parsePositiveInt(Env?.CALCULATION_BY_ID_CACHE_TTL_SEC, 15),
+        list: parsePositiveInt(Env?.CALCULATION_LIST_CACHE_TTL_SEC, 20),
+      },
     },
     orvixPay: {
       url: Env?.ORVIX_PAY_API_URL,

@@ -52,9 +52,20 @@ import { logger } from '../../utils/logger.js';
 import { getRolesById } from '../roles/rolesDao.js';
 import { Role } from '../../constants/index.js';
 import { verifyRazorPaySignature } from '../../razorpay/razorpay.js';
+import { generateCacheKey } from '../../utils/redishashkey.js';
+import {
+  normalizeQueryForCache,
+  readJsonCache,
+  writeJsonCache,
+  invalidateCompanyCacheByPrefix,
+} from '../../utils/controllerCache.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 
 const TestingIp = process.env.LOCAL_IP;
+const { controllerCacheTtls } = config;
+
+const invalidatePayinCache = async (companyId) =>
+  invalidateCompanyCacheByPrefix(companyId, 'payin:read:', 'PayIn cache');
 
 //  To Generate Url
 export const generateHashForPayIn = async (req, res) => {
@@ -212,6 +223,7 @@ export const assignedBankToPayInUrl = async (req, res) => {
   result.merchantOrderId = req.params.merchantOrderId;
   result.amount = amount;
   result.type = type;
+  await invalidatePayinCache(req.user?.company_id);
   // sendNewSuccess(res, result, 'Bank account is assigned');
   return sendSuccess(res, result, 'Bank account is assigned');
 };
@@ -222,6 +234,7 @@ export const expirePayInUrl = async (req, res) => {
     throw new ValidationError(joiValidation.error);
   }
   await expirePayInUrlService(req.params.payInId);
+  await invalidatePayinCache(req.user?.company_id);
   return sendSuccess(res, null, 'Payin expires!');
 };
 
@@ -321,6 +334,7 @@ export const updateDepositStatus = async (req, res) => {
     req.user.company_id,
     req.user.user_id,
   );
+  await invalidatePayinCache(req.user.company_id);
   sendSuccess(res, updateRes, 'PayIn data updated successfully');
 };
 
@@ -336,6 +350,7 @@ export const resetDeposit = async (req, res) => {
     company_id,
     user_id,
   );
+  await invalidatePayinCache(company_id);
   sendSuccess(res, data, `${merchant_order_id} reset successful`);
 };
 
@@ -363,6 +378,26 @@ export const resetDeposit = async (req, res) => {
 export const getPayinsBySearch = async (req, res) => {
   const { company_id, role, user_id, designation } = req.user;
   const { search, page = 1, limit = 10, updatedPayin } = req.query;
+  const normalizedQuery = normalizeQueryForCache(req.query);
+  const cacheKey = `payin:read:${company_id}:search:${generateCacheKey(
+    {
+      company_id,
+      role,
+      user_id,
+      designation,
+      search,
+      page,
+      limit,
+      updatedPayin,
+      query: normalizedQuery,
+    },
+    'payin-search',
+  )}`;
+
+  const cached = await readJsonCache(cacheKey, 'PayIn search cache');
+  if (cached) {
+    return sendSuccess(res, cached, 'Payins fetched successfully');
+  }
   // if (!search) {
   //   throw new BadRequestError('search is required');
   // }
@@ -380,13 +415,24 @@ export const getPayinsBySearch = async (req, res) => {
     updatedPayin,
   );
 
+  await writeJsonCache(cacheKey, data, controllerCacheTtls.payin.search);
+
   return sendSuccess(res, data, 'Payins fetched successfully');
 };
 export const getPayinsSummary = async (req, res) => {
   const { company_id } = req.user;
+  const cacheKey = `payin:read:${company_id}:summary`;
+
+  const cached = await readJsonCache(cacheKey, 'PayIn summary cache');
+  if (cached) {
+    return sendSuccess(res, cached, 'Payins fetched successfully');
+  }
+
   const data = await getPayinsSummaryService({
     company_id,
   });
+
+  await writeJsonCache(cacheKey, data, controllerCacheTtls.payin.summary);
 
   return sendSuccess(res, data, 'Payins fetched successfully');
 };
@@ -407,6 +453,7 @@ export const processPayIn = async (req, res) => {
     true,
     true,
   );
+  await invalidatePayinCache(req.user?.company_id);
   // sendNewSuccess(res, data, 'PayIn processed successfully');
   sendSuccess(res, data, 'PayIn processed successfully');
 };
@@ -428,6 +475,7 @@ export const processPayInH2H = async (req, res) => {
     null,
     true,
   );
+  await invalidatePayinCache(req.user?.company_id);
   sendNewSuccess(res, data, 'PayIn processed successfully');
   // sendSuccess(res, data, 'PayIn processed successfully');
 };
@@ -446,6 +494,7 @@ export const processPayInIMGUTR = async (req, res) => {
     false,
     true,
   );
+  await invalidatePayinCache(req.user?.company_id);
   sendSuccess(res, data, 'PayIn updated successfully');
 };
 
@@ -492,6 +541,8 @@ export const processPayInByImage = async (req, res) => {
     fileKey: req.file.key,
   });
 
+  await invalidatePayinCache(req.user?.company_id);
+
   return sendSuccess(res, data, 'PayIn processed successfully');
 };
 
@@ -511,6 +562,7 @@ export const disputeDuplicateTransaction = async (req, res) => {
     req.user.company_id,
     req.user.user_id,
   );
+  await invalidatePayinCache(req.user.company_id);
   sendSuccess(res, data, 'PayIn Updated successfully');
 };
 
@@ -523,6 +575,7 @@ export const updateUtrPayins = async (req, res) => {
     user_id,
     utr,
   );
+  await invalidatePayinCache(req.user.company_id);
   sendSuccess(
     res,
     { id: data.id, updated_by: user_name },
@@ -537,6 +590,7 @@ export const checkPendingPayinStatus = async (req, res) => {
     company_id,
     user_name,
   );
+  await invalidatePayinCache(company_id);
   sendSuccess(res, data, 'PayIn Status Checked Successfully');
 };
 
@@ -579,5 +633,6 @@ export const updatePayIn = async (req, res) => {
     user_id,
     company_id,
   );
+  await invalidatePayinCache(company_id);
   sendSuccess(res, data, 'PayIn Updated successfully');
 };

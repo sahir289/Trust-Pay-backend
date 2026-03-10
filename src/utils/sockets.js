@@ -9,6 +9,65 @@ const userSockets = new Map();
 let ioInstance = null;
 let socketRedisPub = null; // Separate Redis clients for Socket.IO only
 let socketRedisSub = null;
+let socketBridgePub = null;
+let socketBridgeSub = null;
+let hasLoggedMissingSocketInstance = false;
+const SOCKET_BRIDGE_CHANNEL = 'trustpay:socket:event-bridge';
+
+const logMissingSocketInstance = () => {
+  if (hasLoggedMissingSocketInstance) return;
+  hasLoggedMissingSocketInstance = true;
+  logger.warn(
+    '[SOCKET] Socket.IO not initialized in this process; switching to Redis socket bridge',
+  );
+};
+
+const ensureSocketBridgePublisher = async () => {
+  if (socketBridgePub?.isOpen) {
+    return socketBridgePub;
+  }
+
+  const redisUrl = config.redis?.url || 'redis://localhost:6379';
+  socketBridgePub = createClient({ url: redisUrl });
+  socketBridgePub.on('error', (err) =>
+    logger.error('[SOCKET] Bridge pub client error:', err),
+  );
+  await socketBridgePub.connect();
+  logger.info('[SOCKET] Bridge pub client connected');
+  return socketBridgePub;
+};
+
+const publishSocketBridgeEvent = async (eventName, payload) => {
+  try {
+    const publisher = await ensureSocketBridgePublisher();
+    await publisher.publish(
+      SOCKET_BRIDGE_CHANNEL,
+      JSON.stringify({
+        eventName,
+        payload,
+        pid: process.pid,
+        ts: Date.now(),
+      }),
+    );
+    return true;
+  } catch (error) {
+    logger.error('[SOCKET] Failed to publish bridge event:', {
+      eventName,
+      error: error.message,
+    });
+    return false;
+  }
+};
+
+const emitOrBridgeSocketEvent = async (eventName, payload) => {
+  if (ioInstance) {
+    ioInstance.emit(eventName, payload);
+    return true;
+  }
+
+  logMissingSocketInstance();
+  return publishSocketBridgeEvent(eventName, payload);
+};
 
 const initializeSocket = async (server) => {
   ioInstance = new Server(server, {
@@ -34,6 +93,23 @@ const initializeSocket = async (server) => {
     // Setup adapter
     ioInstance.adapter(createAdapter(socketRedisPub, socketRedisSub));
     logger.info('[SOCKET] Redis adapter configured for PM2 cluster mode');
+
+    // Socket event bridge subscriber for cross-process emits (RabbitMQ/cron -> API sockets)
+    socketBridgeSub = createClient({ url: redisUrl });
+    socketBridgeSub.on('error', (err) =>
+      logger.error('[SOCKET] Bridge sub client error:', err),
+    );
+    await socketBridgeSub.connect();
+    await socketBridgeSub.subscribe(SOCKET_BRIDGE_CHANNEL, (message) => {
+      try {
+        const parsed = JSON.parse(message);
+        if (!parsed?.eventName) return;
+        ioInstance.emit(parsed.eventName, parsed.payload);
+      } catch (err) {
+        logger.error('[SOCKET] Failed to handle bridge message:', err);
+      }
+    });
+    logger.info('[SOCKET] Event bridge subscriber active');
 
     // Handle Redis adapter errors
     socketRedisPub.on('error', (err) => logger.error('[SOCKET] Redis pub client error:', err));
@@ -820,6 +896,14 @@ export const shutdownSocket = async () => {
       await socketRedisSub.quit();
       logger.info('[SOCKET] Redis sub client closed');
     }
+    if (socketBridgePub?.isOpen) {
+      await socketBridgePub.quit();
+      logger.info('[SOCKET] Bridge pub client closed');
+    }
+    if (socketBridgeSub?.isOpen) {
+      await socketBridgeSub.quit();
+      logger.info('[SOCKET] Bridge sub client closed');
+    }
   } catch (err) {
     logger.error('[SOCKET] Error closing Redis clients:', err);
   }
@@ -973,29 +1057,22 @@ const forceLogoutUser = async (
 };
 
 const deactivateBank = (nickName, bankId, userId, isWarning = false) => {
-  if (!ioInstance) {
-    logger.error('Socket.IO not initialized');
-    return;
-  }
-
-  ioInstance.emit(isWarning ? 'bankStatusWarning' : 'bankStatusUpdate', {
-    message: isWarning
-      ? `The Bank ${nickName} will be Deactivate soon as the Balance will soon reach the Daily Limit`
-      : `The Bank ${nickName} is Deactivated`,
-    bankId,
-    nickname: nickName,
-    userId: userId, //send userid to show notification only to vendor whose bank status is updated
-    isEnabled: !isWarning ? false : undefined,
-  });
+  void emitOrBridgeSocketEvent(
+    isWarning ? 'bankStatusWarning' : 'bankStatusUpdate',
+    {
+      message: isWarning
+        ? `The Bank ${nickName} will be Deactivate soon as the Balance will soon reach the Daily Limit`
+        : `The Bank ${nickName} is Deactivated`,
+      bankId,
+      nickname: nickName,
+      userId: userId, //send userid to show notification only to vendor whose bank status is updated
+      isEnabled: !isWarning ? false : undefined,
+    },
+  );
 };
 
 // New function to emit event when a specific entry is added to a table
 const notifyNewTableEntry = async (tableName, entryType, entryData) => {
-  if (!ioInstance) {
-    logger.error('Socket.IO not initialized');
-    return;
-  }
-
   const eventName = `newTableEntry${tableName}`;
   logger.info(eventName, 'eventName');
   const payload = {
@@ -1010,36 +1087,23 @@ const notifyNewTableEntry = async (tableName, entryType, entryData) => {
       `Emitting ${eventName} for table ${tableName}, type ${entryType}`,
     ),
   );
-  ioInstance.emit(eventName, payload); // Broadcast to all connected clients
+  await emitOrBridgeSocketEvent(eventName, payload);
 };
 // New function to emit event when a specific entry is updated/added in a table
 const newTableEntry = async (tableName, data) => {
-  if (!ioInstance) {
-    logger.error('Socket.IO not initialized');
-    return;
-  }
   const eventName = `newTableEntry${tableName}`;
   logger.log(chalk.bold.cyan(`Emitting ${eventName} for table ${tableName}`));
-  ioInstance.emit(eventName, data);
+  await emitOrBridgeSocketEvent(eventName, data);
 };
 
 const logOutUser = async (user_id) => {
-  if (!ioInstance) {
-    logger.error('Socket.IO not initialized');
-    return;
-  }
   const eventName = `newlogout`;
   logger.log(chalk.bold.cyan(`Emitting ${eventName} for ${user_id}`));
-  ioInstance.emit(eventName, user_id);
+  await emitOrBridgeSocketEvent(eventName, user_id);
 };
 
 // New function to emit event specifically for bank response access updates
 const notifyBankResponseAccessUpdate = async (userId, bankResponseAccess, vendorCode) => {
-  if (!ioInstance) {
-    logger.error('Socket.IO not initialized');
-    return;
-  }
-
   const eventName = 'bankResponseAccessUpdate';
   const payload = {
     user_id: userId,
@@ -1055,8 +1119,12 @@ const notifyBankResponseAccessUpdate = async (userId, bankResponseAccess, vendor
     ),
   );
   
-  // Emit to all connected clients
-  ioInstance.emit(eventName, payload);
+  // Emit to all connected clients (directly or via bridge)
+  await emitOrBridgeSocketEvent(eventName, payload);
+
+  if (!ioInstance) {
+    return;
+  }
   
   // Also emit specifically to the user if they're connected
   const allSockets = await ioInstance.fetchSockets();

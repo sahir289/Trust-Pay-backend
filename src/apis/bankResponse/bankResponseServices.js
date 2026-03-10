@@ -87,6 +87,24 @@ const BANK_RESPONSE_STATEMENT_TIMEOUT_MS = parsePositiveInt(
   process.env.BANK_RESPONSE_DB_STATEMENT_TIMEOUT_MS,
   45000,
 );
+const BANK_RESPONSE_DEFAULT_WINDOW_DAYS = parsePositiveInt(
+  process.env.BANK_RESPONSE_DEFAULT_WINDOW_DAYS,
+  2,
+);
+
+const applyDefaultBankResponseDateWindow = (payload) => {
+  if (payload?.startDate || payload?.endDate) {
+    return payload;
+  }
+
+  return {
+    ...payload,
+    startDate: dayjs()
+      .subtract(BANK_RESPONSE_DEFAULT_WINDOW_DAYS, 'day')
+      .format('YYYY-MM-DD'),
+    endDate: dayjs().format('YYYY-MM-DD'),
+  };
+};
 
 const applyBankResponseTxTimeouts = async (conn) => {
   await conn.query(
@@ -1355,6 +1373,8 @@ const getBankResponseService = async (
   user_id,
 ) => {
   try {
+    payload = applyDefaultBankResponseDateWindow(payload);
+
     const filterColumns =
       role === Role.MERCHANT
         ? merchantColumns.BANK_RESPONSE
@@ -1384,17 +1404,13 @@ const getBankResponseService = async (
     };
     sortBy = sortBy ? sortBy : updated ? 'updated_at' : 'sno';
 
-    // Optimized: Single query to fetch bank IDs for multiple users
+    // Use lightweight query for bank IDs only (avoid heavy BankAccount joins/stats)
     const fetchBankIds = async (user_ids) => {
       try {
         const userIdArray = Array.isArray(user_ids) ? user_ids : [user_ids];
-        const banks = await getBankaccountDao({
-          user_id: userIdArray,
-          bank_used_for: 'PayIn',
-        });
-        return banks?.length ? banks.map((bank) => bank.id) : [];
+        return await getBankIdsOnlyDao(userIdArray, 'PayIn');
       } catch (error) {
-        logger.error('Error fetching PayIn:', error);
+        logger.error('Error fetching PayIn bank IDs:', error);
         return [];
       }
     };
@@ -1465,6 +1481,8 @@ const getBankResponseBySearchService = async (
 ) => {
   let conn;
   try {
+    payload = applyDefaultBankResponseDateWindow(payload);
+
     conn = await getConnection();
     const filterColumns =
       role === Role.MERCHANT

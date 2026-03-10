@@ -85,8 +85,11 @@ async function gracefulShutdown(label, err) {
 
   //  we need to close the resources (HTTP server, DB, etc.)
   try {
+    // Important: stop accepting new requests and wait for in-flight HTTP work
+    // BEFORE tearing down shared dependencies like DB pool.
+    await new Promise((res) => server.close(res));
+
     await Promise.allSettled([
-      new Promise((res) => server.close(res)),
       shutdownSocket(),
       closePool(),
       stopRabbitMQ(),

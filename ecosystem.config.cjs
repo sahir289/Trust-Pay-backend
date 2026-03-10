@@ -79,10 +79,10 @@ module.exports = {
             node_args: '--max-old-space-size=1024',
             env_production: {
                 NODE_ENV: 'production',
-                BANK_RESPONSE_BOT_BULK_PREFETCH: 20,
+                BANK_RESPONSE_BOT_BULK_PREFETCH: 4,
                 BANK_RESPONSE_BOT_BULK_MAX_RETRIES: 5,
-                DB_WRITER_POOL_MAX: 20,
-                DB_READER_POOL_MAX: 10,
+                DB_WRITER_POOL_MAX: 12,
+                DB_READER_POOL_MAX: 6,
                 DB_CONN_HOLD_WARN_MS: 45000,
                 BANK_RESPONSE_DB_LOCK_TIMEOUT_MS: 10000,
                 BANK_RESPONSE_DB_STATEMENT_TIMEOUT_MS: 45000,

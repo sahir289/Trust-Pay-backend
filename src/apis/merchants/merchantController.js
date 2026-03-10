@@ -17,6 +17,22 @@ import {
 import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
 import { createHashApiKey } from '../../utils/cryptoAlgorithm.js';
 import { logger } from '../../utils/logger.js';
+import { generateCacheKey } from '../../utils/redishashkey.js';
+import {
+  normalizeQueryForCache,
+  readJsonCache,
+  writeJsonCache,
+  invalidateCompanyCacheByPrefix,
+} from '../../utils/controllerCache.js';
+import config from '../../config/config.js';
+
+const invalidateMerchantsCache = async (companyId) =>
+  invalidateCompanyCacheByPrefix(
+    companyId,
+    'merchants:read:',
+    'Merchants cache',
+  );
+const { controllerCacheTtls } = config;
 
 const createMerchant = async (req, res) => {
   const { body: payload, user } = req;
@@ -61,6 +77,7 @@ const createMerchant = async (req, res) => {
     updated_by: user_id,
   };
   await createMerchantService(finalPayload, role);
+  await invalidateMerchantsCache(company_id);
 
   return sendSuccess(res, null, 'Merchant created successfully');
 };
@@ -68,6 +85,25 @@ const createMerchant = async (req, res) => {
 const getMerchants = async (req, res) => {
   const { company_id, role, designation, user_id } = req.user;
   const { page, limit } = req.query;
+  const cacheKey = `merchants:read:${company_id}:list:${generateCacheKey(
+    {
+      company_id,
+      role,
+      designation,
+      user_id,
+      page,
+      limit,
+      query: normalizeQueryForCache(req.query),
+    },
+    'merchants-list',
+  )}`;
+
+  const cached = await readJsonCache(cacheKey, 'Merchants list cache');
+  if (cached) {
+    logger.log('get Merchants successfully (cache hit)');
+    return sendSuccess(res, cached, 'Merchants fetched successfully');
+  }
+
   const data = await getMerchantsService(
     {
       company_id,
@@ -79,13 +115,24 @@ const getMerchants = async (req, res) => {
     designation,
     user_id,
   );
+  await writeJsonCache(cacheKey, data, controllerCacheTtls.merchants.list);
   logger.log('get Merchants successfully');
   return sendSuccess(res, data, 'Merchants fetched successfully');
 };
 
 const getMerchantByCode = async (req, res) => {
   const { code } = req.query;
+  const { company_id } = req.user;
+  const cacheKey = `merchants:read:${company_id}:bycode:${code}`;
+
+  const cached = await readJsonCache(cacheKey, 'Merchants by-code cache');
+  if (cached) {
+    logger.log('get Merchants successfully (cache hit)');
+    return sendSuccess(res, cached, 'Merchants fetched successfully');
+  }
+
   const data = await getMerchantsByCodeService(code);
+  await writeJsonCache(cacheKey, data, controllerCacheTtls.merchants.byCode);
   logger.log('get Merchants successfully');
   return sendSuccess(res, data, 'Merchants fetched successfully');
 };
@@ -93,6 +140,26 @@ const getMerchantByCode = async (req, res) => {
 const getMerchantsBySearch = async (req, res) => {
   const { company_id, role, designation, user_id } = req.user;
   const { search, page = 1, limit = 10 } = req.query;
+  const cacheKey = `merchants:read:${company_id}:search:${generateCacheKey(
+    {
+      company_id,
+      role,
+      designation,
+      user_id,
+      search,
+      page,
+      limit,
+      query: normalizeQueryForCache(req.query),
+    },
+    'merchants-search',
+  )}`;
+
+  const cached = await readJsonCache(cacheKey, 'Merchants search cache');
+  if (cached) {
+    logger.log('get Merchants successfully (cache hit)');
+    return sendSuccess(res, cached, 'Merchants fetched successfully');
+  }
+
   // if (!search) {
   //   throw new BadRequestError('search is required');
   // }
@@ -108,6 +175,7 @@ const getMerchantsBySearch = async (req, res) => {
     designation,
     user_id,
   );
+  await writeJsonCache(cacheKey, data, controllerCacheTtls.merchants.search);
   logger.log('get Merchants successfully');
   return sendSuccess(res, data, 'Merchants fetched successfully');
 };
@@ -116,6 +184,25 @@ const getMerchantCodes = async (req, res) => {
   const { company_id, role, user_id, designation } = req.user;
   const { includeSubMerchants, includeOnlyMerchants, excludeDisabledMerchant } = req.query;
   const filters = { company_id };
+  const cacheKey = `merchants:read:${company_id}:codes:${generateCacheKey(
+    {
+      company_id,
+      role,
+      user_id,
+      designation,
+      includeSubMerchants,
+      includeOnlyMerchants,
+      excludeDisabledMerchant,
+    },
+    'merchants-codes',
+  )}`;
+
+  const cached = await readJsonCache(cacheKey, 'Merchants codes cache');
+  if (cached) {
+    logger.log('get Merchants successfully (cache hit)');
+    return sendSuccess(res, cached, 'Merchants fetched successfully');
+  }
+
   const data = await getMerchantsServiceCode(
     filters,
     role,
@@ -125,6 +212,7 @@ const getMerchantCodes = async (req, res) => {
     includeOnlyMerchants,
     excludeDisabledMerchant,
   );
+  await writeJsonCache(cacheKey, data, controllerCacheTtls.merchants.codes);
   logger.log('get Merchants successfully');
   return sendSuccess(res, data, 'Merchants fetched successfully');
 };
@@ -136,8 +224,16 @@ const getMerchantsById = async (req, res) => {
   }
   const { id } = req.params;
   const { company_id } = req.user;
+  const cacheKey = `merchants:read:${company_id}:byid:${id}:${role}`;
+
+  const cached = await readJsonCache(cacheKey, 'Merchants by-id cache');
+  if (cached) {
+    return sendSuccess(res, cached, 'Merchant fetched successfully');
+  }
+
   // Fetch merchants data from the service
   const data = await getMerchantByIdService({ id, company_id }, role, true);
+  await writeJsonCache(cacheKey, data, controllerCacheTtls.merchants.byId);
   // Send success response
   return sendSuccess(res, data, 'Merchant fetched successfully');
 };
@@ -167,6 +263,7 @@ const updateMerchant = async (req, res) => {
     payload,
     role,
   );
+  await invalidateMerchantsCache(company_id);
   // Log success message
   // Send a success response to the client
   return sendSuccess(
@@ -187,6 +284,7 @@ const deleteMerchant = async (req, res) => {
   const updated_by = user_id;
   const ids = { id, company_id };
   const merchant = await deleteMerchantService(ids, updated_by, role);
+  await invalidateMerchantsCache(company_id);
   // Log success message
 
   // Send a success response to the client

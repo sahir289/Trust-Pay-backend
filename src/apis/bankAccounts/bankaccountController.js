@@ -13,6 +13,14 @@ import {
 import { ValidationError } from '../../utils/appErrors.js';
 import { sendError, sendSuccess } from '../../utils/responseHandlers.js';
 import { getBankaccountDao, getMerchantBankDao } from './bankaccountDao.js';
+import { generateCacheKey } from '../../utils/redishashkey.js';
+import {
+  normalizeQueryForCache,
+  readJsonCache,
+  writeJsonCache,
+  invalidateCompanyCacheByPrefix,
+} from '../../utils/controllerCache.js';
+import config from '../../config/config.js';
 import {
   getBankaccountService,
   createBankaccountService,
@@ -22,11 +30,36 @@ import {
   getBankAccountBySearchService,
   activeInactiveBankAccountService,
 } from './bankaccountServices.js';
+const invalidateBankAccountsCache = async (companyId) =>
+  invalidateCompanyCacheByPrefix(
+    companyId,
+    'bankaccounts:read:',
+    'BankAccounts cache',
+  );
+const { controllerCacheTtls } = config;
 
 const getBankaccount = async (req, res) => {
   const { company_id } = req.user;
   const { role, user_id, designation } = req.user;
   const { page, limit, bank_used_for } = req.query;
+  const cacheKey = `bankaccounts:read:${company_id}:list:${generateCacheKey(
+    {
+      company_id,
+      role,
+      user_id,
+      designation,
+      page,
+      limit,
+      query: normalizeQueryForCache(req.query),
+    },
+    'bankaccounts-list',
+  )}`;
+
+  const cached = await readJsonCache(cacheKey, 'BankAccounts list cache');
+  if (cached) {
+    return sendSuccess(res, cached, 'get Banks successfully');
+  }
+
   const filters = {
     bank_used_for,
   };
@@ -39,6 +72,9 @@ const getBankaccount = async (req, res) => {
     user_id,
     designation,
   );
+
+  await writeJsonCache(cacheKey, data, controllerCacheTtls.bankAccounts.list);
+
   return sendSuccess(res, data, 'get Banks successfully');
 };
 
@@ -46,6 +82,25 @@ const getBankAccountBySearch = async (req, res) => {
   const { company_id } = req.user;
   const { role, user_id, designation } = req.user;
   const { page, limit, bank_used_for, search ,active } = req.query;
+  const cacheKey = `bankaccounts:read:${company_id}:search:${generateCacheKey(
+    {
+      company_id,
+      role,
+      user_id,
+      designation,
+      page,
+      limit,
+      query: normalizeQueryForCache(req.query),
+      search,
+    },
+    'bankaccounts-search',
+  )}`;
+
+  const cached = await readJsonCache(cacheKey, 'BankAccounts search cache');
+  if (cached) {
+    return sendSuccess(res, cached, 'get Banks successfully');
+  }
+
   const filters = {
     bank_used_for,
     active,
@@ -60,6 +115,9 @@ const getBankAccountBySearch = async (req, res) => {
     designation,
     search,
   );
+
+  await writeJsonCache(cacheKey, data, controllerCacheTtls.bankAccounts.search);
+
   return sendSuccess(res, data, 'get Banks successfully');
 };
 
@@ -81,6 +139,13 @@ const getBankaccountNickName = async (req, res) => {
 const getBankaccountById = async (req, res) => {
   const { id } = req.params;
   const { company_id, role } = req.user;
+  const cacheKey = `bankaccounts:read:${company_id}:byid:${id}:${role}`;
+
+  const cached = await readJsonCache(cacheKey, 'BankAccounts by-id cache');
+  if (cached) {
+    return sendSuccess(res, cached, 'get Bank successfully');
+  }
+
   const data = await getBankaccountService(
     {
       company_id: company_id,
@@ -88,6 +153,9 @@ const getBankaccountById = async (req, res) => {
     },
     role,
   );
+
+  await writeJsonCache(cacheKey, data, controllerCacheTtls.bankAccounts.byId);
+
   return sendSuccess(res, data, 'get Bank successfully');
 };
 
@@ -136,6 +204,7 @@ const createBankaccount = async (req, res) => {
     user_id,
     company_id,
   );
+  await invalidateBankAccountsCache(company_id);
   return sendSuccess(
     res,
     { id: bankDetail.id, created_by: user_name },
@@ -162,6 +231,7 @@ const updateBankaccount = async (req, res) => {
     company_id,
     user_id,
   );
+  await invalidateBankAccountsCache(company_id);
   return sendSuccess(
     res,
     { id: updatebank.id, updated_by: user_name },
@@ -179,6 +249,19 @@ const getMerchantBank = async (req, res) => {
       : role === Role.VENDOR
         ? vendorColumns.BANK_ACCOUNT
         : columns.BANK_ACCOUNT;
+  const cacheKey = `bankaccounts:read:${company_id}:merchantbank:${generateCacheKey(
+    {
+      company_id,
+      user_id,
+      role,
+    },
+    'bankaccounts-merchant-bank',
+  )}`;
+
+  const cached = await readJsonCache(cacheKey, 'BankAccounts merchant-bank cache');
+  if (cached) {
+    return sendSuccess(res, cached, 'Bank details fetched successfully');
+  }
 
   // const bankRes = await getMerchantBankDao({
   //   company_id,
@@ -192,6 +275,13 @@ const getMerchantBank = async (req, res) => {
     null,
     filterColumns,
   );
+
+  await writeJsonCache(
+    cacheKey,
+    bankRes,
+    controllerCacheTtls.bankAccounts.merchantBank,
+  );
+
   return sendSuccess(res, bankRes, 'Bank details fetched successfully');
 };
 
@@ -208,6 +298,7 @@ const deleteBankaccount = async (req, res) => {
     ids,
     user_id,
   );
+  await invalidateBankAccountsCache(company_id);
   return sendSuccess(
     res,
     { id: deletebank.id, deleted_by: user_name },
@@ -230,6 +321,7 @@ const activeInactiveBankAccount = async (req, res) => {
     ids,
     payload,
   );
+  await invalidateBankAccountsCache(company_id);
   return sendSuccess(
     res,
     { id: updateBank.id },

@@ -83,7 +83,7 @@ export const createPool = (connectionString, name) => {
   );
   const poolIdleTimeout = parsePositiveInt(
     process.env.DB_IDLE_TIMEOUT_MS,
-    30000,
+    10000,
   );
 
   const pool = new Pool({
@@ -184,24 +184,24 @@ if (config.env === 'production') {
   setInterval(() => {
     const stats = getPoolStats();
 
-    // Check writer pool
-    if (stats.writer.total > 0) {
-      const writerUsage =
-        (stats.writer.total - stats.writer.idle) / stats.writer.total;
+    // Check writer pool against configured max capacity
+    if (stats.writer.max > 0) {
+      const writerActive = stats.writer.total - stats.writer.idle;
+      const writerUsage = writerActive / stats.writer.max;
       if (writerUsage >= WARNING_THRESHOLD) {
         logger.warn(
-          `[DB Pool] Writer pool ${(writerUsage * 100).toFixed(0)}% used (${stats.writer.total - stats.writer.idle}/${stats.writer.total}), ${stats.writer.waiting} waiting`,
+          `[DB Pool] Writer pool ${(writerUsage * 100).toFixed(0)}% used (${writerActive}/${stats.writer.max}), created=${stats.writer.total}, idle=${stats.writer.idle}, waiting=${stats.writer.waiting}`,
         );
       }
     }
 
-    // Check reader pool
-    if (stats.reader.total > 0) {
-      const readerUsage =
-        (stats.reader.total - stats.reader.idle) / stats.reader.total;
+    // Check reader pool against configured max capacity
+    if (stats.reader.max > 0) {
+      const readerActive = stats.reader.total - stats.reader.idle;
+      const readerUsage = readerActive / stats.reader.max;
       if (readerUsage >= WARNING_THRESHOLD) {
         logger.warn(
-          `[DB Pool] Reader pool ${(readerUsage * 100).toFixed(0)}% used (${stats.reader.total - stats.reader.idle}/${stats.reader.total}), ${stats.reader.waiting} waiting`,
+          `[DB Pool] Reader pool ${(readerUsage * 100).toFixed(0)}% used (${readerActive}/${stats.reader.max}), created=${stats.reader.total}, idle=${stats.reader.idle}, waiting=${stats.reader.waiting}`,
         );
       }
     }
@@ -217,11 +217,13 @@ export const getPoolStats = () => {
       total: writerPool.totalCount,
       idle: writerPool.idleCount,
       waiting: writerPool.waitingCount,
+      max: writerPool.options?.max || 0,
     },
     reader: {
       total: readerPool.totalCount,
       idle: readerPool.idleCount,
       waiting: readerPool.waitingCount,
+      max: readerPool.options?.max || 0,
     },
   };
 };
@@ -410,12 +412,12 @@ export const dbPoolMonitor = () => {
 
     // Calculate pool utilization (prevent division by zero)
     const writerUtilization =
-      stats.writer.total > 0
-        ? ((stats.writer.total - stats.writer.idle) / stats.writer.total) * 100
+      stats.writer.max > 0
+        ? ((stats.writer.total - stats.writer.idle) / stats.writer.max) * 100
         : 0;
     const readerUtilization =
-      stats.reader.total > 0
-        ? ((stats.reader.total - stats.reader.idle) / stats.reader.total) * 100
+      stats.reader.max > 0
+        ? ((stats.reader.total - stats.reader.idle) / stats.reader.max) * 100
         : 0;
 
     // Alert if pool utilization is too high (> 80%)
@@ -424,7 +426,8 @@ export const dbPoolMonitor = () => {
         `DATABASE_ALERT: High writer pool usage: ${writerUtilization.toFixed(1)}%`,
         {
           active: stats.writer.total - stats.writer.idle,
-          total: stats.writer.total,
+          totalCreated: stats.writer.total,
+          max: stats.writer.max,
           waiting: stats.writer.waiting,
         },
       );
@@ -435,7 +438,8 @@ export const dbPoolMonitor = () => {
         `DATABASE_ALERT: High reader pool usage: ${readerUtilization.toFixed(1)}%`,
         {
           active: stats.reader.total - stats.reader.idle,
-          total: stats.reader.total,
+          totalCreated: stats.reader.total,
+          max: stats.reader.max,
           waiting: stats.reader.waiting,
         },
       );

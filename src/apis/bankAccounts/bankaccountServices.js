@@ -8,6 +8,7 @@ import {
 } from '../../utils/db.js';
 import { stringifyJSON } from '../../utils/index.js';
 import { logger } from '../../utils/logger.js';
+import redisClient from '../../utils/redisClient.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 import { deactivateBank } from '../../utils/sockets.js';
 import {
@@ -27,6 +28,11 @@ import {
   getBankAccountsBySearchDao,
   getAllBankaccountDao,
 } from './bankaccountDao.js';
+
+const BANK_NAMES_CACHE_TTL_SEC = Number.parseInt(
+  process.env.BANK_NAMES_CACHE_TTL_SEC || '30',
+  10,
+);
 
 const getBankaccountService = async (
   filters,
@@ -203,6 +209,16 @@ const getBankaccountServiceNickName = async (
 ) => {
   let conn;
   try {
+    const userFilterKey = Array.isArray(user)
+      ? user.join(',')
+      : user || '';
+    const cacheKey = `bank:names:${company_id}:${type}:${role}:${user_id}:${designation}:${userFilterKey}`;
+
+    const cached = await redisClient.get(cacheKey);
+    if (cached) {
+      return JSON.parse(cached);
+    }
+
     conn = await getConnection();
     let filters = {};
     if (role == Role.VENDOR) {
@@ -264,6 +280,14 @@ const getBankaccountServiceNickName = async (
       conn,
       // check_enabled
     );
+
+    await redisClient.set(
+      cacheKey,
+      JSON.stringify(result),
+      'EX',
+      BANK_NAMES_CACHE_TTL_SEC,
+    );
+
     return result;
   } catch (error) {
     logger.error('Error in getBankaccountServiceNickName', error);

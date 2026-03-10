@@ -13,6 +13,12 @@ import { getDesignationDao } from '../designation/designationDao.js';
 import { logger } from '../../utils/logger.js';
 import config from '../../config/config.js';
 import { beginTransaction, commit, getConnection, rollback } from '../../utils/db.js';
+import redisClient from '../../utils/redisClient.js';
+
+const COMPANY_DETAILS_CACHE_TTL_SEC = Number.parseInt(
+  process.env.COMPANY_DETAILS_CACHE_TTL_SEC || '60',
+  10,
+);
 
 const getCompanyService = async (id) => {
   try {
@@ -26,7 +32,23 @@ const getCompanyService = async (id) => {
 
 const getCompanyByIdService = async (id) => {
   try {
+    const companyId = id?.id || id;
+    const cacheKey = `company:details:${companyId}`;
+
+    const cached = await redisClient.get(cacheKey);
+    if (cached) {
+      return JSON.parse(cached);
+    }
+
     const result = await getCompanyDetailsByIdDao(id);
+
+    await redisClient.set(
+      cacheKey,
+      JSON.stringify(result),
+      'EX',
+      COMPANY_DETAILS_CACHE_TTL_SEC,
+    );
+
     return result;
   } catch (error) {
     logger.error('error getting while company', error);

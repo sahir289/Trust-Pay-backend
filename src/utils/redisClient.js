@@ -7,9 +7,43 @@ const redisUrl = config.redis?.url || 'redis://localhost:6379';
 
 const redisClient = new Redis(redisUrl);
 
+const logRedisMemorySafety = async () => {
+  try {
+    const [maxMemoryConfig, evictionPolicyConfig] = await Promise.all([
+      redisClient.config('GET', 'maxmemory'),
+      redisClient.config('GET', 'maxmemory-policy'),
+    ]);
+
+    const maxMemoryRaw = maxMemoryConfig?.[1] || '0';
+    const evictionPolicy = evictionPolicyConfig?.[1] || 'unknown';
+    const maxMemoryBytes = Number.parseInt(maxMemoryRaw, 10) || 0;
+
+    if (maxMemoryBytes <= 0) {
+      logger.warn(
+        '[REDIS] maxmemory is not set (0). Configure maxmemory to avoid unbounded memory growth.',
+      );
+    }
+
+    if (evictionPolicy === 'noeviction') {
+      logger.warn(
+        '[REDIS] maxmemory-policy is noeviction. Prefer allkeys-lru or volatile-lru for safer cache behavior.',
+      );
+    }
+
+    logger.info(
+      `[REDIS] Memory policy check: maxmemory=${maxMemoryRaw}, policy=${evictionPolicy}`,
+    );
+  } catch (error) {
+    logger.warn('[REDIS] Unable to verify memory policy:', error?.message);
+  }
+};
+
 redisClient.on('connect', () => {
   const styledMessageError = chalk.bold.green(`Redis Connected Successfully`);
   logger.info(styledMessageError);
+
+  // Non-blocking safety check for Redis memory configuration.
+  logRedisMemorySafety();
 });
 
 redisClient.on('error', (err) => {
