@@ -26,8 +26,7 @@ export const getBankaccountPayinDao = async (filters, conn = null) => {
   }
 };
 
-// Lightweight lookup for internal transactional flows.
-// Avoids heavy LATERAL aggregates and joins used by dashboard/list APIs.
+// Lightweight lookup for internal transactional flows
 const getBankAccountCoreByIdDao = async (filters, conn = null) => {
   try {
     const query = `
