@@ -104,7 +104,7 @@ function config(Env) {
       initiatePayout: Env?.BSS_WALLET_BALANCE_API_URL,
       walletBalance: Env?.BSS_WALLET_BALANCE_API_URL,
       apiKey: Env?.BSS02_API_KEY,
-      apiSecret: Env?.BSS02_API_KEY,
+      apiSecret: Env?.BSS02_API_SECRET,
     },
     orvixPay: {
       url: Env?.ORVIX_PAY_API_URL,
