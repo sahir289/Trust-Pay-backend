@@ -33,6 +33,7 @@ export const Method = {
   PAYASSIST: 'PAYASSIST',
   RUPEEFLOW: 'RUPEEFLOW',
   BSS: 'BSS',
+  SILKPAY: 'SILKPAY',
   BSS02: 'BSS02',
   BSS03: 'BSS03',
 };
