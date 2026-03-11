@@ -20,7 +20,8 @@ import { getCalculationforCronDao } from '../calculation/calculationDao.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import { getVendorsDao } from '../vendors/vendorDao.js';
 import {
-  getBankaccountDao,
+  // getBankaccountDao,
+  getBankAccountCoreByIdDao,
   createBankaccountDao,
   updateBankaccountDao,
   deleteBankaccountDao,
@@ -382,15 +383,11 @@ const _updateBankaccountInternal = async (
   try {
     let result;
 
-    const bank = await getBankaccountDao(
+    const bank = await getBankAccountCoreByIdDao(
       {
         id: ids.id,
         company_id: ids.company_id,
       },
-      null,
-      null,
-      role,
-      null,
       conn,
     );
 

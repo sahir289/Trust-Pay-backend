@@ -25,6 +25,41 @@ export const getBankaccountPayinDao = async (filters, conn = null) => {
     throw error;
   }
 };
+
+// Lightweight lookup for internal transactional flows.
+// Avoids heavy LATERAL aggregates and joins used by dashboard/list APIs.
+const getBankAccountCoreByIdDao = async (filters, conn = null) => {
+  try {
+    const query = `
+      SELECT
+        ba.id,
+        ba.company_id,
+        ba.user_id,
+        ba.bank_used_for,
+        ba.is_enabled,
+        ba.nick_name,
+        ba.balance,
+        ba.today_balance,
+        ba.config
+      FROM public."BankAccount" ba
+      WHERE ba.is_obsolete = false
+        AND ba.id = $1
+        AND ba.company_id = $2
+      LIMIT 1;
+    `;
+
+    const result = await executeQuery(
+      query,
+      [filters.id, filters.company_id],
+      conn,
+    );
+
+    return result.rows;
+  } catch (error) {
+    logger.error('Error in getBankaccountCoreByIdDao:', error);
+    throw error;
+  }
+};
 const getBankaccountDao = async (filters, page, limit, role, designation, conn = null) => {
   try {
     let queryParams = [];
@@ -995,6 +1030,7 @@ const getBankIdsOnlyDao = async (userIds, bankUsedFor = 'PayIn', conn = null) =>
 
 export {
   getBankaccountDao,
+  getBankAccountCoreByIdDao,
   getBankAccountsBySearchDao,
   getAllBankaccountDao,
   createBankaccountDao,

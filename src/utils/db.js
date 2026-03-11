@@ -528,6 +528,7 @@ export const executeQuery = async (query, queryParams = [], conn = null) => {
   const maxRetries = 3;
   const isSelect = query.trim().toUpperCase().startsWith('SELECT');
   const pool = isSelect ? readerPool : writerPool;
+  const usingExternalTransactionConn = Boolean(conn);
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     let client = null;
@@ -546,6 +547,14 @@ export const executeQuery = async (query, queryParams = [], conn = null) => {
         params: queryParams,
         error,
       });
+
+      // IMPORTANT: never retry on an externally managed transaction connection.
+      // If a statement fails inside a transaction (e.g. 57014 statement timeout,
+      // 55P03 lock timeout), PostgreSQL marks the whole transaction as aborted.
+      // Retrying on the same connection only causes 25P02 cascades until rollback.
+      if (usingExternalTransactionConn) {
+        throw new DbError(error.message);
+      }
 
       const isTransientError =
         error.code === 'ECONNRESET' ||
