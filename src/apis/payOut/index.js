@@ -28,6 +28,8 @@ import { getBSSWalletBalance, rechargeWallet } from '../../bss/bss.js';
 import { getBSS02WalletBalance } from '../../bss/bss02.js';
 import { getBSS03WalletBalance } from '../../bss/bss03.js';
 import { bssTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/bssWebHook.js';
+import { silkPayTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/silkpayWebHook.js';
+import { getSilkPayWalletBalance } from '../../silkpay/silkpay.js';
 import { bss02TransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/bss02WebHook.js';
 import { bss03TransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/bss03WebHook.js';
 const router = express.Router();
@@ -272,6 +274,16 @@ router.get(
   '/bss/bss-balance',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(getBSSWalletBalance),
+);
+router.get(
+  '/silkpay/silkpay-balance',
+  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  tryCatchHandler(getSilkPayWalletBalance),
+);
+
+router.post(
+  '/silkpay-callback',
+  tryCatchHandler(silkPayTransactionStatusCallback),
 );
 router.get(
   '/bss02/bss02-balance',

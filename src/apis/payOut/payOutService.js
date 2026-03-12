@@ -72,6 +72,7 @@ import {
   createRupeeFlowPayout,
 } from '../../rupeeflow/rupeeflow.js';
 import { createBSSPayout } from '../../bss/bss.js';
+import { createSilkPayPayout } from '../../silkpay/silkpay.js';
 import { createBSS02Payout } from '../../bss/bss02.js';
 import { createBSS03Payout } from '../../bss/bss03.js';
 // import { notifyNewCalculationTableEntry } from '../../utils/sockets.js';
@@ -807,7 +808,8 @@ const _updatePayoutServiceInternal = async (
       !payload?.config?.method === Method.PAYASSIST &&
       !payload?.config?.method === Method.TATAPAY && 
       !payload?.config?.method === Method.RUPEEFLOW &&
-      !payload?.config?.method === Method.BSS
+      !payload?.config?.method === Method.BSS &&
+      !payload?.config?.method === Method.SILKPAY
     )
       await checkLockEdit(ids.id, false, conn);
 
@@ -938,6 +940,31 @@ const _updatePayoutServiceInternal = async (
       // const clientIp = getClientIp(req);
       logger.info(`Creating BSS payout with bankId: ${bankId}`);
       const updatedPayload = await createBSSPayout(
+        payload,
+        ids,
+        singleWithdrawData,
+        bankId,
+      );
+      payload = updatedPayload;
+    }
+    else if (payload?.config?.method === Method.SILKPAY) {
+      const method = payload.config.method;
+      logger.info(`Processing SilkPay payout for method: ${method}`);
+      const [company] = await getCompanyByIDDao({ id: ids.company_id }, conn);
+      if (!company) throw new NotFoundError('Company not found');
+
+      const bankId = company.config.SILKPAY.defaultBankId;
+      if (!bankId)
+        throw new NotFoundError(`Default bank ID not found for ${method}`);
+
+      bankDataArr = await getBankByIdDao({ id: bankId });
+
+      if (!bankDataArr[0])
+        throw new NotFoundError(`Bank not found for ${method} payout`);
+
+      // const clientIp = getClientIp(req);
+      logger.info(`Creating SilkPay payout with bankId: ${bankId}`);
+      const updatedPayload = await createSilkPayPayout(
         payload,
         ids,
         singleWithdrawData,
