@@ -55,6 +55,7 @@ export const CREATE_USER_SCHEMA = Joi.object({
   is_owned: Joi.boolean().label('is_owned').optional(),
   mediator_payin_commission: Joi.number().min(0).label('mediator_payin_commission').optional(),
   mediator_payout_commission: Joi.number().min(0).label('mediator_payout_commission').optional(),
+  gm_code: Joi.string().label('gm_code').optional(),
 });
 
 export const VALIDATE_USER_BY_ID = Joi.object({

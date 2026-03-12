@@ -457,6 +457,7 @@ const getClientsAccountReportService = async (req) => {
               Object.keys(child).forEach((key) => {
                 if (
                   key !== 'code' &&
+                  key !== 'gm_code' &&
                   key !== 'parent_code' &&
                   key !== 'created_at' &&
                   key !== 'calculation_user_id' &&
@@ -465,7 +466,7 @@ const getClientsAccountReportService = async (req) => {
                   !isNaN(parseFloat(child[key]))
                 ) {
                   parentEntry[key] =
-                    (parentEntry[key] || 0) + parseFloat(child[key]);
+                    parseFloat(parentEntry[key] || 0) + parseFloat(child[key]);
                 }
               });
               parentMap[parentKey] = parentEntry;
