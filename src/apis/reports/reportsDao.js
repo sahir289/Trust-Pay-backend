@@ -564,7 +564,7 @@ COALESCE((c.config->>'total_cryptoReceivedSettlement_amount')::NUMERIC, 0)
         c.total_adjustment_amount,  
         c.company_id,
         m.code
-        ${role === Role.ADMIN ? ', m.user_id AS merchant_user_id' : ''}
+        ${role === Role.ADMIN ? ", m.config->>'gm_code' AS gm_code, m.user_id AS merchant_user_id" : ''}
       FROM public."Calculation" c
       LEFT JOIN public."Merchant" m ON c.user_id = m.user_id
       WHERE c.company_id = $1 AND c.is_obsolete = false
@@ -665,7 +665,7 @@ COALESCE((c.config->>'total_cryptoReceivedSettlement_amount')::NUMERIC, 0)
     c.total_adjustment_amount,  
     c.company_id,
     v.code
-    ${role === Role.ADMIN ? ', v.user_id AS vendor_user_id' : ''}
+    ${role === Role.ADMIN ? ", m.config->>'gm_code' AS gm_code, v.user_id AS vendor_user_id" : ''}
     FROM public."Calculation" c
     LEFT JOIN public."Vendor" v ON c.user_id = v.user_id
     WHERE c.company_id = $1 AND c.is_obsolete = false`;

@@ -467,6 +467,7 @@ const createUserService = async (conn, payload) => {
           is_h2h: payload?.is_h2h || false,
           ...(sub_code && { sub_code }),
           unblocked_countries: unblocked_countries,
+          gm_code: payload.gm_code,
         },
       };
       merchant = await createMerchantService(conn, merchantPayload);
@@ -504,6 +505,7 @@ const createUserService = async (conn, payload) => {
           is_enabled: true,
           mediator_payin_commission: payload.mediator_payin_commission || 0,
           mediator_payout_commission: payload.mediator_payout_commission || 0,
+          gm_code: payload.gm_code,
         },
         payin_commission: Number(payload.payin_commission),
         payout_commission: Number(payload.payout_commission),
