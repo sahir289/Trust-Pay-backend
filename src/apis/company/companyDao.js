@@ -183,6 +183,8 @@ const updateCompanyDao = async (id, data, conn = null) => {
   }
 };
 const updateCompanyConfigDao = async (id, data, conn) => {
+  try { 
+
   return await buildAndExecuteUpdateQuery(
     tableName.COMPANY,
     data,
@@ -191,6 +193,10 @@ const updateCompanyConfigDao = async (id, data, conn) => {
     { returnUpdated: true },
     conn,
   );
+  } catch (error) {
+    logger.error('Error updating company config:', error);
+    throw error;
+  }
 };
 
 const deleteCompanyDao = async (id, data, conn = null) => {
