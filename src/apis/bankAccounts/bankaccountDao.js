@@ -914,6 +914,76 @@ const deleteBankaccountDao = async (id, data, conn = null) => {
   }
 };
 
+const markStatementUploadedDao = async (ids, conn = null) => {
+  try {
+    const query = `
+      UPDATE public."BankAccount"
+      SET config = jsonb_set(
+        config::jsonb,
+        '{statement_upload}',
+        COALESCE(config::jsonb->'statement_upload', '{}'::jsonb)
+          || jsonb_build_object(
+            'uploaded', true,
+            'notification_level', 0,
+            'last_notified_at', null
+          )
+      )
+      WHERE id = $1
+        AND company_id = $2
+        AND is_obsolete = false
+      RETURNING id, nick_name, user_id, config;
+    `;
+    const result = await executeQuery(query, [ids.id, ids.company_id], conn);
+    return result.rows[0];
+  } catch (error) {
+    logger.error('Error in markStatementUploadedDao:', error);
+    throw error;
+  }
+};
+
+// Get all banks pending statement upload with vendor info
+const getPendingStatementUploadBanksDao = async (conn = null) => {
+  try {
+    const query = `
+      SELECT ba.id, ba.nick_name, ba.user_id, ba.company_id, ba.config, v.code AS vendor_code
+      FROM public."BankAccount" ba
+      LEFT JOIN public."Vendor" v ON ba.user_id = v.user_id
+      WHERE ba.is_obsolete = false
+        AND ba.is_enabled = true
+        AND ba.bank_used_for = 'PayIn'
+        AND (ba.config::jsonb->'statement_upload'->>'uploaded')::boolean = false;
+    `;
+    const result = await executeQuery(query, [], conn);
+    return result.rows;
+  } catch (error) {
+    logger.error('Error in getPendingStatementUploadBanksDao:', error);
+    throw error;
+  }
+};
+
+// Update notification level for a single bank
+const updateStatementUploadNotificationDao = async (bankId, newLevel, nowISO, conn = null) => {
+  try {
+    const query = `
+      UPDATE public."BankAccount"
+      SET config = jsonb_set(
+        config::jsonb,
+        '{statement_upload}',
+        COALESCE(config::jsonb->'statement_upload', '{}'::jsonb)
+          || jsonb_build_object(
+            'notification_level', $1::int,
+            'last_notified_at', $2::text
+          )
+      )
+      WHERE id = $3;
+    `;
+    await executeQuery(query, [newLevel, nowISO, bankId], conn);
+  } catch (error) {
+    logger.error('Error in updateStatementUploadNotificationDao:', error);
+    throw error;
+  }
+};
+
 const updateBanktBalanceDao = async (
   filters,
   amount,
@@ -1027,6 +1097,28 @@ const getBankIdsOnlyDao = async (userIds, bankUsedFor = 'PayIn', conn = null) =>
   }
 };
 
+// Temporary function to reset bank notification config for all PayIn banks - used for testing notification flow
+const resetBankNotificationDao = async (conn) => {
+  try {    const query = `
+      UPDATE public."BankAccount"
+      SET config = jsonb_set(
+        COALESCE(config, '{}')::jsonb,
+        '{statement_upload}',
+        jsonb_build_object(
+          'uploaded', false,
+          'notification_level', 0,
+          'last_notified_at', null
+        )
+      )
+      WHERE bank_used_for = 'PayIn';
+    `;
+    await executeQuery(query, [], conn);
+  } catch (error) {
+    logger.error('Error in resetBankNotificationDao:', error);
+    throw error;
+  }
+}
+
 export {
   getBankaccountDao,
   getBankAccountCoreByIdDao,
@@ -1044,4 +1136,8 @@ export {
   getBankAccountNickNameForEsDao,
   getBankAccountNickNameForPayinEsDao,
   getBankIdsOnlyDao,
+  markStatementUploadedDao,
+  getPendingStatementUploadBanksDao,
+  updateStatementUploadNotificationDao,
+  resetBankNotificationDao,
 };

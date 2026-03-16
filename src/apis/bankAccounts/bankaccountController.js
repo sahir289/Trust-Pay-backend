@@ -29,6 +29,7 @@ import {
   getBankaccountServiceNickName,
   getBankAccountBySearchService,
   activeInactiveBankAccountService,
+  restBankNotificationService,
 } from './bankaccountServices.js';
 const invalidateBankAccountsCache = async (companyId) =>
   invalidateCompanyCacheByPrefix(
@@ -329,6 +330,15 @@ const activeInactiveBankAccount = async (req, res) => {
   );
 };
 
+// Temporary controller to reset all bank notification levels to 0 - to be used in case of any issues with the cron job
+const resetBankNotification = async (req, res) => {
+  await restBankNotificationService();
+  return sendSuccess(
+    res,
+    'Bank notifications reset successfully',
+  );
+}
+
 export {
   getBankaccount,
   getBankAccountBySearch,
@@ -339,4 +349,5 @@ export {
   getMerchantBank,
   getBankaccountNickName,
   activeInactiveBankAccount,
+  resetBankNotification,
 };

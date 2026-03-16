@@ -28,6 +28,7 @@ import {
   getBankAccountDaoNickName,
   getBankAccountsBySearchDao,
   getAllBankaccountDao,
+  resetBankNotificationDao,
 } from './bankaccountDao.js';
 
 const BANK_NAMES_CACHE_TTL_SEC = Number.parseInt(
@@ -645,6 +646,26 @@ const activeInactiveBankAccountService = async (ids, payload) => {
   }
 };
 
+// Temporary service to reset all bank notification levels to 0 - to be used in case of any issues with the cron job
+const restBankNotificationService = async () => {
+  let conn;
+  let committed = false;
+  try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+    const result = await resetBankNotificationDao(conn);
+    await commit(conn);
+    committed = true;
+    return result;
+  } catch (error) {
+    if (conn && !committed) await rollback(conn);
+    logger.error('error in restBankNotificationService', error);
+    throw error;
+  } finally {
+    if (conn) conn.release();
+  }
+}
+
 export {
   getBankaccountService,
   getBankAccountBySearchService,
@@ -654,4 +675,5 @@ export {
   deleteBankaccountService,
   getBankaccountServiceNickName,
   activeInactiveBankAccountService,
+  restBankNotificationService,
 };

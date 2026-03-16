@@ -14,6 +14,7 @@ await import('./src/cron/calculationCron.js');
 await import('./src/cron/pendingPayout.js');
 await import('./src/cron/checkNetbalance.js');
 await import('./src/cron/successRatioCron.js');
+await import('./src/cron/statementUploadCron.js');
 
 logger.info(chalk.bold.green('All cron jobs initialized successfully'));
 

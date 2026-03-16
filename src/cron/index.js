@@ -8,6 +8,7 @@ import gatherAllDataForAllCompanies from './gatherAllData.js';
 import gatherAllNetbalanceForAllCompanies from './gatherAllNetBalance.js';
 import collectPayoutData from './pendingPayout.js';
 import runDailyCalculation from './checkNetbalance.js';
+import checkStatementUploads from './statementUploadCron.js';
 // import  checkPendingStatus  from './pendingPayinCron.js';
 const router = express.Router();
 
@@ -149,4 +150,11 @@ router.get('/pending-payout-cronjob', (req, res) => {
   logger.info('Calling collectPendingPayoutData CRONJOB');
   res.json({ message: 'Cron job is running for Pending Payout' });
 });
+
+router.get('/statement-upload-check-cronjob', (req, res) => {
+  checkStatementUploads('Asia/Kolkata');
+  logger.info('Calling checkStatementUploads CRONJOB');
+  res.json({ message: 'Cron job is running for Statement Upload Check' });
+});
+
 export default router;
