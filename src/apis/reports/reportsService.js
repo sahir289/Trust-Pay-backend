@@ -405,6 +405,7 @@ const getClientsAccountReportService = async (req) => {
               Object.keys(child).forEach((key) => {
                 if (
                   key !== 'code' &&
+                  key !== 'gm_code' &&
                   key !== 'parent_code' &&
                   key !== 'created_at' &&
                   key !== 'calculation_user_id' &&

@@ -70,6 +70,7 @@ const VALIDATE_UPDATE_VENDOR_STATUS = Joi.object({
   is_enabled: Joi.boolean().label('is_enabled').optional(),
   mediator_payin_commission: Joi.number().min(0).optional(),
   mediator_payout_commission: Joi.number().min(0).optional(),
+  gm_code: Joi.string().label('gm_code').optional(),
 });
 
 // Validation Schema for Deleting a Vendor
