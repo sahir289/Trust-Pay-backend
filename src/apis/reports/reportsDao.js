@@ -536,22 +536,22 @@ const getMerchantReportDao = async (
         c.total_payout_commission,
         c.total_settlement_count,
         c.total_settlement_amount,
-COALESCE((c.config->>'total_aedSentSettlement_amount')::NUMERIC, 0)
-    AS total_aed_sent_settlement_amount,
-COALESCE((c.config->>'total_bankSentSettlement_amount')::NUMERIC, 0)
-    AS total_bank_sent_settlement_amount,
-COALESCE((c.config->>'total_cashSentSettlement_amount')::NUMERIC, 0)
-    AS total_cash_sent_settlement_amount,
-COALESCE((c.config->>'total_cryptoSentSettlement_amount')::NUMERIC, 0)
-    AS total_crypto_sent_settlement_amount,
-COALESCE((c.config->>'total_aedReceivedSettlement_amount')::NUMERIC, 0)
-    AS total_aed_received_settlement_amount,
-COALESCE((c.config->>'total_bankReceivedSettlement_amount')::NUMERIC, 0)
-    AS total_bank_received_settlement_amount,
-COALESCE((c.config->>'total_cashReceivedSettlement_amount')::NUMERIC, 0)
-    AS total_cash_received_settlement_amount,
-COALESCE((c.config->>'total_cryptoReceivedSettlement_amount')::NUMERIC, 0)
-    AS total_crypto_received_settlement_amount,
+        COALESCE((c.config->>'total_aedSentSettlement_amount')::NUMERIC, 0)
+          AS total_aed_sent_settlement_amount,
+        COALESCE((c.config->>'total_bankSentSettlement_amount')::NUMERIC, 0)
+          AS total_bank_sent_settlement_amount,
+        COALESCE((c.config->>'total_cashSentSettlement_amount')::NUMERIC, 0)
+          AS total_cash_sent_settlement_amount,
+        COALESCE((c.config->>'total_cryptoSentSettlement_amount')::NUMERIC, 0)
+          AS total_crypto_sent_settlement_amount,
+        COALESCE((c.config->>'total_aedReceivedSettlement_amount')::NUMERIC, 0)
+          AS total_aed_received_settlement_amount,
+        COALESCE((c.config->>'total_bankReceivedSettlement_amount')::NUMERIC, 0)
+          AS total_bank_received_settlement_amount,
+        COALESCE((c.config->>'total_cashReceivedSettlement_amount')::NUMERIC, 0)
+          AS total_cash_received_settlement_amount,
+        COALESCE((c.config->>'total_cryptoReceivedSettlement_amount')::NUMERIC, 0)
+          AS total_crypto_received_settlement_amount,
         c.total_chargeback_count,
         c.total_chargeback_amount,
         c.current_balance,
@@ -633,26 +633,26 @@ const getVendorReportDao = async (
     c.total_payout_commission,
     c.total_settlement_count,
     c.total_settlement_amount,
-   COALESCE((c.config->>'total_aedSentSettlement_amount')::NUMERIC, 0)
-    AS total_aed_sent_settlement_amount,
-COALESCE((c.config->>'total_bankSentSettlement_amount')::NUMERIC, 0)
-    AS total_bank_sent_settlement_amount,
-COALESCE((c.config->>'total_cashSentSettlement_amount')::NUMERIC, 0)
-    AS total_cash_sent_settlement_amount,
-COALESCE((c.config->>'total_internalSettlement_amount')::NUMERIC, 0)
-    AS total_internal_settlement_amount,
-COALESCE((c.config->>'total_cryptoSentSettlement_amount')::NUMERIC, 0)
-    AS total_crypto_sent_settlement_amount,
-COALESCE((c.config->>'total_aedReceivedSettlement_amount')::NUMERIC, 0)
-    AS total_aed_received_settlement_amount,
-COALESCE((c.config->>'total_bankReceivedSettlement_amount')::NUMERIC, 0)
-    AS total_bank_received_settlement_amount,
-COALESCE((c.config->>'total_cashReceivedSettlement_amount')::NUMERIC, 0)
-    AS total_cash_received_settlement_amount,
-COALESCE((c.config->>'total_internalBankSettlement_amount')::NUMERIC, 0)
-    AS total_internal_bank_settlement_amount,
-COALESCE((c.config->>'total_cryptoReceivedSettlement_amount')::NUMERIC, 0)
-    AS total_crypto_received_settlement_amount,
+    COALESCE((c.config->>'total_aedSentSettlement_amount')::NUMERIC, 0)
+      AS total_aed_sent_settlement_amount,
+    COALESCE((c.config->>'total_bankSentSettlement_amount')::NUMERIC, 0)
+        AS total_bank_sent_settlement_amount,
+    COALESCE((c.config->>'total_cashSentSettlement_amount')::NUMERIC, 0)
+      AS total_cash_sent_settlement_amount,
+    COALESCE((c.config->>'total_internalSettlement_amount')::NUMERIC, 0)
+      AS total_internal_settlement_amount,
+    COALESCE((c.config->>'total_cryptoSentSettlement_amount')::NUMERIC, 0)
+      AS total_crypto_sent_settlement_amount,
+    COALESCE((c.config->>'total_aedReceivedSettlement_amount')::NUMERIC, 0)
+      AS total_aed_received_settlement_amount,
+    COALESCE((c.config->>'total_bankReceivedSettlement_amount')::NUMERIC, 0)
+      AS total_bank_received_settlement_amount,
+    COALESCE((c.config->>'total_cashReceivedSettlement_amount')::NUMERIC, 0)
+      AS total_cash_received_settlement_amount,
+    COALESCE((c.config->>'total_internalBankSettlement_amount')::NUMERIC, 0)
+      AS total_internal_bank_settlement_amount,
+    COALESCE((c.config->>'total_cryptoReceivedSettlement_amount')::NUMERIC, 0)
+      AS total_crypto_received_settlement_amount,
     c.total_chargeback_count,
     c.total_chargeback_amount,
     c.current_balance,
@@ -665,7 +665,7 @@ COALESCE((c.config->>'total_cryptoReceivedSettlement_amount')::NUMERIC, 0)
     c.total_adjustment_amount,  
     c.company_id,
     v.code
-    ${role === Role.ADMIN ? ", m.config->>'gm_code' AS gm_code, v.user_id AS vendor_user_id" : ''}
+    ${role === Role.ADMIN ? ", v.config->>'gm_code' AS gm_code, v.user_id AS vendor_user_id" : ''}
     FROM public."Calculation" c
     LEFT JOIN public."Vendor" v ON c.user_id = v.user_id
     WHERE c.company_id = $1 AND c.is_obsolete = false`;
