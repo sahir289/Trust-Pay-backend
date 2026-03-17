@@ -18,12 +18,14 @@ const logRedisMemorySafety = async () => {
     const evictionPolicy = evictionPolicyConfig?.[1] || 'unknown';
     const maxMemoryBytes = Number.parseInt(maxMemoryRaw, 10) || 0;
 
+    // Warn if maxmemory is not set or is set to 0 (unlimited)
     if (maxMemoryBytes <= 0) {
       logger.warn(
         '[REDIS] maxmemory is not set (0). Configure maxmemory to avoid unbounded memory growth.',
       );
     }
 
+    // Warn if eviction policy is noeviction, which can lead to OOM errors
     if (evictionPolicy === 'noeviction') {
       logger.warn(
         '[REDIS] maxmemory-policy is noeviction. Prefer allkeys-lru or volatile-lru for safer cache behavior.',

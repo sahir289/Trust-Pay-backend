@@ -4047,14 +4047,11 @@ export const updatePayInService = async (
       );
     }
 
-    // Fetch pay-in and bank response concurrently
-    const [payIn, bankResponse] = await Promise.all([
-      getPayInForUpdateDao({ merchant_order_id , conn }),
-      getBankResponseDao({
-        id: (await getPayInForUpdateDao({ merchant_order_id }, conn))
-          .bank_response_id,
-      }, undefined, undefined, undefined, undefined, undefined, conn),
-    ]);
+    // Fetch pay-in first, then use its bank_response_id for the bank response query
+    const payIn = await getPayInForUpdateDao({ merchant_order_id }, conn);
+    const bankResponse = payIn
+      ? await getBankResponseDao({ id: payIn.bank_response_id }, undefined, undefined, undefined, undefined, undefined, conn)
+      : null;
 
     if (!payIn) {
       throw new BadRequestError('Invalid merchant order id');

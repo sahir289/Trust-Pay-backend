@@ -121,7 +121,7 @@ const initializeSocket = async (server) => {
 
   ioInstance.on('connection', (socket) => {
     socket.on('connect', () => {
-      logger.log(
+      logger.info(
         chalk.bgRed.white(`[SOCKET] New connection detected: ${socket.id}`),
       );
     });
@@ -139,7 +139,7 @@ const initializeSocket = async (server) => {
         socket.sessionId = sessionId;
         socket.loginTime = Date.now();
 
-        logger.log(
+        logger.info(
           chalk.bgCyan.white(
             `[SOCKET] Socket ${socket.id} bound to user ${userId}, session ${sessionId}`,
           ),
@@ -160,7 +160,7 @@ const initializeSocket = async (server) => {
               (s) => s.sessionId !== sessionId,
             );
 
-            logger.log(
+            logger.info(
               chalk.bgYellow.white(
                 `[SOCKET] CONNECTION VERIFY - User ${userId}: ${sameBrowserSockets.length} same browser tabs, ${differentBrowserSockets.length} different devices`,
               ),
@@ -168,7 +168,7 @@ const initializeSocket = async (server) => {
 
             // Only terminate sockets from different browsers/devices, allow same browser tabs
             if (differentBrowserSockets.length > 0) {
-              logger.log(
+              logger.info(
                 chalk.bgRed.white(
                   `[SOCKET] Terminating ${differentBrowserSockets.length} different device sessions for user ${userId}`,
                 ),
@@ -194,7 +194,7 @@ const initializeSocket = async (server) => {
                 }
               });
             } else {
-              logger.log(
+              logger.info(
                 chalk.bgGreen.white(
                   `[SOCKET] CONNECTION VERIFY - Allowing ${sameBrowserSockets.length} tabs from same browser for user ${userId}`,
                 ),
@@ -219,7 +219,7 @@ const initializeSocket = async (server) => {
         socket.sessionId = sessionId;
         socket.loginTime = Date.now();
 
-        logger.log(
+        logger.info(
           chalk.bgMagenta.white(
             `[SOCKET] Socket ${socket.id} bound to user ${userId}, session ${sessionId}`,
           ),
@@ -227,7 +227,7 @@ const initializeSocket = async (server) => {
       }
 
       try {
-        logger.log(
+        logger.info(
           chalk.bgMagenta.white(
             `[SOCKET] Verifying session ${sessionId} for user ${userId}`,
           ),
@@ -249,7 +249,7 @@ const initializeSocket = async (server) => {
             sessionGroups.get(sid).push(socket);
           });
 
-          logger.log(
+          logger.info(
             chalk.bgYellow.white(
               `[SOCKET] User ${userId} has ${sessionGroups.size} different browser sessions with total ${userSockets.length} tabs`,
             ),
@@ -257,7 +257,7 @@ const initializeSocket = async (server) => {
 
           // If we have sessions from different browsers, keep only the current browser's sessions
           if (sessionGroups.size > 1) {
-            logger.log(
+            logger.info(
               chalk.bgRed.white(
                 `[SOCKET] Multiple devices detected for user ${userId}, terminating other devices`,
               ),
@@ -291,13 +291,13 @@ const initializeSocket = async (server) => {
 
             await Promise.allSettled(terminationPromises);
 
-            logger.log(
+            logger.info(
               chalk.bgGreen.white(
                 `[SOCKET] Preserved ${currentSessionSockets.length} tabs from current browser for user ${userId}`,
               ),
             );
           } else {
-            logger.log(
+            logger.info(
               chalk.bgGreen.white(
                 `[SOCKET] All ${userSockets.length} sessions are from same browser for user ${userId}, allowing multiple tabs`,
               ),
@@ -312,7 +312,7 @@ const initializeSocket = async (server) => {
     });
 
     const message = chalk.bold.cyan(`Client connected: ${socket.id}`);
-    logger.log(message);
+    logger.info(message);
 
     // Listen for both 'login' and 'user-login' events for compatibility
     const handleUserLogin = async (data) => {
@@ -344,7 +344,7 @@ const initializeSocket = async (server) => {
             sessionGroups.get(sid).push(existingSocket);
           });
 
-          logger.log(
+          logger.info(
             chalk.bgYellow.white(
               `[SOCKET] USER LOGIN - User ${userId} has ${sessionGroups.size} different browser sessions`,
             ),
@@ -356,7 +356,7 @@ const initializeSocket = async (server) => {
           );
 
           if (differentBrowserSockets.length > 0) {
-            logger.log(
+            logger.info(
               chalk.bgRed.white(
                 `[SOCKET] PRE-TERMINATION - Found ${differentBrowserSockets.length} different device sessions for user ${userId}. TERMINATING INSTANTLY.`,
               ),
@@ -388,13 +388,13 @@ const initializeSocket = async (server) => {
             // Wait for instant termination to complete
             await Promise.allSettled(instantTerminationPromises);
 
-            logger.log(
+            logger.info(
               chalk.bgGreen.white(
                 `[SOCKET] PRE-TERMINATION - Successfully terminated ${differentBrowserSockets.length} different device sessions instantly`,
               ),
             );
           } else {
-            logger.log(
+            logger.info(
               chalk.bgGreen.white(
                 `[SOCKET] USER LOGIN - All ${existingUserSockets.length} existing sessions are from same browser, allowing multiple tabs`,
               ),
@@ -408,17 +408,17 @@ const initializeSocket = async (server) => {
       }
 
       // Enhanced logging for all environments
-      logger.log(
+      logger.info(
         chalk.bgBlue.white(
           `[SOCKET] User login event received for userId: ${userId}, sessionId: ${sessionId}, socketId: ${socket.id}`,
         ),
       );
-      // logger.log(
+      // logger.info(
       //   chalk.cyan(
       //     `[SOCKET] Config origins: Front=${config?.reactFrontOrigin}, Payment=${config?.reactPaymentOrigin}`,
       //   ),
       // );
-      // logger.log(
+      // logger.info(
       //   chalk.yellow(
       //     `[SOCKET] Socket origin: ${socket.handshake.headers.origin || 'N/A'}, Referer: ${socket.handshake.headers.referer || 'N/A'}`,
       //   ),
@@ -430,7 +430,7 @@ const initializeSocket = async (server) => {
         socket.sessionId = sessionId;
         socket.loginTime = Date.now();
 
-        logger.log(
+        logger.info(
           chalk.bgGreen.white(
             `[SOCKET] Socket ${socket.id} bound to user ${userId}, session ${sessionId}`,
           ),
@@ -439,7 +439,7 @@ const initializeSocket = async (server) => {
         // Socket already bound, just update the login time to mark as newest
         socket.loginTime = Date.now();
 
-        logger.log(
+        logger.info(
           chalk.bgBlue.white(
             `[SOCKET] Socket ${socket.id} already bound to user ${userId}, updated login time`,
           ),
@@ -457,7 +457,7 @@ const initializeSocket = async (server) => {
         );
 
         // Log what we found
-        logger.log(
+        logger.info(
           chalk.bgBlue.white(
             `[SOCKET] Found ${userActiveSockets.length} existing sockets for user ${userId}`,
           ),
@@ -481,7 +481,7 @@ const initializeSocket = async (server) => {
           );
 
           if (differentBrowserSockets.length > 0) {
-            logger.log(
+            logger.info(
               chalk.bgRed.white(
                 `[SOCKET] ENFORCEMENT - User ${userId} has ${differentBrowserSockets.length} sessions from different devices. TERMINATING DIFFERENT DEVICE SESSIONS ONLY.`,
               ),
@@ -490,7 +490,7 @@ const initializeSocket = async (server) => {
             // Send immediate termination commands to different device sessions only
             const terminationPromises = differentBrowserSockets.map(
               async (existingSocket) => {
-                logger.log(
+                logger.info(
                   chalk.red(
                     `[SOCKET] ENFORCEMENT - Terminating different device session ${existingSocket.id}`,
                   ),
@@ -526,7 +526,7 @@ const initializeSocket = async (server) => {
                   // FORCE disconnect without any delay
                   existingSocket.disconnect(true);
 
-                  logger.log(
+                  logger.info(
                     chalk.red(
                       `[SOCKET] ENFORCEMENT - Terminated different device session ${existingSocket.id}`,
                     ),
@@ -555,13 +555,13 @@ const initializeSocket = async (server) => {
               );
             }
 
-            logger.log(
+            logger.info(
               chalk.bgGreen.white(
                 `[SOCKET] ENFORCEMENT - Successfully terminated ${differentBrowserSockets.length} different device sessions for user ${userId}`,
               ),
             );
           } else {
-            logger.log(
+            logger.info(
               chalk.bgGreen.white(
                 `[SOCKET] USER LOGIN - All ${userActiveSockets.length} existing sessions are from same browser, allowing multiple tabs for user ${userId}`,
               ),
@@ -578,7 +578,7 @@ const initializeSocket = async (server) => {
         const loginMessage = chalk.bold.green(
           `[SOCKET] User ${userId} logged in with socket ${socket.id}, ${userActiveSockets.length} old sessions terminated`,
         );
-        logger.log(loginMessage);
+        logger.info(loginMessage);
 
         // FIXED: No longer emit global newLogin - we send it specifically to old sessions being terminated
       } catch (error) {
@@ -597,7 +597,7 @@ const initializeSocket = async (server) => {
     });
 
     socket.on('client-message', (data) => {
-      logger.log(`Received from client:`, data);
+      logger.info(`Received from client:`, data);
     });
 
     socket.on('disconnect', (reason) => {
@@ -616,20 +616,20 @@ const initializeSocket = async (server) => {
         const updatedSockets = socketIds.filter((id) => id !== socket.id);
         if (updatedSockets.length > 0) {
           userSockets.set(userId, updatedSockets);
-          logger.log(
+          logger.info(
             chalk.blue(
               `User ${userId} disconnected, remaining sockets: ${updatedSockets}`,
             ),
           );
         } else {
           userSockets.delete(userId);
-          logger.log(
+          logger.info(
             chalk.blue(`User ${userId} disconnected, no remaining sockets`),
           );
 
           // Only emit logout events for intentional client-side disconnects, not timeouts/errors
           if (!isServerSideDisconnect) {
-            logger.log(
+            logger.info(
               chalk.yellow(
                 `[SOCKET] Emitting logout event for user ${userId} due to client disconnect`,
               ),
@@ -637,7 +637,7 @@ const initializeSocket = async (server) => {
             // You can add specific logout events here if needed
             // ioInstance.emit('userLoggedOut', { userId, reason: 'client_disconnect' });
           } else {
-            logger.log(
+            logger.info(
               chalk.gray(
                 `[SOCKET] Skipping logout event for user ${userId} due to server-side/timeout disconnect: ${reason}`,
               ),
@@ -648,11 +648,11 @@ const initializeSocket = async (server) => {
       const disconnectMessage = chalk.bold.red(
         `Client disconnected: ${socket.id}, reason: ${reason}`,
       );
-      logger.log(disconnectMessage);
+      logger.info(disconnectMessage);
     });
   });
   const initMessage = chalk.magentaBright('WebSocket server initialized');
-  logger.log(initMessage);
+  logger.info(initMessage);
 
   // Session cleanup monitoring - intelligent logging to prevent spam
   const lastCleanupState = new Map(); // Track last state to prevent spam logging
@@ -708,13 +708,13 @@ const initializeSocket = async (server) => {
           // If multiple browser sessions exist, terminate other devices
           if (hasMultipleDevices) {
             if (shouldLog) {
-              logger.log(
+              logger.info(
                 chalk.bgYellow.white(
                   `[SOCKET] CLEANUP - User ${userId} has ${sessionGroups.size} different browser sessions with ${userSockets.length} total tabs`,
                 ),
               );
               
-              logger.log(
+              logger.info(
                 chalk.bgRed.white(
                   `[SOCKET] CLEANUP - User ${userId} has multiple devices. TERMINATING OTHER DEVICES.`,
                 ),
@@ -744,7 +744,7 @@ const initializeSocket = async (server) => {
               .map(async (userSocket) => {
                 // Only log the termination message when we're doing initial logging
                 if (shouldLog) {
-                  logger.log(
+                  logger.info(
                     chalk.red(
                       `[SOCKET] CLEANUP - Terminating different device session ${userSocket.id}`,
                     ),
@@ -781,7 +781,7 @@ const initializeSocket = async (server) => {
                   userSocket.disconnect(true);
 
                   if (shouldLog) {
-                    logger.log(
+                    logger.info(
                       chalk.red(
                         `[SOCKET] CLEANUP - Terminated different device session ${userSocket.id}`,
                       ),
@@ -802,7 +802,7 @@ const initializeSocket = async (server) => {
             cleanupPromises.push(...sessionCleanupPromises);
 
             if (shouldLog) {
-              logger.log(
+              logger.info(
                 chalk.bgGreen.white(
                   `[SOCKET] CLEANUP - Will preserve ${currentBrowserSockets.length} tabs from most recent browser for user ${userId}`,
                 ),
@@ -811,7 +811,7 @@ const initializeSocket = async (server) => {
           } else {
             // Single browser session - only log if it's a new state or hasn't been logged recently
             if (stateChanged && !lastState) {
-              logger.log(
+              logger.info(
                 chalk.bgGreen.white(
                   `[SOCKET] CLEANUP - User ${userId} has single browser session with ${userSockets.length} tabs - no cleanup needed`,
                 ),
@@ -920,7 +920,7 @@ const forceLogoutUser = async (
   }
 
   try {
-    logger.log(
+    logger.info(
       chalk.bgRed.white(
         `[SOCKET] forceLogoutUser - userId: ${userId}, target: ${targetSessionId}, exclude: ${excludeSessionId}`,
       ),
@@ -934,7 +934,7 @@ const forceLogoutUser = async (
       (socket) => socket.userId === userId,
     );
 
-    logger.log(
+    logger.info(
       chalk.bgRed.white(
         `[SOCKET] Found ${userActiveSocketsList.length} active sockets for user ${userId}`,
       ),
@@ -945,7 +945,7 @@ const forceLogoutUser = async (
       .filter((socket) => {
         // Skip if this is the session we want to exclude
         if (excludeSessionId && socket.sessionId === excludeSessionId) {
-          logger.log(
+          logger.info(
             chalk.green(
               `[SOCKET] Preserving session ${socket.id} with sessionId ${excludeSessionId}`,
             ),
@@ -955,7 +955,7 @@ const forceLogoutUser = async (
 
         // Skip if this is not the target session (when targeting specific session)
         if (targetSessionId && socket.sessionId !== targetSessionId) {
-          logger.log(
+          logger.info(
             chalk.green(`[SOCKET] Skipping non-target session ${socket.id}`),
           );
           return false;
@@ -964,7 +964,7 @@ const forceLogoutUser = async (
         return true;
       })
       .map(async (socket) => {
-        logger.log(
+        logger.info(
           chalk.red(`[SOCKET] Force disconnecting socket ${socket.id}`),
         );
 
@@ -995,7 +995,7 @@ const forceLogoutUser = async (
           // IMMEDIATE disconnection
           socket.disconnect(true);
 
-          logger.log(chalk.red(`[SOCKET] Disconnected socket ${socket.id}`));
+          logger.info(chalk.red(`[SOCKET] Disconnected socket ${socket.id}`));
         } catch (error) {
           logger.error(
             `[SOCKET] Error disconnecting socket ${socket.id}: ${error.message}`,
@@ -1040,7 +1040,7 @@ const forceLogoutUser = async (
       userSockets.delete(userId);
     }
 
-    logger.log(
+    logger.info(
       chalk.green(`[SOCKET] Completed force logout for user ${userId}`),
     );
   } catch (error) {
@@ -1082,7 +1082,7 @@ const notifyNewTableEntry = async (tableName, entryType, entryData) => {
     timestamp: new Date().toISOString(),
   };
 
-  logger.log(
+  logger.info(
     chalk.bold.cyan(
       `Emitting ${eventName} for table ${tableName}, type ${entryType}`,
     ),
@@ -1092,13 +1092,13 @@ const notifyNewTableEntry = async (tableName, entryType, entryData) => {
 // New function to emit event when a specific entry is updated/added in a table
 const newTableEntry = async (tableName, data) => {
   const eventName = `newTableEntry${tableName}`;
-  logger.log(chalk.bold.cyan(`Emitting ${eventName} for table ${tableName}`));
+  logger.info(chalk.bold.cyan(`Emitting ${eventName} for table ${tableName}`));
   await emitOrBridgeSocketEvent(eventName, data);
 };
 
 const logOutUser = async (user_id) => {
   const eventName = `newlogout`;
-  logger.log(chalk.bold.cyan(`Emitting ${eventName} for ${user_id}`));
+  logger.info(chalk.bold.cyan(`Emitting ${eventName} for ${user_id}`));
   await emitOrBridgeSocketEvent(eventName, user_id);
 };
 
@@ -1136,7 +1136,7 @@ const notifyBankResponseAccessUpdate = async (userId, bankResponseAccess, vendor
     timestamp: new Date().toISOString(),
   };
 
-  logger.log(
+  logger.info(
     chalk.bold.magenta(
       `[SOCKET] Emitting ${eventName} for user ${userId}, vendor ${vendorCode}, access: ${bankResponseAccess}`,
     ),
@@ -1156,7 +1156,7 @@ const notifyBankResponseAccessUpdate = async (userId, bankResponseAccess, vendor
   if (userSockets.length > 0) {
     userSockets.forEach((socket) => {
       socket.emit(`${eventName}_personal`, payload);
-      logger.log(
+      logger.info(
         chalk.bold.cyan(
           `[SOCKET] Sent personal notification to user ${userId} on socket ${socket.id}`,
         ),
@@ -1204,7 +1204,7 @@ const notifyBankResponseAccessUpdate = async (userId, bankResponseAccess, vendor
 
 //     const eventName = 'newCalculationTableEntry';
 //     logger.info(eventName, 'eventName');
-//     logger.log(chalk.bold.cyan(`Emitting ${eventName} for table ${tableName}`));
+//     logger.info(chalk.bold.cyan(`Emitting ${eventName} for table ${tableName}`));
 //     ioInstance.emit(eventName, {
 //       message: `Due to Insufficient Balance in ${user} account ${bankNickNames} has been Deactivated`,
 //     }); // Broadcast to all connected clients

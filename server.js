@@ -1,5 +1,6 @@
 import app from './src/app.js';
-import { createServer } from 'http';
+// Explicitly imports the built-in Node.js http module
+import { createServer } from 'node:http';
 import chalk from 'chalk';
 import config from './src/config/config.js';
 import { initializeSocket, shutdownSocket } from './src/utils/sockets.js';
@@ -12,7 +13,7 @@ import { closeRedis } from './src/utils/redisClient.js';
 const server = createServer(app);
 
 // Initialize Socket.IO with Redis adapter (async)
-await initializeSocket(server);
+initializeSocket(server);
 
 const PORT = config?.port || 8090;
 

@@ -1,6 +1,6 @@
 // To run local in cluster mode: npm run cluster
-import cluster from 'cluster';
-import os from 'os';
+import cluster from 'node:cluster';
+import os from 'node:os';
 
 const numCPUs = Math.min(os.cpus().length, 2); // Use 2 workers for local dev
 

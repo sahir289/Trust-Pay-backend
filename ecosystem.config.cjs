@@ -1,5 +1,5 @@
 const instances = process.env.NODE_ENV === 'production' ? 'max' : 2;
-//dldfm
+
 module.exports = {
     apps: [
         {
@@ -9,14 +9,19 @@ module.exports = {
             exec_mode: 'cluster',
             max_memory_restart: '1G',
             node_args: '--max-old-space-size=2048',
+            env: {
+                FORCE_COLOR: '1',
+            },
             env_production: {
                 NODE_ENV: 'production',
                 PORT: 8090,
+                FORCE_COLOR: '1',
                 RUN_CRONS: 'false', // Don't run crons in cluster workers
             },
             env_development: {
                 NODE_ENV: 'development',
                 PORT: 8090,
+                FORCE_COLOR: '1',
                 RUN_CRONS: 'false',
             },
             // Graceful shutdown
@@ -46,8 +51,12 @@ module.exports = {
             exec_mode: 'fork', // Not clustered
             max_memory_restart: '512M',
             node_args: '--max-old-space-size=1024',
+            env: {
+                FORCE_COLOR: '1',
+            },
             env_production: {
                 NODE_ENV: 'production',
+                FORCE_COLOR: '1',
                 BANK_RESPONSE_BOT_BULK_PREFETCH: 20,
                 BANK_RESPONSE_BOT_BULK_MAX_RETRIES: 5,
                 DB_WRITER_POOL_MAX: 10,
@@ -55,6 +64,7 @@ module.exports = {
             },
             env_development: {
                 NODE_ENV: 'development',
+                FORCE_COLOR: '1',
                 BANK_RESPONSE_BOT_BULK_PREFETCH: 2,
                 BANK_RESPONSE_BOT_BULK_MAX_RETRIES: 5,
                 DB_WRITER_POOL_MAX: 10,
@@ -77,8 +87,12 @@ module.exports = {
             exec_mode: 'fork',
             max_memory_restart: '512M',
             node_args: '--max-old-space-size=1024',
+            env: {
+                FORCE_COLOR: '1',
+            },
             env_production: {
                 NODE_ENV: 'production',
+                FORCE_COLOR: '1',
                 BANK_RESPONSE_BOT_BULK_PREFETCH: 4,
                 BANK_RESPONSE_BOT_BULK_MAX_RETRIES: 5,
                 DB_WRITER_POOL_MAX: 12,
@@ -89,6 +103,7 @@ module.exports = {
             },
             env_development: {
                 NODE_ENV: 'development',
+                FORCE_COLOR: '1',
                 BANK_RESPONSE_BOT_BULK_PREFETCH: 2,
                 BANK_RESPONSE_BOT_BULK_MAX_RETRIES: 5,
                 DB_WRITER_POOL_MAX: 8,
@@ -105,6 +120,38 @@ module.exports = {
             min_uptime: '10s',
             error_file: './logs/pm2-rabbitmq-error.log',
             out_file: './logs/pm2-rabbitmq-out.log',
+            log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
+        },
+        {
+            name: 'trust-pay-cloudwatch-forwarder',
+            script: './src/utils/cloudwatchForwarder.js',
+            instances: 1,
+            exec_mode: 'fork',
+            max_memory_restart: '256M',
+            autorestart: true,
+            max_restarts: 10,
+            min_uptime: '10s',
+            env: {
+                FORCE_COLOR: '1',
+            },
+            env_production: {
+                NODE_ENV: 'production',
+                FORCE_COLOR: '1',
+                LOG_DIR: 'logs',
+                CW_POLL_INTERVAL_MS: 1000,
+                CW_LOG_LEVEL: 'info',
+                CW_STREAM_PREFIX: '',
+            },
+            env_development: {
+                NODE_ENV: 'development',
+                FORCE_COLOR: '1',
+                LOG_DIR: 'logs',
+                CW_POLL_INTERVAL_MS: 1000,
+                CW_LOG_LEVEL: 'info',
+                CW_STREAM_PREFIX: 'dev-',
+            },
+            error_file: './logs/pm2-cw-forwarder-error.log',
+            out_file: './logs/pm2-cw-forwarder-out.log',
             log_date_format: 'YYYY-MM-DD HH:mm:ss Z',
         },
     ],

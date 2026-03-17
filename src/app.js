@@ -1,6 +1,7 @@
 import express from 'express';
-import bodyParser from 'body-parser';
+// import bodyParser from 'body-parser';
 import cors from 'cors';
+import helmet from 'helmet';
 import methodOverride from 'method-override';
 import cookieParser from 'cookie-parser';
 import timeout from 'connect-timeout';
@@ -17,53 +18,49 @@ import config from './config/config.js';
 const app = express();
 export const usedTokens = new Set();
 
-app.use(cookieParser());
-app.use(
-  bodyParser.json({
-    limit: '50mb',
-    extended: true,
-    verify: (req, res, buf) => {
-      req.rawBody = buf.toString();
-    },
-  }),
-);
-app.use(bodyParser.urlencoded({ limit: '50mb', extended: true, parameterLimit: 100000 }));
-app.use(express.static('public'));
-app.use(methodOverride());
-
-// const corsWhitelist = process.env.CORS_WHITELIST
-//   ? process.env.CORS_WHITELIST.split(',').map(url => url.trim())
-//   : [
-//       config.reactFrontOrigin,
-//       config.reactPaymentOrigin,
-//     ].filter(Boolean);
-
-const corsWhitelist = [
+app.use('/static', express.static('public'));
+app.use(helmet());
+// took Set here instead array as it will fast lookup 
+const corsWhitelist = new Set([
   config.reactFrontOrigin,
   config.reactPaymentOrigin,
-].filter(Boolean);
+].filter(Boolean));
 
-app.use(
-  cors({
-    origin: (origin, callback) => {
-      // Allow requests with no origin (mobile apps, curl, postman)
-      if (!origin) return callback(null, true);
+const corsOptions = {
+  origin: (origin, callback) => {
+    if (!origin) return callback(null, true);
 
-      // In development, allow all
-      if (config?.env !== 'production') return callback(null, true);
+    if (config?.env !== 'production') return callback(null, true);
 
-      // In production, check whitelist
-      if (corsWhitelist.includes(origin)) {
-        callback(null, true);
-      } else {
-        callback(new Error('Not allowed by CORS policy'));
-      }
-    },
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    credentials: true,
-  }),
-);
-app.use(express.json());
+    if (corsWhitelist.has(origin)) {
+      return callback(null, true);
+    }
+    console.warn('Blocked by CORS:', origin);
+    return callback(null, false);
+  },
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  credentials: true,
+  allowedHeaders: ['Content-Type', 'Authorization', 'x-auth-token'],
+  optionsSuccessStatus: 200,
+};
+
+app.use(cors(corsOptions));
+app.options('*', cors(corsOptions)); // it will handle preflight
+
+app.use(express.json({
+  limit: '50mb',
+  verify: (req, res, buf) => {
+    req.rawBody = buf.toString();
+  },
+}));
+app.use(express.urlencoded({
+  limit: '50mb',
+  extended: true,
+  parameterLimit: 100000,
+}));
+
+app.use(cookieParser());
+app.use(methodOverride());
 
 // Request sanitization - MUST come early to sanitize all inputs
 app.use(requestSanitizerMiddleware);
@@ -76,7 +73,7 @@ app.use(apis);
 // Timeout: 10s for production, 30s for development (calculations can be slow)
 app.use(timeout(config?.env === 'production' ? '20s' : '30s'));
 
-app.use(errorHandler);
 app.use(methodNotFound);
+app.use(errorHandler);
 
 export default app;
