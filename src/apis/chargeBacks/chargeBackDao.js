@@ -734,3 +734,15 @@ export const deleteChargeBackDao = async (id, data, conn = null) => {
     throw error;
   }
 };
+
+// Lightweight existence check for ChargeBack by payin_id
+export const chargeBackExistsByPayinIdDao = async (payinId, conn = null) => {
+  try {
+    const sql = `SELECT 1 FROM "${tableName.CHARGE_BACK}" WHERE payin_id = $1 AND is_obsolete = false LIMIT 1`;
+    const result = await executeQuery(sql, [payinId], conn);
+    return result.rows.length > 0;
+  } catch (error) {
+    logger.error('Error checking chargeback existence by payin_id:', error);
+    throw error;
+  }
+};
