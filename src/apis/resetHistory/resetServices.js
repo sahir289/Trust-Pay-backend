@@ -15,6 +15,7 @@ import {
 } from './resetDao.js';
 import { BadRequestError } from '../../utils/appErrors.js';
 import { logger } from '../../utils/logger.js';
+import { beginTransaction, commit, getConnection, rollback } from '../../utils/db.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 const getResetHistoryService = async (
   id,
@@ -123,8 +124,11 @@ const createResetHistoryService = async (payload) => {
 };
 
 const updateResetHistoryService = async (id, company_id) => {
+  let conn;
   try {
-    const payInData = await getPayInResetBasicDao({ merchant_order_id: id });
+    conn = await getConnection();
+    await beginTransaction(conn);
+    const payInData = await getPayInResetBasicDao({ merchant_order_id: id }, conn);
     // await sendResetEntryTelegramMessage(
     //   config?.telegramEntryResetChatId,
     //   payInData,
@@ -132,19 +136,19 @@ const updateResetHistoryService = async (id, company_id) => {
     // );
     if (payInData?.status !== 'SUCCESS' && payInData?.status !== 'FAILED') {
       const utr = payInData.user_submitted_utr;
-      const botRes = await getBankResponseDao({ utr: utr });
+      const botRes = await getBankResponseDao({ utr: utr }, null, null, null, null, null, conn);
 
       let getallPayinDataByUtr;
       getallPayinDataByUtr = await getPayInResetBasicDao({
         user_submitted_utr: utr,
-      });
+      }, conn);
 
       if (getallPayinDataByUtr) {
         const hasSuccess = getallPayinDataByUtr.some(
           (item) => item.status === 'SUCCESS',
         );
         if (!hasSuccess && botRes?.id) {
-          await updateBotResponseDao({ id: botRes?.id }, { is_used: false });
+          await updateBotResponseDao({ id: botRes?.id }, { is_used: false }, conn);
         }
       }
       // const result =
@@ -158,14 +162,19 @@ const updateResetHistoryService = async (id, company_id) => {
           user_submitted_utr: null,
           duration: null,
         },
+        conn
       );
+      await commit(conn);
       return 'Transaction Reset Successfully';
     } else {
       return 'Transaction status is SUCCESS or FAILED, no update applied';
     }
   } catch (error) {
+    conn && await rollback(conn);
     logger.error('error getting while reset history', error);
     throw new InternalServerError('Error getting while reset history');
+  } finally {
+    conn && await conn.release();
   }
 };
 const deleteResetHistoryService = async (id) => {
