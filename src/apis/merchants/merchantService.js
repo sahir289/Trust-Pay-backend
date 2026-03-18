@@ -154,9 +154,7 @@ const getMerchantsService = async (
   designation,
   user_id,
 ) => {
-  let conn;
   try {
-    conn = await getConnection('reader');
     const filterColumns =
       role === Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
     const pageNumber = parseInt(page, 10) || 1;
@@ -175,7 +173,6 @@ const getMerchantsService = async (
         null,
         null,
         null,
-        conn,
       );
       const userHierarchy = userHierarchys[0];
       if (designation === Role.MERCHANT || designation === Role.SUB_MERCHANT) {
@@ -199,7 +196,6 @@ const getMerchantsService = async (
             null,
             null,
             null,
-            conn,
           );
           const parentHierarchy = parentHierarchys[0];
           if (parentHierarchy?.config?.siblings?.sub_merchants) {
@@ -224,7 +220,6 @@ const getMerchantsService = async (
       'updated_at',
       null,
       role,
-      conn,
     );
 
     const finalResult = filterResponse(data, filterColumns);
@@ -232,8 +227,6 @@ const getMerchantsService = async (
   } catch (error) {
     logger.error('Error while fetching merchants', error);
     throw error;
-  } finally {
-    if (conn) conn.release();
   }
 };
 // let searchTerms;
@@ -249,9 +242,7 @@ const getMerchantsBySearchService = async (
   designation,
   user_id,
 ) => {
-  let conn;
   try {
-    conn = await getConnection('reader');
     // const filterColumns =
     //   role === Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
     const pageNumber = parseInt(filters?.page, 10) || 1;
@@ -270,7 +261,6 @@ const getMerchantsBySearchService = async (
         null,
         null,
         null,
-        conn,
       );
       const userHierarchy = userHierarchys[0];
       if (designation === Role.MERCHANT || designation === Role.SUB_MERCHANT) {
@@ -294,7 +284,6 @@ const getMerchantsBySearchService = async (
             null,
             null,
             null,
-            conn,
           );
           const parentHierarchy = parentHierarchys[0];
           if (parentHierarchy?.config?.siblings?.sub_merchants) {
@@ -328,7 +317,6 @@ const getMerchantsBySearchService = async (
       null,
       role,
       searchTerms,
-      conn,
     );
 
     // let data = await getAllMerchantsDao(
@@ -345,8 +333,6 @@ const getMerchantsBySearchService = async (
   } catch (error) {
     logger.error('Error while fetching merchants by search', error);
     throw new InternalServerError(error.message);
-  } finally {
-    if (conn) conn.release();
   }
 };
 
@@ -359,12 +345,7 @@ const getMerchantsServiceCode = async (
   includeOnlyMerchants,
   excludeDisabledMerchant,
 ) => {
-  let conn;
-  let committed = false;
   try {
-    conn = await getConnection('reader');
-    await beginTransaction(conn);
-
     let userIdFilter = Array.isArray(user_id)
       ? [...user_id]
       : user_id
@@ -379,7 +360,6 @@ const getMerchantsServiceCode = async (
         null,
         null,
         null,
-        conn,
       );
       const userHierarchy = userHierarchys[0];
 
@@ -402,7 +382,6 @@ const getMerchantsServiceCode = async (
             null,
             null,
             null,
-            conn,
           );
           const parentHierarchy = parentHierarchys[0];
           const subMerchants =
@@ -426,19 +405,11 @@ const getMerchantsServiceCode = async (
       includeSubMerchants,
       includeOnlyMerchants,
       excludeDisabledMerchant,
-      conn,
     );
-    await commit(conn);
-    committed = true;
     return codes;
   } catch (error) {
-    if (conn && !committed) {
-      await rollback(conn);
-    }
     logger.error('Error while getting merchants codes', error);
     throw error;
-  } finally {
-    if (conn) conn.release();
   }
 };
 
@@ -653,9 +624,7 @@ const getMerchantByIdService = async (
   role,
   addUserHierarchy = false,
 ) => {
-  let conn;
   try {
-    conn = await getConnection('reader');
     const entryColumns =
       role === Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
     const filterColumns = entryColumns.includes('user_id')
@@ -668,7 +637,6 @@ const getMerchantByIdService = async (
       null,
       null,
       filterColumns,
-      conn,
     );
 
     const merchant = dataArr[0];
@@ -689,7 +657,6 @@ const getMerchantByIdService = async (
         null,
         null,
         null,
-        conn,
       );
       const userHierarchy = userHierarchys[0];
 
@@ -712,7 +679,6 @@ const getMerchantByIdService = async (
         null,
         null,
         filterColumns,
-        conn,
       );
     }
 
@@ -720,8 +686,6 @@ const getMerchantByIdService = async (
   } catch (error) {
     logger.error('Error while fetching merchant by ID', error);
     throw error;
-  } finally {
-    if (conn) conn.release();
   }
 };
 

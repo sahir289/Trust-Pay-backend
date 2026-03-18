@@ -145,8 +145,6 @@ import {
 import { createSilkPaymentTransaction } from '../../intent/createSilkIntentTransaction.js';
 import { getCachedData ,setCachedData } from '../../utils/redishashkey.js';
 export const generatePayInUrlByHashService = async (req) => {
-  let conn;
-  let committed = false; 
   try {
     const { user_id, code, ot, key, amount } = req.query;
     const { role_id, role } = req.user;
@@ -157,10 +155,8 @@ export const generatePayInUrlByHashService = async (req) => {
       };
       return data;
     }
-    conn = await getConnection();
-    await beginTransaction(conn);
     // const x_api_key = req.headers['x-api-key'];
-    const merchantArr = await getMerchantsByCodeDao(code, undefined, conn);
+    const merchantArr = await getMerchantsByCodeDao(code);
     if (merchantArr.length === 0) {
       const data = {
         status: 404,
@@ -170,10 +166,10 @@ export const generatePayInUrlByHashService = async (req) => {
     }
     const bankAssigned = await getMerchantBankDao({
       config_merchants_contains: merchantArr[0].id,
-    }, conn);
+    });
     const [company] = await getCompanyByIDDao({
       id: merchantArr[0].company_id,
-    }, conn);
+    });
     if (bankAssigned.length <= 0) {
       await sendBankNotAssignedAlertTelegram(
         company.config?.telegramBankAlertChatId,
@@ -239,15 +235,10 @@ export const generatePayInUrlByHashService = async (req) => {
     const updateRes = {
       payInUrl: `${config.reactPaymentOrigin}/transaction/${encodedHash}?${query}`,
     };
-    await commit(conn);
-    committed = true;
     return updateRes;
   } catch (error) {
-    if (conn && !committed) await rollback(conn);
     logger.error('Error generating payin hash:', error);
     throw error;
-  } finally {
-    if (conn) conn.release();
   }
 };
 

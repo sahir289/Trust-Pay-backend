@@ -447,14 +447,12 @@ const getPayoutsService = async (
   user_id,
   designation,
 ) => {
-  let conn;
   try {
-    conn = await getConnection();
-    const fetchMerchantIds = async (user_ids, conn) => {
-      const merchants = await getMerchantByUserIdDao(user_ids, conn);
+    const fetchMerchantIds = async (user_ids) => {
+      const merchants = await getMerchantByUserIdDao(user_ids);
       return merchants.map((merchant) => merchant.id);
     };
-    const fetchVendorIds = async (user_ids, conn) => {
+    const fetchVendorIds = async (user_ids) => {
       const vendors = await getVendorsDao(
         { user_id: user_ids },
         null,
@@ -463,7 +461,6 @@ const getPayoutsService = async (
         null,
         null,
         null,
-        conn,
       );
       return vendors.map((vendor) => vendor.id);
     };
@@ -478,7 +475,6 @@ const getPayoutsService = async (
         null,
         null,
         null,
-        conn,
       );
       const userHierarchy = userHierarchys?.[0];
 
@@ -487,12 +483,12 @@ const getPayoutsService = async (
           userHierarchy?.config?.siblings?.sub_merchants ?? [];
         if (Array.isArray(subMerchants) && subMerchants.length > 0) {
           merchant_user_id = [...merchant_user_id, ...subMerchants];
-          filters.merchant_id = await fetchMerchantIds(merchant_user_id, conn);
+          filters.merchant_id = await fetchMerchantIds(merchant_user_id);
         } else {
-          filters.merchant_id = await fetchMerchantIds([user_id], conn);
+          filters.merchant_id = await fetchMerchantIds([user_id]);
         }
       } else if (designation === Role.SUB_MERCHANT) {
-        filters.merchant_id = await fetchMerchantIds([user_id], conn);
+        filters.merchant_id = await fetchMerchantIds([user_id]);
       } else if (designation === Role.MERCHANT_OPERATIONS && userHierarchy) {
         const parentID = userHierarchy?.config?.parent;
         if (parentID) {
@@ -505,14 +501,13 @@ const getPayoutsService = async (
             null,
             null,
             null,
-            conn,
           );
           const parentHierarchy = parentHierarchys?.[0];
           const subMerchants =
             parentHierarchy?.config?.siblings?.sub_merchants ?? [];
 
           const userIdFilter = [...new Set([parentID, ...subMerchants])];
-          filters.merchant_id = await fetchMerchantIds(userIdFilter, conn);
+          filters.merchant_id = await fetchMerchantIds(userIdFilter);
         }
       }
     } else if (role === Role.VENDOR || role === Role.SUB_VENDOR) {
@@ -524,7 +519,6 @@ const getPayoutsService = async (
           null,
           null,
           null,
-          conn,
         );
         const userHierarchy = userHierarchys?.[0];
         const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
@@ -532,14 +526,14 @@ const getPayoutsService = async (
           const vendorUserIds = [user_id, ...subVendors];
           filters.vendor_id = [];
           for (const vendorUserId of vendorUserIds) {
-            const vendorId = await fetchVendorIds([vendorUserId], conn);
+            const vendorId = await fetchVendorIds([vendorUserId]);
             filters.vendor_id.push(...vendorId);
           }
         } else {
-          filters.vendor_id = await fetchVendorIds([user_id], conn);
+          filters.vendor_id = await fetchVendorIds([user_id]);
         }
       } else if (designation === Role.SUB_VENDOR) {
-        filters.vendor_id = await fetchVendorIds([user_id], conn);
+        filters.vendor_id = await fetchVendorIds([user_id]);
       } else if (designation === Role.VENDOR_OPERATIONS) {
         const userHierarchys = await getUserHierarchysDao(
           { user_id },
@@ -548,7 +542,6 @@ const getPayoutsService = async (
           null,
           null,
           null,
-          conn,
         );
         const userHierarchy = userHierarchys?.[0];
         const parentID = userHierarchy?.config?.parent;
@@ -562,14 +555,13 @@ const getPayoutsService = async (
             null,
             null,
             null,
-            conn,
           );
           const parentHierarchy = parentHierarchys?.[0];
           const subVendors =
             parentHierarchy?.config?.siblings?.sub_vendors ?? [];
 
           const userIdFilter = [...new Set([parentID, ...subVendors])];
-          filters.vendor_id = await fetchVendorIds(userIdFilter, conn);
+          filters.vendor_id = await fetchVendorIds(userIdFilter);
         }
       }
     }
@@ -581,17 +573,12 @@ const getPayoutsService = async (
       limit,
       sortOrder,
       role,
-      conn,
     );
 
     return { totalCount: data[0]?.total, payout: data };
   } catch (error) {
     logger.error('Error in getPayoutsService:', error);
     throw error;
-  } finally {
-    if (conn) {
-      await conn.release();
-    }
   }
 };
 
@@ -602,16 +589,14 @@ const getPayoutsBySearchService = async (
   designation,
   isAmount,
 ) => {
-  let conn;
   try {
-    conn = await getConnection();
-    const fetchMerchantIds = async (user_ids, conn) => {
-      const merchants = await getMerchantByUserIdDao(user_ids, conn);
+    const fetchMerchantIds = async (user_ids) => {
+      const merchants = await getMerchantByUserIdDao(user_ids);
       return merchants.map((merchant) => merchant.id);
     };
 
-    const fetchVendorIds = async (user_ids, conn) => {
-      const vendors = await getVendorIdsByUserIds(user_ids, conn);
+    const fetchVendorIds = async (user_ids) => {
+      const vendors = await getVendorIdsByUserIds(user_ids);
       return vendors;
     };
 
@@ -625,7 +610,6 @@ const getPayoutsBySearchService = async (
         null,
         null,
         null,
-        conn,
       );
       const userHierarchy = userHierarchys?.[0];
 
@@ -634,12 +618,12 @@ const getPayoutsBySearchService = async (
           userHierarchy?.config?.siblings?.sub_merchants ?? [];
         if (Array.isArray(subMerchants) && subMerchants.length > 0) {
           merchant_user_id = [...merchant_user_id, ...subMerchants];
-          filters.merchant_id = await fetchMerchantIds(merchant_user_id, conn);
+          filters.merchant_id = await fetchMerchantIds(merchant_user_id);
         } else {
-          filters.merchant_id = await fetchMerchantIds([user_id], conn);
+          filters.merchant_id = await fetchMerchantIds([user_id]);
         }
       } else if (designation === Role.SUB_MERCHANT) {
-        filters.merchant_id = await fetchMerchantIds([user_id], conn);
+        filters.merchant_id = await fetchMerchantIds([user_id]);
       } else if (designation === Role.MERCHANT_OPERATIONS && userHierarchy) {
         const parentID = userHierarchy?.config?.parent;
         if (parentID) {
@@ -652,14 +636,13 @@ const getPayoutsBySearchService = async (
             null,
             null,
             null,
-            conn,
           );
           const parentHierarchy = parentHierarchys?.[0];
           const subMerchants =
             parentHierarchy?.config?.siblings?.sub_merchants ?? [];
 
           const userIdFilter = [...new Set([parentID, ...subMerchants])];
-          filters.merchant_id = await fetchMerchantIds(userIdFilter, conn);
+          filters.merchant_id = await fetchMerchantIds(userIdFilter);
         }
       }
     } else if (role === Role.VENDOR) {
@@ -671,19 +654,18 @@ const getPayoutsBySearchService = async (
           null,
           null,
           null,
-          conn,
         );
         const userHierarchy = userHierarchys?.[0];
 
         const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
         if (Array.isArray(subVendors) && subVendors.length > 0) {
           const vendorUserIds = [user_id, ...subVendors];
-          filters.vendor_id = await fetchVendorIds(vendorUserIds, conn);
+          filters.vendor_id = await fetchVendorIds(vendorUserIds);
         } else {
-          filters.vendor_id = await fetchVendorIds([user_id], conn);
+          filters.vendor_id = await fetchVendorIds([user_id]);
         }
       } else if (designation === Role.SUB_VENDOR) {
-        filters.vendor_id = await fetchVendorIds([user_id], conn);
+        filters.vendor_id = await fetchVendorIds([user_id]);
       } else if (designation === Role.VENDOR_OPERATIONS) {
         const userHierarchys = await getUserHierarchysDao(
           { user_id },
@@ -692,7 +674,6 @@ const getPayoutsBySearchService = async (
           null,
           null,
           null,
-          conn,
         );
         const userHierarchy = userHierarchys?.[0];
         const parentID = userHierarchy?.config?.parent;
@@ -706,14 +687,13 @@ const getPayoutsBySearchService = async (
             null,
             null,
             null,
-            conn,
           );
           const parentHierarchy = parentHierarchys?.[0];
           const subVendors =
             parentHierarchy?.config?.siblings?.sub_vendors ?? [];
 
           const userIdFilter = [...new Set([parentID, ...subVendors])];
-          filters.vendor_id = await fetchVendorIds(userIdFilter, conn);
+          filters.vendor_id = await fetchVendorIds(userIdFilter);
         }
       }
     }
@@ -727,7 +707,6 @@ const getPayoutsBySearchService = async (
         null,
         null,
         null,
-        conn,
       );
       if (vendorDetails.length === 0) {
         return;
@@ -741,14 +720,13 @@ const getPayoutsBySearchService = async (
         null,
         null,
         null,
-        conn,
       );
       const subVendors =
         parentHierarchys[0]?.config?.siblings?.sub_vendors ?? [];
       const userIdFilter = [
         ...new Set([vendorDetails[0].user_id, ...subVendors]),
       ];
-      filters.vendor_id = await fetchVendorIds(userIdFilter, conn);
+      filters.vendor_id = await fetchVendorIds(userIdFilter);
       delete filters.vendor_code;
     }
     const pageNum = parseInt(filters.page);
@@ -775,17 +753,12 @@ const getPayoutsBySearchService = async (
       offset,
       role,
       isAmount,
-      conn,
     );
 
     return data;
   } catch (error) {
     logger.error('Error while fetching Payout by search', error);
     throw error;
-  } finally {
-    if (conn) {
-      await conn.release();
-    }
   }
 };
 
@@ -1823,9 +1796,7 @@ const checkPayOutStatusService = async (
   merchantOrderId,
   api_key,
 ) => {
-  let conn;
   try {
-    conn = await getConnection();
     const merchantArr = await getMerchantsDao(
       { code: merchantCode },
       null,
@@ -1834,7 +1805,6 @@ const checkPayOutStatusService = async (
       null,
       null,
       null,
-      conn,
     );
     const merchant = merchantArr[0];
     if (!merchant) {
@@ -1869,7 +1839,6 @@ const checkPayOutStatusService = async (
       null,
       null,
       null,
-      conn,
     );
     if (payOut.length == 0) {
       const data = {
@@ -1898,10 +1867,6 @@ const checkPayOutStatusService = async (
   } catch (error) {
     logger.error('Error check payout status:', error);
     throw error;
-  } finally {
-    if (conn) {
-      await conn.release();
-    }
   }
 };
 

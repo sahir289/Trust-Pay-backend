@@ -51,9 +51,7 @@ const getUsersService = async (
   designation,
   user_id,
 ) => {
-  let conn;
   try {
-    conn = await getConnection();
     const filterColumns =
       role === Role.MERCHANT
         ? merchantColumns.USER
@@ -78,7 +76,6 @@ const getUsersService = async (
         null,
         null,
         null,
-        conn,
       );
       const userHierarchy = userHierarchyData[0];
 
@@ -99,7 +96,6 @@ const getUsersService = async (
             null,
             null,
             null,
-            conn,
           );
           const parentHierarchy = parentHierarchyData[0];
 
@@ -119,7 +115,6 @@ const getUsersService = async (
                 null,
                 null,
                 null,
-                conn,
               );
               const subHierarchy = subHierarchyData?.[0];
               const subOps = subHierarchy?.config?.child?.operations ?? [];
@@ -147,7 +142,6 @@ const getUsersService = async (
             null,
             null,
             null,
-            conn,
           );
           const subHierarchy = subHierarchyData?.[0];
           const subOps = subHierarchy?.config?.child?.operations ?? [];
@@ -168,15 +162,10 @@ const getUsersService = async (
       null,
       null,
       filterColumns,
-      conn,
     );
   } catch (error) {
     logger.error('error getting while fetching user', error);
     throw error;
-  } finally {
-    if (conn) {
-      conn.release();
-    }
   }
 };
 
@@ -188,9 +177,7 @@ const getUsersBySearchService = async (
   designation,
   user_id,
 ) => {
-  let conn;
   try {
-    conn = await getConnection();
     // const filterColumns =
     //   role === Role.MERCHANT
     //     ? merchantColumns.USER
@@ -215,7 +202,6 @@ const getUsersBySearchService = async (
         null,
         null,
         null,
-        conn,
       );
       const userHierarchy = userHierarchyData[0];
 
@@ -236,7 +222,6 @@ const getUsersBySearchService = async (
             null,
             null,
             null,
-            conn,
           );
           const parentHierarchy = parentHierarchyData[0];
 
@@ -256,7 +241,6 @@ const getUsersBySearchService = async (
                 null,
                 null,
                 null,
-                conn,
               );
               const subHierarchy = subHierarchyData?.[0];
               const subOps = subHierarchy?.config?.child?.operations ?? [];
@@ -284,7 +268,6 @@ const getUsersBySearchService = async (
             null,
             null,
             null,
-            conn,
           );
           const subHierarchy = subHierarchyData?.[0];
           const subOps = subHierarchy?.config?.child?.operations ?? [];
@@ -306,7 +289,6 @@ const getUsersBySearchService = async (
             null,
             null,
             null,
-            conn,
           );
           const subHierarchy = subHierarchyData?.[0];
           const subOps = subHierarchy?.config?.child?.operations ?? [];
@@ -341,10 +323,6 @@ const getUsersBySearchService = async (
   } catch (error) {
     logger.error('Error while fetching users by search', error);
     throw new InternalServerError(error.message);
-  } finally {
-    if (conn) {
-      conn.release();
-    }
   }
 };
 const getUserByIdService = async (ids, role) => {

@@ -149,9 +149,7 @@ const getVendorsService = async (
   designation,
   user_id,
 ) => {
-  let conn;
   try {
-    conn = await getConnection('reader');
     const pageNumber = parseInt(page, 10) || 1;
     const pageSize = parseInt(limit, 10) || 10;
 
@@ -169,7 +167,6 @@ const getVendorsService = async (
         null,
         null,
         null,
-        conn,
       );
       const userHierarchy = userHierarchys[0];
 
@@ -193,7 +190,6 @@ const getVendorsService = async (
             null,
             null,
             null,
-            conn,
           );
           const parentHierarchy = parentHierarchys[0];
           if (parentHierarchy?.config?.siblings?.sub_vendors) {
@@ -222,13 +218,10 @@ const getVendorsService = async (
       null,
       role, //-role specific details
       null,
-      conn,
     );
   } catch (error) {
     logger.error('Error while fetching vendors', error);
     throw error;
-  } finally {
-    if (conn) conn.release();
   }
 };
 
@@ -244,12 +237,7 @@ const getVendorsCodeService = async (
   includeVendorAdmin,
   isEnabled,
 ) => {
-  let conn;
-  let committed = false;
   try {
-    conn = await getConnection('reader');
-    await beginTransaction(conn);
-
     let userIdFilter = Array.isArray(user_id)
       ? [...user_id]
       : user_id
@@ -264,7 +252,6 @@ const getVendorsCodeService = async (
         null,
         null,
         null,
-        conn,
       );
       const userHierarchy = userHierarchys[0];
 
@@ -286,7 +273,6 @@ const getVendorsCodeService = async (
             null,
             null,
             null,
-            conn,
           );
           const parentHierarchy = parentHierarchys[0];
           const subVendors =
@@ -314,17 +300,10 @@ const getVendorsCodeService = async (
       includeVendorAdmin,
       isEnabled,
     );
-    await commit(conn);
-    committed = true;
     return codes;
   } catch (error) {
-    if (conn && !committed) {
-      await rollback(conn);
-    }
     logger.error('Error while getting vendors codes', error);
     throw error;
-  } finally {
-    if (conn) conn.release();
   }
 };
 
@@ -336,9 +315,7 @@ const getVendorsBySearchService = async (
   designation,
   user_id,
 ) => {
-  let conn;
   try {
-    conn = await getConnection('reader');
     const pageNumber = parseInt(page, 10) || 1;
     const pageSize = parseInt(limit, 10) || 10;
 
@@ -356,7 +333,6 @@ const getVendorsBySearchService = async (
         null,
         null,
         null,
-        conn,
       );
       const userHierarchy = userHierarchys[0];
 
@@ -380,7 +356,6 @@ const getVendorsBySearchService = async (
             null,
             null,
             null,
-            conn,
           );
           const parentHierarchy = parentHierarchys[0];
           if (parentHierarchy?.config?.siblings?.sub_vendors) {
@@ -415,7 +390,6 @@ const getVendorsBySearchService = async (
       pageSize,
       searchTerms,
       null,
-      conn,
     );
 
     return data;
@@ -582,9 +556,7 @@ const deleteVendorService = async (ids, updated_by) => {
 };
 
 const getBankResponseAccessByIDService = async (id, designation) => {
-  let conn;
   try {
-    conn = await getConnection('reader');
     let userId = id;
     if (designation === Role.VENDOR_OPERATIONS) {
       const [userHierarchys] = await getUserHierarchysDao(
@@ -594,11 +566,10 @@ const getBankResponseAccessByIDService = async (id, designation) => {
         null,
         null,
         null,
-        conn,
       );
       userId = userHierarchys?.config?.parent || id;
     }
-    const data = await getBankResponseAccessByIDDao(userId, conn);
+    const data = await getBankResponseAccessByIDDao(userId);
     return data;
   } catch (error) {
     logger.error('Error while fetching bank response access', error);
