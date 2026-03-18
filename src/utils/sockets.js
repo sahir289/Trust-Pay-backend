@@ -1048,12 +1048,16 @@ const forceLogoutUser = async (
     logger.error(error.stack);
   }
 
-  // Emit global logout event
-  ioInstance.emit('userLoggedOut', {
-    userId,
-    sessionId: targetSessionId,
-    reason: 'forced_logout',
-  });
+  // Only emit global logout event if this is a complete logout (not session exclusion)
+  // When excludeSessionId is provided, we're preserving the new login and shouldn't
+  // broadcast logout to the client that just logged in
+  if (!excludeSessionId) {
+    ioInstance.emit('userLoggedOut', {
+      userId,
+      sessionId: targetSessionId,
+      reason: 'forced_logout',
+    });
+  }
 };
 
 const deactivateBank = (nickName, bankId, userId, isWarning = false) => {

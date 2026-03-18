@@ -60,15 +60,20 @@ const createGeoGuard = (options = {}) => {
     try {
       const clientIp = getClientIp(req);
       let location = req.body?.user_location;
+      let prefetchedProxyInfo = null;
 
       if (!location || typeof location !== 'object') {
         logger.warn('Location not provided, attempting to fetch from Proxy/VPN service', { ip: clientIp });
-        const proxyInfo = await withTimeout(checkProxyAndVpn(clientIp), 3000, 'Proxy/VPN check');
-        if (proxyInfo && proxyInfo.raw.latitude && proxyInfo.raw.longitude) {
+        prefetchedProxyInfo = await withTimeout(
+          checkProxyAndVpn(clientIp),
+          3000,
+          'Proxy/VPN check',
+        );
+        if (prefetchedProxyInfo?.raw?.latitude && prefetchedProxyInfo?.raw?.longitude) {
           location = {
-            latitude: proxyInfo.raw.latitude,
-            longitude: proxyInfo.raw.longitude,
-            accuracy: proxyInfo.accuracy || null,
+            latitude: prefetchedProxyInfo.raw.latitude,
+            longitude: prefetchedProxyInfo.raw.longitude,
+            accuracy: prefetchedProxyInfo.accuracy || null,
           };
         } else {
           logger.error('Failed to fetch location from Proxy/VPN service', { ip: clientIp });
@@ -83,15 +88,12 @@ const createGeoGuard = (options = {}) => {
         ));
       }
 
-      // if (accuracy > maxAccuracy) {
-      //   console.log(accuracy, "accuracy", maxAccuracy, "max accuracy ++++");
-      //   return next( new BadRequestError(
-      //     `Location accuracy too low (${accuracy}m). Maximum allowed: ${maxAccuracy}m.`,
-      //   ));
-      // }
+      const proxyInfoPromise = prefetchedProxyInfo
+        ? Promise.resolve(prefetchedProxyInfo)
+        : withTimeout(checkProxyAndVpn(clientIp), 3000, 'Proxy/VPN check');
 
       const [proxyInfo, address] = await Promise.allSettled([
-        withTimeout(checkProxyAndVpn(clientIp), 3000, 'Proxy/VPN check'),
+        proxyInfoPromise,
         withTimeout(
           reverseGeocode(latitude, longitude),
           3000,
