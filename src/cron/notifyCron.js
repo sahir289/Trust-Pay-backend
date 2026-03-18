@@ -8,7 +8,6 @@ import {
 import { merchantPayinCallback } from '../callBacksAndWebHook/merchantCallBacks.js';
 import { logger } from '../utils/logger.js';
 import { calculateDuration } from '../helpers/index.js';
-import { beginTransaction, commit, getConnection, rollback } from '../utils/db.js';
 // import config from '../config/config.js';
 
 let notifyCronJob = null;
@@ -42,19 +41,16 @@ export const stopNotifyCron = () => {
 const collectPayinData = async (timezone = 'Asia/Kolkata') => {
   const currentTime = moment().tz(timezone, true);
   const expireTime = currentTime.clone().subtract(10, 'minutes').toISOString();
-  let conn;
   try {
-    conn = await getConnection();
-    await beginTransaction(conn);
     // Get payins already DROPPED but not notified
     const payinsDropped = await getPayInsForCronDao({
       status: ['FAILED', 'DROPPED'],
       is_notified: 'false',
-    },conn);
+    });
     
     // Update INITIATED payins older than 10 minutes - fetch only expired ones
-    const payinsInitiatedExpired = await getExpiredPayInsDao(expireTime, 'INITIATED', 'created_at', conn);
-    const payinsInitiatedAll = await getPayInsForCronDao({ status: 'INITIATED' }, conn);
+    const payinsInitiatedExpired = await getExpiredPayInsDao(expireTime, 'INITIATED', 'created_at');
+    const payinsInitiatedAll = await getPayInsForCronDao({ status: 'INITIATED' });
     
     // FIXED: Process updates in small batches to prevent pool exhaustion
     const BATCH_SIZE = 5; // Process 5 at a time instead of all at once
@@ -69,7 +65,7 @@ const collectPayinData = async (timezone = 'Asia/Kolkata') => {
           status: 'FAILED',
           is_url_expires: true,
           duration,
-        }, conn);
+        });
       }));
     }
     
@@ -85,7 +81,7 @@ const collectPayinData = async (timezone = 'Asia/Kolkata') => {
           status: 'FAILED',
           is_url_expires: true,
           duration,
-        }, conn);
+        });
       }));
     }
     
@@ -98,8 +94,8 @@ const collectPayinData = async (timezone = 'Asia/Kolkata') => {
     }
     
     // Update ASSIGNED payins older than 10 minutes - fetch only expired ones
-    const payinsAssignedExpired = await getExpiredPayInsDao(expireTime, 'ASSIGNED', 'updated_at', conn);
-    const payinsAssignedAll = await getPayInsForCronDao({ status: 'ASSIGNED' }, conn);
+    const payinsAssignedExpired = await getExpiredPayInsDao(expireTime, 'ASSIGNED', 'updated_at');
+    const payinsAssignedAll = await getPayInsForCronDao({ status: 'ASSIGNED' });
     
     // Process expired payins in batches
     const assignedExpiredToUpdate = payinsAssignedExpired;
@@ -111,7 +107,7 @@ const collectPayinData = async (timezone = 'Asia/Kolkata') => {
           status: 'DROPPED',
           is_url_expires: true,
           duration,
-        }, conn);
+        });
       }));
     }
     
@@ -127,7 +123,7 @@ const collectPayinData = async (timezone = 'Asia/Kolkata') => {
           status: 'DROPPED',
           is_url_expires: true,
           duration,
-        }, conn);
+        });
       }));
     }
     
@@ -141,15 +137,10 @@ const collectPayinData = async (timezone = 'Asia/Kolkata') => {
     
     // Process notifications for dropped but unnotified payins
     if (payinsDropped?.length) {
-      await processPayinNotifications(payinsDropped, conn);
+      await processPayinNotifications(payinsDropped);
     }
-    await commit(conn);
   } catch (error) {
-    conn && await rollback(conn); // Rollback on error
     logger.error('Error while collecting payin data:', error);
-  }
-  finally {
-    conn && await conn.release();
   }
 };
 

@@ -10,7 +10,6 @@ import { Status } from '../constants/index.js';
 import { BadRequestError } from './appErrors.js';
 import { logger } from './logger.js';
 import safeStringify from 'fast-safe-stringify';
-import { beginTransaction, commit, getConnection, rollback } from './db.js';
 
 export const multerUpload = multer({
   storage: multerS3({
@@ -51,11 +50,8 @@ export async function expirePayInIfNeeded(payInId) {
 
   const timeout = setTimeout(
     async () => {
-      let conn;
       try {
-        conn = await getConnection();
-        await beginTransaction(conn);
-        const payIn = await getPayInForExpireDao({ id: payInId }, conn);
+        const payIn = await getPayInForExpireDao({ id: payInId });
         if (!payIn) {
           throw new BadRequestError('Payin not found!', payInId);
         }
@@ -64,13 +60,10 @@ export async function expirePayInIfNeeded(payInId) {
           return;
         }
 
-        await updatePayInUrlDao(payInId, { status: Status.DROPPED }, conn);
-        await commit(conn);
+        await updatePayInUrlDao(payInId, { status: Status.DROPPED });
       } catch (error) {
-        conn && await rollback(conn);
         logger.error(`Error executing PayIn ${payInId} task:`, error);
       } finally {
-        conn && await conn.release();
         scheduledJobs.delete(payInId);
       }
     },
