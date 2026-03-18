@@ -420,6 +420,7 @@ export const getPayinsBySearch = async (req, res) => {
 
   return sendSuccess(res, data, 'Payins fetched successfully');
 };
+
 export const getPayinsSummary = async (req, res) => {
   const { company_id } = req.user;
   const cacheKey = `payin:read:${company_id}:summary`;

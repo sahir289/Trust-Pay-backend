@@ -1643,16 +1643,13 @@ export const getPayinsBySearchService = async (
   designation,
   updatedPayin,
 ) => {
-  let conn;
   try {
-    conn = await getConnection();
-    await beginTransaction(conn);
-    const fetchMerchantIds = async (user_ids, conn) => {
-      const merchants = await getMerchantByUserIdDao(user_ids, conn);
+    const fetchMerchantIds = async (user_ids) => {
+      const merchants = await getMerchantByUserIdDao(user_ids);
       return merchants.map((merchant) => merchant.id);
     };
 
-    const fetchBankIds = async (user_ids, conn) => {
+    const fetchBankIds = async (user_ids) => {
       try {
         // Handle both single user_id and array of user_ids
         const userIdArray = Array.isArray(user_ids) ? user_ids : [user_ids];
@@ -1663,12 +1660,7 @@ export const getPayinsBySearchService = async (
             {
               user_id: userId,
               bank_used_for: 'PayIn',
-            },
-            null,
-            null,
-            null,
-            null,
-            conn,
+            }
           );
           if (banks && banks.length > 0) {
             allBanks.push(...banks);
@@ -1690,12 +1682,6 @@ export const getPayinsBySearchService = async (
     if (role === Role.MERCHANT) {
       const userHierarchys = await getUserHierarchysDao(
         { user_id },
-        null,
-        null,
-        null,
-        null,
-        null,
-        conn,
       );
       const userHierarchy = userHierarchys?.[0];
 
@@ -1704,65 +1690,47 @@ export const getPayinsBySearchService = async (
           userHierarchy?.config?.siblings?.sub_merchants ?? [];
         if (Array.isArray(subMerchants) && subMerchants.length > 0) {
           merchant_user_id = [...merchant_user_id, ...subMerchants];
-          filters.merchant_id = await fetchMerchantIds(merchant_user_id, conn);
+          filters.merchant_id = await fetchMerchantIds(merchant_user_id);
         } else {
-          filters.merchant_id = await fetchMerchantIds([user_id], conn);
+          filters.merchant_id = await fetchMerchantIds([user_id]);
         }
       } else if (designation === Role.SUB_MERCHANT) {
-        filters.merchant_id = await fetchMerchantIds([user_id], conn);
+        filters.merchant_id = await fetchMerchantIds([user_id]);
       } else if (designation === Role.MERCHANT_OPERATIONS && userHierarchy) {
         const parentID = userHierarchy?.config?.parent;
         if (parentID) {
           const parentHierarchys = await getUserHierarchysDao(
             {
               user_id: parentID,
-            },
-            null,
-            null,
-            null,
-            null,
-            null,
-            conn,
+            }
           );
           const parentHierarchy = parentHierarchys?.[0];
           const subMerchants =
             parentHierarchy?.config?.siblings?.sub_merchants ?? [];
 
           const userIdFilter = [...new Set([parentID, ...subMerchants])];
-          filters.merchant_id = await fetchMerchantIds(userIdFilter, conn);
+          filters.merchant_id = await fetchMerchantIds(userIdFilter);
         }
       }
     } else if (role === Role.VENDOR || role === Role.SUB_VENDOR) {
       if (designation === Role.VENDOR_ADMIN || designation === Role.VENDOR) {
         const userHierarchys = await getUserHierarchysDao(
-          { user_id },
-          null,
-          null,
-          null,
-          null,
-          null,
-          conn,
+          { user_id }
         );
         const userHierarchy = userHierarchys?.[0];
 
         const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
         if (Array.isArray(subVendors) && subVendors.length > 0) {
           const vendorUserIds = [user_id, ...subVendors];
-          filters.bank_acc_id = await fetchBankIds(vendorUserIds, conn);
+          filters.bank_acc_id = await fetchBankIds(vendorUserIds);
         } else {
-          filters.bank_acc_id = await fetchBankIds([user_id], conn);
+          filters.bank_acc_id = await fetchBankIds([user_id]);
         }
       } else if (designation === Role.SUB_VENDOR) {
-        filters.bank_acc_id = await fetchBankIds(user_id, conn);
+        filters.bank_acc_id = await fetchBankIds(user_id);
       } else if (designation === Role.VENDOR_OPERATIONS) {
         const userHierarchys = await getUserHierarchysDao(
-          { user_id },
-          null,
-          null,
-          null,
-          null,
-          null,
-          conn,
+          { user_id }
         );
         const userHierarchy = userHierarchys?.[0];
         const parentID = userHierarchy?.config?.parent;
@@ -1770,20 +1738,14 @@ export const getPayinsBySearchService = async (
           const parentHierarchys = await getUserHierarchysDao(
             {
               user_id: parentID,
-            },
-            null,
-            null,
-            null,
-            null,
-            null,
-            conn,
+            }
           );
           const parentHierarchy = parentHierarchys?.[0];
           const subVendors =
             parentHierarchy?.config?.siblings?.sub_vendors ?? [];
 
           const userIdFilter = [...new Set([parentID, ...subVendors])];
-          filters.bank_acc_id = await fetchBankIds(userIdFilter, conn);
+          filters.bank_acc_id = await fetchBankIds(userIdFilter);
         }
       }
     }
@@ -1822,8 +1784,7 @@ export const getPayinsBySearchService = async (
         offset,
         role,
         designation,
-        updatedPayin,
-        conn,
+        updatedPayin
       );
     } else {
       data = await getPayinsWithoutHistoryDao(
@@ -1832,25 +1793,14 @@ export const getPayinsBySearchService = async (
         limitNum,
         offset,
         role,
-        designation,
-        conn,
+        designation
       );
     }
 
-    await commit(conn);
-
     return data;
   } catch (error) {
-    if (conn) {
-      await rollback(conn);
-    }
-
     logger.error('Error while fetching Payin by search', error);
     throw new InternalServerError(error.message);
-  } finally {
-    if (conn) {
-      conn.release();
-    }
   }
 };
 
