@@ -300,30 +300,19 @@ const getBeneficiaryAccountServiceByBankName = async (
   user_id,
   designation,
 ) => {
-  let conn;
-  let committed = false;
   try {
-    conn = await getConnection();
-    await beginTransaction(conn);
     const result = await _getBeneficiaryAccountServiceByBankNameInternal(
       company_id,
       type,
       role,
       user_id,
       designation,
-      conn,
+      null,
     );
-    await commit(conn);
-    committed = true;
     return result;
   } catch (error) {
-    if (conn && !committed) {
-      await rollback(conn);
-    }
     logger.error('error getting while getting beneficiary by bank name', error);
     throw error;
-  } finally {
-    if (conn) conn.release();
   }
 };
 
