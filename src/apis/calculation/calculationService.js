@@ -51,7 +51,7 @@ const getCalculationService = async (filters, role) => {
     if (!filters || !role) {
       throw new BadRequestError('Missing required parameters');
     }
-    
+
     const result = await getCalculationsSumDao({
       ...filters,
       role,
