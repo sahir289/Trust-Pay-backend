@@ -41,12 +41,12 @@ export const silkPayWebhook = async (req, res) => {
     };
     const payIn = await getPayInIntentDao(merchantOrderId);
 
-    const bankResponsePayload = `${body?.amount} nil ${payload.userSubmittedUtr} ${payIn.bank_acc_id}`;    
-    
     if (payIn.status === Status.SUCCESS) {
       logger.warn(`PayIn already marked as SUCCESS for merchantOrderId ${merchantOrderId} - skipping processing`);
       return;
     }
+
+    const bankResponsePayload = `${body?.amount} nil ${payload.userSubmittedUtr} ${payIn.bank_acc_id}`;
 
     const utrAlreadyExist = await getBankResponseByUTR(
       payload.userSubmittedUtr,

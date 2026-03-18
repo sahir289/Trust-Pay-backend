@@ -4227,15 +4227,15 @@ export const updatePayInService = async (
         updateBankaccountDao(
           { id: bankResponse.bank_id, company_id: company_id },
           {
-            balance: bank[0].balance + amountDiff,
-            today_balance: bank[0].today_balance + amountDiff,
+            balance: Number(bank[0].balance) + amountDiff,
+            today_balance: Number(bank[0].today_balance) + amountDiff,
             updated_by: user_id,
           },
           conn,
         ),
         updateVendorDao(
           { id: vendor[0].user_id, company_id: company_id },
-          { balance: vendor[0].balance + amountDiff, updated_by: user_id },
+          { balance: Number(vendor[0].balance) + amountDiff, updated_by: user_id },
           conn,
         ),
         updateCalculationBalances(
