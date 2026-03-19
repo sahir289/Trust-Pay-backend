@@ -23,7 +23,10 @@ import {
 // Import balance functions from separate files
 import { getPayAssistWalletBalance } from '../../payassist/payassist.js';
 import { getTataPayWalletBalance } from '../../tatapay/tatapay.js';
-import { getRupeeFlowWalletBalance, initiateRupeeFlowPayout } from '../../rupeeflow/rupeeflow.js';
+import {
+  getRupeeFlowWalletBalance,
+  initiateRupeeFlowPayout,
+} from '../../rupeeflow/rupeeflow.js';
 import { getBSSWalletBalance, rechargeWallet } from '../../bss/bss.js';
 import { getBSS02WalletBalance } from '../../bss/bss02.js';
 import { getBSS03WalletBalance } from '../../bss/bss03.js';
@@ -32,6 +35,8 @@ import { silkPayTransactionStatusCallback } from '../../callBacksAndWebHook/call
 import { getSilkPayWalletBalance } from '../../silkpay/silkpay.js';
 import { bss02TransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/bss02WebHook.js';
 import { bss03TransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/bss03WebHook.js';
+import { getVertexPayWalletBalance } from '../../vertexpay/vertexpay.js';
+import { vertexPayTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/vertexPayWebHook.js';
 const router = express.Router();
 
 /**
@@ -107,11 +112,13 @@ router.get(
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(getPayoutsBySearch),
 );
+
 router.get(
   '/reports',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(getPayouts),
 );
+
 router.get(
   '/:id',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
@@ -225,11 +232,13 @@ router.put(
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(updatePayout),
 );
+
 router.put(
   '/assign-vendor-payout/:id',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(assignedPayout),
 );
+
 /**
  * @swagger
  * /payout/delete-payout/{id}:
@@ -270,11 +279,13 @@ router.get(
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(getTataPayWalletBalance),
 );
+
 router.get(
   '/bss/bss-balance',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(getBSSWalletBalance),
 );
+
 router.get(
   '/silkpay/silkpay-balance',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
@@ -285,11 +296,18 @@ router.post(
   '/silkpay-callback',
   tryCatchHandler(silkPayTransactionStatusCallback),
 );
+
+router.post(
+  '/vertexpay-callback',
+  tryCatchHandler(vertexPayTransactionStatusCallback),
+);
+
 router.get(
   '/bss02/bss02-balance',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(getBSS02WalletBalance),
 );
+
 router.get(
   '/bss03/bss03-balance',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
@@ -301,6 +319,7 @@ router.post(
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(rechargeWallet),
 );
+
 router.post(
   '/clickrr',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
@@ -313,20 +332,11 @@ router.get(
   tryCatchHandler(getClickrrWalletBalance),
 );
 
-router.post(
-  '/bss-callback',
-  tryCatchHandler(bssTransactionStatusCallback),
-);
+router.post('/bss-callback', tryCatchHandler(bssTransactionStatusCallback));
 
-router.post(
-  '/bss02-callback',
-  tryCatchHandler(bss02TransactionStatusCallback),
-);
+router.post('/bss02-callback', tryCatchHandler(bss02TransactionStatusCallback));
 
-router.post(
-  '/bss03-callback',
-  tryCatchHandler(bss03TransactionStatusCallback),
-);
+router.post('/bss03-callback', tryCatchHandler(bss03TransactionStatusCallback));
 
 router.post(
   '/payassist-callback',
@@ -350,6 +360,12 @@ router.get(
   tryCatchHandler(getRupeeFlowWalletBalance),
 );
 
+router.get(
+  '/vertexpay/vertexpay-balance',
+  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  tryCatchHandler(getVertexPayWalletBalance),
+);
+
 /**
  * @swagger
  * /payout/tatapay/bulk-payout:
@@ -463,6 +479,7 @@ router.post(
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(createTataPayBulkPayoutController),
 );
+
 /**
  * @swagger
  * /payout/tatapay/bulk-payout:
@@ -600,11 +617,13 @@ router.get(
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(getRupeeFlowWalletBalance),
 );
+
 router.post(
   '/rupeeflow/bulk-payout',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(createRupeeFlowBulkPayoutController),
 );
+
 router.post(
   '/rupeeflow/bulk-payout',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],

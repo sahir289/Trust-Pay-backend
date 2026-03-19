@@ -36,6 +36,7 @@ export const Method = {
   SILKPAY: 'SILKPAY',
   BSS02: 'BSS02',
   BSS03: 'BSS03',
+  VERTEXPAY: 'VERTEXPAY',
 };
 
 export const Type = {
