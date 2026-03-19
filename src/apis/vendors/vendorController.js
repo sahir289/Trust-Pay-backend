@@ -288,12 +288,23 @@ const getVendorByCode = async (req, res) => {
 };
 
 const linkVendor = async (req, res) => {
-  const { vendorUserId, subVendorUserId, mediator_payin_commission, mediator_payout_commission } = req.body;
+  const {
+    vendorUserId,
+    subVendorUserId,
+    mediator_payin_commission,
+    mediator_payout_commission,
+  } = req.body;
   const { user_id } = req.user;
   if (!vendorUserId || !subVendorUserId) {
     throw new BadRequestError('vendorUserId and subVendorUserId are required');
   }
-  const result = await linkVendorService(vendorUserId, subVendorUserId, user_id, mediator_payin_commission, mediator_payout_commission);
+  const result = await linkVendorService(
+    vendorUserId,
+    subVendorUserId,
+    user_id,
+    mediator_payin_commission,
+    mediator_payout_commission,
+  );
   await invalidateVendorsCache(req.user.company_id);
   return sendSuccess(res, result, 'Vendor linked successfully');
 };
@@ -304,7 +315,11 @@ const unlinkVendor = async (req, res) => {
   if (!vendorUserId || !subVendorUserId) {
     throw new BadRequestError('vendorUserId and subVendorUserId are required');
   }
-  const result = await unlinkVendorService(vendorUserId, subVendorUserId, user_id);
+  const result = await unlinkVendorService(
+    vendorUserId,
+    subVendorUserId,
+    user_id,
+  );
   await invalidateVendorsCache(req.user.company_id);
   return sendSuccess(res, result, 'Vendor unlinked successfully');
 };
@@ -313,9 +328,16 @@ const transferVendor = async (req, res) => {
   const { subVendorUserId, newVendorUserId, currentVendorUserId } = req.body;
   const { user_id } = req.user;
   if (!subVendorUserId || !newVendorUserId || !currentVendorUserId) {
-    throw new BadRequestError('subVendorUserId, newVendorUserId, and currentVendorUserId are required');
+    throw new BadRequestError(
+      'subVendorUserId, newVendorUserId, and currentVendorUserId are required',
+    );
   }
-  const result = await transferVendorService(subVendorUserId, newVendorUserId, currentVendorUserId, user_id);
+  const result = await transferVendorService(
+    subVendorUserId,
+    newVendorUserId,
+    currentVendorUserId,
+    user_id,
+  );
   await invalidateVendorsCache(req.user.company_id);
   return sendSuccess(res, result, 'Vendor transferred successfully');
 };

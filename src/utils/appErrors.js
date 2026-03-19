@@ -77,8 +77,11 @@ class InternalServerError extends HTTPServerError {
 class DbError extends HTTPServerError {
   statusCode = 502;
 
-  constructor(message = 'Database error') {
+  constructor(message = 'Database error', options = {}) {
     super(message);
+    this.code = options.code;
+    this.cause = options.cause;
+    this.meta = options.meta;
   }
 }
 
