@@ -592,7 +592,6 @@ const createBankResponseService = async (
             updatePayInUrlDao(
               payInUtr.id,
               payInData,
-              { utr: botRes.utr, amount: botRes.amount }, //temperary
               conn,
             ),
             getMerchantsBankResponseDao(
@@ -805,7 +804,6 @@ const createBankResponseService = async (
           const updatePayin = await updatePayInUrlDao(
             payInUtr.id,
             payInData,
-            { utr: botRes.utr, amount: botRes.amount }, //temperary
             conn,
           );
           await updateBotResponseDao(botRes.id, { is_used: true }, conn);
@@ -1511,7 +1509,6 @@ const getBankResponseBySearchService = async (
 ) => {
   try {
     payload = applyDefaultBankResponseDateWindow(payload);
-
     const filterColumns =
       role === Role.MERCHANT
         ? merchantColumns.BANK_RESPONSE
@@ -1553,14 +1550,7 @@ const getBankResponseBySearchService = async (
     // Optimized: Skip bank_id fetching if already provided
     if (!filters.bank_id) {
       if (designation === Role.VENDOR || designation === Role.VENDOR_ADMIN) {
-        const userHierarchys = await getUserHierarchysDao(
-          { user_id },
-          null,
-          null,
-          null,
-          null,
-          null,
-        );
+        const userHierarchys = await getUserHierarchysDao({ user_id });
         const userHierarchy = userHierarchys?.[0];
 
         const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
@@ -1572,14 +1562,7 @@ const getBankResponseBySearchService = async (
       } else if (designation === Role.SUB_VENDOR) {
         filters.bank_id = await fetchBankIds(user_id);
       } else if (designation === Role.VENDOR_OPERATIONS) {
-        const userHierarchys = await getUserHierarchysDao(
-          { user_id },
-          null,
-          null,
-          null,
-          null,
-          null,
-        );
+        const userHierarchys = await getUserHierarchysDao({ user_id });
         const userHierarchy = userHierarchys?.[0];
         const parentID = userHierarchy?.config?.parent;
 
@@ -1605,8 +1588,7 @@ const getBankResponseBySearchService = async (
       sortBy,
       sortOrder || 'DESC',
       payload.startDate || undefined,
-      payload.endDate || undefined,
-      undefined,
+      payload.endDate || undefined
     );
 
     return data;
@@ -2140,7 +2122,6 @@ const handleUtrUpdate = async ({
           user_submitted_utr: utr,
           updated_by: user_id,
         },
-        null,
         conn,
       );
       // Socket event handled by caller or omitted for partial update
@@ -2435,7 +2416,7 @@ const updatePayInData = async ({ payInData, user_name, botRes }, conn) => {
         bank_response_id: null,
         updated_by: user_name,
       };
-      await updatePayInUrlDao(updatePayinID[0].id, updatePayinData, undefined, conn);
+      await updatePayInUrlDao(updatePayinID[0].id, updatePayinData, conn);
       // Socket event handled by caller or omitted for partial update
     }
   } catch (error) {

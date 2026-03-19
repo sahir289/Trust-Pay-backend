@@ -3432,7 +3432,7 @@ const _verifyPayinsServiceInternal = async (
   conn,
 ) => {
   try {
-    const payIn = await getPayInUrlService(merchantOrderId);
+    const payIn = await getPayInUrlService(merchantOrderId, null, conn);
 
     if (!payIn) {
       throw new BadRequestError('Invalid merchant order id');

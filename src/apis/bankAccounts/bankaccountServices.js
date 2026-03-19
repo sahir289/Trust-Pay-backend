@@ -47,12 +47,7 @@ const getBankaccountService = async (
   try {
     if (role == Role.VENDOR) {
       const userHierarchys = await getUserHierarchysDao(
-        { user_id },
-        null,
-        null,
-        null,
-        null,
-        null,
+        { user_id }
       );
       const userHierarchy = userHierarchys?.[0];
 
@@ -68,12 +63,7 @@ const getBankaccountService = async (
     }
 
     const userHierarchys = await getUserHierarchysDao(
-      { user_id },
-      null,
-      null,
-      null,
-      null,
-      null,
+      { user_id }
     );
     if (designation == Role.VENDOR_OPERATIONS) {
       const userHierarchy = userHierarchys?.[0];
@@ -97,7 +87,7 @@ const getBankaccountService = async (
       pageNumber,
       pageSize,
       role,
-      designation,
+      designation
     );
   } catch (error) {
     logger.error('error getting while  getting banks', error);
@@ -118,12 +108,7 @@ const getBankAccountBySearchService = async (
   try {
     if (role == Role.VENDOR) {
       const userHierarchys = await getUserHierarchysDao(
-        { user_id },
-        null,
-        null,
-        null,
-        null,
-        null,
+        { user_id }
       );
       const userHierarchy = userHierarchys?.[0];
 
@@ -139,12 +124,7 @@ const getBankAccountBySearchService = async (
     }
 
     const userHierarchys = await getUserHierarchysDao(
-      { user_id },
-      null,
-      null,
-      null,
-      null,
-      null,
+      { user_id }
     );
     if (designation == Role.VENDOR_OPERATIONS) {
       const userHierarchy = userHierarchys?.[0];
@@ -176,7 +156,7 @@ const getBankAccountBySearchService = async (
       pageSize,
       role,
       designation,
-      searchTerms,
+      searchTerms
     );
     return banks;
   } catch (error) {

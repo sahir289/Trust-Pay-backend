@@ -421,6 +421,7 @@ router.get(
   authorized(AccessRoles.PAYIN),
   tryCatchHandler(getPayinsBySearch),
 );
+
 router.get(
   '/getPayinSummary',
   isAuthenticated,
