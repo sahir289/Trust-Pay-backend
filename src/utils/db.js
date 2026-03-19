@@ -368,6 +368,26 @@ const getConnection = async (type = 'writer') => {
       }
       return client;
     } catch (error) {
+      const errorMessage = error?.message || '';
+      const isPoolSaturationError =
+        error?.code === '53300' ||
+        errorMessage.includes('too many clients already') ||
+        errorMessage.includes('remaining connection slots are reserved') ||
+        errorMessage.includes('timeout exceeded when trying to connect') ||
+        errorMessage.includes('Connection acquisition timeout');
+
+      if (isPoolSaturationError) {
+        logger.error('DB connection pool saturation detected. Failing fast.', {
+          type,
+          error,
+          pools: getPoolStats(),
+        });
+        throw new DbError(error.message, {
+          code: error.code,
+          cause: error,
+        });
+      }
+
       const delay = baseDelay * Math.pow(2, retryCount);
       logger.error(`Error fetching database connection:`, error);
       logger.warn(

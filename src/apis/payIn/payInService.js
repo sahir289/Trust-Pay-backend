@@ -508,7 +508,7 @@ export const getPayInUrlService = async (
       await updatePayInUrlDao(id, {
         is_url_expires: true,
         status: Status.DROPPED,
-      }, null, conn);
+      }, conn);
       // Notifying merchant about expired URL
       // This is async function but it's just the callback sending function there fore we are not using await
       merchantPayinCallback(config.urls?.notify, {
@@ -1215,7 +1215,6 @@ export const updateDepositStatusService = async (
     const updatePayInRes = await updatePayInUrlDao(
       payInData.id,
       updatePayInData,
-      null,
       conn,
     );
 
@@ -1388,7 +1387,6 @@ export const resetDepositService = async (
     const result = await updatePayInUrlDao(
       payIn.id,
       updatePayInData,
-      undefined,
       conn,
     );
     await commit(conn);
@@ -1699,14 +1697,26 @@ export const _processPayInServiceInternal = async (
   }
 
   // Fetch vendor for vendor_code
-  const vendors = await getVendorsDao({ user_id: bank.user_id });
+  const vendors = await getVendorsDao(
+    { user_id: bank.user_id },
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    conn,
+  );
   const vendor = vendors[0];
 
   const duration = calculateDuration(payIn.created_at);
-  const otherPayIns = await getPayInForDuplicate({
-    user_submitted_utr: userSubmittedUtr,
-    company_id: payIn.company_id,
-  });
+  const otherPayIns = await getPayInForDuplicate(
+    {
+      user_submitted_utr: userSubmittedUtr,
+      company_id: payIn.company_id,
+    },
+    conn,
+  );
   const updatePayInData = {
     amount,
     //img_utr only for updating utr directly when image uploaded
@@ -1728,16 +1738,27 @@ export const _processPayInServiceInternal = async (
   let bankResponse = {};
   if (payIn.bank_response_id) {
     bankResponse =
-      (await getBankResponseDao({ id: payIn.bank_response_id })) || {};
+      (await getBankResponseDao(
+        { id: payIn.bank_response_id },
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        conn,
+      )) || {};
   } else if (!bankResponse || !bankResponse.utr) {
     const statuses =
       designation === Role.ADMIN ? ['/success', '/freezed'] : ['/success'];
     bankResponse =
-      (await getBankResponsePayinDao({
-        utr: userSubmittedUtr,
-        status: statuses,
-        company_id: payIn.company_id,
-      })) || {};
+      (await getBankResponsePayinDao(
+        {
+          utr: userSubmittedUtr,
+          status: statuses,
+          company_id: payIn.company_id,
+        },
+        conn,
+      )) || {};
   }
   const result = {
     status: payIn.status,
@@ -1770,7 +1791,7 @@ export const _processPayInServiceInternal = async (
     updatePayInData.duration = duration;
     result.utr_id =
       bankResponse.utr || payIn.user_submitted_utr || userSubmittedUtr;
-    await updatePayInUrlDao(payIn.id, updatePayInData, null, conn);
+    await updatePayInUrlDao(payIn.id, updatePayInData, conn);
 
     const responseObj = {
       id: payIn.id,
@@ -1812,11 +1833,14 @@ export const _processPayInServiceInternal = async (
     const statuses =
       designation === Role.ADMIN ? ['/success', '/freezed'] : ['/success'];
     bankResponse =
-      (await getBankResponsePayinDao({
-        utr: userSubmittedUtr,
-        status: statuses,
-        company_id: payIn.company_id,
-      })) || {};
+      (await getBankResponsePayinDao(
+        {
+          utr: userSubmittedUtr,
+          status: statuses,
+          company_id: payIn.company_id,
+        },
+        conn,
+      )) || {};
   }
 
   if (bankResponse.id) {
@@ -1834,7 +1858,7 @@ export const _processPayInServiceInternal = async (
     result.status = Status.BANK_MISMATCH;
     result.utr_id =
       bankResponse.utr || payIn.user_submitted_utr || userSubmittedUtr;
-    await updatePayInUrlDao(payIn.id, updatePayInData, null, conn);
+    await updatePayInUrlDao(payIn.id, updatePayInData, conn);
 
     const responseObj = {
       id: payIn.id,
@@ -1869,7 +1893,14 @@ export const _processPayInServiceInternal = async (
     merchantPayinCallback(payIn.config?.urls?.notify, result);
 
     if (from_telegram) {
-      const botBank = await getBankaccountDao({ id: bankResponse.bank_id });
+      const botBank = await getBankaccountDao(
+        { id: bankResponse.bank_id },
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        conn,
+      );
       await sendBankMismatchMessageTelegramBot(
         telegramMessage.chat.id,
         payIn?.bank_acc_id ? bank.nick_name : 'null',
@@ -1908,7 +1939,15 @@ export const _processPayInServiceInternal = async (
   result.status = updatePayInData.status;
 
   let merchant;
-  merchant = await getMerchantsDao({ id: payIn.merchant_id });
+  merchant = await getMerchantsDao(
+    { id: payIn.merchant_id },
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    undefined,
+    conn,
+  );
   if (updatePayInData.status === Status.SUCCESS) {
     // update merchant balance
     // await updateMerchantBalanceDao(
@@ -1931,12 +1970,28 @@ export const _processPayInServiceInternal = async (
       Number(merchant[0].payin_commission),
     );
     updatePayInData.payin_merchant_commission = Number(commissions);
-    const bank = await getBankaccountDao({
-      id: bankResponse.bank_id,
-    });
-    const vendors = await getVendorsDao({
-      user_id: bank[0].user_id,
-    });
+    const bank = await getBankaccountDao(
+      {
+        id: bankResponse.bank_id,
+      },
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      conn,
+    );
+    const vendors = await getVendorsDao(
+      {
+        user_id: bank[0].user_id,
+      },
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      undefined,
+      conn,
+    );
     const vendor = vendors[0];
     const vendorCommission = calculateCommission(
       bankResponse.amount,
@@ -1978,10 +2033,14 @@ export const _processPayInServiceInternal = async (
     // }
     updatePayInData.payin_vendor_commission = Number(vendorCommission);
 
-    await updateCalculationTable(merchant[0].user_id, {
-      payinCommission: Number(commissions),
-      amount: Number(bankResponse.amount),
-    });
+    await updateCalculationTable(
+      merchant[0].user_id,
+      {
+        payinCommission: Number(commissions),
+        amount: Number(bankResponse.amount),
+      },
+      conn,
+    );
     // await updateCalculationTable(
     //   bank.user_id,
     //   {
@@ -2008,7 +2067,7 @@ export const _processPayInServiceInternal = async (
   // );
   // }
 
-  await updatePayInUrlDao(payIn.id, updatePayInData, null, conn);
+  await updatePayInUrlDao(payIn.id, updatePayInData, conn);
   // After updating payin, build the response object
 
   const responseObj = {
@@ -2589,7 +2648,6 @@ export const processPayInByImageService = async (payload) => {
           user_submitted_image: payload.fileKey,
           duration,
         },
-        null,
         conn,
       );
       await commit(conn);
@@ -2793,7 +2851,6 @@ export const disputeDuplicateTransactionService = async (
             updated_by,
             // config: payinConfig,
           },
-          undefined,
           conn,
         );
         await updateCalculationTable(
@@ -2816,7 +2873,6 @@ export const disputeDuplicateTransactionService = async (
             bank_response_id: payIn.bank_response_id,
             updated_by,
           },
-          undefined,
           conn,
         );
       }
@@ -2905,7 +2961,7 @@ export const disputeDuplicateTransactionService = async (
       updatePayload.status = Status.FAILED;
     }
 
-    response = await updatePayInUrlDao(payIn.id, updatePayload, null, conn);
+    response = await updatePayInUrlDao(payIn.id, updatePayload, conn);
     // await updateVendorBalanceDao(
     //   { user_id: bankResponse.user_id },
     //   toAmount,
@@ -3354,7 +3410,6 @@ const _checkPendingPayinStatusServiceInternal = async (
           const updatePayInDataRes = await updatePayInUrlDao(
             currentPayin.id,
             payInData,
-            null,
             conn,
           );
           await updateBotResponseDao(
