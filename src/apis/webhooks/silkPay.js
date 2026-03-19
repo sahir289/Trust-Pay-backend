@@ -6,6 +6,7 @@ import { getPayInIntentDao } from '../payIn/payInDao.js';
 import { processPayInWebHookService } from '../payIn/payInService.js';
 import { generateHash } from '../../intent/createIntentTransaction.js';
 import { getBankResponseByUTR } from '../bankResponse/bankResponseDao.js';
+import { Status } from '../../constants/index.js';
 
 const processingSet = new Set();
 
@@ -40,6 +41,11 @@ export const silkPayWebhook = async (req, res) => {
       status: isSuccess ? 'success' : 'failed',
     };
     const payIn = await getPayInIntentDao(merchantOrderId);
+
+    if (payIn.status === Status.SUCCESS) {
+      logger.warn(`PayIn already marked as SUCCESS for merchantOrderId ${merchantOrderId} - skipping processing`);
+      return;
+    }
 
     const bankResponsePayload = `${body?.amount} nil ${payload.userSubmittedUtr} ${payIn.bank_acc_id}`;
 
