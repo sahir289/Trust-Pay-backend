@@ -40,6 +40,10 @@ const globalRateLimiters = {
   auth: createLimiter('rl_global_auth', limiterProfiles.auth || config.rateLimiter),
   read: createLimiter('rl_global_read', limiterProfiles.read || config.rateLimiter),
   write: createLimiter('rl_global_write', limiterProfiles.write || config.rateLimiter),
+  merchantIntegration: createLimiter(
+    'rl_global_merchant_integration',
+    limiterProfiles.merchantIntegration || config.rateLimiter,
+  ),
   default: createLimiter('rl_global_default', config.rateLimiter),
 };
 
@@ -117,9 +121,31 @@ const GLOBAL_RATE_LIMIT_EXCLUDED_PATHS = new Set([
   '/bankResponse/create-message',
 ]);
 
+const isMerchantIntegrationPath = (path = '', method = 'GET') => {
+  const normalizedPath = String(path).toLowerCase();
+  const normalizedMethod = String(method).toUpperCase();
+
+  if (normalizedMethod === 'GET' && normalizedPath === '/payin/generate-payin') {
+    return true;
+  }
+
+  if (normalizedMethod === 'POST') {
+    if (normalizedPath === '/payout/generate-payout') return true;
+    if (normalizedPath === '/payin/check-payin-status') return true;
+    if (normalizedPath === '/payout/check-payout-status') return true;
+    if (normalizedPath.startsWith('/payin/assign-bank/')) return true;
+  }
+
+  return false;
+};
+
 const pickGlobalLimiterProfile = (req) => {
   const path = req.path || '';
   const method = (req.method || 'GET').toUpperCase();
+
+  if (isMerchantIntegrationPath(path, method)) {
+    return 'merchantIntegration';
+  }
 
   if (path.startsWith('/auth/')) {
     return 'auth';

@@ -82,6 +82,20 @@ function config(Env) {
             30,
           ),
         },
+        merchantIntegration: {
+          points: parsePositiveInt(
+            Env?.RATE_LIMIT_MERCHANT_INTEGRATION_POINTS,
+            200,
+          ),
+          duration: parsePositiveInt(
+            Env?.RATE_LIMIT_MERCHANT_INTEGRATION_DURATION,
+            60,
+          ),
+          blockDuration: parsePositiveInt(
+            Env?.RATE_LIMIT_MERCHANT_INTEGRATION_BLOCK_DURATION,
+            20,
+          ),
+        },
         bankResponse: {
           points: parsePositiveInt(Env?.RATE_LIMIT_BANK_POINTS, 300),
           duration: parsePositiveInt(Env?.RATE_LIMIT_BANK_DURATION, 60),
