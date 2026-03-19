@@ -144,7 +144,7 @@ const collectPayinData = async (timezone = 'Asia/Kolkata') => {
   }
 };
 
-async function processPayinNotifications(payins, conn) {
+async function processPayinNotifications(payins) {
   for (const payin of payins) {
     const notificationData = {
       status: payin.status,
@@ -159,7 +159,7 @@ async function processPayinNotifications(payins, conn) {
       if (payin?.config?.urls?.notify) {
         // This is async function but it's just the callback sending function there fore we are not using await
         merchantPayinCallback(payin?.config?.urls?.notify, notificationData);
-        await updatePayInUrlDao(payin.id, { is_notified: 'true' }, conn);
+        await updatePayInUrlDao(payin.id, { is_notified: 'true' });
       } else {
         logger.warn('Notify URL is missing for payin', { payinId: payin?.id });
       }
