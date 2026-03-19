@@ -170,12 +170,28 @@ export const globalRateLimitMiddleware = async (req, res, next) => {
   const key = req.user?.user_id ? String(req.user.user_id) : req.ip;
   const profile = pickGlobalLimiterProfile(req);
   const limiter = globalRateLimiters[profile] || globalRateLimiters.default;
+  const appliedProfile = limiterProfiles[profile] || config.rateLimiter;
 
   try {
-    await limiter.consume(key);
+    const rlRes = await limiter.consume(key);
+    const remaining = Math.max(0, rlRes?.remainingPoints ?? 0);
+    const limit = appliedProfile?.points || fallbackProfile.points;
+    const resetSeconds = Math.max(0, Math.ceil((rlRes?.msBeforeNext || 0) / 1000));
+
+    res.setHeader('X-RateLimit-Limit', String(limit));
+    res.setHeader('X-RateLimit-Remaining', String(remaining));
+    res.setHeader('X-RateLimit-Reset', String(resetSeconds));
+    res.setHeader('X-RateLimit-Profile', String(profile));
+
     return next();
   } catch (error_) {
     const rejRes = error_;
+    const limit = appliedProfile?.points || fallbackProfile.points;
+    const retryAfterSeconds = Math.max(
+      1,
+      Math.ceil((rejRes?.msBeforeNext || 0) / 1000),
+    );
+
     logger.warn(`Global rate limit exceeded for key: ${key}`, {
       key,
       points: rejRes.msBeforeNext / 1000,
@@ -185,6 +201,12 @@ export const globalRateLimitMiddleware = async (req, res, next) => {
       method: req.method,
       profile,
     });
+
+    res.setHeader('X-RateLimit-Limit', String(limit));
+    res.setHeader('X-RateLimit-Remaining', '0');
+    res.setHeader('X-RateLimit-Reset', String(retryAfterSeconds));
+    res.setHeader('X-RateLimit-Profile', String(profile));
+    res.setHeader('Retry-After', String(retryAfterSeconds));
 
     return res.status(429).json({
       success: false,

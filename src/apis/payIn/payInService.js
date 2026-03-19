@@ -295,22 +295,41 @@ export const generatePayInUrlService = async (payload, role, userIp) => {
     } = payload;
 
     const merchant_order_id = order_id ? order_id : uuidv4();
-    const merchantArr = await getMerchantsByCodeAndApiKeyDao(code, api_key);
-    const merchant = merchantArr[0];
-    if (!merchant) {
-      return {
-        status: 400,
-        message: 'Invalid merchant code or API key',
-      };
-    }
-    const [company] = await getCompanyByIDDao({
-      id: merchant.company_id,
-    });
 
-    const bankAssigned =
-      (await getMerchantBankDao({
-        config_merchants_contains: merchant.id,
-      })) ?? [];
+    // Cache merchant routing data to reduce repeated DB reads under load.
+    // Merchant config and bank assignments change rarely; 60s TTL is safe.
+    const routingCacheKey = `merchant_routing:${code}:${createHash(code + ':' + (api_key || ''))}`;
+    let merchant, company, bankAssigned;
+
+    const cachedRouting = await getCachedData(routingCacheKey, 'merchant_routing');
+    if (cachedRouting) {
+      ({ merchant, company, bankAssigned } = cachedRouting);
+    } else {
+      const merchantArr = await getMerchantsByCodeAndApiKeyDao(code, api_key);
+      merchant = merchantArr[0];
+      if (!merchant) {
+        return {
+          status: 400,
+          message: 'Invalid merchant code or API key',
+        };
+      }
+
+      // Parallelize company + bank fetch — they only need merchant.company_id / merchant.id
+      const [companyRows, rawBankAssigned] = await Promise.all([
+        getCompanyByIDDao({ id: merchant.company_id }),
+        getMerchantBankDao({ config_merchants_contains: merchant.id }),
+      ]);
+      company = companyRows[0];
+      bankAssigned = rawBankAssigned ?? [];
+
+      // Cache the routing bundle
+      await setCachedData(
+        routingCacheKey,
+        { merchant, company, bankAssigned },
+        60,
+        'merchant_routing',
+      );
+    }
 
     const type = determineType(bankAssigned);
 
