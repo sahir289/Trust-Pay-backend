@@ -399,9 +399,9 @@ const getVendorsBySearchService = async (
   }
 };
 
-const _updateVendorServiceInternal = async (ids, payload, conn) => {
+const _updateVendorServiceInternal = async (ids, payload) => {
   try {
-    const data = await updateVendorDao(ids, payload, conn); // Adjust DAO call for update
+    const data = await updateVendorDao(ids, payload); // Adjust DAO call for update
     if (
       data?.config?.bank_response_access === 'false' ||
       data?.config?.bank_response_access === false ||
@@ -443,25 +443,14 @@ const _updateVendorServiceInternal = async (ids, payload, conn) => {
 };
 
 const updateVendorService = async (ids, payload) => {
-  let conn;
-  let committed = false;
   try {
-    conn = await getConnection();
-    await beginTransaction(conn);
-    const data = await _updateVendorServiceInternal(ids, payload, conn);
-    await commit(conn);
-    committed = true; // Commit the transaction
+    const data = await _updateVendorServiceInternal(ids, payload);
     return data;
   } catch (error) {
-    if (conn && !committed) {
-      await rollback(conn);
-    }
     logger.error('Error while updating Vendor', error);
     throw error;
-  } finally {
-    if (conn) conn.release();
   }
-};
+}; 
 
 const _deleteVendorServiceInternal = async (ids, updated_by, conn) => {
   try {
@@ -533,7 +522,7 @@ const _deleteVendorServiceInternal = async (ids, updated_by, conn) => {
     throw error;
   }
 };
-
+ 
 const deleteVendorService = async (ids, updated_by) => {
   let conn;
   let committed = false;

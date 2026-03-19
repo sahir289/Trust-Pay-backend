@@ -3,13 +3,26 @@ import { AUTH_HEADER_KEY } from '../utils/constants.js';
 import {
   // AccessDeniedError,
   AuthenticationError,
+  DbError,
   InternalServerError,
 } from '../utils/appErrors.js';
 import { verifyToken } from '../utils/auth.js';
 import { logger } from '../utils/logger.js';
 import { getSessionByIdDao } from '../apis/auth/authDao.js';
+import {
+  AUTH_SESSION_CACHE_TTL_SEC,
+  buildAuthSessionCacheKey,
+  deleteCachedData,
+  getCachedData,
+  setCachedData,
+} from '../utils/redishashkey.js';
 
 const logoutSet = new Set();
+
+const applyAuthenticatedSession = (req, decoded, sessionId) => {
+  req.user = decoded;
+  req.sessionId = sessionId;
+};
 
 const isAuthenticated = async (req, res, next) => {
   const token = req.header(AUTH_HEADER_KEY);
@@ -26,33 +39,68 @@ const isAuthenticated = async (req, res, next) => {
     logger.info(`Validating token for session: ${token.slice(0, 10)}...`);
     const decoded = verifyToken(token);
 
+    if (!decoded) {
+      throw new AuthenticationError('Invalid token');
+    }
+
+    const sessionCacheKey = buildAuthSessionCacheKey(decoded);
+    const cachedSession = await getCachedData(
+      sessionCacheKey,
+      'Auth session cache',
+    );
+    if (cachedSession?.session_id === decoded.session_id) {
+      applyAuthenticatedSession(req, decoded, cachedSession.session_id);
+      return next();
+    }
+
     // Additional check: Verify session exists and is active in database
     try {
       const activeSession = await getSessionByIdDao({
         user_id: decoded.user_id,
-        company_id: decoded.company_id
+        company_id: decoded.company_id,
+        session_id: decoded.session_id,
       });
 
       if (!activeSession) {
         // Session doesn't exist in database, add token to logout set
         logoutSet.add(token);
+        await deleteCachedData(sessionCacheKey, 'Auth session cache');
         throw new AuthenticationError('Session expired or invalid. Please login again.');
       }
 
       // Session exists, proceed
-      req.user = decoded;
-      req.sessionId = activeSession.session_id;
-      next();
+      await setCachedData(
+        sessionCacheKey,
+        { session_id: activeSession.session_id },
+        AUTH_SESSION_CACHE_TTL_SEC,
+        'Auth session cache',
+      );
+      applyAuthenticatedSession(req, decoded, activeSession.session_id);
+      return next();
     } catch (dbError) {
       logger.error('Database session validation error:', dbError);
-      
-      // Handle connection errors specially - allow retry
-      if (dbError.code === 'ECONNRESET' || dbError.code === 'ETIMEDOUT' || dbError.code === 'ECONNREFUSED') {
-        return next(new InternalServerError('Database connection issue. Please try again.'));
+
+      if (dbError instanceof AuthenticationError) {
+        throw dbError;
       }
-      
-      // For other DB errors, treat as invalid session
-      throw new AuthenticationError('Session validation failed. Please login again.');
+
+      if (
+        dbError instanceof DbError ||
+        dbError instanceof InternalServerError ||
+        dbError?.statusCode >= 500
+      ) {
+        return next(
+          new InternalServerError(
+            'Session validation temporarily unavailable. Please try again.',
+          ),
+        );
+      }
+
+      return next(
+        new InternalServerError(
+          'Session validation temporarily unavailable. Please try again.',
+        ),
+      );
     }
     
   } catch (error) {

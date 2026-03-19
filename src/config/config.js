@@ -135,6 +135,9 @@ function config(Env) {
       apiSecret: Env?.BSS03_API_SECRET,
     },
     controllerCacheTtls: {
+      auth: {
+        session: parsePositiveInt(Env?.AUTH_SESSION_CACHE_TTL_SEC, 30),
+      },
       payin: {
         search: withLegacy(
           Env,

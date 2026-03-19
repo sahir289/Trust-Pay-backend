@@ -35,6 +35,7 @@ import {
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 import {
   getMerchantByUserIdDao,
+  getMerchantConfigByUserIdDao,
   updateMerchantDao,
 } from '../merchants/merchantDao.js';
 import { trackVendorsNetBalance } from '../../utils/trackVendorsNetBalance.js';
@@ -48,6 +49,8 @@ const _createChargeBackServiceInternal = async (
   company_id,
   user_id,
   conn,
+  merchantCalculation,
+  vendorCalculation,
 ) => {
   try {
     payload.vendor_user_id = PayinDetails[0].vendor_user_id;
@@ -105,7 +108,7 @@ const _createChargeBackServiceInternal = async (
     );
     const data = await createChargeBackDao(payload, conn);
     const MerchantuserId = data.merchant_user_id;
-    const merchantData = await getMerchantByUserIdDao(MerchantuserId, conn);
+    const merchantData = await getMerchantConfigByUserIdDao(MerchantuserId, conn);
     if (!merchantData || !merchantData[0]) {
       throw new NotFoundError('Merchant not found');
     }
@@ -148,10 +151,6 @@ const _createChargeBackServiceInternal = async (
       },
       conn,
     );
-    const merchantCalculation = await getCalculationforCronDao(
-      MerchantuserId,
-      conn,
-    );
     if (!merchantCalculation || !merchantCalculation[0]) {
       throw new NotFoundError('Merchant calculations not found');
     }
@@ -165,11 +164,6 @@ const _createChargeBackServiceInternal = async (
         current_balance: -amount,
         net_balance: -amount,
       },
-      conn,
-    );
-    const VendorUserId = data.vendor_user_id;
-    const vendorCalculation = await getCalculationforCronDao(
-      VendorUserId,
       conn,
     );
     if (!vendorCalculation || !vendorCalculation[0]) {
@@ -188,7 +182,12 @@ const _createChargeBackServiceInternal = async (
       conn,
     );
 
-    await trackVendorsNetBalance(vendorCalculation[0].user_id, response);
+    // Deferred — monitoring side-effect that must not block the response or risk rolling back the transaction
+    setImmediate(() => {
+      trackVendorsNetBalance(vendorCalculation[0].user_id, response).catch((err) =>
+        logger.error('trackVendorsNetBalance failed:', err),
+      );
+    });
     // await notifyAdminsAndUsers({
     //   conn,
     //   company_id: payload.company_id,
@@ -252,6 +251,20 @@ const createChargeBackService = async (
   let conn;
   let committed = false;
   try {
+    // Pre-fetch calculation rows in parallel before opening the transaction.
+    // We only need the `id` from each row, and the updates are atomic increments,
+    // so it is safe to read these outside the transaction.
+    const [merchantCalculation, vendorCalculation] = await Promise.all([
+      getCalculationforCronDao(PayinDetails[0].merchant_user_id),
+      getCalculationforCronDao(PayinDetails[0].vendor_user_id),
+    ]);
+    if (!merchantCalculation?.[0]) {
+      throw new NotFoundError('Merchant calculations not found');
+    }
+    if (!vendorCalculation?.[0]) {
+      throw new NotFoundError('Vendor calculations not found');
+    }
+
     conn = await getConnection();
     await beginTransaction(conn);
     const data = await _createChargeBackServiceInternal(
@@ -261,6 +274,8 @@ const createChargeBackService = async (
       company_id,
       user_id,
       conn,
+      merchantCalculation,
+      vendorCalculation,
     );
     await commit(conn);
     committed = true;

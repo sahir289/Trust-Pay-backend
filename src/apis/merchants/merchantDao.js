@@ -1001,3 +1001,21 @@ export const getMerchantsDaoArray = async (company_id, codes, conn = null) => {
     throw error;
   }
 };
+
+// Lightweight fetch for merchant config by 
+export const getMerchantConfigByUserIdDao = async (userId, conn = null) => {
+  try {
+    const sql = `
+      SELECT user_id, config, code,
+             first_name || ' ' || last_name AS name
+      FROM "Merchant"
+      WHERE user_id = $1 AND is_obsolete = false
+      LIMIT 1
+    `;
+    const result = await executeQuery(sql, [userId], conn);
+    return result.rows;
+  } catch (error) {
+    logger.error(`Error in getMerchantConfigByUserIdDao for user_id ${userId}:`, error);
+    throw error;
+  }
+};

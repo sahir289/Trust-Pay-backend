@@ -553,7 +553,10 @@ export const executeQuery = async (query, queryParams = [], conn = null) => {
       // 55P03 lock timeout), PostgreSQL marks the whole transaction as aborted.
       // Retrying on the same connection only causes 25P02 cascades until rollback.
       if (usingExternalTransactionConn) {
-        throw new DbError(error.message);
+        throw new DbError(error.message, {
+          code: error.code,
+          cause: error,
+        });
       }
 
       const isTransientError =
@@ -572,7 +575,10 @@ export const executeQuery = async (query, queryParams = [], conn = null) => {
         continue;
       }
 
-      throw new DbError(error.message);
+      throw new DbError(error.message, {
+        code: error.code,
+        cause: error,
+      });
     } finally {
       if (client) {
         client.release();

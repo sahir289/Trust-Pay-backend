@@ -121,6 +121,25 @@ const emitTableEntryAsync = (table, payload) => {
   });
 };
 
+const runPostCommitTasks = (tasks, context) => {
+  if (!Array.isArray(tasks) || tasks.length === 0) {
+    return;
+  }
+
+  setImmediate(() => {
+    tasks.forEach((task, index) => {
+      Promise.resolve()
+        .then(() => task())
+        .catch((error) => {
+          logger.error(
+            `Post-commit task failed for ${context} at index ${index}`,
+            error,
+          );
+        });
+    });
+  });
+};
+
 // Helper function to check if vendor is sub-vendor and get parent info
 const getSubVendorParentInfo = async (vendor, conn = null) => {
   try {
@@ -184,6 +203,7 @@ const updateParentVendorCalculation = async (
   amount,
   vendorCommissionRate,
   conn = null,
+  options = {},
 ) => {
   try {
     const parentCommission = calculateCommission(amount, vendorCommissionRate);
@@ -195,6 +215,7 @@ const updateParentVendorCalculation = async (
         amount: 0, // Parent vendor amount is always 0, only commission is tracked
       },
       conn,
+      options,
     );
 
     return parentCommission;
@@ -213,6 +234,7 @@ const createBankResponseService = async (
 ) => {
   let conn;
   let committed = false;
+  const postCommitTasks = [];
 
   const splitData = payload.split(' ');
   const amount = parseFloat(splitData[0]);
@@ -230,8 +252,6 @@ const createBankResponseService = async (
   processingSet.add(utr);
 
   try {
-    conn = await getConnection();
-
     // Database-level lock to prevent race condition with concurrent requests
     // const lockAcquired = await acquireUTRLock(utr, conn);
     // if (!lockAcquired) {
@@ -296,7 +316,6 @@ const createBankResponseService = async (
           company_id: companyId,
           bank_used_for: 'PayIn',
         },
-        conn,
       ),
       isValidAmountCode
         ? getCheckBankResponseDao(
@@ -304,13 +323,11 @@ const createBankResponseService = async (
             upi_short_code,company_id
           },
             null,
-            conn,
           ).then(
             (result) =>
-              result ||
-              getCheckBankResponseDao({ utr, company_id }, null, conn),
+              result || getCheckBankResponseDao({ utr, company_id }, null),
           )
-        : getCheckBankResponseDao({ utr, company_id }, null, conn),
+        : getCheckBankResponseDao({ utr, company_id }, null),
     ]);
 
     if (!bankCompanyCheck) {
@@ -354,6 +371,7 @@ const createBankResponseService = async (
     // Use a transaction for all DB operations for a single entry
     try {
       // Start transaction only when write phase begins to reduce connection hold time
+      conn = await getConnection();
       await beginTransaction(conn);
       await applyBankResponseTxTimeouts(conn);
       botRes = await createBankResponseDao(updatedData, conn);
@@ -450,6 +468,7 @@ const createBankResponseService = async (
             Number(botRes.amount),
             Number(vendor[0].config?.mediator_payin_commission) || 0,
             conn,
+            { postCommitTasks },
           );
           totalVendorCommission = payinVendorCommission + parentCommission;
           logger.info(
@@ -464,6 +483,7 @@ const createBankResponseService = async (
             amount: botRes.amount,
           },
           conn,
+          { postCommitTasks },
         );
       }
       let duration;
@@ -842,6 +862,7 @@ const createBankResponseService = async (
               amount: botRes.amount,
             },
             conn,
+            { postCommitTasks },
           );
           await commit(conn);
           committed = true;
@@ -1010,6 +1031,9 @@ const createBankResponseService = async (
     throw error;
   } finally {
     processingSet.delete(utr);
+    if (committed) {
+      runPostCommitTasks(postCommitTasks, 'createBankResponseService');
+    }
     if (conn) conn.release();
   }
 };
@@ -1023,9 +1047,8 @@ const createBankResponseWebHookService = async (
 ) => {
   let conn;
   let committed = false;
+  const postCommitTasks = [];
   try {
-    conn = await getConnection();
-
     const splitData = payload.split(' ');
     const amount = parseFloat(splitData[0]);
     const upi_short_code = splitData.length > 1 ? splitData[1] : '';
@@ -1043,7 +1066,7 @@ const createBankResponseWebHookService = async (
       id: bank_id,
       company_id: companyId,
       bank_used_for: 'PayIn',
-    }, conn);
+    });
     if (!bankCompanyCheck) {
       throw new NotFoundError('Bank account does not exist for this company');
     }
@@ -1092,20 +1115,17 @@ const createBankResponseWebHookService = async (
           company_id,
         },
         null,
-        conn,
       );
       if (!utrAlreadyExist) {
         utrAlreadyExist = await getCheckBankResponseDao(
           { utr, company_id },
           null,
-          conn,
         );
       }
     } else {
       utrAlreadyExist = await getCheckBankResponseDao(
         { utr, company_id },
         null,
-        conn,
       );
     }
     const isRepeated = utrAlreadyExist;
@@ -1145,7 +1165,7 @@ const createBankResponseWebHookService = async (
 
     // Use a transaction for all DB operations for a single entry
     try {
-      // conn = await getConnection();
+      conn = await getConnection();
       await beginTransaction(conn);
       await applyBankResponseTxTimeouts(conn);
       botRes = await createBankResponseDao(updatedData, conn);
@@ -1246,6 +1266,7 @@ const createBankResponseWebHookService = async (
             amount: botRes.amount,
           },
           conn,
+          { postCommitTasks },
         );
       }
 
@@ -1299,11 +1320,14 @@ const createBankResponseWebHookService = async (
     logger.error('Error in createBankResponseService:', error);
     throw error;
   } finally {
+    if (committed) {
+      runPostCommitTasks(postCommitTasks, 'createBankResponseWebHookService');
+    }
     if (conn) conn.release();
   }
 };
 
-const updateCalculationTable = async (user_id, data, conn) => {
+const updateCalculationTable = async (user_id, data, conn, options = {}) => {
   try {
     if (isNaN(data.amount - data.payinCommission)) {
       throw new BadRequestError('Invalid amount or commission');
@@ -1327,7 +1351,13 @@ const updateCalculationTable = async (user_id, data, conn) => {
         conn,
       );
 
-      await trackVendorsNetBalance(user_id, response);
+      if (Array.isArray(options.postCommitTasks)) {
+        options.postCommitTasks.push(() =>
+          trackVendorsNetBalance(user_id, response),
+        );
+      } else {
+        await trackVendorsNetBalance(user_id, response);
+      }
       return response;
     }
   } catch (error) {
