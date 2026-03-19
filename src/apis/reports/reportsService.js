@@ -17,16 +17,13 @@ import { getDesignationDao } from '../designation/designationDao.js';
 import { getUsersDao } from '../users/userDao.js';
 import { Role } from '../../constants/index.js';
 import { logger } from '../../utils/logger.js';
-import { getConnection } from '../../utils/db.js';
 
 // Initialize dayjs plugins
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
 const getPayInReportService = async (req) => {
-  let conn;
   try {
-    conn = await getConnection('reader');
     const { company_id, role } = req.user;
     const { code, startDate, endDate, status, updatedPayin } = req.query;
     let startDateTime, endDateTime;
@@ -43,7 +40,7 @@ const getPayInReportService = async (req) => {
     let vendorIds = [];
     let bankIds = [];
     let result;
-    const merchantDetails = await getMerchantsDaoArray(company_id, codes, conn);
+    const merchantDetails = await getMerchantsDaoArray(company_id, codes);
     merchantIds = merchantDetails.map((merchant) => merchant.id);
     if (merchantIds.length > 0) {
       result = await getPayInMerchantReportDao(
@@ -54,10 +51,9 @@ const getPayInReportService = async (req) => {
         role,
         status,
         updatedPayin,
-        conn,
       );
     } else {
-      const vendorDetails = await getVendorsDaoArray(company_id, codes, conn);
+      const vendorDetails = await getVendorsDaoArray(company_id, codes);
       bankIds = vendorDetails.map((banks) => banks.user_id);
       const bankDetails = await getBankaccountDao(
         { user_id: bankIds },
@@ -65,7 +61,6 @@ const getPayInReportService = async (req) => {
         null,
         null,
         null,
-        conn,
       );
       vendorIds = bankDetails.map((merchant) => merchant.id);
       result = await getPayInVendorReportDao(
@@ -76,7 +71,6 @@ const getPayInReportService = async (req) => {
         role,
         status,
         updatedPayin,
-        conn,
       );
     }
     return result;
@@ -84,15 +78,11 @@ const getPayInReportService = async (req) => {
     logger.error('Error while fetching report', error);
     // Handle and rethrow errors with appropriate context
     throw error;
-  } finally {
-    if (conn) conn.release();
   }
 };
 
 const getPayOutReportService = async (req) => {
-  let conn;
   try {
-    conn = await getConnection('reader');
     const { company_id, role } = req.user;
     const { code, startDate, endDate, status } = req.query;
     const startDateTime = dayjs
@@ -106,7 +96,7 @@ const getPayOutReportService = async (req) => {
     let merchantIds = [];
     let vendorIds = [];
     let result;
-    const merchantDetails = await getMerchantsDaoArray(company_id, codes, conn);
+    const merchantDetails = await getMerchantsDaoArray(company_id, codes);
     merchantIds = merchantDetails.map((merchant) => merchant.id);
     if (merchantIds.length > 0) {
       result = await getPayOutMerchantReportDao(
@@ -116,10 +106,9 @@ const getPayOutReportService = async (req) => {
         company_id,
         role,
         status,
-        conn,
       );
     } else {
-      const vendorDetails = await getVendorsDaoArray(company_id, codes, conn);
+      const vendorDetails = await getVendorsDaoArray(company_id, codes);
       vendorIds = vendorDetails.map((merchant) => merchant.id);
       result = await getPayOutVendorReportDao(
         vendorIds,
@@ -128,22 +117,17 @@ const getPayOutReportService = async (req) => {
         company_id,
         role,
         status,
-        conn,
       );
     }
     return result;
   } catch (error) {
     logger.error('Error while fetching report', error);
     throw error;
-  } finally {
-    if (conn) conn.release();
   }
 };
 
 const getClientsAccountReportService = async (req) => {
-  let conn;
   try {
-    conn = await getConnection('reader');
     const { company_id, role } = req.user;
     const { code, startDate, endDate, role_name, page, limit } = req.query;
 
@@ -193,7 +177,6 @@ const getClientsAccountReportService = async (req) => {
             const merchantDetails = await getMerchantsDaoArray(
               company_id,
               requestedCodes,
-              conn,
             );
             if (merchantDetails.length === 0) {
               logger.warn(
@@ -213,7 +196,6 @@ const getClientsAccountReportService = async (req) => {
             const vendorDetails = await getVendorsDaoArray(
               company_id,
               requestedCodes,
-              conn,
             );
             if (vendorDetails.length === 0) {
               logger.warn(
@@ -246,13 +228,11 @@ const getClientsAccountReportService = async (req) => {
           null,
           null,
           null,
-          conn,
         );
         const designation = await getDesignationDao(
           {
             id: user[0]?.designation_id,
           },
-          conn,
         );
         if (designation[0]?.designation === Role.MERCHANT) {
           try {
@@ -263,7 +243,6 @@ const getClientsAccountReportService = async (req) => {
               null,
               null,
               null,
-              conn,
             );
             subMerchants = userHierarchy
               .filter((h) => Array.isArray(h?.config?.siblings?.sub_merchants))
@@ -290,7 +269,6 @@ const getClientsAccountReportService = async (req) => {
         null, // Remove page parameter
         null, // Remove limit parameter
         role,
-        conn,
       );
 
       logger.info(
@@ -320,7 +298,6 @@ const getClientsAccountReportService = async (req) => {
               null,
               null,
               null,
-              conn,
             );
             // Extract all sub-merchants from all hierarchies (these are user IDs)
             subMerchants = userHierarchy
@@ -626,7 +603,6 @@ const getClientsAccountReportService = async (req) => {
         page,
         limit,
         role,
-        conn,
       );
 
       // Format created_at to return date in IST format and sort alphabetically with date sorting
@@ -659,8 +635,6 @@ const getClientsAccountReportService = async (req) => {
     logger.error('Error while fetching report', error);
     // Handle and rethrow errors with appropriate context
     throw error;
-  } finally {
-    if (conn) conn.release();
   }
 };
 

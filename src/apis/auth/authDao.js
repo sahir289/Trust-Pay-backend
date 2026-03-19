@@ -11,21 +11,11 @@ const addLoginDao = async (
   conn = null,
 ) => {
   try {
-    // const id = generateUUID();
     const configData = stringifyJSON(config, (key, value) =>
       typeof value === 'object' && value !== null
         ? stringifyJSON(value)
         : value,
     );
-
-    // First, ensure all existing sessions for this user are marked as obsolete
-    const cleanupSql = `
-      UPDATE public."AccessToken" 
-      SET is_obsolete = true 
-      WHERE user_id = $1 AND company_id = $2 AND is_obsolete = false
-    `;
-
-    await executeQuery(cleanupSql, [user_id, company_id], conn);
 
     // Now insert the new session
     const sql = `
@@ -98,7 +88,7 @@ const updateSessionDao = async (user_id, company_id, session_id, config, conn = 
 
 const deleteUserSessionsDao = async (user_id, company_id, session_id, conn = null) => {
   try {
-    let query = `UPDATE "${tableName.ACCESS_TOKEN}" SET is_obsolete = true WHERE user_id = $1 AND company_id = $2`;
+    let query = `UPDATE "${tableName.ACCESS_TOKEN}" SET is_obsolete = true WHERE user_id = $1 AND company_id = $2 AND is_obsolete = false`;
     const params = [user_id, company_id];
 
     if (session_id) {
@@ -121,7 +111,44 @@ const changePasswordDao = async (id, password, conn = null) => {
     const result = await executeQuery(query, [id, password], conn);
     return result;
   } catch (error) {
-    logger.error('Getting error while deleting user session', error);
+    logger.error('Error while changing password', error);
+    throw error;
+  }
+};
+
+const getUserAuthPasswordDao = async (
+  { user_id, company_id, user_name },
+  conn = null,
+) => {
+  try {
+    let query = `
+      SELECT id, user_name, company_id, password
+      FROM "${tableName.USER}"
+      WHERE is_obsolete = false
+    `;
+    const params = [];
+
+    if (user_id) {
+      params.push(user_id);
+      query += ` AND id = $${params.length}`;
+    }
+
+    if (company_id) {
+      params.push(company_id);
+      query += ` AND company_id = $${params.length}`;
+    }
+
+    if (user_name) {
+      params.push(user_name);
+      query += ` AND user_name = $${params.length}`;
+    }
+
+    query += ' LIMIT 1';
+
+    const result = await executeQuery(query, params, conn);
+    return result.rows?.[0] || null;
+  } catch (error) {
+    logger.error('Error in getting auth password details', error);
     throw error;
   }
 };
@@ -155,6 +182,25 @@ const getRoleByUserNameDao = async (userName, conn = null) => {
   }
 };
 
+const getUserForVerificationDao = async (userName, conn = null) => {
+  try {
+    const query = `
+      SELECT u.id, u.email, u.user_name, d.designation
+      FROM "${tableName.USER}" u
+      LEFT JOIN "${tableName.DESIGNATION}" d ON u.designation_id = d.id
+      WHERE u.user_name = $1
+        AND u.is_obsolete = false
+        AND u.is_enabled = true
+      LIMIT 1
+    `;
+    const result = await executeQuery(query, [userName], conn);
+    return result.rows?.[0] || null;
+  } catch (error) {
+    logger.error('Error in getting user details for verification', error);
+    throw error;
+  }
+};
+
 export {
   addLoginDao,
   getRefreshTokenDao,
@@ -163,6 +209,8 @@ export {
   updateSessionDao,
   deleteUserSessionsDao,
   changePasswordDao,
+  getUserAuthPasswordDao,
   getAllActiveSessionsDao,
   getRoleByUserNameDao,
+  getUserForVerificationDao,
 };

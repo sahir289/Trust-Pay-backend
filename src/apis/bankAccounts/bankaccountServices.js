@@ -45,9 +45,7 @@ const getBankaccountService = async (
   user_id,
   designation,
 ) => {
-  let conn;
   try {
-    conn = await getConnection();
     if (role == Role.VENDOR) {
       const userHierarchys = await getUserHierarchysDao(
         { user_id },
@@ -56,7 +54,6 @@ const getBankaccountService = async (
         null,
         null,
         null,
-        conn,
       );
       const userHierarchy = userHierarchys?.[0];
 
@@ -78,7 +75,6 @@ const getBankaccountService = async (
       null,
       null,
       null,
-      conn,
     );
     if (designation == Role.VENDOR_OPERATIONS) {
       const userHierarchy = userHierarchys?.[0];
@@ -103,13 +99,10 @@ const getBankaccountService = async (
       pageSize,
       role,
       designation,
-      conn,
     );
   } catch (error) {
     logger.error('error getting while  getting banks', error);
     throw error;
-  } finally {
-    if (conn) conn.release();
   }
 };
 
@@ -123,9 +116,7 @@ const getBankAccountBySearchService = async (
   designation,
   search,
 ) => {
-  let conn;
   try {
-    conn = await getConnection();
     if (role == Role.VENDOR) {
       const userHierarchys = await getUserHierarchysDao(
         { user_id },
@@ -134,7 +125,6 @@ const getBankAccountBySearchService = async (
         null,
         null,
         null,
-        conn,
       );
       const userHierarchy = userHierarchys?.[0];
 
@@ -156,7 +146,6 @@ const getBankAccountBySearchService = async (
       null,
       null,
       null,
-      conn,
     );
     if (designation == Role.VENDOR_OPERATIONS) {
       const userHierarchy = userHierarchys?.[0];
@@ -189,14 +178,11 @@ const getBankAccountBySearchService = async (
       role,
       designation,
       searchTerms,
-      conn,
     );
     return banks;
   } catch (error) {
     logger.error('error getting while getting check utr by search', error);
     throw new InternalServerError(error.message);
-  } finally {
-    if (conn) conn.release();
   }
 };
 
@@ -209,7 +195,6 @@ const getBankaccountServiceNickName = async (
   user,
   // check_enabled
 ) => {
-  let conn;
   try {
     const userFilterKey = Array.isArray(user)
       ? user.join(',')
@@ -221,7 +206,6 @@ const getBankaccountServiceNickName = async (
       return JSON.parse(cached);
     }
 
-    conn = await getConnection();
     let filters = {};
     if (role == Role.VENDOR) {
       const userHierarchys = await getUserHierarchysDao(
@@ -231,7 +215,6 @@ const getBankaccountServiceNickName = async (
         null,
         null,
         null,
-        conn,
       );
       const userHierarchy = userHierarchys?.[0];
 
@@ -258,7 +241,6 @@ const getBankaccountServiceNickName = async (
       null,
       null,
       null,
-      conn,
     );
     if (designation == Role.VENDOR_OPERATIONS) {
       const userHierarchy = userHierarchys?.[0];
@@ -279,7 +261,6 @@ const getBankaccountServiceNickName = async (
       company_id,
       type,
       filters,
-      conn,
       // check_enabled
     );
 
@@ -294,8 +275,6 @@ const getBankaccountServiceNickName = async (
   } catch (error) {
     logger.error('Error in getBankaccountServiceNickName', error);
     throw error;
-  } finally {
-    if (conn) conn.release();
   }
 };
 
