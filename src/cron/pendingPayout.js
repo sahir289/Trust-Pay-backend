@@ -69,7 +69,7 @@ const sendPayoutTelegramMessage = async (botToken, chatId, message) => {
   }
 };
 
-if (isCronWorker) {
+if (isCronWorker && process.env.NODE_ENV === 'production') {
   pendingPayoutCronJob = cron.schedule('0,30 * * * *', collectPayoutData);
   logger.info('Pending payout cron job initialized in cron worker');
 }

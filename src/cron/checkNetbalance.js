@@ -15,7 +15,7 @@ let checkNetbalanceCronJob = null;
 
 // Only run cron jobs in the dedicated cron worker process (works in both prod and local)
 const isCronWorker = process.env.CRON_WORKER === 'true';
-if (isCronWorker) {
+if (isCronWorker && process.env.NODE_ENV === 'production') {
   checkNetbalanceCronJob = cron.schedule(
     '2 0 * * *',  // Run at 00:02 IST as backup for calculationCron (00:00)
     async () => {
