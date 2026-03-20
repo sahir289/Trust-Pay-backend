@@ -1207,6 +1207,38 @@ const updateBotResponseDao = async (id, data, conn = null) => {
   }
 };
 
+const bulkUpdateBankResponsesStatusDao = async (
+  { bank_id, is_used, fromStatus, toStatus },
+  conn = null,
+) => {
+  try {
+    const query = `
+      UPDATE "${tableName.BANK_RESPONSE}"
+      SET status = $1,
+          updated_at = NOW()
+      WHERE is_obsolete = false
+        AND bank_id = $2
+        AND status = $3
+        AND is_used = $4
+      RETURNING id
+    `;
+
+    const result = await executeQuery(
+      query,
+      [toStatus, bank_id, fromStatus, is_used],
+      conn,
+    );
+
+    return {
+      updatedCount: result.rowCount,
+      updatedIds: result.rows.map((row) => row.id),
+    };
+  } catch (error) {
+    logger.error('Error in bulkUpdateBankResponsesStatusDao:', error);
+    throw error;
+  }
+};
+
 export {
   getBankResponseDao,
   getBankResponseByJustUTRDao,
@@ -1219,6 +1251,7 @@ export {
   getBankMessageDao,
   resetBankResponseDao,
   updateBotResponseDao,
+  bulkUpdateBankResponsesStatusDao,
   getBankResponsesforFreeze,
   getBankResponseForEsDao,
 };
