@@ -12,7 +12,10 @@ import {
 } from '../../schemas/bankAccoountSchema.js';
 import { ValidationError } from '../../utils/appErrors.js';
 import { sendError, sendSuccess } from '../../utils/responseHandlers.js';
-import { getBankaccountDao, getMerchantBankDao } from './bankaccountDao.js';
+import {
+  checkBankNickNameExistsDao,
+  getMerchantBankDao,
+} from './bankaccountDao.js';
 import { generateCacheKey } from '../../utils/redishashkey.js';
 import {
   normalizeQueryForCache,
@@ -183,18 +186,16 @@ const createBankaccount = async (req, res) => {
   delete payload.is_phonepay;
   delete payload.is_intent;
   delete payload.is_staticQR;
-  const { user_id, company_id, designation, role, user_name } = req.user;
+  const { user_id, company_id, designation, user_name } = req.user;
   payload.created_by = user_id;
   payload.updated_by = user_id;
   payload.company_id = company_id;
   //error for nick name must be unique
-  const unique = await getBankaccountDao(
-    { nick_name: payload.nick_name },
-    null,
-    null,
-    role,
+  const unique = await checkBankNickNameExistsDao(
+    company_id,
+    payload.nick_name,
   );
-  if (unique.length > 0) {
+  if (unique) {
     return sendError(res, 'Nick Name Must Be Unique', 400);
   }
   // const data =
