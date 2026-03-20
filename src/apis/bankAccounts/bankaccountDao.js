@@ -1027,6 +1027,23 @@ const getBankIdsOnlyDao = async (userIds, bankUsedFor = 'PayIn', conn = null) =>
   }
 };
 
+// Batch fetch bank accounts by array of ids
+const getBankaccountDaoBatch = async (ids = [], conn = null) => {
+  if (!Array.isArray(ids) || ids.length === 0) return [];
+  try {
+    const sql = `
+      SELECT * FROM "BankAccount"
+      WHERE id = ANY($1::text[])
+        AND is_obsolete = false
+    `;
+    const result = await executeQuery(sql, [ids], conn);
+    return result.rows;
+  } catch (error) {
+    logger.error('Error in getBankaccountDaoBatch:', error);
+    throw error;
+  }
+};
+
 export {
   getBankaccountDao,
   getBankAccountCoreByIdDao,
@@ -1044,4 +1061,5 @@ export {
   getBankAccountNickNameForEsDao,
   getBankAccountNickNameForPayinEsDao,
   getBankIdsOnlyDao,
+  getBankaccountDaoBatch,
 };
