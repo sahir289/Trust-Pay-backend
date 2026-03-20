@@ -59,6 +59,7 @@ import {
   writeJsonCache,
   invalidateCompanyCacheByPrefix,
 } from '../../utils/controllerCache.js';
+import { publishPayInProcess } from '../../rabbitmq/producer.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 
 const TestingIp = process.env.LOCAL_IP;
@@ -448,16 +449,21 @@ export const processPayIn = async (req, res) => {
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
-  //added check for manually utr for uplaoded screenshot
-  const data = await processPayInService(
+  await publishPayInProcess({
     payload,
-    payload.code,
-    true,
-    true,
+    isH2H: false,
+  });
+
+  sendSuccess(
+    res,
+    {
+      queued: true,
+      merchantOrderId: payload.merchantOrderId,
+      mode: 'standard',
+    },
+    'PayIn request queued successfully',
+    202,
   );
-  await invalidatePayinCache(req.user?.company_id);
-  // sendNewSuccess(res, data, 'PayIn processed successfully');
-  sendSuccess(res, data, 'PayIn processed successfully');
 };
 export const processPayInH2H = async (req, res) => {
   const payload = {
@@ -468,18 +474,21 @@ export const processPayInH2H = async (req, res) => {
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
-  //added check for manually utr for uplaoded screenshot
-  const data = await processPayInService(
+  await publishPayInProcess({
     payload,
-    payload.code,
-    true,
-    true,
-    null,
-    true,
+    isH2H: true,
+  });
+
+  sendSuccess(
+    res,
+    {
+      queued: true,
+      merchantOrderId: payload.merchantOrderId,
+      mode: 'h2h',
+    },
+    'PayIn request queued successfully',
+    202,
   );
-  await invalidatePayinCache(req.user?.company_id);
-  sendNewSuccess(res, data, 'PayIn processed successfully');
-  // sendSuccess(res, data, 'PayIn processed successfully');
 };
 export const processPayInIMGUTR = async (req, res) => {
   const payload = {
