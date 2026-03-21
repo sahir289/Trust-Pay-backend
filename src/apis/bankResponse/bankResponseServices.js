@@ -1928,7 +1928,7 @@ const handleAmountUpdate = async ({
 
     if (amount !== previousAmount) {
       const bankDetails = await getBankaccountDao(
-        { id: botRes.bank_id },
+        { id: botRes.bank_id, company_id: botRes.company_id },
         null,
         null,
         null,
@@ -2054,7 +2054,7 @@ const handleAmountUpdate = async ({
       // Add other updates to the promises array
       updatePromises.push(
         updateBankaccountDao(
-          { id: bank.id },
+          { id: bank.id, company_id: bank.company_id },
           {
             balance: parseFloat(bank.balance) + parseFloat(updatedAmount),
             today_balance:
