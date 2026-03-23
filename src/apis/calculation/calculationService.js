@@ -28,7 +28,13 @@ import { filterResponse } from '../../helpers/index.js';
 import { logger } from '../../utils/logger.js';
 import { getMerchantsDao } from '../../apis/merchants/merchantDao.js';
 import { getPayInsForSuccessRatioDao } from '../../apis/payIn/payInDao.js';
-import { getConnection, executeQuery } from '../../utils/db.js';
+import {
+  getConnection,
+  executeQuery,
+  beginTransaction,
+  commit,
+  rollback,
+} from '../../utils/db.js';
 import dayjs from 'dayjs';
 import timezone from 'dayjs/plugin/timezone.js';
 import utc from 'dayjs/plugin/utc.js';
@@ -45,6 +51,7 @@ const getCalculationService = async (filters, role) => {
     if (!filters || !role) {
       throw new BadRequestError('Missing required parameters');
     }
+
     const result = await getCalculationsSumDao({
       ...filters,
       role,
@@ -69,26 +76,39 @@ const getCalculationService = async (filters, role) => {
 };
 
 // Service to create a new calculation record
-const createCalculationService = async (conn, payload, role) => {
+const createCalculationService = async (payload, role) => {
+  let conn; let committed = false; ;
   try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+
     const filterColumns =
       role === Role.MERCHANT || role === Role.SUB_MERCHANT
         ? merchantColumns.CALCULATION
         : role === Role.VENDOR || role === Role.SUB_VENDOR
           ? vendorColumns.CALCULATION
           : columns.CALCULATION;
-    const data = await createCalculationDao(conn, payload); // Ensuring transaction safety
+    const data = await createCalculationDao(payload, conn);
     const finalResult = filterResponse(data, filterColumns);
+
+    await commit(conn); committed = true;
     return finalResult;
   } catch (error) {
+    if (conn && !committed) await rollback(conn);
     logger.error('Error while creating calculation record:', error);
     throw error;
+  } finally {
+    if (conn) conn.release();
   }
 };
 
 // Service to update an existing calculation record
-const updateCalculationService = async (conn, filters, payload, role) => {
+const updateCalculationService = async (filters, payload, role) => {
+  let conn; let committed = false; ;
   try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+
     const filterColumns =
       role === Role.MERCHANT || role === Role.SUB_MERCHANT
         ? merchantColumns.CALCULATION
@@ -97,24 +117,25 @@ const updateCalculationService = async (conn, filters, payload, role) => {
           : columns.CALCULATION;
     const data = await updateCalculationDao(filters, payload, conn);
     const finalResult = filterResponse(data, filterColumns);
+
+    await commit(conn); committed = true;
     return finalResult;
   } catch (error) {
+    if (conn && !committed) await rollback(conn);
     logger.error('Error while updating calculation record:', error);
     throw error;
   } finally {
-    if (conn) {
-      try {
-        conn.release();
-      } catch (releaseError) {
-        logger.error('Error while releasing the connection:', releaseError);
-      }
-    }
+    if (conn) conn.release();
   }
 };
 
 // Service to mark a calculation record as obsolete (soft delete)
-const deleteCalculationService = async (conn, id, role) => {
+const deleteCalculationService = async (id, role) => {
+  let conn; let committed = false; ;
   try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+
     const filterColumns =
       role === Role.MERCHANT || role === Role.SUB_MERCHANT
         ? merchantColumns.CALCULATION
@@ -122,12 +143,17 @@ const deleteCalculationService = async (conn, id, role) => {
           ? vendorColumns.CALCULATION
           : columns.CALCULATION;
     const userData = { is_obsolete: true };
-    const data = await deleteCalculationDao(conn, id, userData);
+    const data = await deleteCalculationDao(id, userData, conn);
     const finalResult = filterResponse(data, filterColumns);
+
+    await commit(conn); committed = true;
     return finalResult;
   } catch (error) {
+    if (conn && !committed) await rollback(conn);
     logger.error('Error while deleting calculation record:', error);
     throw error;
+  } finally {
+    if (conn) conn.release();
   }
 };
 
@@ -421,10 +447,7 @@ const calculateVendorWithSubVendorPayoutData = async (
 };
 
 const calculateSuccessRatiosService = async (date, user_ids) => {
-  let conn;
   try {
-    conn = await getConnection();
-
     // Get merchants data using user_ids
     const merchants = await getMerchantsDao({
       user_id: user_ids,
@@ -442,18 +465,18 @@ const calculateSuccessRatiosService = async (date, user_ids) => {
   } catch (error) {
     logger.error('Error in calculateSuccessRatiosService:', error);
     throw error;
-  } finally {
-    if (conn) {
-      conn.release();
-    }
   }
 };
 
-const updateCalculationsService = async (conn, filters) => {
+const updateCalculationsService = async (filters) => {
+  let conn; let committed = false; ;
   try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+
     const { date, user_id, startDate, endDate, company_id } = filters;
 
-    const role = await getUserRoleDao(user_id);
+    const role = await getUserRoleDao(user_id, conn);
 
     // Validate user_id
     if (!user_id || typeof user_id !== 'string') {
@@ -502,7 +525,7 @@ const updateCalculationsService = async (conn, filters) => {
       startDate: calculationStartDate,
       endDate: calculationEndDate,
       role,
-    });
+    }, conn);
 
     let processedUsers = [];
     let updatedCount = 0;
@@ -1154,7 +1177,7 @@ const updateCalculationsService = async (conn, filters) => {
       });
     }
 
-    return {
+    const result = {
       updated_count: updatedCount,
       processed_users: processedUsers,
       failed_users: failedUsers,
@@ -1219,9 +1242,15 @@ const updateCalculationsService = async (conn, filters) => {
       //   },
       // },
     };
+
+    await commit(conn); committed = true;
+    return result;
   } catch (error) {
+    if (conn && !committed) await rollback(conn);
     logger.error('Error in updateCalculationsService:', error);
     throw error;
+  } finally {
+    if (conn) conn.release();
   }
 };
 

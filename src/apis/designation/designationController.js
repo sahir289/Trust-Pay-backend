@@ -4,7 +4,6 @@ import {
   VALIDATE_DESIGNATION_BY_ID,
 } from '../../schemas/designationSchema.js';
 import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
-import { transactionWrapper } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import {
@@ -38,7 +37,7 @@ const createDesignation = async (req, res) => {
     throw new ValidationError(joiValidation.error);
   }
   let payload = req.body;
-  await transactionWrapper(createDesignationService)(payload);
+  await createDesignationService(payload);
   return sendSuccess(res, {}, 'Create Designations successfully');
 };
 

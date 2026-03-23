@@ -4,87 +4,55 @@ import utc from 'dayjs/plugin/utc.js';
 import timezone from 'dayjs/plugin/timezone.js';
 import { getallBankHistoryDao } from '../apis/bankHistory/bankHistoryDao.js';
 import collectBankData from './bankCron.js';
-// import {
-//   getUsersForCronDao,
-// } from '../apis/users/userDao.js';
-
-import {
-  getCalculationByDateAndUserDao,
-  createCalculationDao,
-  updateTodayNetBalanceDao,
-} from '../apis/calculation/calculationDao.js';
-
+import collectCalculationData from './calculationCron.js';
 import { logger } from '../utils/logger.js';
-import config from '../config/config.js';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
 const IST = 'Asia/Kolkata';
 
-if (config?.env === 'production') {
-  cron.schedule(
-    '1 0 * * *', 
+let checkNetbalanceCronJob = null;
+
+// Only run cron jobs in the dedicated cron worker process (works in both prod and local)
+const isCronWorker = process.env.CRON_WORKER === 'true';
+if (isCronWorker && process.env.NODE_ENV === 'production') {
+  checkNetbalanceCronJob = cron.schedule(
+    '2 0 * * *',  // Run at 00:02 IST as backup for calculationCron (00:00)
     async () => {
       await runDailyCalculation();
     },
     { timezone: IST }
   );
-} else {
-  logger.warn('Daily calculation cron is disabled in non-production environment.');
+  logger.info('Check netbalance cron job initialized in cron worker');
 }
 
 const runDailyCalculation = async () => {
   const startTime = dayjs().tz(IST).format('YYYY-MM-DD HH:mm:ss');
-  logger.info(`Starting daily calculation update at ${startTime} IST`);
+  logger.info(`Starting daily calculation backup at ${startTime} IST`);
   const today = dayjs().tz(IST).format('YYYY-MM-DD');
-  const yesterday = dayjs().tz(IST).subtract(1, 'day').format('YYYY-MM-DD');
+  
   try {
-    await processUserCalculation(today, yesterday);
-    markSuccess(today);
-    logger.info(`Daily calculation update completed successfully for ${today}`);
-  } catch (error) {
-    logger.error(`Daily calculation failed for ${today}:`, error?.message || error);
-  }
-};
-
-const processUserCalculation = async (today, yesterday) => {
-  try {
-    const todayCalc = await getCalculationByDateAndUserDao(today);
-    const yesterdayCalc = await getCalculationByDateAndUserDao(yesterday);
-    const todayMap = new Map(todayCalc.map((rec) => [rec.user_id, rec]));
-    for (const yCalc of yesterdayCalc) {
-      const existingToday = todayMap.get(yCalc.user_id);
-      const prevNetBalance = yCalc.net_balance || 0;
-      if (existingToday) {
-        await updateTodayNetBalanceDao(existingToday.id, prevNetBalance);
-      } else {
-        await createCalculationDao(null, {
-          user_id: yCalc.user_id,
-          role_id: yCalc.role_id,
-          company_id: yCalc.company_id,
-          net_balance: prevNetBalance,
-        });
-        logger.info(
-          `Created calculation for user ${yCalc.user_id} on ${today}`,
-        );
-      }
-    }
+    // Reuse the main calculation cron logic (handles deduplication internally)
+    await collectCalculationData();
+    
+    // Check and populate bank history if missing
     const bankhistory = await getallBankHistoryDao({ date: today });
     if (bankhistory.length === 0) {
+      logger.info('No bank history found for today, running bank cron...');
       await collectBankData('Asia/Kolkata');
-     }
-    logger.info(
-      `Finished processing calculations for ${yesterdayCalc.length} users on ${today}`,
-    );
+    }
+    
+    logger.info(`Daily calculation backup completed successfully for ${today}`);
   } catch (error) {
-    logger.error(
-      `Failed to process user calculations for ${today}: ${error?.message || error}`,
-    );
+    logger.error(`Daily calculation backup failed for ${today}:`, error?.message || error);
   }
 };
 
-const markSuccess = (date) => {
-  logger.info(`Daily calculation cron completed successfully for date: ${date}`);
+export const stopCheckNetbalanceCron = () => {
+  if (checkNetbalanceCronJob) {
+    checkNetbalanceCronJob.stop();
+    logger.info('Check netbalance cron job stopped');
+  }
 };
 
 export default runDailyCalculation;

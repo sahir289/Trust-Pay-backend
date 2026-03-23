@@ -221,14 +221,14 @@ export const filterResponse = (data, keys) => {
         return filteredItem;
       });
     } else if (typeof data === 'object' && data !== null) {
-      logger.error('Data is an object');
+      logger.log('Data is an object');
 
       const filteredItem = {};
       keys.forEach((key) => {
         if (Object.prototype.hasOwnProperty.call(data, key)) {
           filteredItem[key] = data[key];
         } else {
-          logger.error('Key not found in object');
+          logger.warn('Key not found in object');
         }
       });
       return filteredItem;

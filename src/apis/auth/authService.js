@@ -1,12 +1,16 @@
-// import { processRequest } from '../../middlewares/processRequest.js';
 import {
   AuthenticationError,
   BadRequestError,
   NotFoundError,
 } from '../../utils/appErrors.js';
 import { createHash, verifyHash } from '../../utils/bcryptPassword.js';
-import os from 'os';
-import { getConnection } from '../../utils/db.js';
+import os from 'node:os';
+import {
+  beginTransaction,
+  commit,
+  getConnection,
+  rollback,
+} from '../../utils/db.js';
 import { getUsersByUserNameDao, updateUserDao } from '../users/userDao.js';
 import { generateUserToken } from '../../utils/auth.js';
 import {
@@ -14,8 +18,16 @@ import {
   deleteUserSessionsDao,
   getSessionByIdDao,
   changePasswordDao,
+  getUserAuthPasswordDao,
   getRoleByUserNameDao,
+  getUserForVerificationDao,
 } from './authDao.js';
+import {
+  AUTH_SESSION_CACHE_TTL_SEC,
+  buildAuthSessionCacheKey,
+  deleteCachedData,
+  setCachedData,
+} from '../../utils/redishashkey.js';
 import {
   createUserOtpDao,
   getUserOtpDao,
@@ -23,182 +35,184 @@ import {
 } from '../userOtp/userOtpDao.js';
 import { generateUUID } from '../../utils/generateUUID.js';
 import { generateOTP } from '../../utils/generateOtp.js';
-import { forceLogoutUser } from '../../utils/sockets.js';
+import { forceLogoutUser, logOutUser } from '../../utils/sockets.js';
 import { sendOTP } from '../../utils/sendMailer.js';
 import { logger } from '../../utils/logger.js';
-import { compareHash } from '../../utils/hashUtils.js';
-import { logOutUser } from '../../utils/sockets.js';
+import {
+  compareHash,
+  createHash as createDeterministicHash,
+} from '../../utils/hashUtils.js';
 import { Role } from '../../constants/index.js';
 
-const loginService = async (config, clientIP, retryCount = 0) => {
-  const MAX_RETRIES = 2;
+const assertAdminLoginAccess = (user, config) => {
+  if (user.designation !== Role.ADMIN || config.newPassword) {
+    return;
+  }
+
+  if (!config.unique_admin_id) {
+    throw new BadRequestError('Unique admin ID is required for admin login.');
+  }
+
+  if (user.company_config.unique_admin_id !== config.unique_admin_id) {
+    throw new BadRequestError('You are not authorized to access this account.');
+  }
+};
+
+const getFirstLoginResponse = (user, isLoginSecondFlag) => {
+  if (!user.config.isLoginFirst || isLoginSecondFlag) {
+    return null;
+  }
+
+  return {
+    id: user.id,
+    isLoginFirst: user.config.isLoginFirst,
+  };
+};
+
+const buildLoginSessionConfig = (config, clientIP, tokenInfo, hashedToken) => ({
+  user_info: {
+    user_ip: clientIP,
+    user_location: config.user_location || {},
+    hostname: os.hostname(),
+    os_platform: os.platform(),
+    network_interface: Object.values(os.networkInterfaces())[0]?.[0],
+    cpu_cores: os.cpus()[0],
+  },
+  token: {
+    access_token: tokenInfo.accessToken,
+    refresh_token: hashedToken,
+  },
+  confirm_over_ride: config.confirmOverRide,
+  login_time: new Date().toISOString(),
+});
+
+const prepareLoginData = async (user, config) => {
+  if (config.newPassword) {
+    const isPasswordValid = await verifyHash(config.password, user.password);
+    if (!isPasswordValid) {
+      throw new NotFoundError('Invalid current password. Please try again.');
+    }
+
+    return {
+      hashedPassword: await createHash(config.newPassword),
+      isLoginSecondFlag: true,
+    };
+  }
+
+  const isPasswordValid = await verifyHash(config.password, user.password);
+  if (!isPasswordValid) {
+    throw new NotFoundError('Invalid Credentials. Please try again.');
+  }
+
+  return {
+    hashedPassword: null,
+    isLoginSecondFlag: false,
+  };
+};
+
+const loginService = async (
+  config,
+  clientIP,
+  // retryCount = 0
+) => {
   let conn;
+  let committed = false;
   try {
-    let user = await getUsersByUserNameDao({}, config.username);
+    const user = await getUsersByUserNameDao({}, config.username);
     if (!user) {
       throw new NotFoundError('User Not Found.');
     }
     if (!user.is_enabled) {
-      throw new NotFoundError(
-        'User not active. Please contact Support Team',
-      );
+      throw new NotFoundError('User not active. Please contact Support Team');
     }
 
-    if (user.designation === Role.ADMIN && !config.newPassword) {
-      if (!config.unique_admin_id) {
-        throw new BadRequestError(
-          'Unique admin ID is required for admin login.',
-        );
-      }
-      if (user.company_config.unique_admin_id !== config.unique_admin_id) {
-        throw new BadRequestError(
-          'You are not authorized to access this account.',
-        );
-      }
-    }
+    assertAdminLoginAccess(user, config);
 
-    let isLoginSecondFlag = false;
-    // Handle password update for newPassword
-    if (config.newPassword) {
-      const isPasswordValid = await verifyHash(config.password, user.password);
-      if (!isPasswordValid) {
-        throw new NotFoundError('Invalid current password. Please try again.');
-      }
-      const hashedPassword = await createHash(config.newPassword);
-      conn = await getConnection();
-      await updateUserDao(
-        { id: user.id },
-        {
-          password: hashedPassword,
-          config: { ...user.config, isLoginFirst: false },
-        },
-        conn,
-      );
-      isLoginSecondFlag = true;
-    } else {
-      // Verify password for regular login
-      const isPasswordValid = await verifyHash(config.password, user.password);
-      if (!isPasswordValid) {
-        throw new NotFoundError('Invalid Credentials. Please try again.');
-      }
-    }
+    const { hashedPassword, isLoginSecondFlag } = await prepareLoginData(
+      user,
+      config,
+    );
 
-    // Handle first login
-    if (user.config.isLoginFirst && !isLoginSecondFlag) {
-      const loginFirstObj = {
-        id: user.id,
-        isLoginFirst: user.config.isLoginFirst,
-      };
-      return loginFirstObj;
+    const firstLoginResponse = getFirstLoginResponse(user, isLoginSecondFlag);
+    if (firstLoginResponse) {
+      return firstLoginResponse;
     }
 
     // Proceed with session and token generation for non-first login
-    conn = conn || (await getConnection());
-    
-    try {
-      // Start a transaction with read committed isolation for better concurrency
-      // We'll handle race conditions through application logic rather than serializable isolation
-      await conn.query('BEGIN ISOLATION LEVEL READ COMMITTED');
-      
-      // First, immediately invalidate ALL existing sessions for this user
-      // This prevents any race condition with multiple simultaneous logins
-      await deleteUserSessionsDao(user.id, user.company_id, null, conn);
-      
-      // Add a small delay to ensure any concurrent operations complete
-      await new Promise(resolve => setTimeout(resolve, 50));
-      
-      // Generate new session ID and tokens first (before any DB operations)
-      const sessionId = generateUUID();
-      const tokenInfo = generateUserToken(user);
-      const hashedToken = await createHash(tokenInfo.refreshToken);
-      
-      const newConfig = {
-        user_info: {
-          user_ip: clientIP,
-          user_location: config.user_location || {},
-          hostname: os.hostname(),
-          os_platform: os.platform(),
-          network_interface: Object.values(os.networkInterfaces())[0]?.[0],
-          cpu_cores: os.cpus()[0],
-        },
-        token: {
-          access_token: tokenInfo.accessToken,
-          refresh_token: hashedToken,
-        },
-        confirm_over_ride: config.confirmOverRide,
-        login_time: new Date().toISOString(),
-      };
+    // Generate new session ID and tokens first (before any DB operations)
+    const sessionId = generateUUID();
+    const tokenInfo = generateUserToken(user, sessionId);
+    const hashedToken = createDeterministicHash(tokenInfo.refreshToken);
+    const newConfig = buildLoginSessionConfig(
+      config,
+      clientIP,
+      tokenInfo,
+      hashedToken,
+    );
 
-      // Create new session - this should be the only active session
-      await addLoginDao(user.id, newConfig, user.company_id, sessionId, conn);
-      
-      // Commit the transaction
-      await conn.query('COMMIT');
+    conn = await getConnection();
+    await beginTransaction(conn);
 
-      logger.info(`New session created for user: ${user.id}, session: ${sessionId}`);
-
-      // After successful login, force logout all other sessions for this user
-      // This is done AFTER the transaction to ensure we don't interfere with the login process
-      forceLogoutUser(user.id, null, sessionId);
-
-      return {
-        tokenInfo,
-        sessionId,
-      };
-    } catch (transactionError) {
-      // Rollback the transaction on error
+    if (hashedPassword) {
       try {
-        await conn.query('ROLLBACK');
-      } catch (rollbackError) {
-        logger.error('Error during rollback:', rollbackError);
+        await updateUserDao(
+          { id: user.id },
+          {
+            password: hashedPassword,
+            config: { ...user.config, isLoginFirst: false },
+          },
+          conn,
+        );
+      } catch (updateError) {
+        logger.error('Error updating user password:', updateError);
+        throw updateError;
       }
-      
-      // Handle serialization failures with detailed logging and retry logic
-      if (transactionError.code === '40001' || 
-          transactionError.message?.includes('serialization failure') ||
-          transactionError.message?.includes('could not serialize access') ||
-          transactionError.detail?.includes('Canceled on identification as a pivot')) {
-        
-        logger.warn(`Serialization failure for user ${user.id}:`, {
-          errorCode: transactionError.code,
-          errorDetail: transactionError.detail,
-          errorHint: transactionError.hint,
-          routine: transactionError.routine,
-          retryAttempt: retryCount
-        });
-        
-        // Retry if we haven't exceeded max retries
-        if (retryCount < MAX_RETRIES) {
-          // Add exponential backoff with jitter to prevent thundering herd
-          const backoffDelay = Math.random() * 200 * (retryCount + 1) + 100; // Increasing delay
-          await new Promise(resolve => setTimeout(resolve, backoffDelay));
-          
-          logger.info(`Retrying login for user ${user.id}, attempt ${retryCount + 1}/${MAX_RETRIES}`);
-          return await loginService(config, clientIP, retryCount + 1);
-        } else {
-          logger.error(`Max retries exceeded for user ${user.id} due to serialization failures`);
-          throw new AuthenticationError('Login service is temporarily busy. Please try again in a moment.');
-        }
-      }
-      
-      throw transactionError;
     }
+
+    // First, immediately invalidate ALL existing sessions for this user
+    // This prevents any race condition with multiple simultaneous logins
+    await deleteUserSessionsDao(user.id, user.company_id, null, conn);
+
+    // Create new session - this should be the only active session
+    await addLoginDao(user.id, newConfig, user.company_id, sessionId, conn);
+
+    // Commit the transaction
+    await commit(conn);
+    committed = true;
+
+    logger.info(
+      `New session created for user: ${user.id}, session: ${sessionId}`,
+    );
+
+    await setCachedData(
+      buildAuthSessionCacheKey({
+        user_id: user.id,
+        company_id: user.company_id,
+        session_id: sessionId,
+      }),
+      { session_id: sessionId },
+      AUTH_SESSION_CACHE_TTL_SEC,
+      'Auth session cache',
+    );
+
+    // After successful login, force logout all other sessions for this user
+    // This is done AFTER the transaction to ensure we don't interfere with the login process
+    forceLogoutUser(user.id, null, sessionId);
+
+    return {
+      tokenInfo,
+      sessionId,
+    };
   } catch (error) {
+    if (conn && !committed) await rollback(conn);
     logger.error('Error in login service:', error);
     throw error;
   } finally {
-    if (conn) {
-      try {
-        conn.release();
-      } catch (releaseError) {
-        logger.error('Error while releasing the connection', releaseError);
-      }
-    }
+    if (conn) conn.release();
   }
 };
 
 const refreshTokenService = async (user_id, company_id, refreshToken) => {
-  let conn;
   try {
     const session = await getSessionByIdDao({ user_id, company_id });
     if (!session) {
@@ -214,51 +228,49 @@ const refreshTokenService = async (user_id, company_id, refreshToken) => {
   } catch (error) {
     logger.log('Error getting :', error);
     throw error;
-  } finally {
-    if (conn) {
-      try {
-        conn.release();
-      } catch (releaseError) {
-        logger.error('Error while releasing the connection', releaseError);
-      }
-    }
   }
 };
 
 const logoutService = async (decodeToken, session_id) => {
-  let conn;
   try {
-    conn = await getConnection();
     const data = await deleteUserSessionsDao(
       decodeToken.user_id,
       decodeToken.company_id,
       session_id,
     );
-    await logOutUser(decodeToken.user_id, session_id);
+
+    await deleteCachedData(
+      buildAuthSessionCacheKey({
+        user_id: decodeToken.user_id,
+        company_id: decodeToken.company_id,
+        session_id: session_id || decodeToken.session_id,
+      }),
+      'Auth session cache',
+    );
+
+    // Emit socket logout asynchronously so API latency depends on DB work,
+    // not on Socket.IO/Redis bridge availability.
+    void logOutUser(decodeToken.user_id, session_id).catch((socketError) => {
+      logger.warn('Logout socket emit failed (non-blocking):', socketError);
+    });
+
     return data;
   } catch (error) {
     logger.error('Error getting while logout', error);
     throw error;
-  } finally {
-    if (conn) {
-      try {
-        conn.release();
-      } catch (releaseError) {
-        logger.error('Error while releasing the connection', releaseError);
-      }
-    }
   }
 };
 
 const changePasswordService = async (payload) => {
-  let conn;
   try {
-    conn = await getConnection();
     const userDetials = {
       user_name: payload.user_name,
       password: payload.oldPassword,
     };
-    const verified = await verificationService(payload.user_id, userDetials);
+    const verified = await verificationService(
+      { user_id: payload.user_id },
+      userDetials,
+    );
     if (!verified) {
       throw new AuthenticationError('Invalid Password');
     }
@@ -268,20 +280,21 @@ const changePasswordService = async (payload) => {
   } catch (error) {
     logger.error('Error getting while changing password', error);
     throw error;
-  } finally {
-    if (conn) {
-      try {
-        conn.release();
-      } catch (releaseError) {
-        logger.error('Error while releasing the connection', releaseError);
-      }
-    }
   }
 };
 
 const verificationService = async (ids, payload) => {
   try {
-    const userDetails = await getUsersByUserNameDao(ids, payload.user_name);
+    const userDetails = await getUserAuthPasswordDao({
+      user_id: ids?.user_id || ids?.id,
+      company_id: ids?.company_id,
+      user_name: payload.user_name,
+    });
+
+    if (!userDetails) {
+      throw new NotFoundError('User Not Found.');
+    }
+
     const isPasswordValid = await verifyHash(
       payload.password,
       userDetails.password,
@@ -300,9 +313,9 @@ const forgetPasswordService = async (payload) => {
     const hashPassword = await createHash(payload.password);
     const user = await updateUserDao(
       { id: payload.user_id },
-      { 
+      {
         password: hashPassword,
-        config: { isLoginFirst: false } 
+        config: { isLoginFirst: false },
       },
     );
     return user;
@@ -313,7 +326,7 @@ const forgetPasswordService = async (payload) => {
 };
 const verfyUserService = async (user_name) => {
   try {
-    let userDetails = await getUsersByUserNameDao({}, user_name);
+    const userDetails = await getUserForVerificationDao(user_name);
     if (!userDetails) {
       throw new AuthenticationError(`Invalid User`);
     }
@@ -372,10 +385,15 @@ const getUserRoleService = async (userName) => {
 
     let response = {
       isAdmin: false,
+      isVendor: false,
     };
     if (user.designation === Role.ADMIN) {
       response = {
         isAdmin: true,
+      };
+    } else if (user.role === Role.VENDOR) {
+      response = {
+        isVendor: true,
       };
     }
     return response;
@@ -383,7 +401,7 @@ const getUserRoleService = async (userName) => {
     logger.error('Error getting user role', error);
     throw error; // Re-throw the error to be handled by the calling function
   }
-}
+};
 
 export {
   loginService,

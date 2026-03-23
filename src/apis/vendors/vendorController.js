@@ -19,8 +19,19 @@ import {
 } from '../../schemas/vendorSchema.js';
 import { ValidationError, BadRequestError } from '../../utils/appErrors.js';
 import { logger } from '../../utils/logger.js';
-import { transactionWrapper } from '../../utils/db.js';
+import { generateCacheKey } from '../../utils/redishashkey.js';
+import {
+  normalizeQueryForCache,
+  readJsonCache,
+  writeJsonCache,
+  invalidateCompanyCacheByPrefix,
+} from '../../utils/controllerCache.js';
+import config from '../../config/config.js';
 // import { BadRequestError } from '../../utils/appErrors.js';
+
+const invalidateVendorsCache = async (companyId) =>
+  invalidateCompanyCacheByPrefix(companyId, 'vendors:read:', 'Vendors cache');
+const { controllerCacheTtls } = config;
 
 const createVendor = async (req, res) => {
   const { error } = VALIDATE_VENDOR_SCHEMA.validate(req.body);
@@ -33,7 +44,8 @@ const createVendor = async (req, res) => {
   payload.created_by = user_id;
   payload.updated_by = user_id;
   // Call the service to create the Vendor
-  const vendor = await transactionWrapper(createVendorService)(payload);
+  const vendor = await createVendorService(payload);
+  await invalidateVendorsCache(company_id);
   // Log success message
   // Send a success response to the client
   return sendSuccess(res, { id: vendor.id }, 'Vendor created successfully');
@@ -42,6 +54,24 @@ const createVendor = async (req, res) => {
 const getVendors = async (req, res) => {
   const { company_id, role, user_id, designation } = req.user;
   const { page, limit } = req.query;
+  const cacheKey = `vendors:read:${company_id}:list:${generateCacheKey(
+    {
+      company_id,
+      role,
+      user_id,
+      designation,
+      page,
+      limit,
+      query: normalizeQueryForCache(req.query),
+    },
+    'vendors-list',
+  )}`;
+
+  const cached = await readJsonCache(cacheKey, 'Vendors list cache');
+  if (cached) {
+    return sendSuccess(res, cached, 'Vendors fetched successfully');
+  }
+
   const data = await getVendorsService(
     {
       company_id,
@@ -53,12 +83,33 @@ const getVendors = async (req, res) => {
     designation,
     user_id,
   );
+
+  await writeJsonCache(cacheKey, data, controllerCacheTtls.vendors.list);
+
   return sendSuccess(res, data, 'Vendors fetched successfully');
 };
 
 const getVendorsBySearch = async (req, res) => {
   const { company_id, role, user_id, designation } = req.user;
   const { page, limit } = req.query;
+  const cacheKey = `vendors:read:${company_id}:search:${generateCacheKey(
+    {
+      company_id,
+      role,
+      user_id,
+      designation,
+      page,
+      limit,
+      query: normalizeQueryForCache(req.query),
+    },
+    'vendors-search',
+  )}`;
+
+  const cached = await readJsonCache(cacheKey, 'Vendors search cache');
+  if (cached) {
+    return sendSuccess(res, cached, 'Vendors fetched successfully');
+  }
+
   const data = await getVendorsBySearchService(
     {
       company_id,
@@ -70,6 +121,9 @@ const getVendorsBySearch = async (req, res) => {
     designation,
     user_id,
   );
+
+  await writeJsonCache(cacheKey, data, controllerCacheTtls.vendors.search);
+
   return sendSuccess(res, data, 'Vendors fetched successfully');
 };
 
@@ -84,6 +138,27 @@ const getVendorCodes = async (req, res) => {
     isEnabled,
   } = req.query;
   const filters = { company_id };
+  const cacheKey = `vendors:read:${company_id}:codes:${generateCacheKey(
+    {
+      company_id,
+      user_id,
+      role,
+      designation,
+      includeSubVendors,
+      includeOnlyVendors,
+      excludeDisabledVendor,
+      includeSeperateSubVendors,
+      includeVendorAdmin,
+      isEnabled,
+    },
+    'vendors-codes',
+  )}`;
+
+  const cached = await readJsonCache(cacheKey, 'Vendors codes cache');
+  if (cached) {
+    return sendSuccess(res, cached, 'Vendors fetched successfully');
+  }
+
   const data = await getVendorsCodeService(
     filters,
     role,
@@ -96,6 +171,7 @@ const getVendorCodes = async (req, res) => {
     includeVendorAdmin,
     isEnabled,
   );
+  await writeJsonCache(cacheKey, data, controllerCacheTtls.vendors.codes);
   // Log success message
   // Send success response
   return sendSuccess(res, data, 'Vendors fetched successfully');
@@ -112,6 +188,13 @@ const getVendorById = async (req, res) => {
   }
   const { id } = req.params;
   const { company_id } = req.user;
+  const cacheKey = `vendors:read:${company_id}:byid:${id}:${role}:${designation}:${user_id}`;
+
+  const cached = await readJsonCache(cacheKey, 'Vendors by-id cache');
+  if (cached) {
+    return sendSuccess(res, cached, 'Vendor fetched successfully');
+  }
+
   // Fetch vendor data from the service
   const data = await getVendorsService(
     { id, company_id },
@@ -121,6 +204,7 @@ const getVendorById = async (req, res) => {
     designation,
     user_id,
   );
+  await writeJsonCache(cacheKey, data, controllerCacheTtls.vendors.byId);
   // Log success message
   // Send success response
   return sendSuccess(res, data, 'Vendor fetched successfully');
@@ -155,6 +239,7 @@ const updateVendor = async (req, res) => {
   const ids = { id, company_id };
   // Call the service to update the Vendor
   const vendor = await updateVendorService(ids, payload);
+  await invalidateVendorsCache(company_id);
   // Log success message
   // Send a success response to the client
   return sendSuccess(
@@ -174,6 +259,7 @@ const deleteVendor = async (req, res) => {
   const updated_by = currentUserId;
   const ids = { user_id: user_id, company_id }; // Convert to match merchant pattern
   const vendor = await deleteVendorService(ids, updated_by);
+  await invalidateVendorsCache(company_id);
   // Log success message
 
   // Send a success response to the client
@@ -186,18 +272,40 @@ const deleteVendor = async (req, res) => {
 
 const getVendorByCode = async (req, res) => {
   const { code } = req.query;
+  const { company_id } = req.user;
+  const cacheKey = `vendors:read:${company_id}:bycode:${code}`;
+
+  const cached = await readJsonCache(cacheKey, 'Vendors by-code cache');
+  if (cached) {
+    logger.log('get Vendors successfully (cache hit)');
+    return sendSuccess(res, cached, 'Vendors fetched successfully');
+  }
+
   const data = await getVendorsByCodeService(code);
+  await writeJsonCache(cacheKey, data, controllerCacheTtls.vendors.byCode);
   logger.log('get Vendors successfully');
   return sendSuccess(res, data, 'Vendors fetched successfully');
 };
 
 const linkVendor = async (req, res) => {
-  const { vendorUserId, subVendorUserId, mediator_payin_commission, mediator_payout_commission } = req.body;
+  const {
+    vendorUserId,
+    subVendorUserId,
+    mediator_payin_commission,
+    mediator_payout_commission,
+  } = req.body;
   const { user_id } = req.user;
   if (!vendorUserId || !subVendorUserId) {
     throw new BadRequestError('vendorUserId and subVendorUserId are required');
   }
-  const result = await linkVendorService(vendorUserId, subVendorUserId, user_id, mediator_payin_commission, mediator_payout_commission);
+  const result = await linkVendorService(
+    vendorUserId,
+    subVendorUserId,
+    user_id,
+    mediator_payin_commission,
+    mediator_payout_commission,
+  );
+  await invalidateVendorsCache(req.user.company_id);
   return sendSuccess(res, result, 'Vendor linked successfully');
 };
 
@@ -207,7 +315,12 @@ const unlinkVendor = async (req, res) => {
   if (!vendorUserId || !subVendorUserId) {
     throw new BadRequestError('vendorUserId and subVendorUserId are required');
   }
-  const result = await unlinkVendorService(vendorUserId, subVendorUserId, user_id);
+  const result = await unlinkVendorService(
+    vendorUserId,
+    subVendorUserId,
+    user_id,
+  );
+  await invalidateVendorsCache(req.user.company_id);
   return sendSuccess(res, result, 'Vendor unlinked successfully');
 };
 
@@ -215,9 +328,17 @@ const transferVendor = async (req, res) => {
   const { subVendorUserId, newVendorUserId, currentVendorUserId } = req.body;
   const { user_id } = req.user;
   if (!subVendorUserId || !newVendorUserId || !currentVendorUserId) {
-    throw new BadRequestError('subVendorUserId, newVendorUserId, and currentVendorUserId are required');
+    throw new BadRequestError(
+      'subVendorUserId, newVendorUserId, and currentVendorUserId are required',
+    );
   }
-  const result = await transferVendorService(subVendorUserId, newVendorUserId, currentVendorUserId, user_id);
+  const result = await transferVendorService(
+    subVendorUserId,
+    newVendorUserId,
+    currentVendorUserId,
+    user_id,
+  );
+  await invalidateVendorsCache(req.user.company_id);
   return sendSuccess(res, result, 'Vendor transferred successfully');
 };
 

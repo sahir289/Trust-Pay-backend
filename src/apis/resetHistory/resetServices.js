@@ -94,9 +94,9 @@ const getResetHistoryBySearchService = async (filters) => {
   }
 };
 
-const createResetHistoryService = async (conn, payload) => {
+const _createResetHistoryServiceInternal = async (payload, conn = null) => {
   try {
-    const result = await createResetHistoryDao(payload,conn);
+    const result = await createResetHistoryDao(payload, conn);
     // await notifyAdminsAndUsers({
     //   conn,
     //   company_id: payload.company_id,
@@ -105,6 +105,16 @@ const createResetHistoryService = async (conn, payload) => {
     //   actorUserId: payload.updated_by,
     //   category: 'Data Entries',
     // });
+    return result;
+  } catch (error) {
+    logger.error('error in _createResetHistoryServiceInternal', error);
+    throw error;
+  }
+};
+
+const createResetHistoryService = async (payload) => {
+  try {
+    const result = await _createResetHistoryServiceInternal(payload);
     return result;
   } catch (error) {
     logger.error('error getting while reset history', error);
@@ -147,7 +157,7 @@ const updateResetHistoryService = async (id, company_id) => {
           payin_vendor_commission: null,
           user_submitted_utr: null,
           duration: null,
-        },
+        }
       );
       return 'Transaction Reset Successfully';
     } else {
@@ -171,6 +181,7 @@ const deleteResetHistoryService = async (id) => {
 export {
   getResetHistoryService,
   createResetHistoryService,
+  _createResetHistoryServiceInternal,
   updateResetHistoryService,
   getResetHistoryBySearchService,
   deleteResetHistoryService,

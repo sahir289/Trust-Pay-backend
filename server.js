@@ -1,17 +1,18 @@
 import app from './src/app.js';
-import { createServer } from 'http';
+// Explicitly imports the built-in Node.js http module
+import { createServer } from 'node:http';
 import chalk from 'chalk';
 import config from './src/config/config.js';
-import { initializeSocket } from './src/utils/sockets.js';
+import { initializeSocket, shutdownSocket } from './src/utils/sockets.js';
 import { logger } from './src/utils/logger.js';
-import { closePool } from './src/utils/db.js';
-import { closeRabbitMQ } from './src/utils/rabbitmq.js';
-import { startBankResponseWorker } from './src/worker/consume-bank-response-worker.js';
+import { closePool, checkDatabaseHealth, dbPoolMonitor } from './src/utils/db.js';
+import { stopRabbitMQ } from './src/rabbitmq/index.js';
 import { closeRedis } from './src/utils/redisClient.js';
 // import { migrateUsersToES } from './src/elasticSearch/user/migrate.js';
 
 const server = createServer(app);
 
+// Initialize Socket.IO with Redis adapter (async)
 initializeSocket(server);
 
 const PORT = config?.port || 8090;
@@ -31,7 +32,8 @@ const normalizePort = (val) => {
 
 const port = normalizePort(PORT);
 const onError = (error) => {
-  if (error.syscall !== 'listen') return gracefulShutdown('Server error', error);
+  if (error.syscall !== 'listen')
+    return gracefulShutdown('Server error', error);
   switch (error.code) {
     case 'EACCES':
       error.message = `${port} requires elevated privileges`;
@@ -55,6 +57,12 @@ const onListening = () => {
   const docsUrl = `http://localhost:${PORT}/v1/api-docs`;
   const styledMessage = chalk.bold.yellow(`API docs available at ${docsUrl}`);
   logger.log(styledMessage);
+  
+  // Signal PM2 that the app is ready
+  if (process.send) {
+    process.send('ready');
+    logger.info('PM2 ready signal sent');
+  }
 };
 
 let shuttingDown = false;
@@ -63,25 +71,33 @@ async function gracefulShutdown(label, err) {
   if (shuttingDown) return;
   shuttingDown = true;
   const styledMessageError = chalk.bold.red(`${label}`);
-  
+
   // console the error in stderr (synchronously) so PM2 always captures it
   if (err) console.error(`${label}:`, err);
 
   if (err) {
-    logger.error(styledMessageError, { message: err.message, stack: err.stack }); 
+    logger.error(styledMessageError, {
+      message: err.message,
+      stack: err.stack,
+    });
   } else {
     logger.warn(styledMessageError);
   }
 
   //  we need to close the resources (HTTP server, DB, etc.)
   try {
+    // Important: stop accepting new requests and wait for in-flight HTTP work
+    // BEFORE tearing down shared dependencies like DB pool.
+    await new Promise((res) => server.close(res));
+
     await Promise.allSettled([
-      new Promise((res) => server.close(res)),
+      shutdownSocket(),
       closePool(),
-      closeRabbitMQ(),
+      stopRabbitMQ(),
       closeRedis(),
-      new Promise((res) => logger.on('finish', res)).then(() => logger.end()),
     ]);
+    // Close logger LAST so no component writes after transports are ended
+    await logger.close();
   } finally {
     process.exit(err ? 1 : 0);
   }
@@ -92,19 +108,60 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT received'));
 // docker / kubernetes or PM2 stop
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM received'));
 
-process.on('uncaughtException', (err) =>
-  gracefulShutdown('Uncaught Exception', err),
-);
+process.on('uncaughtException', (err) => {
+  // Don't shutdown on recoverable connection errors - they auto-retry
+  if (
+    err.code === 'ECONNRESET' ||
+    err.code === 'EPIPE' ||
+    err.code === 'ETIMEDOUT'
+  ) {
+    logger.error('Connection error (will auto-retry):', err);
+    return;
+  }
+  gracefulShutdown('Uncaught Exception', err);
+});
 
-process.on('unhandledRejection', (reason) =>
-  gracefulShutdown(
-    'Unhandled Rejection',
-    reason instanceof Error ? reason : new Error(String(reason)), 
-  ),
-);
+process.on('unhandledRejection', (reason) => {
+  const err = reason instanceof Error ? reason : new Error(String(reason));
+
+  // Don't shutdown on recoverable connection errors - they auto-retry
+  if (
+    err.code === 'ECONNRESET' ||
+    err.code === 'EPIPE' ||
+    err.code === 'ETIMEDOUT'
+  ) {
+    logger.error(
+      'Unhandled Rejection (connection error, will auto-retry):',
+      err,
+    );
+    return;
+  }
+
+  gracefulShutdown('Unhandled Rejection', err);
+});
 
 server.listen(PORT, onListening);
-startBankResponseWorker();
+
 server.on('error', onError);
+
+// Database Pool Monitoring - Only in production
+if (config?.env === 'production') {
+  // Database Pool Monitoring - Check every 60 seconds
+  setInterval(() => {
+    dbPoolMonitor();
+  }, 60000); // Every 60 seconds
+
+  // Database Health Check - Check every 5 minutes
+  setInterval(async () => {
+    try {
+      const health = await checkDatabaseHealth();
+      if (health.status === 'unhealthy') {
+        logger.error('DATABASE_ALERT: Health check failed!', health);
+      }
+    } catch (error) {
+      logger.error('DATABASE_ALERT: Health check threw error:', error);
+    }
+  }, 300000); // Every 5 minutes
+}
 
 // migrateUsersToES();

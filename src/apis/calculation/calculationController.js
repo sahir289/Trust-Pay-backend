@@ -7,7 +7,6 @@ import {
   calculateSuccessRatiosService,
   updateCalculationsService,
 } from './calculationService.js';
-import { transactionWrapper } from '../../utils/db.js';
 import {
   VALIDATE_CALCULATION_SCHEMA,
   VALIDATE_UPDATE_CALCULATION_STATUS,
@@ -15,6 +14,24 @@ import {
 } from '../../schemas/calculationSchema.js';
 import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
 import { logger } from '../../utils/logger.js';
+import config from '../../config/config.js';
+import { generateCacheKey } from '../../utils/redishashkey.js';
+import {
+  normalizeQueryForCache,
+  readJsonCache,
+  writeJsonCache,
+  invalidateCompanyCacheByPrefix,
+} from '../../utils/controllerCache.js';
+
+const { controllerCacheTtls } = config;
+
+const invalidateCalculationCache = async (companyId) =>
+  invalidateCompanyCacheByPrefix(
+    companyId,
+    'calculation:read:',
+    'Calculation cache',
+  );
+
 const getCalculationById = async (req, res) => {
   // Validate request parameters using Joi schema
   // const { role } = req.user;
@@ -24,6 +41,20 @@ const getCalculationById = async (req, res) => {
   }
   const { user_id } = req.params;
   const { company_id, role } = req.user;
+  const cacheKey = `calculation:read:${company_id}:by-user:${generateCacheKey(
+    {
+      company_id,
+      user_id,
+      role,
+    },
+    'calculation-by-id',
+  )}`;
+
+  const cached = await readJsonCache(cacheKey, 'Calculation by id cache');
+  if (cached) {
+    return sendSuccess(res, cached, 'Get Calculation successfully');
+  }
+
   const data = await getCalculationService(
     {
       user_id,
@@ -31,6 +62,7 @@ const getCalculationById = async (req, res) => {
     },
     role,
   );
+  await writeJsonCache(cacheKey, data, controllerCacheTtls.calculation.byId);
   // Respond with the calculation data
   return sendSuccess(res, data, 'Get Calculation successfully');
 };
@@ -38,6 +70,23 @@ const getCalculationById = async (req, res) => {
 const getCalculation = async (req, res) => {
   // You can add additional validation here if needed, depending on the request
   const { company_id, user_id, designation, role } = req.user;
+  const normalizedQuery = normalizeQueryForCache(req.query);
+  const cacheKey = `calculation:read:${company_id}:list:${generateCacheKey(
+    {
+      company_id,
+      user_id,
+      designation,
+      role,
+      query: normalizedQuery,
+    },
+    'calculation-list',
+  )}`;
+
+  const cached = await readJsonCache(cacheKey, 'Calculation list cache');
+  if (cached) {
+    return sendSuccess(res, cached, 'Get Calculations successfully');
+  }
+
   const data = await getCalculationService(
     {
       company_id,
@@ -49,6 +98,8 @@ const getCalculation = async (req, res) => {
     },
     role,
   );
+
+  await writeJsonCache(cacheKey, data, controllerCacheTtls.calculation.list);
   return sendSuccess(res, data, 'Get Calculations successfully');
 };
 
@@ -66,7 +117,8 @@ const createCalculation = async (req, res) => {
     logger.error('payload is required');
     throw new BadRequestError('payload is required');
   }
-  await transactionWrapper(createCalculationService)(payload, role);
+  await createCalculationService(payload, role);
+  await invalidateCalculationCache(company_id);
   return sendSuccess(res, {}, 'Create Calculation successfully');
 };
 
@@ -89,7 +141,8 @@ const updateCalculation = async (req, res) => {
   const ids = { company_id, id };
   // Assuming the Payout ID is passed as a parameter
   // Call the service to update the Payout
-  await transactionWrapper(updateCalculationService)(ids, payload, role);
+  await updateCalculationService(ids, payload, role);
+  await invalidateCalculationCache(company_id);
   return sendSuccess(res, {}, 'Update Calculation successfully');
 };
 
@@ -103,7 +156,8 @@ const deleteCalculation = async (req, res) => {
   const { company_id } = req.user;
   const { id } = req.params;
   const ids = { id, company_id };
-  await transactionWrapper(deleteCalculationService)(ids, role);
+  await deleteCalculationService(ids, role);
+  await invalidateCalculationCache(company_id);
   return sendSuccess(res, {}, 'Delete Calculation successfully');
 };
 
@@ -146,7 +200,7 @@ const updateCalculations = async (req, res) => {
       `Updating calculations for date: ${targetDate}, user_id: ${user_id}`,
     );
 
-    const data = await transactionWrapper(updateCalculationsService)(
+    const data = await updateCalculationsService(
       {
         date: targetDate,
         user_id,
@@ -155,6 +209,8 @@ const updateCalculations = async (req, res) => {
         company_id,
       },
     );
+
+    await invalidateCalculationCache(company_id);
 
     return sendSuccess(res, data, 'Calculations updated successfully');
   } catch (error) {

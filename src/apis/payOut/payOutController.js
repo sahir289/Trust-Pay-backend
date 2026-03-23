@@ -1,4 +1,3 @@
-import { transactionWrapper } from '../../utils/db.js';
 import {
   sendSuccess,
   sendNewSuccess,
@@ -12,6 +11,8 @@ import {
   getPayoutsBySearchService,
   checkPayOutStatusService,
   assignedPayoutService,
+  createTataPayBulkPayoutService,
+  createRupeeFlowBulkPayoutService,
 } from './payOutService.js';
 import {
   PAYOUT_DETAILS_SCHEMA,
@@ -19,11 +20,25 @@ import {
   VALIDATE_CHECK_PAY_OUT_STATUS,
   VALIDATE_PAYOUT_BY_ID,
   ASSIGNED_VENDOR_SCHEMA,
+  TATAPAY_BULK_PAYOUT_SCHEMA,
+  RUPEEFLOW_BULK_PAYOUT_SCHEMA,
 } from '../../schemas/payoutSchema.js';
 import { ValidationError } from '../../utils/appErrors.js';
+import { generateCacheKey } from '../../utils/redishashkey.js';
+import {
+  normalizeQueryForCache,
+  readJsonCache,
+  writeJsonCache,
+  invalidateCompanyCacheByPrefix,
+} from '../../utils/controllerCache.js';
+import config from '../../config/config.js';
 // import { BadRequestError } from '../../utils/appErrors.js';
 
 const TestingIp = process.env.LOCAL_IP;
+const { controllerCacheTtls } = config;
+
+const invalidatePayoutCache = async (companyId) =>
+  invalidateCompanyCacheByPrefix(companyId, 'payout:read:', 'PayOut cache');
 
 const createPayout = async (req, res) => {
   let payload = req.body;
@@ -52,7 +67,7 @@ const createPayout = async (req, res) => {
     payload.created_by = user_id;
     payload.updated_by = user_id;
     payload.x_api_key = x_api_key;
-    result = await transactionWrapper(createPayoutService)(
+    result = await createPayoutService(
       req.headers,
       payload,
       role,
@@ -61,7 +76,7 @@ const createPayout = async (req, res) => {
     );
   } else {
     payload.x_api_key = x_api_key;
-    result = await transactionWrapper(createPayoutService)(
+    result = await createPayoutService(
       req.headers,
       payload,
       null,
@@ -80,6 +95,7 @@ const createPayout = async (req, res) => {
   if (result.status === 400 || result.status === 404) {
     return sendError(res, result.message, result.status);
   } else {
+    await invalidatePayoutCache(req.user?.company_id || payload.company_id);
     return sendNewSuccess(res, updateRes, 'Payout created successfully', 201);
   }
 };
@@ -91,13 +107,42 @@ const getPayoutsById = async (req, res) => {
   }
   const { id } = req.params;
   const { company_id, role } = req.user;
+  const cacheKey = `payout:read:${company_id}:byid:${id}:${role}`;
+
+  const cached = await readJsonCache(cacheKey, 'PayOut by-id cache');
+  if (cached) {
+    return sendSuccess(res, cached, 'Payouts fetched successfully');
+  }
+
   const data = await getPayoutsService({ id, company_id }, role);
+
+  await writeJsonCache(cacheKey, data, controllerCacheTtls.payout.byId);
   return sendSuccess(res, data, 'Payouts fetched successfully');
 };
 
 const getPayouts = async (req, res) => {
   const { company_id, role, user_id, designation } = req.user;
   const { page, limit, sortOrder } = req.query;
+  const normalizedQuery = normalizeQueryForCache(req.query);
+  const cacheKey = `payout:read:${company_id}:list:${generateCacheKey(
+    {
+      company_id,
+      role,
+      user_id,
+      designation,
+      page,
+      limit,
+      sortOrder,
+      query: normalizedQuery,
+    },
+    'payout-list',
+  )}`;
+
+  const cached = await readJsonCache(cacheKey, 'PayOut list cache');
+  if (cached) {
+    return sendSuccess(res, cached, 'Payouts fetched successfully');
+  }
+
   delete req.query.limit;
   delete req.query.sortOrder;
   delete req.query.page;
@@ -111,12 +156,35 @@ const getPayouts = async (req, res) => {
     user_id,
     designation,
   );
+
+  await writeJsonCache(cacheKey, data, controllerCacheTtls.payout.list);
   return sendSuccess(res, data, 'Payouts fetched successfully');
 };
 
 const getPayoutsBySearch = async (req, res) => {
   const { company_id, role, user_id, designation } = req.user;
   const { search, page = 1, limit = 10, isAmount } = req.query;
+  const normalizedQuery = normalizeQueryForCache(req.query);
+  const cacheKey = `payout:read:${company_id}:search:${generateCacheKey(
+    {
+      company_id,
+      role,
+      user_id,
+      designation,
+      search,
+      page,
+      limit,
+      isAmount,
+      query: normalizedQuery,
+    },
+    'payout-search',
+  )}`;
+
+  const cached = await readJsonCache(cacheKey, 'PayOut search cache');
+  if (cached) {
+    return sendSuccess(res, cached, 'Payouts fetched successfully');
+  }
+
   // if (!search) {
   //   throw new BadRequestError('search is required');
   // }
@@ -133,6 +201,8 @@ const getPayoutsBySearch = async (req, res) => {
     designation,
     isAmount,
   );
+
+  await writeJsonCache(cacheKey, data, controllerCacheTtls.payout.search);
   return sendSuccess(res, data, 'Payouts fetched successfully');
 };
 
@@ -147,11 +217,12 @@ const updatePayout = async (req, res) => {
 
   payload.updated_by = user_id;
   const ids = { id, company_id };
-  const update = await transactionWrapper(updatePayoutService)(
+  const update = await updatePayoutService(
     ids,
     payload,
     role,
   );
+  await invalidatePayoutCache(company_id);
   return sendSuccess(
     res,
     { id: update.id, updated_by: user_name },
@@ -169,12 +240,13 @@ const assignedPayout = async (req, res) => {
   }
   const updated_by = user_id;
   const ids = { id };
-  const update = await transactionWrapper(assignedPayoutService)(
+  const update = await assignedPayoutService(
     ids,
     payouts_ids,
     updated_by,
     company_id,
   );
+  await invalidatePayoutCache(company_id);
   return sendSuccess(
     res,
     { ids: update, assigned_by: user_name },
@@ -192,6 +264,7 @@ const deletePayout = async (req, res) => {
   const ids = { id, company_id };
   // Call the service to delete the Payout
   await deletePayoutService(ids, updated_by, role);
+  await invalidatePayoutCache(company_id);
   // Log success message
   // Send a success response to the client
   return sendSuccess(res, {}, 'Payout deleted successfully');
@@ -217,6 +290,50 @@ const checkPayOutStatus = async (req, res) => {
   }
 };
 
+const createTataPayBulkPayoutController = async (req, res) => {
+  // Validate request body
+  const joiValidation = TATAPAY_BULK_PAYOUT_SCHEMA.validate(req.body);
+  if (joiValidation.error) {
+    throw new ValidationError(joiValidation.error);
+  }
+
+  const { payoutEntries, payoutIds } = req.body;
+  const { company_id, user_id } = req.user;
+
+  const result = await createTataPayBulkPayoutService({
+    payoutEntries,
+    payoutIds,
+    company_id,
+    user_id,
+  });
+
+  await invalidatePayoutCache(company_id);
+
+  return sendSuccess(res, result.data, result.message);
+};
+
+const createRupeeFlowBulkPayoutController = async (req, res) => {
+  // Validate request body
+  const joiValidation = RUPEEFLOW_BULK_PAYOUT_SCHEMA.validate(req.body);
+  if (joiValidation.error) {
+    throw new ValidationError(joiValidation.error);
+  }
+
+  const { payoutEntries, payoutIds } = req.body;
+  const { company_id, user_id } = req.user;
+
+  const result = await createRupeeFlowBulkPayoutService({
+    payoutEntries,
+    payoutIds,
+    company_id,
+    user_id,
+  });
+
+  await invalidatePayoutCache(company_id);
+
+  return sendSuccess(res, result.data, result.message);
+};
+
 export {
   createPayout,
   getPayoutsBySearch,
@@ -226,4 +343,6 @@ export {
   deletePayout,
   getPayoutsById,
   assignedPayout,
+  createTataPayBulkPayoutController,
+  createRupeeFlowBulkPayoutController
 };

@@ -38,7 +38,7 @@ import { updateUserDao, getUsersNameDao } from '../users/userDao.js';
 import { deleteBeneficiaryDao } from '../beneficiaryAccounts/beneficiaryAccountDao.js';
 import { notifyBankResponseAccessUpdate } from '../../utils/sockets.js';
 import { BadRequestError, NotFoundError } from '../../utils/appErrors.js';
-const createVendorService = async (conn, payload) => {
+const _createVendorServiceInternal = async (payload, conn) => {
   try {
     const parentId = payload.parent_id;
     const userDesignation = payload.designation;
@@ -53,12 +53,20 @@ const createVendorService = async (conn, payload) => {
       role_id: role_id,
       company_id: data.company_id,
     };
-    await createCalculationDao(conn, calculationPayload);
+    await createCalculationDao(calculationPayload, conn);
 
     // Handle SUB_VENDOR hierarchy creation
     if (userDesignation === Role.SUB_VENDOR && parentId) {
       try {
-        const hierarchy = await getUserHierarchysDao({ user_id: parentId });
+        const hierarchy = await getUserHierarchysDao(
+          { user_id: parentId },
+          null,
+          null,
+          null,
+          null,
+          null,
+          conn,
+        );
         if (!hierarchy || hierarchy.length === 0) {
           logger.error('No hierarchy found for parentId:', parentId);
           return;
@@ -107,8 +115,29 @@ const createVendorService = async (conn, payload) => {
     // });
     return data;
   } catch (error) {
+    logger.error('Error while creating Vendor internally', error);
+    throw error;
+  }
+};
+
+const createVendorService = async (payload) => {
+  let conn;
+  let committed = false;
+  try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+    const data = await _createVendorServiceInternal(payload, conn);
+    await commit(conn);
+    committed = true;
+    return data;
+  } catch (error) {
+    if (conn && !committed) {
+      await rollback(conn);
+    }
     logger.error('Error while creating Vendor', error);
     throw error;
+  } finally {
+    if (conn) conn.release();
   }
 };
 
@@ -131,7 +160,14 @@ const getVendorsService = async (
         : [];
 
     if (role === Role.VENDOR) {
-      const userHierarchys = await getUserHierarchysDao({ user_id });
+      const userHierarchys = await getUserHierarchysDao(
+        { user_id },
+        null,
+        null,
+        null,
+        null,
+        null,
+      );
       const userHierarchy = userHierarchys[0];
 
       if (designation === Role.VENDOR || designation === Role.SUB_VENDOR) {
@@ -145,9 +181,16 @@ const getVendorsService = async (
           userIdFilter.push(parentUserId);
         }
         if (parentUserId) {
-          const parentHierarchys = await getUserHierarchysDao({
-            user_id: parentUserId,
-          });
+          const parentHierarchys = await getUserHierarchysDao(
+            {
+              user_id: parentUserId,
+            },
+            null,
+            null,
+            null,
+            null,
+            null,
+          );
           const parentHierarchy = parentHierarchys[0];
           if (parentHierarchy?.config?.siblings?.sub_vendors) {
             const subVendors =
@@ -174,6 +217,7 @@ const getVendorsService = async (
       null,
       null,
       role, //-role specific details
+      null,
     );
   } catch (error) {
     logger.error('Error while fetching vendors', error);
@@ -193,11 +237,7 @@ const getVendorsCodeService = async (
   includeVendorAdmin,
   isEnabled,
 ) => {
-  let conn;
   try {
-    conn = await getConnection('reader');
-    await beginTransaction(conn);
-
     let userIdFilter = Array.isArray(user_id)
       ? [...user_id]
       : user_id
@@ -205,7 +245,14 @@ const getVendorsCodeService = async (
         : [];
 
     if (role === Role.VENDOR) {
-      const userHierarchys = await getUserHierarchysDao({ user_id });
+      const userHierarchys = await getUserHierarchysDao(
+        { user_id },
+        null,
+        null,
+        null,
+        null,
+        null,
+      );
       const userHierarchy = userHierarchys[0];
 
       if (designation === Role.VENDOR || designation === Role.VENDOR_ADMIN) {
@@ -217,9 +264,16 @@ const getVendorsCodeService = async (
           userIdFilter.push(parentUserId);
         }
         if (parentUserId) {
-          const parentHierarchys = await getUserHierarchysDao({
-            user_id: parentUserId,
-          });
+          const parentHierarchys = await getUserHierarchysDao(
+            {
+              user_id: parentUserId,
+            },
+            null,
+            null,
+            null,
+            null,
+            null,
+          );
           const parentHierarchy = parentHierarchys[0];
           const subVendors =
             parentHierarchy?.config?.siblings?.sub_vendors ?? [];
@@ -239,7 +293,6 @@ const getVendorsCodeService = async (
 
     const codes = await getVendorsCodeDao(
       filters,
-      conn,
       includeSubVendors,
       includeOnlyVendors,
       excludeDisabledVendor,
@@ -247,26 +300,10 @@ const getVendorsCodeService = async (
       includeVendorAdmin,
       isEnabled,
     );
-    await commit(conn);
     return codes;
   } catch (error) {
-    if (conn) {
-      try {
-        await rollback(conn);
-      } catch (rollbackError) {
-        logger.error('Error during transaction rollback', rollbackError);
-      }
-    }
     logger.error('Error while getting vendors codes', error);
     throw error;
-  } finally {
-    if (conn) {
-      try {
-        conn.release();
-      } catch (releaseError) {
-        logger.error('Error releasing connection:', releaseError);
-      }
-    }
   }
 };
 
@@ -289,7 +326,14 @@ const getVendorsBySearchService = async (
         : [];
 
     if (role === Role.VENDOR) {
-      const userHierarchys = await getUserHierarchysDao({ user_id });
+      const userHierarchys = await getUserHierarchysDao(
+        { user_id },
+        null,
+        null,
+        null,
+        null,
+        null,
+      );
       const userHierarchy = userHierarchys[0];
 
       if (designation === Role.VENDOR || designation === Role.SUB_VENDOR) {
@@ -303,9 +347,16 @@ const getVendorsBySearchService = async (
           userIdFilter.push(parentUserId);
         }
         if (parentUserId) {
-          const parentHierarchys = await getUserHierarchysDao({
-            user_id: parentUserId,
-          });
+          const parentHierarchys = await getUserHierarchysDao(
+            {
+              user_id: parentUserId,
+            },
+            null,
+            null,
+            null,
+            null,
+            null,
+          );
           const parentHierarchy = parentHierarchys[0];
           if (parentHierarchy?.config?.siblings?.sub_vendors) {
             const subVendors =
@@ -338,6 +389,7 @@ const getVendorsBySearchService = async (
       pageNumber,
       pageSize,
       searchTerms,
+      null,
     );
 
     return data;
@@ -347,12 +399,9 @@ const getVendorsBySearchService = async (
   }
 };
 
-const updateVendorService = async (ids, payload) => {
-  let conn;
+const _updateVendorServiceInternal = async (ids, payload) => {
   try {
-    conn = await getConnection();
-    await beginTransaction(conn);
-    const data = await updateVendorDao(ids, payload, conn); // Adjust DAO call for update
+    const data = await updateVendorDao(ids, payload); // Adjust DAO call for update
     if (
       data?.config?.bank_response_access === 'false' ||
       data?.config?.bank_response_access === false ||
@@ -367,12 +416,10 @@ const updateVendorService = async (ids, payload) => {
       );
     }
     if (payload.payin_commission || payload.payout_commission) {
-      const userHierarchys = await getUsersNameDao(
-         data.user_id,
-      );
+      const userHierarchys = await getUsersNameDao(data.user_id);
       if (
-        (userHierarchys.designation === Role.VENDOR_ADMIN)&& (payload.payin_commission > 5 ||
-        payload.payout_commission > 5)
+        userHierarchys.designation === Role.VENDOR_ADMIN &&
+        (payload.payin_commission > 5 || payload.payout_commission > 5)
       ) {
         throw new BadRequestError(
           'Vendor commission must be less than or equal to 5%.',
@@ -388,36 +435,27 @@ const updateVendorService = async (ids, payload) => {
     //   category: 'Client',
     //   subCategory: 'Vendor'
     // });
-    await commit(conn); // Commit the transaction
     return data;
   } catch (error) {
-    if (conn) {
-      try {
-        await rollback(conn);
-      } catch (rollbackError) {
-        logger.error('Error during transaction rollback:', rollbackError);
-      }
-    }
-    logger.error('Error while updating Vendor', error);
+    logger.error('Error while updating Vendor internally', error);
     throw error;
-  } finally {
-    if (conn) {
-      try {
-        conn.release();
-      } catch (releaseError) {
-        logger.error('Error releasing connection:', releaseError);
-      }
-    }
   }
 };
 
-const deleteVendorService = async (ids, updated_by) => {
-  let conn;
+const updateVendorService = async (ids, payload) => {
   try {
-    conn = await getConnection();
-    await beginTransaction(conn); // Start a transaction
+    const data = await _updateVendorServiceInternal(ids, payload);
+    return data;
+  } catch (error) {
+    logger.error('Error while updating Vendor', error);
+    throw error;
+  }
+}; 
+
+const _deleteVendorServiceInternal = async (ids, updated_by, conn) => {
+  try {
     const payload = { is_obsolete: true, updated_by };
-    const data = await deleteVendorDao(conn, ids, payload); // Adjust DAO call for delete
+    const data = await deleteVendorDao(ids, payload, conn); // Adjust DAO call for delete
     //delete banks and childs for particular user
     if (data) {
       const payloadBank = {
@@ -429,20 +467,29 @@ const deleteVendorService = async (ids, updated_by) => {
       };
       await updateUserDao({ id: ids.user_id || ids.id }, payload, conn);
       await deleteBeneficiaryDao(
-        conn,
         { user_id: ids.user_id || ids.id },
         { is_obsolete: true },
+        conn,
       );
       await updateBankaccountDao(
-        { user_id: ids.user_id || ids.id },
+        // here is a bug in below line, here need to remove user_id 
+        { id: ids.bank_id, company_id: ids.company_id, user_id: ids.user_id || ids.id },
         payloadBank,
-        conn,
         true,
+        conn,
       );
       //for childs user hierachys
-      const UserHierarchy = await getUserHierarchysDao({
-        user_id: ids.user_id || ids.id,
-      });
+      const UserHierarchy = await getUserHierarchysDao(
+        {
+          user_id: ids.user_id || ids.id,
+        },
+        null,
+        null,
+        null,
+        null,
+        null,
+        conn,
+      );
       if (UserHierarchy[0]?.config?.child?.operations) {
         const userIds = UserHierarchy[0].config.child.operations;
         for (const userId of userIds) {
@@ -452,10 +499,7 @@ const deleteVendorService = async (ids, updated_by) => {
       if (UserHierarchy[0]?.config?.siblings?.sub_vendors) {
         const userIds = UserHierarchy[0].config.siblings.sub_vendors;
         for (const userId of userIds) {
-          const vendorDesignationId = await getDesignationIdDao(
-            Role.VENDOR,
-            conn,
-          );
+          const vendorDesignationId = await getDesignationIdDao(Role.VENDOR);
           await updateUserDao(
             { id: userId },
             { designation_id: vendorDesignationId, updated_by: updated_by },
@@ -473,34 +517,31 @@ const deleteVendorService = async (ids, updated_by) => {
     //   category: 'Client',
     //   subCategory: 'Vendor'
     // });
-    await commit(conn); // Commit the transaction
     return data;
   } catch (error) {
-    if (conn) {
-      try {
-        await rollback(conn); // Rollback the transaction in case of error
-      } catch (rollbackError) {
-        logger.error(
-          'Error during transaction rollback',
-          'error',
-          rollbackError,
-        );
-      }
+    logger.error('Error while deleting Vendor internally', error);
+    throw error;
+  }
+};
+ 
+const deleteVendorService = async (ids, updated_by) => {
+  let conn;
+  let committed = false;
+  try {
+    conn = await getConnection();
+    await beginTransaction(conn); // Start a transaction
+    const data = await _deleteVendorServiceInternal(ids, updated_by, conn);
+    await commit(conn);
+    committed = true; // Commit the transaction
+    return data;
+  } catch (error) {
+    if (conn && !committed) {
+      await rollback(conn); // Rollback the transaction in case of error
     }
     logger.error('Error while deleting Vendor', error);
     throw error;
   } finally {
-    if (conn) {
-      try {
-        conn.release(); // Release the connection back to the pool
-      } catch (releaseError) {
-        logger.error(
-          'Error while releasing the connection',
-          'error',
-          releaseError,
-        );
-      }
-    }
+    if (conn) conn.release();
   }
 };
 
@@ -508,7 +549,14 @@ const getBankResponseAccessByIDService = async (id, designation) => {
   try {
     let userId = id;
     if (designation === Role.VENDOR_OPERATIONS) {
-      const [userHierarchys] = await getUserHierarchysDao({ user_id: id });
+      const [userHierarchys] = await getUserHierarchysDao(
+        { user_id: id },
+        null,
+        null,
+        null,
+        null,
+        null,
+      );
       userId = userHierarchys?.config?.parent || id;
     }
     const data = await getBankResponseAccessByIDDao(userId);
@@ -535,35 +583,40 @@ const getVendorsByCodeService = async (code) => {
   }
 };
 
-const linkVendorService = async (vendorUserId, subVendorUserId, user_id, mediator_payin_commission, mediator_payout_commission) => {
-  let conn;
+const _linkVendorServiceInternal = async (
+  vendorUserId,
+  subVendorUserId,
+  user_id,
+  mediator_payin_commission,
+  mediator_payout_commission,
+  conn,
+) => {
   try {
-    conn = await getConnection();
-    await beginTransaction(conn);
-    if (!(await isNetBalanceZeroForTwoHours(subVendorUserId))) {
+    if (!(await isNetBalanceZeroForTwoHours(subVendorUserId, conn))) {
       throw new BadRequestError('Vendor net balance must be zero to link.');
     }
-    const parent = await getVendorByUserId(vendorUserId);
-    const banks = await getBankaccountCheckDao({ user_id: vendorUserId })
+    const parent = await getVendorByUserId(vendorUserId, conn);
+    const banks = await getBankaccountCheckDao({ user_id: vendorUserId }, conn);
     if (banks) {
       throw new BadRequestError(
         'Parent cannot contain any existing banks. Please remove all banks from the parent before adding a new Vendor.',
       );
     }
-    if (
-      parent.payin_commission > 5 &&
-      parent.payout_commission > 5
-    ) {
+    if (parent.payin_commission > 5 && parent.payout_commission > 5) {
       throw new BadRequestError(
         'Parent Vendor commission must be less than or equal to 5%.',
       );
     }
-    const result = await linkVendorDao(vendorUserId, subVendorUserId, user_id, mediator_payin_commission, mediator_payout_commission);
-    // Change designation to SUB_VENDOR in user table using DAO
-    const subVendorDesignationId = await getDesignationIdDao(
-      Role.SUB_VENDOR,
+    const result = await linkVendorDao(
+      vendorUserId,
+      subVendorUserId,
+      user_id,
+      mediator_payin_commission,
+      mediator_payout_commission,
       conn,
     );
+    // Change designation to SUB_VENDOR in user table using DAO
+    const subVendorDesignationId = await getDesignationIdDao(Role.SUB_VENDOR);
     if (subVendorDesignationId) {
       await updateUserDao(
         { id: subVendorUserId },
@@ -571,34 +624,54 @@ const linkVendorService = async (vendorUserId, subVendorUserId, user_id, mediato
         conn,
       );
     }
-    await commit(conn);
     return result;
   } catch (error) {
-    if (conn) {
-      try {
-        await rollback(conn);
-      } catch (e) {
-        logger.error('Rollback error:', e);
-      }
+    logger.error('Error in _linkVendorServiceInternal', error);
+    throw error;
+  }
+};
+
+const linkVendorService = async (
+  vendorUserId,
+  subVendorUserId,
+  user_id,
+  mediator_payin_commission,
+  mediator_payout_commission,
+) => {
+  let conn;
+  let committed = false;
+  try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+    const result = await _linkVendorServiceInternal(
+      vendorUserId,
+      subVendorUserId,
+      user_id,
+      mediator_payin_commission,
+      mediator_payout_commission,
+      conn,
+    );
+    await commit(conn);
+    committed = true;
+    return result;
+  } catch (error) {
+    if (conn && !committed) {
+      await rollback(conn);
     }
     logger.error('Error in linkVendorService:', error);
     throw error;
   } finally {
-    if (conn) {
-      try {
-        conn.release();
-      } catch (e) {
-        logger.error('Release error:', e);
-      }
-    }
+    if (conn) conn.release();
   }
 };
 
-const unlinkVendorService = async (vendorUserId, subVendorUserId, user_id) => {
-  let conn;
+const _unlinkVendorServiceInternal = async (
+  vendorUserId,
+  subVendorUserId,
+  user_id,
+  conn,
+) => {
   try {
-    conn = await getConnection();
-    await beginTransaction(conn);
     if (!(await isNetBalanceZeroForTwoHours(subVendorUserId))) {
       throw new BadRequestError('Vendor net balance must be zero to unlink.');
     }
@@ -606,9 +679,10 @@ const unlinkVendorService = async (vendorUserId, subVendorUserId, user_id) => {
       vendorUserId,
       subVendorUserId,
       user_id,
+      conn,
     );
     // Change designation to VENDOR in user table using DAO
-    const vendorDesignationId = await getDesignationIdDao(Role.VENDOR, conn);
+    const vendorDesignationId = await getDesignationIdDao(Role.VENDOR);
     if (vendorDesignationId) {
       await updateUserDao(
         { id: subVendorUserId },
@@ -616,26 +690,76 @@ const unlinkVendorService = async (vendorUserId, subVendorUserId, user_id) => {
         conn,
       );
     }
-    await commit(conn);
     return result;
   } catch (error) {
-    if (conn) {
-      try {
-        await rollback(conn);
-      } catch (e) {
-        logger.error('Rollback error:', e);
-      }
+    logger.error('Error in _unlinkVendorServiceInternal', error);
+    throw error;
+  }
+};
+
+const unlinkVendorService = async (vendorUserId, subVendorUserId, user_id) => {
+  let conn;
+  let committed = false;
+  try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+    const result = await _unlinkVendorServiceInternal(
+      vendorUserId,
+      subVendorUserId,
+      user_id,
+      conn,
+    );
+    await commit(conn);
+    committed = true;
+    return result;
+  } catch (error) {
+    if (conn && !committed) {
+      await rollback(conn);
     }
     logger.error('Error in unlinkVendorService:', error);
     throw error;
   } finally {
-    if (conn) {
-      try {
-        conn.release();
-      } catch (e) {
-        logger.error('Release error:', e);
-      }
+    if (conn) conn.release();
+  }
+};
+
+const _transferVendorServiceInternal = async (
+  subVendorUserId,
+  newVendorUserId,
+  currentVendorUserId,
+  user_id,
+  conn,
+) => {
+  try {
+    if (!(await isNetBalanceZeroForTwoHours(subVendorUserId))) {
+      throw new BadRequestError('Vendor net balance must be zero to transfer.');
     }
+    const parent = await getVendorByUserId(newVendorUserId, conn);
+    const banks = await getBankaccountCheckDao(
+      { user_id: newVendorUserId },
+      conn,
+    );
+    if (banks) {
+      throw new BadRequestError(
+        'Parent cannot contain any existing banks. Please remove all banks from the New parent before transfering a new Vendor.',
+      );
+    }
+    if (parent.payin_commission > 5 && parent.payout_commission > 5) {
+      throw new BadRequestError(
+        'Parent Vendor commission must be less than or equal to 5%.',
+      );
+    }
+    const result = await transferVendorDao(
+      subVendorUserId,
+      newVendorUserId,
+      currentVendorUserId,
+      user_id,
+      conn,
+    );
+    return result;
+  } catch (error) {
+    logger.error('Error in _transferVendorServiceInternal', error);
+    throw error;
   }
 };
 
@@ -646,57 +770,33 @@ const transferVendorService = async (
   user_id,
 ) => {
   let conn;
+  let committed = false;
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    if (!(await isNetBalanceZeroForTwoHours(subVendorUserId))) {
-      throw new BadRequestError('Vendor net balance must be zero to transfer.');
-    }
-    const parent = await getVendorByUserId(newVendorUserId);
-    const banks = await getBankaccountCheckDao({ user_id: newVendorUserId });
-    if (banks) {
-      throw new BadRequestError(
-        'Parent cannot contain any existing banks. Please remove all banks from the New parent before transfering a new Vendor.',
-      );
-    }
-    if (
-      parent.payin_commission > 5 &&
-      parent.payout_commission > 5
-    ) {
-      throw new BadRequestError(
-        'Parent Vendor commission must be less than or equal to 5%.',
-      );
-    }
-    const result = await transferVendorDao(
+    const result = await _transferVendorServiceInternal(
       subVendorUserId,
       newVendorUserId,
       currentVendorUserId,
       user_id,
+      conn,
     );
     await commit(conn);
+    committed = true;
     return result;
   } catch (error) {
-    if (conn) {
-      try {
-        await rollback(conn);
-      } catch (e) {
-        logger.error('Rollback error:', e);
-      }
+    if (conn && !committed) {
+      await rollback(conn);
     }
     logger.error('Error in transferVendorService:', error);
     throw error;
   } finally {
-    if (conn) {
-      try {
-        conn.release();
-      } catch (e) {
-        logger.error('Release error:', e);
-      }
-    }
+    if (conn) conn.release();
   }
 };
 
 export {
+  _createVendorServiceInternal,
   createVendorService,
   getVendorsService,
   updateVendorService,

@@ -7,31 +7,35 @@ import { updatePayoutService } from '../../apis/payOut/payOutService.js';
 import { getUserByCompanyCreatedAtDao } from '../../apis/users/userDao.js';
 import { getVendorsDao } from '../../apis/vendors/vendorDao.js';
 import { Role, Status } from '../../constants/index.js';
-import {
-  beginTransaction,
-  commit,
-  getConnection,
-  rollback,
-} from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
+import { sendSuccess } from '../../utils/responseHandlers.js';
 
 export const tataPayTransactionStatusCallback = async (req, res) => {
+  sendSuccess(res, {}, 'Webhook received successfully');
   const payload = req.body;
   const apitxnid = payload?.payoutId;
-  let conn;
 
   try {
     if (!apitxnid || apitxnid === '') {
       return res.status(404).send('Payment not found');
     }
-    conn = await getConnection();
-    await beginTransaction(conn);
     
     // Use the DAO function to find the payout
     const singleWithdrawData = await getPayoutByTxnId(apitxnid);
     
     if (!singleWithdrawData) {
       return res.status(404).send('Payment not found');
+    }
+
+    if (
+      singleWithdrawData.status === Status.APPROVED ||
+      singleWithdrawData.status === Status.REJECTED
+    ) {
+      logger.info('Payout already processed', {
+        payoutId: singleWithdrawData.id,
+        status: singleWithdrawData.status,
+      });
+      return
     }
 
     const [company] = await getCompanyByIDDao({
@@ -99,7 +103,6 @@ export const tataPayTransactionStatusCallback = async (req, res) => {
       }
 
       await updatePayoutService(
-        conn,
         {
           id: singleWithdrawData.id,
           company_id: singleWithdrawData.company_id,
@@ -160,17 +163,9 @@ export const tataPayTransactionStatusCallback = async (req, res) => {
       status: singleWithdrawData.status,
     });
 
-    await commit(conn);
-
     return res.status(200).send('Payout Updated Successfully');
   } catch (err) {
-    await rollback(conn);
     // Log any errors while updating the payout
     logger.error('getting error while updating payout', err);
-  } finally {
-    if (conn) {
-      logger.info('Releasing connection');
-      conn.release(); // Always release connection
-    }
   }
 };

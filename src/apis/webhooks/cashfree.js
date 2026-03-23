@@ -3,7 +3,6 @@ import config from '../../config/config.js';
 import { logger } from '../../utils/logger.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import { processPayInService } from '../payIn/payInService.js';
-import { transactionWrapper } from '../../utils/db.js';
 import { createBankResponseService } from '../bankResponse/bankResponseServices.js';
 import { getPayInIntentDao } from '../payIn/payInDao.js';
 
@@ -60,7 +59,7 @@ export const cashfreeWebHook = async (req, res) => {
         'CASHFREE',
       );
     }
-    await transactionWrapper(processPayInService)(payload);
+    await processPayInService(payload);
   } catch (error) {
     logger.error('Cashfree webhook error:', error.message || error);
   }

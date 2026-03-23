@@ -1,4 +1,3 @@
-import { transactionWrapper } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import { createBankResponseWebHookService } from '../bankResponse/bankResponseServices.js';
@@ -56,7 +55,7 @@ export const orvixPayWebhook = async (req, res) => {
       logger.info('Bank response created:', bankResponse);
     }
     logger.info('Calling transactionWrapper for payload', payload);
-    const payin = await transactionWrapper(processPayInWebHookService)(
+    const payin = await processPayInWebHookService(
       payload,
       '',
     );

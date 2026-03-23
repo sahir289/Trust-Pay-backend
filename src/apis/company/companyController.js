@@ -1,4 +1,3 @@
-import { transactionWrapper } from '../../utils/db.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import {
   createCompanyService,
@@ -37,7 +36,7 @@ const createCompany = async (req, res) => {
     throw new ValidationError(joiValidation.error);
   }
 
-  const data = await transactionWrapper(createCompanyService)(payload);
+  const data = await createCompanyService(payload);
   return sendSuccess(res, data, 'Create Company successfully');
 };
 

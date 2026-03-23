@@ -8,7 +8,14 @@ import {
 import { tableName } from '../../constants/index.js';
 import { logger } from '../../utils/logger.js';
 
-const getCompanyDao = async (filters, page, pageSize, sortBy, sortOrder) => {
+const getCompanyDao = async (
+  filters,
+  page,
+  pageSize,
+  sortBy,
+  sortOrder,
+  conn,
+) => {
   try {
     const baseQuery = `SELECT id,first_name,last_name,config FROM "${tableName.COMPANY}" WHERE 1=1`;
     //TODO: columns.Company dynamic search
@@ -20,18 +27,19 @@ const getCompanyDao = async (filters, page, pageSize, sortBy, sortOrder) => {
       sortBy,
       sortOrder,
     );
-    const result = await executeQuery(sql, queryParams);
+    const result = await executeQuery(sql, queryParams, conn);
     return result.rows.length > 0 ? result.rows : result.rows[0];
   } catch (error) {
     logger.error('Error fetching company:', error);
     throw error;
   }
 };
-const getCompanyDetailsByIdDao = async (id) => {
+
+const getCompanyDetailsByIdDao = async (id, conn = null) => {
   try {
-    const baseQuery = `SELECT CONCAT(first_name, ' ', last_name) AS full_name, config ->> 'allowPayAssist' AS allowPayAssist, config ->> 'allowTataPay' AS allowTataPay, config ->> 'allow_clickrr' AS allow_clickrr, config ->> 'allowRupeeFlow' AS allowRupeeFlow, config ->> 'allowBSS' AS allowBSS, config ->> 'allowSilkPayOut' AS allowSilkPay, config ->> 'allowBSS02' AS allowBSS02  FROM "${tableName.COMPANY}" WHERE 1 = 1`;
+    const baseQuery = `SELECT CONCAT(first_name, ' ', last_name) AS full_name, config ->> 'allowPayAssist' AS allowPayAssist, config ->> 'allowTataPay' AS allowTataPay, config ->> 'allow_clickrr' AS allow_clickrr, config ->> 'allowRupeeFlow' AS allowRupeeFlow, config ->> 'allowBSS' AS allowBSS, config ->> 'allowSilkPayOut' AS allowSilkPay, config ->> 'allowBSS02' AS allowBSS02, config ->> 'allowBSS03' AS allowBSS03  FROM "${tableName.COMPANY}" WHERE 1 = 1`;
     const [sql, queryParams] = buildSelectQuery(baseQuery, id);
-    const result = await executeQuery(sql, queryParams);
+    const result = await executeQuery(sql, queryParams, conn);
     return result.rows.length > 0 ? result.rows : result.rows[0];
   } catch (error) {
     logger.error('Error fetching company details by ID:', error);
@@ -39,12 +47,12 @@ const getCompanyDetailsByIdDao = async (id) => {
   }
 };
 
-const getClickrrDetailsByCompanyIdDao = async (id) => {
+const getClickrrDetailsByCompanyIdDao = async (id, conn = null) => {
   try {
     const sql = `SELECT config -> 'CLICKRR' ->> 'api_key' AS api_key,
     config -> 'CLICKRR' ->> 'api_secret' AS api_secret FROM "${tableName.COMPANY}" WHERE id = $1`;
     const queryParams = [id];
-    const result = await executeQuery(sql, queryParams);
+    const result = await executeQuery(sql, queryParams, conn);
     return result.rows.length > 0 ? result.rows[0] : result.rows;
   } catch (error) {
     logger.error('Error fetching clickrr details by companyId:', error);
@@ -86,17 +94,30 @@ const getBSS02DetailsByCompanyIdDao = async (id) => {
     const result = await executeQuery(sql, queryParams);
     return result.rows.length > 0 ? result.rows[0] : result.rows;
   } catch (error) {
-    logger.error('Error fetching clickrr details by companyId:', error);
+    logger.error('Error fetching BSS02 details by companyId:', error);
     throw error;
   }
 };
 
-const getBepayDetailsByCompanyIdDao = async (id) => {
+const getBSS03DetailsByCompanyIdDao = async (id) => {
+  try {
+    const sql = `SELECT config -> 'BSS03' ->> 'api_key' AS api_key,
+    config -> 'BSS03' ->> 'api_secret' AS api_secret FROM "${tableName.COMPANY}" WHERE id = $1`;
+    const queryParams = [id];
+    const result = await executeQuery(sql, queryParams);
+    return result.rows.length > 0 ? result.rows[0] : result.rows;
+  } catch (error) {
+    logger.error('Error fetching BSS03 details by companyId:', error);
+    throw error;
+  }
+};
+
+const getBepayDetailsByCompanyIdDao = async (id, conn = null) => {
   try {
     const sql = `SELECT config -> 'Bepay' ->> 'api_key' AS api_key,
     config -> 'Bepay' ->> 'api_secret' AS api_secret FROM "${tableName.COMPANY}" WHERE id = $1`;
     const queryParams = [id];
-    const result = await executeQuery(sql, queryParams);
+    const result = await executeQuery(sql, queryParams, conn);
     return result.rows.length > 0 ? result.rows[0] : result.rows;
   } catch (error) {
     logger.error('Error fetching Bepay details by companyId:', error);
@@ -104,7 +125,7 @@ const getBepayDetailsByCompanyIdDao = async (id) => {
   }
 };
 
-const getCashfreeAllowByCompanyIdDao = async (id) => {
+const getCashfreeAllowByCompanyIdDao = async (id, conn = null) => {
   try {
     const sql = `
       SELECT 
@@ -118,9 +139,9 @@ const getCashfreeAllowByCompanyIdDao = async (id) => {
         COALESCE((config ->> 'allow_orvixpay1')::boolean, false) AS allow_orvixpay1
       FROM "${tableName.COMPANY}"
       WHERE id = $1
-    `
+    `;
     const queryParams = [id];
-    const result = await executeQuery(sql, queryParams);
+    const result = await executeQuery(sql, queryParams, conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error fetching company details by ID:', error);
@@ -128,11 +149,11 @@ const getCashfreeAllowByCompanyIdDao = async (id) => {
   }
 };
 
-const getCompanyByIDDao = async (filters) => {
+const getCompanyByIDDao = async (filters, conn = null) => {
   try {
     const baseQuery = `SELECT id,config FROM "${tableName.COMPANY}" WHERE 1=1`;
     const [sql, queryParams] = buildSelectQuery(baseQuery, filters);
-    const result = await executeQuery(sql, queryParams);
+    const result = await executeQuery(sql, queryParams, conn);
     return result.rows.length > 0 ? result.rows : result.rows[0];
   } catch (error) {
     logger.error('Error fetching company:', error);
@@ -140,25 +161,21 @@ const getCompanyByIDDao = async (filters) => {
   }
 };
 
-const createCompanyDao = async (conn, payload) => {
+const createCompanyDao = async (payload, conn = null) => {
   try {
     const [sql, params] = buildInsertQuery(tableName.COMPANY, payload);
-    if (conn && conn.query) {
-      const result = await conn.query(sql, params);
-      return result.rows[0];
-    }
-    const result = await executeQuery(sql, params);
-    return result.rows;
+    const result = await executeQuery(sql, params, conn);
+    return result.rows[0];
   } catch (error) {
     logger.error('Error fetching company:', error);
     throw error;
   }
 };
 
-const updateCompanyDao = async (id, data) => {
+const updateCompanyDao = async (id, data, conn = null) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.COMPANY, data, id);
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error updating company:', error); // Log the error for debugging
@@ -166,6 +183,8 @@ const updateCompanyDao = async (id, data) => {
   }
 };
 const updateCompanyConfigDao = async (id, data, conn) => {
+  try { 
+
   return await buildAndExecuteUpdateQuery(
     tableName.COMPANY,
     data,
@@ -174,12 +193,16 @@ const updateCompanyConfigDao = async (id, data, conn) => {
     { returnUpdated: true },
     conn,
   );
+  } catch (error) {
+    logger.error('Error updating company config:', error);
+    throw error;
+  }
 };
 
-const deleteCompanyDao = async (id, data) => {
+const deleteCompanyDao = async (id, data, conn = null) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.COMPANY, data, id);
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error deleting company:', error); // Log the error for debugging
@@ -201,4 +224,5 @@ export {
   getBSSDetailsByCompanyIdDao,
   getSilkPayDetailsByCompanyIdDao,
   getBSS02DetailsByCompanyIdDao,
+  getBSS03DetailsByCompanyIdDao,
 };

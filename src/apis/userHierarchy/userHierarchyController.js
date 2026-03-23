@@ -12,6 +12,22 @@ import {
   VALIDATE_USER_HIERARCHY_BY_ID,
 } from '../../schemas/userHierarchySchema.js';
 import { ValidationError } from '../../utils/appErrors.js';
+import { generateCacheKey } from '../../utils/redishashkey.js';
+import {
+  normalizeQueryForCache,
+  readJsonCache,
+  writeJsonCache,
+  invalidateCompanyCacheByPrefix,
+} from '../../utils/controllerCache.js';
+import config from '../../config/config.js';
+
+const invalidateUserHierarchyCache = async (companyId) =>
+  invalidateCompanyCacheByPrefix(
+    companyId,
+    'userHierarchy:read:',
+    'UserHierarchy cache',
+  );
+const { controllerCacheTtls } = config;
 
 const createUserHierarchy = async (req, res) => {
   const { error } = VALIDATE_USER_HIERARCHY_SCHEMA.validate(req.body);
@@ -24,6 +40,7 @@ const createUserHierarchy = async (req, res) => {
   payload.created_by = user_id;
   payload.updated_by = user_id;
   await createUserHierarchyService(payload, role);
+  await invalidateUserHierarchyCache(company_id);
   // Send a success response to the client
   return sendSuccess(res, {}, 'UserHierarchy created successfully');
 };
@@ -31,6 +48,22 @@ const createUserHierarchy = async (req, res) => {
 const getUserHierarchys = async (req, res) => {
   const { company_id, role } = req.user;
   const { page, limit } = req.query;
+  const cacheKey = `userHierarchy:read:${company_id}:list:${generateCacheKey(
+    {
+      company_id,
+      role,
+      page,
+      limit,
+      query: normalizeQueryForCache(req.query),
+    },
+    'user-hierarchy-list',
+  )}`;
+
+  const cached = await readJsonCache(cacheKey, 'UserHierarchy list cache');
+  if (cached) {
+    return sendSuccess(res, cached, 'UserHierarchy fetched successfully');
+  }
+
   // const search = req.query.search;
   // Fetch vendors data from the service
   const data = await getUserHierarchyService(
@@ -42,6 +75,7 @@ const getUserHierarchys = async (req, res) => {
     page,
     limit,
   );
+  await writeJsonCache(cacheKey, data, controllerCacheTtls.userHierarchy.list);
   // Log success message
   return sendSuccess(res, data, 'UserHierarchy fetched successfully');
 };
@@ -56,7 +90,16 @@ const getUserHierarchysById = async (req, res) => {
   // Fetch vendors data from the service
   const ids = { id, company_id };
   const payload = {};
+  const cacheKey = `userHierarchy:read:${company_id}:byid:${id}:${role}`;
+
+  const cached = await readJsonCache(cacheKey, 'UserHierarchy by-id cache');
+  if (cached) {
+    return sendSuccess(res, cached, 'UserHierarchy fetched successfully');
+  }
+
   const data = await getUserHierarchyService(ids, payload, role);
+
+  await writeJsonCache(cacheKey, data, controllerCacheTtls.userHierarchy.byId);
 
   return sendSuccess(res, data, 'UserHierarchy fetched successfully');
 };
@@ -81,7 +124,8 @@ const updateUserHierarchy = async (req, res) => {
   payload.updated_by = user_id;
   const ids = { id, company_id };
   // Call the service to update the UserHierarchy
-   await updateUserHierarchyService(ids, payload, role);
+  await updateUserHierarchyService(ids, payload, role);
+  await invalidateUserHierarchyCache(company_id);
 
   // Log success message
 
@@ -105,6 +149,7 @@ const deleteUserHierarchy = async (req, res) => {
   const ids = { company_id, id };
   // Call the service to delete the UserHierarchy
   await deleteUserHierarchyService(ids, updated_by, role);
+  await invalidateUserHierarchyCache(company_id);
 
   // Send a success response to the client
   return sendSuccess(res, {}, 'UserHierarchy deleted successfully');

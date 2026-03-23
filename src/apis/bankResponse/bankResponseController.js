@@ -20,7 +20,6 @@ import {
 } from './bankResponseServices.js';
 import { BadRequestError } from '../../utils/appErrors.js';
 
-import { transactionWrapper } from '../../utils/db.js';
 import { Role } from '../../constants/index.js';
 
 // Ensure Role.BOT is defined in '../../constants/index.js' as:
@@ -30,7 +29,22 @@ import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { s3 } from '../../helpers/Aws.js';
 import { streamToBuffer } from '../../helpers/index.js';
 // import { newTableEntry } from '../../utils/sockets.js';
-import { publishBankResponse } from '../../utils/rabbitmq-bank-response.js';
+import { publishBankResponse, publishBankResponseBotBulk } from '../../rabbitmq/producer.js';
+
+const parsePositiveInt = (value, fallback) => {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+const BULK_PUBLISH_CONCURRENCY = parsePositiveInt(
+  process.env.BANK_BOT_BULK_PUBLISH_CONCURRENCY,
+  100,
+);
+
+const BULK_PUBLISH_MAX_ITEMS = parsePositiveInt(
+  process.env.BANK_BOT_BULK_MAX_ITEMS,
+  5000,
+);
 
 const getBankResponse = async (req, res) => {
   const { role, company_id, designation, user_id } = req.user;
@@ -158,10 +172,18 @@ const createBankBotResponseBulk = async (req, res) => {
     throw new ValidationError('body must be an array of payloads');
   }
 
+  if (payloads.length > BULK_PUBLISH_MAX_ITEMS) {
+    throw new BadRequestError(
+      `Bulk payload too large. Max allowed is ${BULK_PUBLISH_MAX_ITEMS}`,
+    );
+  }
+
   // Validate all payloads and collect errors/indexes
   const invalidIndexes = [];
   const invalidPayloads = [];
   const validationErrors = [];
+
+  const validMessages = [];
 
   payloads.forEach((payload, idx) => {
     const { error } = CREATE_BANK_RESPONSE_SCHEMA.validate({ body: payload });
@@ -170,27 +192,45 @@ const createBankBotResponseBulk = async (req, res) => {
       invalidPayloads.push({ index: idx, payload, error: error.message });
       validationErrors.push(error.message);
     } else {
-      publishBankResponse({
+      validMessages.push({
         payload,
         x_auth_token,
         role: Role.BOT,
         name: 'PDF Response',
-      }).catch(() => {});
+      });
     }
   });
 
-  const publishedCount = payloads.length - invalidIndexes.length;
+  let publishedCount = 0;
+  let publishFailed = 0;
+
+  for (let i = 0; i < validMessages.length; i += BULK_PUBLISH_CONCURRENCY) {
+    const chunk = validMessages.slice(i, i + BULK_PUBLISH_CONCURRENCY);
+    const results = await Promise.allSettled(
+      chunk.map((message) => publishBankResponseBotBulk(message)),
+    );
+
+    results.forEach((result) => {
+      if (result.status === 'fulfilled' && result.value) {
+        publishedCount += 1;
+      } else {
+        publishFailed += 1;
+      }
+    });
+  }
+
   const status =
-    invalidIndexes.length === 0
+    invalidIndexes.length === 0 && publishFailed === 0
       ? 'All messages published successfully'
-      : invalidIndexes.length === payloads.length
-      ? 'All messages invalid'
-      : `Published: ${publishedCount}, Invalid: ${invalidIndexes.length}`;
+      : publishedCount === 0
+      ? 'No messages published'
+      : `Published: ${publishedCount}, Invalid: ${invalidIndexes.length}, Failed: ${publishFailed}`;
 
   sendSuccess(
     res,
     {
       published: publishedCount,
+      publishFailed,
       invalid: invalidIndexes.length,
       invalidIndexes,
       invalidPayloads,
@@ -251,7 +291,7 @@ const resetBankResponseController = async (req, res) => {
   }
 
   // Call service to handle the reset logic
-  const result = await transactionWrapper(resetBankResponseService)(id, {
+  const result = await resetBankResponseService(id, {
     company_id,
     user_name,
     user_id,
@@ -293,7 +333,7 @@ const importBankResponse = async (req, res) => {
   // Convert S3 Body (ReadableStream) to Buffer
   const pdfBuffer = await streamToBuffer(Body);
 
-  const result = await transactionWrapper(importBankResponseService)(
+  const result = await importBankResponseService(
     {
       ...payload,
       pdfBuffer, // Pass the buffer directly

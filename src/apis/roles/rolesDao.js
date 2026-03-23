@@ -15,6 +15,7 @@ const getRoleDao = async (
   sortBy,
   sortOrder,
   Columns = columns.ROLE,
+  conn = null
 ) => {
   try {
     const baseQuery = `SELECT ${Columns.length ? Columns.join(', ') : '*'} FROM "${tableName.ROLE}" WHERE 1=1`;
@@ -32,7 +33,7 @@ const getRoleDao = async (
       sortOrder,
     );
     // Execute query
-    const result = await executeQuery(sql, queryParams);
+    const result = await executeQuery(sql, queryParams, conn);
     return result.rows;
   } catch (error) {
     logger.error('Error in getRolesDao:', error);
@@ -40,14 +41,10 @@ const getRoleDao = async (
   }
 };
 
-const createRoleDao = async (conn, data) => {
+const createRoleDao = async (data, conn = null) => {
   try {
     const [sql, params] = buildInsertQuery(tableName.ROLE, data);
-    if (conn && conn.query) {
-      const result = await conn.query(sql, params);
-      return result.rows[0];
-    }
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error(error);
@@ -55,14 +52,10 @@ const createRoleDao = async (conn, data) => {
   }
 };
 
-const updateRoleDao = async (conn, id, data) => {
+const updateRoleDao = async (id, data, conn = null) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.ROLE, data, id);
-    if (conn && conn.query) {
-      const result = await conn.query(sql, params);
-      return result.rows[0];
-    }
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error(error);
@@ -70,10 +63,10 @@ const updateRoleDao = async (conn, id, data) => {
   }
 };
 
-const deleteRoleDao = async (id, data) => {
+const deleteRoleDao = async (id, data, conn = null) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.ROLE, data, id);
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error(error);
@@ -81,11 +74,11 @@ const deleteRoleDao = async (id, data) => {
   }
 };
 
-const getRolesById = async (id) => {
+const getRolesById = async (id, conn = null) => {
   try {
     const sql = `SELECT * FROM "${tableName.ROLE}" WHERE id = $1`;
     const params = [id];
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in getRolesById:', error);

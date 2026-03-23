@@ -4,7 +4,6 @@ import {
   VALIDATE_SETTLEMENT_BY_ID_DELETE,
 } from '../../schemas/settlementSchema.js';
 import { NotFoundError, ValidationError } from '../../utils/appErrors.js';
-import { transactionWrapper } from '../../utils/db.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import {
   createSettlementService,
@@ -14,18 +13,38 @@ import {
   getSettlementsBySearchService,
   updateSettlementService,
 } from './settlementServices.js';
-// import { BadRequestError } from '../../utils/appErrors.js';
 import { getBankResponseDao } from '../bankResponse/bankResponseDao.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import { Role } from '../../constants/index.js';
 import { getBankaccountDao } from '../bankAccounts/bankaccountDao.js';
 import { logger } from '../../utils/logger.js';
+import { generateCacheKey } from '../../utils/redishashkey.js';
+import {
+  normalizeQueryForCache,
+  readJsonCache,
+  writeJsonCache,
+  invalidateCompanyCacheByPrefix,
+} from '../../utils/controllerCache.js';
+import config from '../../config/config.js';
+
+const invalidateSettlementCache = async (companyId) =>
+  invalidateCompanyCacheByPrefix(companyId, 'settlement:read:', 'Settlement cache');
+const { controllerCacheTtls } = config;
+
 const getSettlementControllerById = async (req, res) => {
   const { id } = req.params;
   const { company_id } = req.user;
   const { role } = req.user;
   const ids = { id, company_id, role };
+  const cacheKey = `settlement:read:${company_id}:byid:${id}:${role}`;
+
+  const cached = await readJsonCache(cacheKey, 'Settlement by-id cache');
+  if (cached) {
+    return sendSuccess(res, cached, 'got settlement');
+  }
+
   const data = await getSettlementServiceById(ids);
+  await writeJsonCache(cacheKey, data, controllerCacheTtls.settlement.byId);
   sendSuccess(res, data, 'got settlement');
 };
 
@@ -34,6 +53,27 @@ const getSettlementController = async (req, res) => {
   const { company_id, user_id, role, designation } = req.user || {};
   const { role_name, page, limit, search, sortBy, sortOrder, ...filters } =
     req.query;
+  const cacheKey = `settlement:read:${company_id}:list:${generateCacheKey(
+    {
+      company_id,
+      user_id,
+      role,
+      designation,
+      role_name,
+      page,
+      limit,
+      search,
+      sortBy,
+      sortOrder,
+      query: normalizeQueryForCache(req.query),
+    },
+    'settlement-list',
+  )}`;
+
+  const cached = await readJsonCache(cacheKey, 'Settlement list cache');
+  if (cached) {
+    return sendSuccess(res, cached, 'Settlements retrieved successfully');
+  }
 
   const parsedPage = page === 'no_pagination' ? null : Number(page) || 1;
   const parsedLimit = limit === 'no_pagination' ? null : Number(limit) || 10;
@@ -46,8 +86,8 @@ const getSettlementController = async (req, res) => {
   };
 
   // Convert page and limit to numbers
-  const pageNum = parseInt(parsedPage, 10);
-  const limitNum = parseInt(parsedLimit, 10);
+  const pageNum = Number.parseInt(parsedPage, 10);
+  const limitNum = Number.parseInt(parsedLimit, 10);
 
   // Call service with structured parameters
   const settlementData = await getSettlementService(
@@ -62,6 +102,12 @@ const getSettlementController = async (req, res) => {
     designation,
   );
 
+  await writeJsonCache(
+    cacheKey,
+    settlementData,
+    controllerCacheTtls.settlement.list,
+  );
+
   if (!settlementData || settlementData.length === 0) {
     return sendSuccess(res, [], 'No settlements found');
   }
@@ -74,6 +120,27 @@ const getSettlementsBySearch = async (req, res) => {
   const { company_id, user_id, role, designation } = req.user || {};
   const { role_name, page, limit, search, sortBy, sortOrder, ...filters } =
     req.query;
+  const cacheKey = `settlement:read:${company_id}:search:${generateCacheKey(
+    {
+      company_id,
+      user_id,
+      role,
+      designation,
+      role_name,
+      page,
+      limit,
+      search,
+      sortBy,
+      sortOrder,
+      query: normalizeQueryForCache(req.query),
+    },
+    'settlement-search',
+  )}`;
+
+  const cached = await readJsonCache(cacheKey, 'Settlement search cache');
+  if (cached) {
+    return sendSuccess(res, cached, 'Settlements retrieved successfully');
+  }
 
   const parsedPage = page === 'no_pagination' ? null : Number(page) || 1;
   const parsedLimit = limit === 'no_pagination' ? null : Number(limit) || 10;
@@ -86,8 +153,8 @@ const getSettlementsBySearch = async (req, res) => {
   };
 
   // Convert page and limit to numbers
-  const pageNum = parseInt(parsedPage, 10);
-  const limitNum = parseInt(parsedLimit, 10);
+  const pageNum = Number.parseInt(parsedPage, 10);
+  const limitNum = Number.parseInt(parsedLimit, 10);
   // Call service with structured parameters
   const settlementData = await getSettlementsBySearchService(
     { company_id, role_name },
@@ -99,6 +166,12 @@ const getSettlementsBySearch = async (req, res) => {
     role,
     user_id,
     designation,
+  );
+
+  await writeJsonCache(
+    cacheKey,
+    settlementData,
+    controllerCacheTtls.settlement.search,
   );
 
   if (!settlementData || settlementData.length === 0) {
@@ -181,10 +254,11 @@ const createSettlementController = async (req, res) => {
     },
   };
   // const data =
-  const settlement = await transactionWrapper(createSettlementService)(
+  const settlement = await createSettlementService(
     data,
     role,
   );
+  await invalidateSettlementCache(company_id);
   logger.info('Created Settlement Successfully', settlement);
   sendSuccess(
     res,
@@ -206,11 +280,12 @@ const updateSettlementController = async (req, res) => {
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
-  const data = await transactionWrapper(updateSettlementService)(
+  const data = await updateSettlementService(
     ids,
     payload,
     role,
   );
+  await invalidateSettlementCache(company_id);
   sendSuccess(
     res,
     { id: data.id, updated_by: user_name },
@@ -228,7 +303,8 @@ const deleteSettlementController = async (req, res) => {
     throw new ValidationError(joiValidation.error);
   }
   // const updatedData =
-  const settlement = await transactionWrapper(deleteSettlementService)(ids);
+  const settlement = await deleteSettlementService(ids);
+  await invalidateSettlementCache(company_id);
   sendSuccess(
     res,
     { id: settlement.id, deleted_by: user_name },

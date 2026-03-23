@@ -10,10 +10,10 @@ import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 import dayjs from 'dayjs';
 
 // Create ChargeBack entry
-export const createChargeBackDao = async (data) => {
+export const createChargeBackDao = async (data, conn = null) => {
   try {
     const [sql, params] = buildInsertQuery(tableName.CHARGE_BACK, data);
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error creating ChargeBack entry:', error);
@@ -21,11 +21,11 @@ export const createChargeBackDao = async (data) => {
   }
 };
 
-export const getChargebackByIdDao = async (filters) => {
+export const getChargebackByIdDao = async (filters, conn = null) => {
   try {
     const query = `SELECT id, sno, merchant_user_id, vendor_user_id, payin_id, bank_acc_id, amount,config, reference_date, created_by, updated_by, created_at, updated_at FROM "${tableName.CHARGE_BACK}" WHERE 1=1`;
     const [sql, parameters] = buildSelectQuery(query, filters);
-    const result = await executeQuery(sql, parameters);
+    const result = await executeQuery(sql, parameters, conn);
     return result.rows;
   } catch (error) {
     logger.error(error);
@@ -42,6 +42,7 @@ export const getChargeBackDao = async (
   sortOrder,
   columns = [],
   role,
+  conn = null
 ) => {
   try {
     const {
@@ -243,7 +244,7 @@ export const getChargeBackDao = async (
       );
     }
 
-    const result = await executeQuery(baseQuery, queryParams);
+    const result = await executeQuery(baseQuery, queryParams, conn);
     return result.rows;
   } catch (error) {
     logger.error('Error fetching ChargeBack entries:', error);
@@ -259,6 +260,7 @@ export const getAllChargeBackDao = async (
   sortOrder,
   columns = [],
   role,
+  conn = null
 ) => {
   try {
     const {
@@ -458,7 +460,7 @@ export const getAllChargeBackDao = async (
       );
     }
 
-    const result = await executeQuery(baseQuery, queryParams);
+    const result = await executeQuery(baseQuery, queryParams, conn);
     return result.rows;
   } catch (error) {
     logger.error('Error fetching ChargeBack entries:', error);
@@ -475,6 +477,7 @@ export const getChargeBacksBySearchDao = async (
   columns = [],
   role,
   searchTerms = [],
+  conn = null
 ) => {
   try {
     const {
@@ -687,13 +690,14 @@ export const getChargeBacksBySearchDao = async (
     const countResult = await executeQuery(
       countQuery,
       queryParams.slice(0, paramIndex - 1),
+      conn
     );
     const totalCount = parseInt(countResult.rows[0]?.count || '0');
 
-    let result = await executeQuery(dataQuery, queryParams);
+    let result = await executeQuery(dataQuery, queryParams, conn);
     if (totalCount > 0 && result.rows.length === 0 && offset > 0) {
       queryParams[queryParams.length - 1] = 0; 
-      result = await executeQuery(dataQuery, queryParams);
+      result = await executeQuery(dataQuery, queryParams, conn);
     }
     return {
       totalCount,
@@ -708,10 +712,10 @@ export const getChargeBacksBySearchDao = async (
 
 
 // Update ChargeBack entry
-export const updateChargeBackDao = async (id, data) => {
+export const updateChargeBackDao = async (id, data, conn = null) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.CHARGE_BACK, data, id);
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error updating ChargeBack entry:', error);
@@ -720,13 +724,25 @@ export const updateChargeBackDao = async (id, data) => {
 };
 
 // Delete ChargeBack entry
-export const deleteChargeBackDao = async (id, data) => {
+export const deleteChargeBackDao = async (id, data, conn = null) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.CHARGE_BACK, data, id);
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error deleting ChargeBack entry:', error);
+    throw error;
+  }
+};
+
+// Lightweight existence check for ChargeBack by payin_id
+export const chargeBackExistsByPayinIdDao = async (payinId, conn = null) => {
+  try {
+    const sql = `SELECT 1 FROM "${tableName.CHARGE_BACK}" WHERE payin_id = $1 AND is_obsolete = false LIMIT 1`;
+    const result = await executeQuery(sql, [payinId], conn);
+    return result.rows.length > 0;
+  } catch (error) {
+    logger.error('Error checking chargeback existence by payin_id:', error);
     throw error;
   }
 };

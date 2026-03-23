@@ -8,6 +8,7 @@ export const Status = {
   REVERSED: 'REVERSED',
   IMG_PENDING: 'IMG_PENDING',
   PENDING: 'PENDING',
+  PROCESSING: 'PROCESSING',
   REJECTED: 'REJECTED',
   TEST_SUCCESS: 'TEST_SUCCESS',
   TEST_DROPPED: 'TEST_DROPPED',
@@ -35,6 +36,7 @@ export const Method = {
   BSS: 'BSS',
   SILKPAY: 'SILKPAY',
   BSS02: 'BSS02',
+  BSS03: 'BSS03',
 };
 
 export const Type = {

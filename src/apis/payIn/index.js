@@ -30,11 +30,16 @@ import {
 } from './payInController.js';
 // import { payInUpdateCashfreeWebhook } from '../../webhooks/index.js';
 import { multerUpload } from '../../utils/index.js';
-// import getUserLocationMiddleware from '../../middlewares/locationRestrict.js';
+import getUserLocationMiddleware from '../../middlewares/locationRestrict.js';
+import dbConnScope from '../../middlewares/dbConnScope.js';
 
 const router = express.Router();
 
+// Track DB connections for all payin routes
+router.use(dbConnScope);
+
 // Public API's
+
 
 router.get(
   '/generate-hash',
@@ -90,7 +95,7 @@ router.get('/generate-payin', tryCatchHandler(generatePayInUrl));
  */
 router.get(
   '/validate-payIn-url/:merchantOrderId',
-  // getUserLocationMiddleware,
+  getUserLocationMiddleware,
   tryCatchHandler(validatePayInUrl),
 );
 
@@ -223,6 +228,7 @@ router.post(
  *         description: Pay-In URL not found
  */
 router.post('/process/:merchantOrderId', tryCatchHandler(processPayIn));
+
 router.post('/process-payin/:merchantOrderId', tryCatchHandler(processPayInH2H)); //h2h
 
 /**
@@ -416,6 +422,7 @@ router.get(
   authorized(AccessRoles.PAYIN),
   tryCatchHandler(getPayinsBySearch),
 );
+
 router.get(
   '/getPayinSummary',
   isAuthenticated,

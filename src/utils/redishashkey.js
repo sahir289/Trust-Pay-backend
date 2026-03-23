@@ -1,21 +1,38 @@
-import crypto from 'crypto';
+import crypto from 'node:crypto';
+import config from '../config/config.js';
 import { logger } from './logger.js';
 import redisClient from './redisClient.js';
 
+export const AUTH_SESSION_CACHE_TTL_SEC =
+  config.controllerCacheTtls?.auth?.session || 30;
+
+export const buildScopedCacheKey = (...segments) =>
+  segments.filter(Boolean).join(':');
+
+export const buildAuthSessionCacheKey = ({ user_id, company_id, session_id }) => {
+  if (!user_id || !company_id || !session_id) {
+    return null;
+  }
+
+  return buildScopedCacheKey('auth', 'session', company_id, user_id, session_id);
+};
 
 export const generateCacheKey = (params, prefix = 'cache') => {
   const paramString = JSON.stringify(params);
   return `${prefix}:${crypto.createHash('md5').update(paramString).digest('hex')}`;
 };
 
-export const getCachedData = async (cacheKey) => {
+export const getCachedData = async (cacheKey, label = 'cache') => {
   try {
+    if (!cacheKey) {
+      return null;
+    }
     const cachedData = await redisClient.get(cacheKey);
     if (cachedData) {
-      logger.info(`Cache hit for key: ${cacheKey}`);
+      logger.info(`${label} hit for key: ${cacheKey}`);
       return JSON.parse(cachedData);
     }
-    logger.info(`Cache miss for key: ${cacheKey}`);
+    logger.info(`${label} miss for key: ${cacheKey}`);
     return null;
   } catch (redisError) {
     logger.error('Redis get error:', redisError);
@@ -23,11 +40,31 @@ export const getCachedData = async (cacheKey) => {
   }
 };
 
-export const setCachedData = async (cacheKey, data, ttl = 300) => {
+export const setCachedData = async (
+  cacheKey,
+  data,
+  ttl = 300,
+  label = 'cache',
+) => {
   try {
+    if (!cacheKey) {
+      return;
+    }
     await redisClient.set(cacheKey, JSON.stringify(data), 'EX', ttl);
-    logger.info(`Cached result for key: ${cacheKey}`);
+    logger.info(`${label} cached for key: ${cacheKey}`);
   } catch (redisError) {
     logger.error('Redis set error:', redisError);
+  }
+};
+
+export const deleteCachedData = async (cacheKey, label = 'cache') => {
+  try {
+    if (!cacheKey) {
+      return;
+    }
+    await redisClient.del(cacheKey);
+    logger.info(`${label} deleted for key: ${cacheKey}`);
+  } catch (redisError) {
+    logger.error('Redis delete error:', redisError);
   }
 };
