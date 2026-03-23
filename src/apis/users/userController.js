@@ -16,6 +16,7 @@ import { generateCacheKey } from '../../utils/redishashkey.js';
 import {
   normalizeQueryForCache,
   readJsonCache,
+  shouldServeCachedResponse,
   writeJsonCache,
   invalidateCompanyCacheByPrefix,
 } from '../../utils/controllerCache.js';
@@ -43,7 +44,7 @@ const getUsers = async (req, res) => {
   )}`;
 
   const cached = await readJsonCache(cacheKey, 'Users list cache');
-  if (cached) {
+  if (shouldServeCachedResponse(cached, req.query)) {
     return sendSuccess(res, cached, 'getUsers successfully');
   }
 
@@ -81,7 +82,7 @@ const getUsersBySearch = async (req, res) => {
   )}`;
 
   const cached = await readJsonCache(cacheKey, 'Users search cache');
-  if (cached) {
+  if (shouldServeCachedResponse(cached, req.query)) {
     return sendSuccess(res, cached, 'getUsers successfully');
   }
 
@@ -116,7 +117,7 @@ const getUsersByUserName = async (req, res) => {
   )}`;
 
   const cached = await readJsonCache(cacheKey, 'Users by-username cache');
-  if (cached) {
+  if (shouldServeCachedResponse(cached, req.query)) {
     return sendSuccess(res, cached, 'getUsers successfully');
   }
 
@@ -134,7 +135,7 @@ const getUserById = async (req, res) => {
   const cacheKey = `users:read:${company_id}:byid:${id}:${role}:${designation_id}:${role_id}`;
 
   const cached = await readJsonCache(cacheKey, 'Users by-id cache');
-  if (cached) {
+  if (shouldServeCachedResponse(cached, req.query)) {
     return sendSuccess(res, cached, 'getting User by id successfully');
   }
 

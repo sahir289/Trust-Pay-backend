@@ -20,6 +20,7 @@ import { generateCacheKey } from '../../utils/redishashkey.js';
 import {
   normalizeQueryForCache,
   readJsonCache,
+  shouldServeCachedResponse,
   writeJsonCache,
   invalidateCompanyCacheByPrefix,
 } from '../../utils/controllerCache.js';
@@ -59,7 +60,7 @@ const getBankaccount = async (req, res) => {
   )}`;
 
   const cached = await readJsonCache(cacheKey, 'BankAccounts list cache');
-  if (cached) {
+  if (shouldServeCachedResponse(cached, req.query)) {
     return sendSuccess(res, cached, 'get Banks successfully');
   }
 
@@ -100,7 +101,7 @@ const getBankAccountBySearch = async (req, res) => {
   )}`;
 
   const cached = await readJsonCache(cacheKey, 'BankAccounts search cache');
-  if (cached) {
+  if (shouldServeCachedResponse(cached, req.query)) {
     return sendSuccess(res, cached, 'get Banks successfully');
   }
 
@@ -145,7 +146,7 @@ const getBankaccountById = async (req, res) => {
   const cacheKey = `bankaccounts:read:${company_id}:byid:${id}:${role}`;
 
   const cached = await readJsonCache(cacheKey, 'BankAccounts by-id cache');
-  if (cached) {
+  if (shouldServeCachedResponse(cached, req.query)) {
     return sendSuccess(res, cached, 'get Bank successfully');
   }
 
@@ -260,7 +261,7 @@ const getMerchantBank = async (req, res) => {
   )}`;
 
   const cached = await readJsonCache(cacheKey, 'BankAccounts merchant-bank cache');
-  if (cached) {
+  if (shouldServeCachedResponse(cached, req.query)) {
     return sendSuccess(res, cached, 'Bank details fetched successfully');
   }
 
