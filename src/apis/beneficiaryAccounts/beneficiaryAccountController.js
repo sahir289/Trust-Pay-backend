@@ -11,6 +11,7 @@ import { generateCacheKey } from '../../utils/redishashkey.js';
 import {
   normalizeQueryForCache,
   readJsonCache,
+  shouldServeCachedResponse,
   writeJsonCache,
   invalidateCompanyCacheByPrefix,
 } from '../../utils/controllerCache.js';
@@ -49,7 +50,7 @@ const getBeneficiaryAccount = async (req, res) => {
   )}`;
 
   const cached = await readJsonCache(cacheKey, 'Beneficiary list cache');
-  if (cached) {
+  if (shouldServeCachedResponse(cached, req.query)) {
     return sendSuccess(res, cached, 'get Beneficiary successfully');
   }
 
@@ -99,7 +100,7 @@ const getBeneficiaryAccountBySearch = async (req, res) => {
   )}`;
 
   const cached = await readJsonCache(cacheKey, 'Beneficiary search cache');
-  if (cached) {
+  if (shouldServeCachedResponse(cached, req.query)) {
     return sendSuccess(res, cached, 'get Beneficiary successfully');
   }
 
@@ -146,7 +147,7 @@ const getBeneficiaryAccountByBankName = async (req, res) => {
   )}`;
 
   const cached = await readJsonCache(cacheKey, 'Beneficiary by-bankname cache');
-  if (cached) {
+  if (shouldServeCachedResponse(cached, req.query)) {
     return sendSuccess(res, cached, 'get Beneficiary successfully');
   }
 
@@ -171,7 +172,7 @@ const getBeneficiaryAccountById = async (req, res) => {
   const cacheKey = `beneficiary:read:${company_id}:byid:${id}:${role}`;
 
   const cached = await readJsonCache(cacheKey, 'Beneficiary by-id cache');
-  if (cached) {
+  if (shouldServeCachedResponse(cached, req.query)) {
     return sendSuccess(res, cached, 'get Bank successfully');
   }
 

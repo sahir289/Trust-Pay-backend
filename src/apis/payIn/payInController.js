@@ -56,6 +56,7 @@ import { generateCacheKey } from '../../utils/redishashkey.js';
 import {
   normalizeQueryForCache,
   readJsonCache,
+  shouldServeCachedResponse,
   writeJsonCache,
   invalidateCompanyCacheByPrefix,
 } from '../../utils/controllerCache.js';
@@ -411,7 +412,7 @@ export const getPayinsBySearch = async (req, res) => {
   )}`;
 
   const cached = await readJsonCache(cacheKey, 'PayIn search cache');
-  if (cached) {
+  if (shouldServeCachedResponse(cached, req.query)) {
     return sendSuccess(res, cached, 'Payins fetched successfully');
   }
   // if (!search) {
@@ -441,7 +442,7 @@ export const getPayinsSummary = async (req, res) => {
   const cacheKey = `payin:read:${company_id}:summary`;
 
   const cached = await readJsonCache(cacheKey, 'PayIn summary cache');
-  if (cached) {
+  if (shouldServeCachedResponse(cached, req.query)) {
     return sendSuccess(res, cached, 'Payins fetched successfully');
   }
 

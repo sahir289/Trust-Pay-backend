@@ -28,6 +28,7 @@ import { generateCacheKey } from '../../utils/redishashkey.js';
 import {
   normalizeQueryForCache,
   readJsonCache,
+  shouldServeCachedResponse,
   writeJsonCache,
   invalidateCompanyCacheByPrefix,
 } from '../../utils/controllerCache.js';
@@ -110,7 +111,7 @@ const getPayoutsById = async (req, res) => {
   const cacheKey = `payout:read:${company_id}:byid:${id}:${role}`;
 
   const cached = await readJsonCache(cacheKey, 'PayOut by-id cache');
-  if (cached) {
+  if (shouldServeCachedResponse(cached, req.query)) {
     return sendSuccess(res, cached, 'Payouts fetched successfully');
   }
 
@@ -139,7 +140,7 @@ const getPayouts = async (req, res) => {
   )}`;
 
   const cached = await readJsonCache(cacheKey, 'PayOut list cache');
-  if (cached) {
+  if (shouldServeCachedResponse(cached, req.query)) {
     return sendSuccess(res, cached, 'Payouts fetched successfully');
   }
 
@@ -181,7 +182,7 @@ const getPayoutsBySearch = async (req, res) => {
   )}`;
 
   const cached = await readJsonCache(cacheKey, 'PayOut search cache');
-  if (cached) {
+  if (shouldServeCachedResponse(cached, req.query)) {
     return sendSuccess(res, cached, 'Payouts fetched successfully');
   }
 

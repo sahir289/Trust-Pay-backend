@@ -16,6 +16,7 @@ import { generateCacheKey } from '../../utils/redishashkey.js';
 import {
   normalizeQueryForCache,
   readJsonCache,
+  shouldServeCachedResponse,
   writeJsonCache,
   invalidateCompanyCacheByPrefix,
 } from '../../utils/controllerCache.js';
@@ -60,7 +61,7 @@ const getUserHierarchys = async (req, res) => {
   )}`;
 
   const cached = await readJsonCache(cacheKey, 'UserHierarchy list cache');
-  if (cached) {
+  if (shouldServeCachedResponse(cached, req.query)) {
     return sendSuccess(res, cached, 'UserHierarchy fetched successfully');
   }
 
@@ -93,7 +94,7 @@ const getUserHierarchysById = async (req, res) => {
   const cacheKey = `userHierarchy:read:${company_id}:byid:${id}:${role}`;
 
   const cached = await readJsonCache(cacheKey, 'UserHierarchy by-id cache');
-  if (cached) {
+  if (shouldServeCachedResponse(cached, req.query)) {
     return sendSuccess(res, cached, 'UserHierarchy fetched successfully');
   }
 
