@@ -106,6 +106,34 @@ const applyDefaultBankResponseDateWindow = (payload) => {
   };
 };
 
+const shouldApplyDefaultBankResponseDateWindow = (payload = {}) => {
+  if (payload?.startDate || payload?.endDate) {
+    return false;
+  }
+
+  const relevantEntries = Object.entries(payload).filter(([key, value]) => {
+    if (key === 'company_id') {
+      return false;
+    }
+
+    return value !== undefined && value !== null && value !== '';
+  });
+
+  if (relevantEntries.length === 0) {
+    return true;
+  }
+
+  if (relevantEntries.length !== 2) {
+    return false;
+  }
+
+  const relevantQuery = Object.fromEntries(relevantEntries);
+  return (
+    String(relevantQuery.page) === '1' &&
+    String(relevantQuery.limit) === '20'
+  );
+};
+
 const applyBankResponseTxTimeouts = async (conn) => {
   await conn.query(
     `SET LOCAL lock_timeout = '${BANK_RESPONSE_LOCK_TIMEOUT_MS}ms'`,
@@ -1400,7 +1428,11 @@ const getBankResponseService = async (
   user_id,
 ) => {
   try {
-    payload = applyDefaultBankResponseDateWindow(payload);
+    // Only the plain default listing should get the default date window.
+    // Any other query-driven request should scan full DB unless caller sends dates.
+    if (shouldApplyDefaultBankResponseDateWindow(payload) && !search) {
+      payload = applyDefaultBankResponseDateWindow(payload);
+    }
 
     const filterColumns =
       role === Role.MERCHANT
@@ -1507,7 +1539,11 @@ const getBankResponseBySearchService = async (
   user_id,
 ) => {
   try {
-    payload = applyDefaultBankResponseDateWindow(payload);
+    // Search/filter requests should behave like full DB scans unless caller explicitly sends dates.
+    // Only the plain default listing should get the fallback date window.
+    if (shouldApplyDefaultBankResponseDateWindow(payload)) {
+      payload = applyDefaultBankResponseDateWindow(payload);
+    }
     const filterColumns =
       role === Role.MERCHANT
         ? merchantColumns.BANK_RESPONSE
