@@ -71,6 +71,7 @@ import { createRupeeFlowPayout } from '../../rupeeflow/rupeeflow.js';
 import { createBSSPayout } from '../../bss/bss.js';
 import { createSilkPayPayout } from '../../silkpay/silkpay.js';
 import { createBSS02Payout } from '../../bss/bss02.js';
+import { createPayDumPayout } from '../../paydum/paydum.js';
 // import { notifyNewCalculationTableEntry } from '../../utils/sockets.js';
 
 // Helper function to check if vendor is sub-vendor and get parent info
@@ -740,6 +741,7 @@ const updatePayoutService = async (conn, ids, payload, role) => {
     if (
       !payload?.config?.method === Method.CLICKRR &&
       !payload?.config?.method === Method.PAYASSIST &&
+      !payload?.config?.method === Method.PAYDUM &&
       !payload?.config?.method === Method.TATAPAY && 
       !payload?.config?.method === Method.RUPEEFLOW &&
       !payload?.config?.method === Method.BSS &&
@@ -946,6 +948,28 @@ const updatePayoutService = async (conn, ids, payload, role) => {
         throw new NotFoundError(`Bank not found for ${method} payout`);
 
       const updatedPayload = await createPayAssistPayout(
+        payload,
+        ids,
+        singleWithdrawData,
+        bankId,
+      );
+      payload = updatedPayload;
+    } else if (payload?.config?.method === Method.PAYDUM) {
+      const method = payload.config.method;
+
+      const [company] = await getCompanyByIDDao({ id: ids.company_id });
+      if (!company) throw new NotFoundError('Company not found');
+
+      const bankId = company.config.PAY_DUM.defaultBankId;
+      if (!bankId)
+        throw new NotFoundError(`Default bank ID not found for ${method}`);
+
+      bankDataArr = await getBankByIdDao({ id: bankId });
+
+      if (!bankDataArr[0])
+        throw new NotFoundError(`Bank not found for ${method} payout`);
+
+      const updatedPayload = await createPayDumPayout(
         payload,
         ids,
         singleWithdrawData,

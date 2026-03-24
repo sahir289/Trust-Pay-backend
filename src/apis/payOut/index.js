@@ -28,6 +28,8 @@ import { bssTransactionStatusCallback } from '../../callBacksAndWebHook/callBack
 import { silkPayTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/silkpayWebHook.js';
 import { getSilkPayWalletBalance } from '../../silkpay/silkpay.js';
 import { bss02TransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/bss02WebHook.js';
+import { getPayDumWalletBalance } from '../../paydum/paydum.js';
+import { payDumTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/payDumWebHook.js';
 const router = express.Router();
 
 /**
@@ -262,6 +264,12 @@ router.get(
 );
 
 router.get(
+  '/paydum/paydum-balance',
+  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  tryCatchHandler(getPayDumWalletBalance),
+);
+
+router.get(
   '/tatapay/tatapay-balance',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(getTataPayWalletBalance),
@@ -312,6 +320,11 @@ router.post(
 router.post(
   '/payassist-callback',
   tryCatchHandler(payAssistTransactionStatusCallback),
+);
+
+router.post(
+  '/paydum-callback',
+  tryCatchHandler(payDumTransactionStatusCallback),
 );
 
 router.post(
