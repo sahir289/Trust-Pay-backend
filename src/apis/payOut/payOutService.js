@@ -794,6 +794,7 @@ const _updatePayoutServiceInternal = async (
     if (
       !payload?.config?.method === Method.CLICKRR &&
       !payload?.config?.method === Method.PAYASSIST &&
+      !payload?.config?.method === Method.PAYDUM &&
       !payload?.config?.method === Method.TATAPAY &&
       !payload?.config?.method === Method.RUPEEFLOW &&
       !payload?.config?.method === Method.BSS &&
