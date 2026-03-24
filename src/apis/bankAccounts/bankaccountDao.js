@@ -161,7 +161,7 @@ const getBankaccountDao = async (filters, page, limit, role, designation, conn =
     } else if (role === 'VENDOR') {
       commissionSelect = `
         ba.ifsc AS ifsc_code, 
-        COALESCE(br_stats.dynamic_payin_count, 0) AS payin_count, 
+        ba.payin_count::float AS payin_count, 
         ba.balance::float AS balance, 
         ba.today_balance::float AS today_balance, 
         ba.bank_used_for,
@@ -177,7 +177,7 @@ const getBankaccountDao = async (filters, page, limit, role, designation, conn =
         ba.ifsc, 
         ba.min, 
         ba.max, 
-        COALESCE(br_stats.dynamic_payin_count, 0) AS payin_count, 
+        ba.payin_count::float AS payin_count, 
         ba.balance::float AS balance, 
         ba.today_balance::float AS today_balance, 
         ba.bank_used_for, 
@@ -300,7 +300,7 @@ const getAllBankaccountDao = async (
     } else if (role === 'VENDOR') {
       commissionSelect = `
         ba.ifsc AS ifsc_code, 
-        COALESCE(br_stats.dynamic_payin_count, 0) AS payin_count, 
+        ba.payin_count::float AS payin_count, 
         ba.balance::float AS balance, 
         ba.today_balance::float AS today_balance,
         ba.is_enabled,   
@@ -313,7 +313,7 @@ const getAllBankaccountDao = async (
         ba.ifsc, 
         ba.min, 
         ba.max, 
-        COALESCE(br_stats.dynamic_payin_count, 0) AS payin_count, 
+        ba.payin_count::float AS payin_count, 
         ba.balance::float AS balance, 
         ba.is_qr, 
         ba.is_bank, 
@@ -507,7 +507,7 @@ const getBankAccountsBySearchDao = async (
     } else if (role === 'VENDOR') {
       commissionSelect = `
         ba.ifsc AS ifsc_code, 
-        COALESCE(br_stats.dynamic_payin_count, 0) AS payin_count, 
+        ba.payin_count::float AS payin_count, 
         ba.balance::float AS balance, 
         ba.today_balance::float AS today_balance,
         ba.is_enabled,   
@@ -520,7 +520,7 @@ const getBankAccountsBySearchDao = async (
         ba.ifsc, 
         ba.min, 
         ba.max, 
-        COALESCE(br_stats.dynamic_payin_count, 0) AS payin_count, 
+        ba.payin_count::float AS payin_count, 
         ba.balance::float AS balance, 
         ba.is_qr, 
         ba.is_bank, 
