@@ -1019,3 +1019,52 @@ export const getMerchantConfigByUserIdDao = async (userId, conn = null) => {
     throw error;
   }
 };
+
+// Batch fetch merchants by array of codes
+export const getMerchantsByCodesDao = async (codes = [], conn = null) => {
+  if (!Array.isArray(codes) || codes.length === 0) return [];
+  try {
+    let baseQuery = `
+      SELECT 
+        "Merchant".id, 
+        "Merchant".user_id, 
+        "Merchant".first_name, 
+        "Merchant".last_name, 
+        "Merchant".code, 
+        "Merchant".min_payin, 
+        "Merchant".max_payin, 
+        "Merchant".payin_commission, 
+        "Merchant".payout_commission, 
+        "Merchant".min_payout, 
+        "Merchant".max_payout, 
+        "Merchant".config, 
+        "Merchant".company_id, 
+        creator.user_name AS created_by, 
+        updater.user_name AS updated_by, 
+        "Merchant".created_at, 
+        "Merchant".updated_at, 
+        "User".designation_id, 
+        "User".first_name || ' ' || "User".last_name AS full_name, 
+        "Designation".designation AS designation_name,
+         (
+            SELECT net_balance 
+            FROM "Calculation" 
+            WHERE "Calculation".user_id = "Merchant".user_id 
+            ORDER BY "Calculation".created_at DESC 
+            LIMIT 1
+          ) AS balance
+      FROM "Merchant" 
+      JOIN "User" ON "Merchant".user_id = "User".id 
+      LEFT JOIN "Designation" ON "User".designation_id = "Designation".id
+      LEFT JOIN "User" creator ON "Merchant".created_by = creator.id 
+      LEFT JOIN "User" updater ON "Merchant".updated_by = updater.id
+      WHERE "Merchant".is_enabled = true AND "Merchant".is_obsolete = false
+        AND "Merchant".code = ANY($1::text[])
+    `;
+    const result = await executeQuery(baseQuery, [codes], conn);
+    return result.rows;
+  } catch (error) {
+    logger.error('Error in getMerchantsByCodesDao:', error);
+    throw error;
+  }
+};

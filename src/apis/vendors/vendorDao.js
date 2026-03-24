@@ -1139,3 +1139,31 @@ export const getVendorByUserId = async (user_id, conn = null) => {
     throw error;
   }
 };
+
+// Batch fetch vendors by array of user_ids
+export const getVendorsByUserIdsDao = async (user_ids = [], conn = null) => {
+  if (!Array.isArray(user_ids) || user_ids.length === 0) return [];
+  try {
+    const sql = `
+      SELECT 
+        "Vendor".id,
+        "Vendor".user_id,
+        "Vendor".first_name,
+        "Vendor".last_name,
+        "Vendor".code,
+        "Vendor".payin_commission,
+        "Vendor".payout_commission,
+        "Vendor".created_at,
+        "Vendor".updated_at,
+        "Vendor".config
+      FROM "Vendor"
+      WHERE "Vendor".user_id = ANY($1::text[])
+        AND "Vendor".is_obsolete = false
+    `;
+    const result = await executeQuery(sql, [user_ids], conn);
+    return result.rows;
+  } catch (error) {
+    logger.error('Error in getVendorsByUserIdsDao:', error);
+    throw error;
+  }
+};
