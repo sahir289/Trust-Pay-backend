@@ -1732,6 +1732,7 @@ export const _processPayInServiceInternal = async (
   const duration = calculateDuration(payIn.created_at);
   const otherPayIns = await getPayInForDuplicate(
     {
+      merchant_order_id: merchantOrderId,
       user_submitted_utr: userSubmittedUtr,
       company_id: payIn.company_id,
     },
@@ -2554,6 +2555,7 @@ export const telegramResponseService = async (message) => {
         payIn.status,
       )
     ) {
+      
       await sendAlreadyConfirmedMessageTelegramBot(
         message.chat.id,
         content.utr,
@@ -2609,15 +2611,11 @@ export const telegramResponseService = async (message) => {
       otherBankResponsePayIns.length > 1
         ? otherBankResponsePayIns
         : otherUtrPayIns.length > 0
-          ? otherUtrPayIns
+          ? otherUtrPayIns.filter((item) => item.merchant_order_id !== message.caption)
           : updatedBotResponsePayIns;
 
     // Handle used bank response or duplicate entries
     if (bankResponse.is_used || duplicateEntry.length) {
-      // payIn = Array.isArray(payIn) ? payIn : [payIn];
-      // duplicateEntry = Array.isArray(duplicateEntry)
-      //   ? duplicateEntry
-      //   : [duplicateEntry];
       await sendAlreadyConfirmedMessageTelegramBot(
         message.chat.id,
         content.utr,
@@ -2640,6 +2638,10 @@ export const telegramResponseService = async (message) => {
       },
       null,
       false,
+      false,
+      null,
+      null,
+      conn,
     );
     await commit(conn);
     committed = true;
