@@ -12,11 +12,15 @@ import {
 } from '../../schemas/bankAccoountSchema.js';
 import { ValidationError } from '../../utils/appErrors.js';
 import { sendError, sendSuccess } from '../../utils/responseHandlers.js';
-import { getBankaccountDao, getMerchantBankDao } from './bankaccountDao.js';
+import {
+  checkBankNickNameExistsDao,
+  getMerchantBankDao,
+} from './bankaccountDao.js';
 import { generateCacheKey } from '../../utils/redishashkey.js';
 import {
   normalizeQueryForCache,
   readJsonCache,
+  shouldServeCachedResponse,
   writeJsonCache,
   invalidateCompanyCacheByPrefix,
 } from '../../utils/controllerCache.js';
@@ -57,7 +61,7 @@ const getBankaccount = async (req, res) => {
   )}`;
 
   const cached = await readJsonCache(cacheKey, 'BankAccounts list cache');
-  if (cached) {
+  if (shouldServeCachedResponse(cached, req.query)) {
     return sendSuccess(res, cached, 'get Banks successfully');
   }
 
@@ -98,7 +102,7 @@ const getBankAccountBySearch = async (req, res) => {
   )}`;
 
   const cached = await readJsonCache(cacheKey, 'BankAccounts search cache');
-  if (cached) {
+  if (shouldServeCachedResponse(cached, req.query)) {
     return sendSuccess(res, cached, 'get Banks successfully');
   }
 
@@ -143,7 +147,7 @@ const getBankaccountById = async (req, res) => {
   const cacheKey = `bankaccounts:read:${company_id}:byid:${id}:${role}`;
 
   const cached = await readJsonCache(cacheKey, 'BankAccounts by-id cache');
-  if (cached) {
+  if (shouldServeCachedResponse(cached, req.query)) {
     return sendSuccess(res, cached, 'get Bank successfully');
   }
 
@@ -184,18 +188,16 @@ const createBankaccount = async (req, res) => {
   delete payload.is_phonepay;
   delete payload.is_intent;
   delete payload.is_staticQR;
-  const { user_id, company_id, designation, role, user_name } = req.user;
+  const { user_id, company_id, designation, user_name } = req.user;
   payload.created_by = user_id;
   payload.updated_by = user_id;
   payload.company_id = company_id;
   //error for nick name must be unique
-  const unique = await getBankaccountDao(
-    { nick_name: payload.nick_name },
-    null,
-    null,
-    role,
+  const unique = await checkBankNickNameExistsDao(
+    company_id,
+    payload.nick_name,
   );
-  if (unique.length > 0) {
+  if (unique) {
     return sendError(res, 'Nick Name Must Be Unique', 400);
   }
   // const data =
@@ -260,7 +262,7 @@ const getMerchantBank = async (req, res) => {
   )}`;
 
   const cached = await readJsonCache(cacheKey, 'BankAccounts merchant-bank cache');
-  if (cached) {
+  if (shouldServeCachedResponse(cached, req.query)) {
     return sendSuccess(res, cached, 'Bank details fetched successfully');
   }
 

@@ -472,7 +472,8 @@ const _deleteVendorServiceInternal = async (ids, updated_by, conn) => {
         conn,
       );
       await updateBankaccountDao(
-        { user_id: ids.user_id || ids.id },
+        // here is a bug in below line, here need to remove user_id 
+        { id: ids.bank_id, company_id: ids.company_id, user_id: ids.user_id || ids.id },
         payloadBank,
         true,
         conn,

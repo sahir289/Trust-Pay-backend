@@ -94,6 +94,10 @@ export async function publishBulkPayout(payload) {
   return publishMessage(QUEUES.BULK_PAYOUT, payload);
 }
 
+export async function publishPayInProcess(payload) {
+  return publishMessage(QUEUES.PAYIN_PROCESS, payload);
+}
+
 rabbitMQConnectionManager.onReconnect(async () => {
   producerChannel = null;
   isTopologyReady = false;

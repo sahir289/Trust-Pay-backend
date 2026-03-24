@@ -1214,7 +1214,7 @@ const _updatePayoutServiceInternal = async (
       await Promise.all([
         ...calculationUpdates,
         updateBankaccountDao(
-          { id: bankData.id },
+          { id: bankData.id, company_id: ids.company_id },
           {
             payin_count: Number(bankData.payin_count) + 1,
             today_balance: Number(bankData.today_balance) - Number(data.amount),
@@ -1272,7 +1272,7 @@ const _updatePayoutServiceInternal = async (
       await Promise.all([
         ...calculationUpdates,
         updateBankaccountDao(
-          { id: bankData.id },
+          { id: bankData.id, company_id: ids.company_id },
           {
             today_balance: Number(bankData.today_balance + data.amount),
             balance: Number(bankData.balance + data.amount),

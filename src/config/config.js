@@ -54,9 +54,57 @@ function config(Env) {
       url: Env?.REDIS_URL || 'redis://localhost:6379',
     },
     rateLimiter: {
-      points: parseInt(Env?.RATE_LIMIT_POINTS) || 300, // Increased to 300 req/min (5 req/sec)
-      duration: parseInt(Env?.RATE_LIMIT_DURATION) || 60,
-      blockDuration: parseInt(Env?.RATE_LIMIT_BLOCK_DURATION) || 30,
+      points: parsePositiveInt(Env?.RATE_LIMIT_POINTS, 300),
+      duration: parsePositiveInt(Env?.RATE_LIMIT_DURATION, 60),
+      blockDuration: parsePositiveInt(Env?.RATE_LIMIT_BLOCK_DURATION, 30),
+      profiles: {
+        auth: {
+          points: parsePositiveInt(Env?.RATE_LIMIT_AUTH_POINTS, 120),
+          duration: parsePositiveInt(Env?.RATE_LIMIT_AUTH_DURATION, 60),
+          blockDuration: parsePositiveInt(
+            Env?.RATE_LIMIT_AUTH_BLOCK_DURATION,
+            60,
+          ),
+        },
+        read: {
+          points: parsePositiveInt(Env?.RATE_LIMIT_READ_POINTS, 1200),
+          duration: parsePositiveInt(Env?.RATE_LIMIT_READ_DURATION, 60),
+          blockDuration: parsePositiveInt(
+            Env?.RATE_LIMIT_READ_BLOCK_DURATION,
+            20,
+          ),
+        },
+        write: {
+          points: parsePositiveInt(Env?.RATE_LIMIT_WRITE_POINTS, 300),
+          duration: parsePositiveInt(Env?.RATE_LIMIT_WRITE_DURATION, 60),
+          blockDuration: parsePositiveInt(
+            Env?.RATE_LIMIT_WRITE_BLOCK_DURATION,
+            30,
+          ),
+        },
+        merchantIntegration: {
+          points: parsePositiveInt(
+            Env?.RATE_LIMIT_MERCHANT_INTEGRATION_POINTS,
+            200,
+          ),
+          duration: parsePositiveInt(
+            Env?.RATE_LIMIT_MERCHANT_INTEGRATION_DURATION,
+            60,
+          ),
+          blockDuration: parsePositiveInt(
+            Env?.RATE_LIMIT_MERCHANT_INTEGRATION_BLOCK_DURATION,
+            20,
+          ),
+        },
+        bankResponse: {
+          points: parsePositiveInt(Env?.RATE_LIMIT_BANK_POINTS, 300),
+          duration: parsePositiveInt(Env?.RATE_LIMIT_BANK_DURATION, 60),
+          blockDuration: parsePositiveInt(
+            Env?.RATE_LIMIT_BANK_BLOCK_DURATION,
+            30,
+          ),
+        },
+      },
     },
     elasticSearch: {
       node: Env?.ELASTICSEARCH_NODE || 'http://localhost:9200',

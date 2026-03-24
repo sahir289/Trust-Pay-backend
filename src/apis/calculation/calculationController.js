@@ -19,6 +19,7 @@ import { generateCacheKey } from '../../utils/redishashkey.js';
 import {
   normalizeQueryForCache,
   readJsonCache,
+  shouldServeCachedResponse,
   writeJsonCache,
   invalidateCompanyCacheByPrefix,
 } from '../../utils/controllerCache.js';
@@ -51,7 +52,7 @@ const getCalculationById = async (req, res) => {
   )}`;
 
   const cached = await readJsonCache(cacheKey, 'Calculation by id cache');
-  if (cached) {
+  if (shouldServeCachedResponse(cached, req.query)) {
     return sendSuccess(res, cached, 'Get Calculation successfully');
   }
 
@@ -83,7 +84,7 @@ const getCalculation = async (req, res) => {
   )}`;
 
   const cached = await readJsonCache(cacheKey, 'Calculation list cache');
-  if (cached) {
+  if (shouldServeCachedResponse(cached, req.query)) {
     return sendSuccess(res, cached, 'Get Calculations successfully');
   }
 
