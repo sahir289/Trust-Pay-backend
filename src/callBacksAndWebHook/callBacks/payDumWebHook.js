@@ -131,7 +131,7 @@ export const payDumTransactionStatusCallback = async (req, res) => {
       status: singleWithdrawData.status,
     });
 
-    return res.status(200).send('Payout Updated Successfully');
+    // return res.status(200).send('Payout Updated Successfully');
   } catch (err) {
     // Log any errors while updating the payout
     logger.error('getting error while updating payout', err);
