@@ -154,6 +154,9 @@ function config(Env) {
     payAssist : {
       baseUrl: Env?.PAY_ASSIST_API_URL,
     },
+    payDum : {
+      baseUrl: Env?.PAY_DUM_API_URL,
+    },
     tataPay : {
       baseUrl: Env?.TATA_PAY_BASE_API_URL,
       bulkUrl: Env?.TATA_PAY_BULK_API_URL,

@@ -65,7 +65,13 @@ import {
   createClickrrPayout,
   getClickrrWalletBalance,
 } from '../../clickrr/clickrr.js';
-import { createPayAssistPayout, getPayAssistWalletBalance } from '../../payassist/payassist.js';
+import {
+  createPayAssistPayout,
+  getPayAssistWalletBalance,
+} from '../../payassist/payassist.js';
+import {
+  createPayDumPayout,
+} from '../../paydum/paydum.js';
 import { createTataPayPayout } from '../../tatapay/tatapay.js';
 import {
   createRupeeFlowBulkPayout,
@@ -193,7 +199,9 @@ const _createPayoutServiceInternal = async (
     const details = await getMerchantsByCodeDao(code);
 
     if (!details[0] || details[0].length === 0) {
-      const error = new BadRequestError('Merchant is inactive. Contact support for help!');
+      const error = new BadRequestError(
+        'Merchant is inactive. Contact support for help!',
+      );
       error.statusCode = 404;
       throw error;
     }
@@ -211,7 +219,11 @@ const _createPayoutServiceInternal = async (
       } else {
         whitelist = [];
       }
-      if (whitelist.length && !whitelist.includes(userIp) && role !== Role.ADMIN) {
+      if (
+        whitelist.length &&
+        !whitelist.includes(userIp) &&
+        role !== Role.ADMIN
+      ) {
         throw new BadRequestError('IP not whitelisted');
       }
     }
@@ -264,7 +276,9 @@ const _createPayoutServiceInternal = async (
       (amount < details[0].min_payout || amount > details[0].max_payout) &&
       role !== Role.ADMIN
     ) {
-      throw new BadRequestError(`Amount should be between ${details[0].min_payout} and ${details[0].max_payout}`);
+      throw new BadRequestError(
+        `Amount should be between ${details[0].min_payout} and ${details[0].max_payout}`,
+      );
     }
 
     delete payload.x_api_key;
@@ -282,8 +296,12 @@ const _createPayoutServiceInternal = async (
       }
     }
 
-    const { allow_clickrr, clickrr_auto_approval_limit, allow_payassist, payassist_auto_approval_limit } =
-      details[0]?.config || {};
+    const {
+      allow_clickrr,
+      clickrr_auto_approval_limit,
+      allow_payassist,
+      payassist_auto_approval_limit,
+    } = details[0]?.config || {};
 
     if (allow_payassist) {
       const ids = { id: data.id, company_id: payload.company_id };
@@ -293,7 +311,6 @@ const _createPayoutServiceInternal = async (
       let updatedData;
       if (Number(payoutAmount) < Number(payassist_auto_approval_limit)) {
         if (
-          
           Number(payassistWalletBalance?.data?.walletBalance) <
           Number(payoutAmount)
         ) {
@@ -780,7 +797,8 @@ const _updatePayoutServiceInternal = async (
     if (
       !payload?.config?.method === Method.CLICKRR &&
       !payload?.config?.method === Method.PAYASSIST &&
-      !payload?.config?.method === Method.TATAPAY && 
+      !payload?.config?.method === Method.PAYDUM &&
+      !payload?.config?.method === Method.TATAPAY &&
       !payload?.config?.method === Method.RUPEEFLOW &&
       !payload?.config?.method === Method.BSS &&
       !payload?.config?.method === Method.BSS02 &&
@@ -898,8 +916,7 @@ const _updatePayoutServiceInternal = async (
         bankId,
       );
       payload = updatedPayload;
-    }
-    else if (payload?.config?.method === Method.BSS) {
+    } else if (payload?.config?.method === Method.BSS) {
       const method = payload.config.method;
       logger.info(`Processing BSS payout for method: ${method}`);
       const [company] = await getCompanyByIDDao({ id: ids.company_id }, conn);
@@ -923,8 +940,7 @@ const _updatePayoutServiceInternal = async (
         bankId,
       );
       payload = updatedPayload;
-    }
-    else if (payload?.config?.method === Method.SILKPAY) {
+    } else if (payload?.config?.method === Method.SILKPAY) {
       const method = payload.config.method;
       logger.info(`Processing SilkPay payout for method: ${method}`);
       const [company] = await getCompanyByIDDao({ id: ids.company_id }, conn);
@@ -948,8 +964,7 @@ const _updatePayoutServiceInternal = async (
         bankId,
       );
       payload = updatedPayload;
-    }
-    else if (payload?.config?.method === Method.BSS02) {
+    } else if (payload?.config?.method === Method.BSS02) {
       const method = payload.config.method;
       logger.info(`Processing BSS1013 payout for method: ${method}`);
       const [company] = await getCompanyByIDDao({ id: ids.company_id }, conn);
@@ -973,8 +988,7 @@ const _updatePayoutServiceInternal = async (
         bankId,
       );
       payload = updatedPayload;
-    }
-    else if (payload?.config?.method === Method.BSS03) {
+    } else if (payload?.config?.method === Method.BSS03) {
       const method = payload.config.method;
       logger.info(`Processing BSS1015 payout for method: ${method}`);
       const [company] = await getCompanyByIDDao({ id: ids.company_id }, conn);
@@ -998,8 +1012,7 @@ const _updatePayoutServiceInternal = async (
         bankId,
       );
       payload = updatedPayload;
-    }
-     else if (payload?.config?.method === Method.PAYASSIST) {
+    } else if (payload?.config?.method === Method.PAYASSIST) {
       const method = payload.config.method;
 
       const [company] = await getCompanyByIDDao({ id: ids.company_id }, conn);
@@ -1015,6 +1028,28 @@ const _updatePayoutServiceInternal = async (
         throw new NotFoundError(`Bank not found for ${method} payout`);
 
       const updatedPayload = await createPayAssistPayout(
+        payload,
+        ids,
+        singleWithdrawData,
+        bankId,
+      );
+      payload = updatedPayload;
+    } else if (payload?.config?.method === Method.PAYDUM) {
+      const method = payload.config.method;
+
+      const [company] = await getCompanyByIDDao({ id: ids.company_id }, conn);
+      if (!company) throw new NotFoundError('Company not found');
+
+      const bankId = company.config.PAY_DUM.defaultBankId;
+      if (!bankId)
+        throw new NotFoundError(`Default bank ID not found for ${method}`);
+
+      bankDataArr = await getBankByIdDao({ id: bankId }, conn);
+
+      if (!bankDataArr[0])
+        throw new NotFoundError(`Bank not found for ${method} payout`);
+
+      const updatedPayload = await createPayDumPayout(
         payload,
         ids,
         singleWithdrawData,

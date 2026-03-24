@@ -15,6 +15,7 @@ import {
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
 import { payAssistTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/payAsistWebHook.js';
+import { payDumTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/payDumWebHook.js';
 import { tataPayTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/tataPayWebHook.js';
 import {
   getClickrrWalletBalance,
@@ -22,6 +23,7 @@ import {
 } from '../../clickrr/clickrr.js';
 // Import balance functions from separate files
 import { getPayAssistWalletBalance } from '../../payassist/payassist.js';
+import { getPayDumWalletBalance } from '../../paydum/paydum.js';
 import { getTataPayWalletBalance } from '../../tatapay/tatapay.js';
 import {
   getRupeeFlowWalletBalance,
@@ -275,6 +277,12 @@ router.get(
 );
 
 router.get(
+  '/paydum/paydum-balance',
+  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  tryCatchHandler(getPayDumWalletBalance),
+);
+
+router.get(
   '/tatapay/tatapay-balance',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(getTataPayWalletBalance),
@@ -341,6 +349,11 @@ router.post('/bss03-callback', tryCatchHandler(bss03TransactionStatusCallback));
 router.post(
   '/payassist-callback',
   tryCatchHandler(payAssistTransactionStatusCallback),
+);
+
+router.post(
+  '/paydum-callback',
+  tryCatchHandler(payDumTransactionStatusCallback),
 );
 
 router.post(
