@@ -162,8 +162,8 @@ const getBankaccountDao = async (filters, page, limit, role, designation, conn =
       commissionSelect = `
         ba.ifsc AS ifsc_code, 
         COALESCE(br_stats.dynamic_payin_count, 0) AS payin_count, 
-        ba.balance, 
-        COALESCE(br_stats.dynamic_today_balance, 0) AS today_balance, 
+        ba.balance::float AS balance, 
+        ba.today_balance::float AS today_balance, 
         ba.bank_used_for,
         ba.user_id,
         ba.config->>'is_freeze' AS freezed,
@@ -178,8 +178,8 @@ const getBankaccountDao = async (filters, page, limit, role, designation, conn =
         ba.min, 
         ba.max, 
         COALESCE(br_stats.dynamic_payin_count, 0) AS payin_count, 
-        ba.balance, 
-        COALESCE(br_stats.dynamic_today_balance, 0) AS today_balance, 
+        ba.balance::float AS balance, 
+        ba.today_balance::float AS today_balance, 
         ba.bank_used_for, 
         creator.user_name AS created_by, 
         updater.user_name AS updated_by, 
@@ -206,7 +206,7 @@ const getBankaccountDao = async (filters, page, limit, role, designation, conn =
           public."BankAccount" ba
       LEFT JOIN public."Vendor" v 
           ON ba.user_id = v.user_id
-        ${role !== 'MERCHANT' ? dynamicBalanceJoin : ''}
+        ${role === 'MERCHANT' ? '' : dynamicBalanceJoin}
         ${includeMerchantDetails ? merchantDetailsJoin : ''}
        LEFT JOIN public."User" creator 
         ON ba.created_by = creator.id
@@ -301,8 +301,8 @@ const getAllBankaccountDao = async (
       commissionSelect = `
         ba.ifsc AS ifsc_code, 
         COALESCE(br_stats.dynamic_payin_count, 0) AS payin_count, 
-        ba.balance, 
-        COALESCE(br_stats.dynamic_today_balance, 0) AS today_balance,
+        ba.balance::float AS balance, 
+        ba.today_balance::float AS today_balance,
         ba.is_enabled,   
         ba.bank_used_for,
         ba.config->>'max_limit' AS daily_limit`;
@@ -314,11 +314,11 @@ const getAllBankaccountDao = async (
         ba.min, 
         ba.max, 
         COALESCE(br_stats.dynamic_payin_count, 0) AS payin_count, 
-        ba.balance, 
+        ba.balance::float AS balance, 
         ba.is_qr, 
         ba.is_bank, 
         ba.is_enabled, 
-        COALESCE(br_stats.dynamic_today_balance, 0) AS today_balance, 
+        ba.today_balance::float AS today_balance, 
         ba.bank_used_for, 
         creator.user_name AS created_by, 
         updater.user_name AS updated_by, 
@@ -341,7 +341,7 @@ const getAllBankaccountDao = async (
           public."BankAccount" ba
       LEFT JOIN public."Vendor" v 
           ON ba.user_id = v.user_id
-        ${role !== 'MERCHANT' ? dynamicBalanceJoin : ''}
+        ${role === 'MERCHANT' ? '' : dynamicBalanceJoin}
         ${includeMerchantDetails ? merchantDetailsJoin : ''}
        LEFT JOIN public."User" creator 
         ON ba.created_by = creator.id
@@ -508,8 +508,8 @@ const getBankAccountsBySearchDao = async (
       commissionSelect = `
         ba.ifsc AS ifsc_code, 
         COALESCE(br_stats.dynamic_payin_count, 0) AS payin_count, 
-        ba.balance, 
-        COALESCE(br_stats.dynamic_today_balance, 0) AS today_balance,
+        ba.balance::float AS balance, 
+        ba.today_balance::float AS today_balance,
         ba.is_enabled,   
         ba.bank_used_for,
         ba.config->>'max_limit' AS daily_limit,
@@ -521,11 +521,11 @@ const getBankAccountsBySearchDao = async (
         ba.min, 
         ba.max, 
         COALESCE(br_stats.dynamic_payin_count, 0) AS payin_count, 
-        ba.balance, 
+        ba.balance::float AS balance, 
         ba.is_qr, 
         ba.is_bank, 
         ba.is_enabled, 
-        COALESCE(br_stats.dynamic_today_balance, 0) AS today_balance, 
+        ba.today_balance::float AS today_balance, 
         ba.bank_used_for, 
         creator.user_name AS created_by, 
         updater.user_name AS updated_by, 
@@ -554,7 +554,7 @@ const getBankAccountsBySearchDao = async (
         public."BankAccount" ba
       LEFT JOIN public."Vendor" v 
         ON ba.user_id = v.user_id
-      ${role !== 'MERCHANT' ? dynamicBalanceJoin : ''}
+      ${role === 'MERCHANT' ? '' : dynamicBalanceJoin}
       ${includeMerchantDetails ? merchantDetailsJoin : ''}
       LEFT JOIN public."User" creator 
         ON ba.created_by = creator.id
@@ -593,15 +593,13 @@ const getBankAccountsBySearchDao = async (
       ${limitcondition};
     `;
 
-    // Execute queries
-    const [countResult, searchResult] = await Promise.all([
-      executeQuery(
-        countQuery,
-        queryParams.slice(0, page && limit ? -2 : queryParams.length),
-        conn,
-      ),
-      executeQuery(mainQuery, queryParams, conn),
-    ]);
+    // Execute queries sequentially to avoid holding two pool connections simultaneously
+    const countResult = await executeQuery(
+      countQuery,
+      queryParams.slice(0, page && limit ? -2 : queryParams.length),
+      conn,
+    );
+    const searchResult = await executeQuery(mainQuery, queryParams, conn);
 
     const totalCount = parseInt(countResult.rows[0].total);
     let totalPages = limit ? Math.ceil(totalCount / limit) : 1;
