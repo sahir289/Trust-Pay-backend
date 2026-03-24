@@ -1239,6 +1239,46 @@ const bulkUpdateBankResponsesStatusDao = async (
   }
 };
 
+// Batch fetch pending bank responses for multiple UTRs
+const getBankResponsePendingBatchDao = async ({ is_used, status, utrList, company_id }, conn = null) => {
+  if (!Array.isArray(utrList) || utrList.length === 0) return [];
+  try {
+    const sql = `
+      SELECT 
+        br.id,
+        br.amount,
+        br.utr,
+        br.bank_id,
+        br.company_id,
+        br.status,
+        br.is_used,
+        br.created_at,
+        ba.config
+      FROM "${tableName.BANK_RESPONSE}" br
+      INNER JOIN "${tableName.BANK_ACCOUNT}" ba 
+        ON br.bank_id = ba.id
+      WHERE 1=1
+        AND (
+          ba.config IS NULL
+          OR ba.config->>'is_freeze' IS NULL
+          OR (ba.config->>'is_freeze')::boolean = false
+        )
+        AND br.is_obsolete = false
+        AND br.is_used = $1
+        AND br.status = $2
+        AND br.utr = ANY($3::text[])
+        AND br.company_id = $4
+      ORDER BY br.created_at DESC
+    `;
+    const params = [is_used, status, utrList, company_id];
+    const result = await executeQuery(sql, params, conn);
+    return result.rows;
+  } catch (error) {
+    logger.error('Error in getBankResponsePendingBatchDao:', error);
+    throw error;
+  }
+};
+
 export {
   getBankResponseDao,
   getBankResponseByJustUTRDao,
@@ -1254,4 +1294,5 @@ export {
   bulkUpdateBankResponsesStatusDao,
   getBankResponsesforFreeze,
   getBankResponseForEsDao,
+  getBankResponsePendingBatchDao,
 };

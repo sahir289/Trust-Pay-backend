@@ -2017,8 +2017,9 @@ export const getPayInForCheckDao = async (filters = {}, conn = null) => {
 
 export const getPayInForDuplicate = async (filters = {}, conn = null) => {
   try {
+    // Adjusted query to match 3 parameters: orderid, user_submitted_utr, company_id
     const [sql, params] = buildSelectQuery(
-      `SELECT id FROM "${tableName.PAYIN}" WHERE status != 'DUPLICATE' AND is_obsolete = false`,
+      `SELECT id FROM "${tableName.PAYIN}" WHERE status != 'DUPLICATE' AND is_obsolete = false AND merchant_order_id != $1 AND "user_submitted_utr" = $2 AND "company_id" = $3`,
       filters,
       // , page, limit
     );
