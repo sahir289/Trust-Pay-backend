@@ -3,7 +3,7 @@ import Joi from 'joi';
 export const PAYOUT_DETAILS_SCHEMA = Joi.object({
   ifsc_code: Joi.string().label('ifsc_code').required(),
   method: Joi.string().label('method').optional(),
-  bank_acc_id: Joi.string().label('bank_acc_id').optional(),
+  bank_acc_id: Joi.string().allow('').label('bank_acc_id').optional(),
   reason: Joi.string().label('reason').optional(),
   user_id: Joi.string().label('user_id').optional(),
   user: Joi.string().label('user').optional(),
