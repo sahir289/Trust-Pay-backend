@@ -1115,30 +1115,34 @@ const _updatePayoutServiceInternal = async (
 
     const notifyUrl = data.config?.urls?.notify || merchant?.payout_notify;
 
-
-
-
-
-
     const bankData = bankDataArr[0];
-    if (!bankData) {
-      throw new NotFoundError('Bank not found!');
-    }
-    if (bankData.is_obsolete) {
-      throw new BadRequestError('Bank account is obsolete');
-    }
-    if (bankData.is_blocked) {
-      throw new BadRequestError('Bank account is blocked');
-    }
-
-    const vendorArr = await getVendorByIdDao(
-      bankData.user_id,
-      ids.company_id,
-      conn,
-    );
-    const vendor = vendorArr[0];
-    if (!vendor) {
-      throw new NotFoundError('Vendor not found!');
+    let vendor = null;
+    // Only require bank for non-REJECTED and non-REVERSED (without approved_at) statuses
+    if (
+      data.status !== Status.REJECTED &&
+      !(data.status === Status.REVERSED && data.approved_at == null)
+    ) {
+      if (!bankData) {
+        throw new NotFoundError('Bank not found!');
+      }
+      if (bankData.is_obsolete) {
+        throw new BadRequestError('Bank account is obsolete');
+      }
+      if (bankData.is_blocked) {
+        throw new BadRequestError('Bank account is blocked');
+      }
+      const vendorArr = await getVendorByIdDao(
+        bankData.user_id,
+        ids.company_id,
+        conn,
+      );
+      vendor = vendorArr[0];
+      if (!vendor) {
+        throw new NotFoundError('Vendor not found!');
+      }
+    } else {
+      // For REJECTED or REVERSED (without approved_at), skip bank/vendor logic
+      vendor = {};
     }
 
     // Calculate commissions once
