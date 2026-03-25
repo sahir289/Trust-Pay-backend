@@ -1669,12 +1669,12 @@ const _assignedPayoutServiceInternal = async (
       updated_by,
       company_id,
       conn,
-    );   
+    );
     // Handle payout id extraction from payload (array or object)
     if (Array.isArray(payload)) {
-      // Emit for each payout in the array
-      for (const p of payload) {
-        const ids = { id: p.id, company_id };
+      // If payload is array of string IDs
+      for (const payoutId of payload) {
+        const ids = { id: payoutId, company_id };
         const fullPayoutArr = await getPayoutsDao(
           ids,
           null,
@@ -1684,9 +1684,10 @@ const _assignedPayoutServiceInternal = async (
           null,
           conn,
         );
-        const fullPayout = Array.isArray(fullPayoutArr) ? fullPayoutArr[0] : fullPayoutArr;
+        const fullPayout = Array.isArray(fullPayoutArr)
+          ? fullPayoutArr[0]
+          : fullPayoutArr;
         const responseObj = {
-          id: p.id,
           sno: fullPayout?.sno ?? null,
           amount: fullPayout?.amount ?? 0,
           status: fullPayout?.status ?? null,
@@ -1696,7 +1697,8 @@ const _assignedPayoutServiceInternal = async (
           utr_id: fullPayout?.utr_id ?? null,
           rejected_reason: fullPayout?.rejected_reason ?? null,
           merchant_id: fullPayout?.merchant_id ?? null,
-          payout_merchant_commission: fullPayout?.payout_merchant_commission ?? 0,
+          payout_merchant_commission:
+            fullPayout?.payout_merchant_commission ?? 0,
           payout_vendor_commission: fullPayout?.payout_vendor_commission ?? 0,
           actual_vendor_commission: fullPayout?.actual_vendor_commission ?? '0',
           brokerage_commission: fullPayout?.brokerage_commission ?? '0',
@@ -1722,7 +1724,8 @@ const _assignedPayoutServiceInternal = async (
             private_key: fullPayout?.merchant_details?.private_key ?? null,
           },
           user_bank_details: {
-            account_holder_name: fullPayout?.user_bank_details?.account_holder_name ?? null,
+            account_holder_name:
+              fullPayout?.user_bank_details?.account_holder_name ?? null,
             account_no: fullPayout?.user_bank_details?.account_no ?? null,
             ifsc_code: fullPayout?.user_bank_details?.ifsc_code ?? null,
             bank_name: fullPayout?.user_bank_details?.bank_name ?? null,
@@ -1735,68 +1738,6 @@ const _assignedPayoutServiceInternal = async (
           );
         });
       }
-    } else {
-      let payoutId = payload?.id || id?.id || id;
-      const ids = { id: payoutId, company_id };
-      const fullPayoutArr = await getPayoutsDao(
-        ids,
-        null,
-        null,
-        null,
-        'DESC',
-        null,
-        conn,
-      );
-      const fullPayout = Array.isArray(fullPayoutArr) ? fullPayoutArr[0] : fullPayoutArr;
-      const responseObj = {
-        id: payoutId,
-        sno: fullPayout?.sno ?? null,
-        amount: fullPayout?.amount ?? 0,
-        status: fullPayout?.status ?? null,
-        failed_reason: fullPayout?.failed_reason ?? null,
-        currency: fullPayout?.currency ?? 'INR',
-        upi_id: fullPayout?.upi_id ?? null,
-        utr_id: fullPayout?.utr_id ?? null,
-        rejected_reason: fullPayout?.rejected_reason ?? null,
-        merchant_id: fullPayout?.merchant_id ?? null,
-        payout_merchant_commission: fullPayout?.payout_merchant_commission ?? 0,
-        payout_vendor_commission: fullPayout?.payout_vendor_commission ?? 0,
-        actual_vendor_commission: fullPayout?.actual_vendor_commission ?? '0',
-        brokerage_commission: fullPayout?.brokerage_commission ?? '0',
-        merchant_order_id: fullPayout?.merchant_order_id ?? null,
-        bank_acc_id: fullPayout?.bank_acc_id ?? null,
-        approved_at: fullPayout?.approved_at ?? null,
-        created_by: fullPayout?.created_by ?? '',
-        updated_by: fullPayout?.updated_by ?? '',
-        user: fullPayout?.user ?? '',
-        created_at: fullPayout?.created_at ?? null,
-        vendor_code: fullPayout?.vendor_code ?? null,
-        vendor_id: fullPayout?.vendor_id ?? null,
-        vendor_user_id: fullPayout?.vendor_user_id ?? null,
-        payout_details: fullPayout?.payout_details ?? {},
-        updated_at: fullPayout?.updated_at ?? null,
-        user_id: fullPayout?.user_id ?? null,
-        nick_name: fullPayout?.nick_name ?? null,
-        merchant_details: {
-          merchant_code: fullPayout?.merchant_details?.merchant_code ?? null,
-          return_url: fullPayout?.merchant_details?.return_url ?? null,
-          notify_url: fullPayout?.merchant_details?.notify_url ?? null,
-          public_key: fullPayout?.merchant_details?.public_key ?? null,
-          private_key: fullPayout?.merchant_details?.private_key ?? null,
-        },
-        user_bank_details: {
-          account_holder_name: fullPayout?.user_bank_details?.account_holder_name ?? null,
-          account_no: fullPayout?.user_bank_details?.account_no ?? null,
-          ifsc_code: fullPayout?.user_bank_details?.ifsc_code ?? null,
-          bank_name: fullPayout?.user_bank_details?.bank_name ?? null,
-        },
-        rejected_at: fullPayout?.rejected_at ?? null,
-      };
-      setImmediate(() => {
-        newTableEntry(tableName.PAYOUT, responseObj).catch((err) =>
-          logger.error('Socket emit failed for payout:', err),
-        );
-      });
     }
     return data;
   } catch (error) {
