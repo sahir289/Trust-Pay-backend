@@ -1115,6 +1115,19 @@ const _updatePayoutServiceInternal = async (
 
     const notifyUrl = data.config?.urls?.notify || merchant?.payout_notify;
 
+    // Early return if not approved
+    if (!data.approved_at && data.status !== Status.PENDING) {
+      merchantPayoutCallback(notifyUrl, {
+        code: merchant.code,
+        merchantOrderId: data.merchant_order_id,
+        payoutId: data.id,
+        amount: data.amount,
+        status: data.status,
+        utr_id: data.utr_id || '',
+      });
+      earlyReturnResult = data;
+    }
+
     const bankData = bankDataArr[0];
     let vendor = null;
     // Only require bank for non-REJECTED and non-REVERSED (without approved_at) statuses
