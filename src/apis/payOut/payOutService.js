@@ -377,6 +377,7 @@ const _createPayoutServiceInternal = async (
       utr_id: data.utr_id || null,
       rejected_reason: data.rejected_reason || null,
       merchant_id: data.merchant_id || null,
+      company_id: data.company_id || null,
       payout_merchant_commission: data.payout_merchant_commission || 0,
       payout_vendor_commission: data.payout_vendor_commission || 0,
       actual_vendor_commission: data.actual_vendor_commission || '0',
@@ -1328,6 +1329,7 @@ const _updatePayoutServiceInternal = async (
       utr_id: data.utr_id || null,
       rejected_reason: data.rejected_reason || null,
       merchant_id: data.merchant_id || null,
+      company_id: data.company_id || null,
       payout_merchant_commission: data.payout_merchant_commission || 0,
       payout_vendor_commission: data.payout_vendor_commission || 0,
       actual_vendor_commission: data.actual_vendor_commission || '0',
@@ -1687,11 +1689,13 @@ const _assignedPayoutServiceInternal = async (
         const fullPayout = Array.isArray(fullPayoutArr)
           ? fullPayoutArr[0]
           : fullPayoutArr;
+
         const bankDataArr = await getBankByIdDao(
           { id: fullPayout.bank_acc_id },
           conn,
         );
         const bankData = bankDataArr[0];
+
         const vendorArr = await getVendorsDao(
           { id: fullPayout.vendor_id, company_id },
           null,
@@ -1702,12 +1706,14 @@ const _assignedPayoutServiceInternal = async (
           conn,
         );
         const vendor = vendorArr[0];
+
         const merchantArr = await getMerchantByIdDao(
           fullPayout.merchant_id,
           ids.company_id,
           conn,
         );
         const merchant = merchantArr[0];
+
         const responseObj = {
           id: fullPayout.id,
           sno: fullPayout.sno || null,
@@ -1719,6 +1725,7 @@ const _assignedPayoutServiceInternal = async (
           utr_id: fullPayout.utr_id || null,
           rejected_reason: fullPayout.rejected_reason || null,
           merchant_id: fullPayout.merchant_id || null,
+          company_id: fullPayout.company_id || null,
           payout_merchant_commission:
             fullPayout.payout_merchant_commission || 0,
           payout_vendor_commission: fullPayout.payout_vendor_commission || 0,
@@ -1746,10 +1753,10 @@ const _assignedPayoutServiceInternal = async (
             private_key: merchant?.config?.keys?.private || null,
           },
           user_bank_details: {
-            account_holder_name: fullPayout.acc_holder_name || null,
-            account_no: fullPayout.acc_no || null,
-            ifsc_code: fullPayout.ifsc_code || null,
-            bank_name: fullPayout.bank_name || null,
+            account_holder_name: fullPayout?.user_bank_details?.account_holder_name || null,
+            account_no: fullPayout?.user_bank_details?.account_no || null,
+            ifsc_code: fullPayout?.user_bank_details?.ifsc_code || null,
+            bank_name: fullPayout?.user_bank_details?.bank_name || null,
           },
           rejected_at: fullPayout.rejected_at || null,
         };
