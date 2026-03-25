@@ -11,17 +11,36 @@ import { BadRequestError } from './appErrors.js';
 import { logger } from './logger.js';
 import safeStringify from 'fast-safe-stringify';
 
-export const multerUpload = multer({
-  storage: multerS3({
-    s3: s3,
-    bucket: config.bucketName,
-    acl: 'public-read', // Set the access control list (ACL) policy for the file
-    key: function (req, file, cb) {
-      cb(null, `uploads/${Date.now()}-${file.originalname}`); // Set the file path and name
+let _multerUploadInstance = null;
+
+const getMulterUpload = () => {
+  if (!_multerUploadInstance) {
+    if (!config.bucketName) {
+      logger.warn('BUCKET_NAME is not set — S3 file upload will not work.');
+    }
+    _multerUploadInstance = multer({
+      storage: multerS3({
+        s3: s3,
+        bucket: config.bucketName || 'default-bucket',
+        acl: 'public-read',
+        key: function (req, file, cb) {
+          cb(null, `uploads/${Date.now()}-${file.originalname}`);
+        },
+      }),
+      limits: { fileSize: 50 * 1024 * 1024 },
+    });
+  }
+  return _multerUploadInstance;
+};
+
+export const multerUpload = new Proxy(
+  {},
+  {
+    get(_, prop) {
+      return getMulterUpload()[prop];
     },
-  }),
-  limits: { fileSize: 50 * 1024 * 1024 },
-});
+  },
+);
 
 export const parseJSON = (data) => {
   try {
