@@ -1292,8 +1292,8 @@ const _updatePayoutServiceInternal = async (
       ]);
     }
 
+    // This is async function but it's just the callback sending function therefore we are not using await
     if (data.status !== Status.PENDING) {
-      // This is async function but it's just the callback sending function there fore we are not using await
       merchantPayoutCallback(notifyUrl, {
         code: merchant.code,
         merchantOrderId: data.merchant_order_id,
@@ -1350,6 +1350,8 @@ const _updatePayoutServiceInternal = async (
       },
       rejected_at: data.rejected_at || null,
     };
+
+    // Always emit socket event for every payout status update
     setImmediate(() => {
       newTableEntry(tableName.PAYOUT, responseObj).catch((err) =>
         logger.error('Socket emit failed for payout:', err),
