@@ -1692,9 +1692,13 @@ const _assignedPayoutServiceInternal = async (
           conn,
         );
         const bankData = bankDataArr[0];
-        const vendorArr = await getVendorByIdDao(
-          bankData.user_id,
-          ids.company_id,
+        const vendorArr = await getVendorsDao(
+          { id: fullPayout.vendor_id, company_id },
+          null,
+          null,
+          null,
+          'DESC',
+          null,
           conn,
         );
         const vendor = vendorArr[0];
