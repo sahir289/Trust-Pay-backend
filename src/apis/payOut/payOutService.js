@@ -783,6 +783,7 @@ const _updatePayoutServiceInternal = async (
   role,
   conn = null,
 ) => {
+  let responseObj;
   try {
     const filterColumns =
       role === Role.MERCHANT
@@ -1114,6 +1115,58 @@ const _updatePayoutServiceInternal = async (
 
     const notifyUrl = data.config?.urls?.notify || merchant?.payout_notify;
 
+
+    // Always emit socket event for every payout status update
+    responseObj = {
+      id: data.id,
+      sno: data.sno || null,
+      amount: data.amount || 0,
+      status: data.status || null,
+      failed_reason: data.failed_reason || null,
+      currency: data.currency || 'INR',
+      upi_id: data.upi_id || null,
+      utr_id: data.utr_id || null,
+      rejected_reason: data.rejected_reason || null,
+      merchant_id: data.merchant_id || null,
+      payout_merchant_commission: data.payout_merchant_commission || 0,
+      payout_vendor_commission: data.payout_vendor_commission || 0,
+      actual_vendor_commission: data.actual_vendor_commission || '0',
+      brokerage_commission: data.brokerage_commission || '0',
+      merchant_order_id: data.merchant_order_id || null,
+      bank_acc_id: data.bank_acc_id || null,
+      approved_at: data.approved_at || null,
+      created_by: data.created_by || '',
+      updated_by: data.updated_by || '',
+      user: data.user || data.created_by || '',
+      created_at: data.created_at,
+      vendor_code: vendor?.code || null,
+      vendor_id: data.vendor_id || null,
+      vendor_user_id: vendor?.user_id || null,
+      payout_details: data.config || {},
+      updated_at: data.updated_at,
+      user_id: vendor?.user_id || null,
+      nick_name: bankDataArr?.[0]?.nick_name || null,
+      merchant_details: {
+        merchant_code: merchant?.code || null,
+        return_url: merchant?.config?.urls?.return || null,
+        notify_url: merchant?.config?.urls?.payout_notify || null,
+        public_key: merchant?.config?.keys?.public || null,
+        private_key: merchant?.config?.keys?.private || null,
+      },
+      user_bank_details: {
+        account_holder_name: data.acc_holder_name || null,
+        account_no: data.acc_no || null,
+        ifsc_code: data.ifsc_code || null,
+        bank_name: data.bank_name || null,
+      },
+      rejected_at: data.rejected_at || null,
+    };
+    setImmediate(() => {
+      newTableEntry(tableName.PAYOUT, responseObj).catch((err) =>
+        logger.error('Socket emit failed for payout:', err),
+      );
+    });
+
     // Early return if not approved
     if (!data.approved_at && data.status !== Status.PENDING) {
       merchantPayoutCallback(notifyUrl, {
@@ -1306,7 +1359,7 @@ const _updatePayoutServiceInternal = async (
 
     const finalResult = filterResponse(data, filterColumns);
 
-    const responseObj = {
+    responseObj = {
       id: data.id,
       sno: data.sno || null,
       amount: data.amount || 0,
