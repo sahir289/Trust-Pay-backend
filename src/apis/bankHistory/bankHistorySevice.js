@@ -5,7 +5,7 @@ import { BadRequestError } from '../../utils/appErrors.js';
 
 export const createBankHistoryService = async (conn) => {
   try {
-    const banks = await getBankaccountDashBoardReportDao();
+    const banks = await getBankaccountDashBoardReportDao({}, conn);
     if (!Array.isArray(banks)) {
       throw new BadRequestError(
         'Expected an array of bank accounts from getBankaccountDashBoardReportDao',

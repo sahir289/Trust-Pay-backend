@@ -1,26 +1,28 @@
 import {
   createCompanyDao,
   deleteCompanyDao,
-  getCompanyBySearchDao,
+  getCompanyDao,
   getCompanyDetailsByIdDao,
-  getCompanyNamesDao,
   updateCompanyDao,
 } from './companyDao.js';
-import { createUserService } from '../users/userService.js';
+import { _createUserServiceInternal } from '../users/userService.js';
 // import { createDesignationService } from '../designation/designationServices.js';
 import { getRoleDao } from '../roles/rolesDao.js';
 import { RoleIs, DesignationIs } from '../../constants/index.js';
 import { getDesignationDao } from '../designation/designationDao.js';
 import { logger } from '../../utils/logger.js';
+import config from '../../config/config.js';
+import { beginTransaction, commit, getConnection, rollback } from '../../utils/db.js';
+import redisClient from '../../utils/redisClient.js';
 
-const getCompanyService = async (filters, searchTerms, page, limit) => {
+const COMPANY_DETAILS_CACHE_TTL_SEC = Number.parseInt(
+  process.env.COMPANY_DETAILS_CACHE_TTL_SEC || '60',
+  10,
+);
+
+const getCompanyService = async (id) => {
   try {
-    const result = await getCompanyBySearchDao(
-      filters,
-      searchTerms,
-      page,
-      limit,
-    );
+    const result = await getCompanyDao(id);
     return result;
   } catch (error) {
     logger.error('error getting while company', error);
@@ -30,7 +32,23 @@ const getCompanyService = async (filters, searchTerms, page, limit) => {
 
 const getCompanyByIdService = async (id) => {
   try {
+    const companyId = id?.id || id;
+    const cacheKey = `company:details:${companyId}`;
+
+    const cached = await redisClient.get(cacheKey);
+    if (cached) {
+      return JSON.parse(cached);
+    }
+
     const result = await getCompanyDetailsByIdDao(id);
+
+    await redisClient.set(
+      cacheKey,
+      JSON.stringify(result),
+      'EX',
+      COMPANY_DETAILS_CACHE_TTL_SEC,
+    );
+
     return result;
   } catch (error) {
     logger.error('error getting while company', error);
@@ -38,17 +56,7 @@ const getCompanyByIdService = async (id) => {
   }
 };
 
-const getCompanyNamesService = async () => {
-  try {
-    const result = await getCompanyNamesDao();
-    return result;
-  } catch (error) {
-    logger.error('error getting while company', error);
-    throw error;
-  }
-};
-
-const createCompanyService = async (conn, payload, user_name, bySuperAdmin) => {
+const _createCompanyServiceInternal = async (payload, conn) => {
   try {
     // Validate payload
     // Create company
@@ -70,43 +78,62 @@ const createCompanyService = async (conn, payload, user_name, bySuperAdmin) => {
       telegramDuplicateDisputeChatId: '',
       telegramCheckUTRHistoryChatId: '',
       allowPayAssist: '',
-      allowTataPay: '',
+      allowPayDum: false,
       allow_cashfree: false,
       allow_zentechind: false,
+      allow_nmplpay: false,
+      allow_silkpay: false,
+      allow_razorpay: false,
+      allowTataPay: false,
+      allow_clickrr: false,
+      allowRupeeFlow: false,
       PAY_ASSIST: {
-        walletsPayoutsUrl: 'https://payassist.co.in/apiPayout',
+        walletsPayoutsUrl: config.payAssist.baseUrl || '',
+        walletsPayoutsAgentCode: '',
+        walletsPayoutsAgent: '',
+        walletsPayoutsApiKey: '',
+        defaultBankId: '',
+      },
+      PAY_DUM: {
+        walletsPayoutsUrl: config.payDum.baseUrl || '',
         walletsPayoutsAgentCode: '',
         walletsPayoutsAgent: '',
         walletsPayoutsApiKey: '',
         defaultBankId: '',
       },
       TATA_PAY: {
-        walletsPayoutsUrl: 'http://13.234.69.235:5000/api/auth',
-        walletsPayoutsAgentCode: '',
-        walletsPayoutsAgent: '',
+        defaultBankId: '',
+        walletsPayoutsUrl: config.tataPay.baseUrl || '',
+        walletsBulkPayoutsUrl: config.tataPay.bulkUrl || '',
         walletsPayoutsApiKey: '',
+      },
+      CLICKRR: {
+        api_key: '',
+        api_secret: '',
         defaultBankId: '',
       },
-      authorized: bySuperAdmin ? 'true' : 'false',
-      created_by: user_name,
-      is_enabled: 'false',
-      updated_by: user_name,
+      RUPEE_FLOW: {
+        defaultBankId: '',
+        walletsPayoutsUrl: config.rupeeFlow.baseUrl || '',
+        clientId: '',
+        clientSecret: '',
+      },
     };
 
-    const company = await createCompanyDao(conn, {
+    const company = await createCompanyDao({
       first_name: payload.first_name,
       last_name: payload.last_name,
       email: payload.email,
       contact_no: payload.contact_no,
       config: payload.config || {},
-    });
+    }, conn);
     let role = [];
     let designations = [];
 
-    role = await getRoleDao({ role: RoleIs.ADMIN });
+    role = await getRoleDao({ role: RoleIs.ADMIN }, conn);
     designations = await getDesignationDao({
       designation: DesignationIs.ADMIN,
-    });
+    }, conn);
 
     const userPayload = {
       role_id: role[0].id,
@@ -121,8 +148,9 @@ const createCompanyService = async (conn, payload, user_name, bySuperAdmin) => {
       unique_admin_id: unique_id,
       code: payload.first_name.split('').reverse().join(''),
     };
-    // Create user
-    const user = await createUserService(conn, userPayload);
+    // Create user - this will manage its own transaction
+    const user = await _createUserServiceInternal(userPayload, conn);
+
     // Return result
     return {
       company_id: company.id,
@@ -131,19 +159,35 @@ const createCompanyService = async (conn, payload, user_name, bySuperAdmin) => {
       user_id: user.id,
     };
   } catch (error) {
-    logger.error('Error while creating company:', error);
+    logger.error('error in _createCompanyServiceInternal', error);
     throw error;
   }
 };
 
-const updateCompanyService = async (id, payload, user_name) => {
+const createCompanyService = async (payload) => {
+  let conn
   try {
-    const config = {
-      ...payload?.config,
-      updated_by: user_name,
-    };
-    delete payload?.config;
-    const result = updateCompanyDao(id, { ...payload, config });
+    conn = await getConnection();
+    await beginTransaction(conn);
+    const result = await _createCompanyServiceInternal(payload, conn);
+    await commit(conn);
+    return result;
+  } catch (error) {
+    if (conn) {
+      await rollback(conn);
+    }
+    logger.error('Error while creating company:', error);
+    throw error;
+  } finally {
+    if (conn) {
+      conn.release();
+    }
+  }
+};
+
+const updateCompanyService = async (id, payload) => {
+  try {
+    const result = updateCompanyDao(id, payload);
     return result;
   } catch (error) {
     logger.error('Error while creating company:', error);
@@ -166,5 +210,4 @@ export {
   createCompanyService,
   updateCompanyService,
   deleteCompanyService,
-  getCompanyNamesService,
 };

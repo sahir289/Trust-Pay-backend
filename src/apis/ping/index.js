@@ -1,5 +1,5 @@
 import express from 'express';
-import { pingController } from './pingController.js';
+import { pingController, healthCheckController } from './pingController.js';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
 
 const router = express.Router();
@@ -25,5 +25,21 @@ const router = express.Router();
  *                   example: "Ping successful!"
  */
 router.get('/', tryCatchHandler(pingController)); // Ping route
+
+/**
+ * @swagger
+ * /ping/health:
+ *   get:
+ *     summary: Comprehensive health check
+ *     description: Returns database health, pool stats, and system status
+ *     tags:
+ *       - Health Check
+ *     responses:
+ *       200:
+ *         description: System is healthy
+ *       503:
+ *         description: System is unhealthy
+ */
+router.get('/health', tryCatchHandler(healthCheckController)); // Health check route
 
 export default router;

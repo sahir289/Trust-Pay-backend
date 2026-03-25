@@ -1,10 +1,8 @@
 import config from '../config/config.js';
 import getESClient from '../utils/elasticClient.js';
 import { BadRequestError } from './appErrors.js';
-import { createPool } from './db.js';
+import { getConnection } from './db.js';
 import { logger } from './logger.js';
-
-const readerPool = createPool(config?.databaseReaderUrl, 'Reader');
 
 export const buildESQuery = (
   searchQuery,
@@ -236,8 +234,7 @@ export const bulkIndexFromPG = async (
   const indexName = indexBaseName;
   const esClient = await getESClient();
 
-  const pool = readerPool;
-  const client = await pool.connect();
+  const client = await getConnection('reader');
 
   try {
     // 1️⃣ Check table/view exists
@@ -247,7 +244,7 @@ export const bulkIndexFromPG = async (
         WHERE table_schema = $1 AND table_name = $2
       )
     `;
-    const tableCheck = await pool.query(checkTableQuery, [schema, tableName]);
+    const tableCheck = await client.query(checkTableQuery, [schema, tableName]);
     if (!tableCheck.rows[0].exists) {
       throw new BadRequestError(
         `Table or view ${schema}.${tableName} does not exist`,
@@ -257,7 +254,7 @@ export const bulkIndexFromPG = async (
 
     // 2️⃣ Get total count
     const countQuery = `SELECT COUNT(*) FROM ${tableName} ${whereClause}`;
-    const countResult = await pool.query(countQuery);
+    const countResult = await client.query(countQuery);
     const totalRecords = parseInt(countResult.rows[0].count);
     if (totalRecords === 0) {
       logger.info(`No records to index from ${tableName}`);
@@ -281,7 +278,7 @@ export const bulkIndexFromPG = async (
         ORDER BY ${idField}
         OFFSET $1 LIMIT $2
       `;
-      const res = await pool.query(batchQuery, [offset, batchSize]);
+      const res = await client.query(batchQuery, [offset, batchSize]);
 
       if (res.rows.length === 0) break;
 

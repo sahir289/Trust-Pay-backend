@@ -4,7 +4,6 @@ import bcrypt from 'bcryptjs';
 import { BadRequestError } from './appErrors.js';
 import { verifyHash } from './bcryptPassword.js';
 import { getLoginDao } from '../apis/auth/authDao.js';
-import { generateUUID } from './generateUUID.js';
 import { logger } from './logger.js';
 
 const createNewToken = (data) => {
@@ -25,7 +24,7 @@ const refreshAccessToken = async (data) => {
   if (!user) {
     throw new BadRequestError('Unauthorized"');
   }
-  const isValid = verifyHash(data.token, user.refresh_token);
+  const isValid = await verifyHash(data.token, user.refresh_token);
   if (!isValid) {
     throw new BadRequestError('Unauthorized access, Try to login again');
   }
@@ -35,8 +34,7 @@ const refreshAccessToken = async (data) => {
   return { accessToken };
 };
 
-const generateUserToken = (user) => {
-  const sessionId = generateUUID();
+const generateUserToken = (user, sessionId) => {
   return createNewToken({
     user_name: user.user_name,
     user_id: user.id,

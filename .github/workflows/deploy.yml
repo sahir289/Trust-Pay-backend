@@ -11,7 +11,6 @@ on:
 jobs:
   deploy:
     # Add this condition to skip if the commit message contains [skip ci]
-    if: '!contains(github.event.head_commit.message, ''[skip ci]'')'
     runs-on: ubuntu-latest
 
     steps:
@@ -24,20 +23,20 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: 22.x
-          # cache: 'npm' # cache dependencies for faster installs
+          # cache: 'npm' # Auto-caches node_modules based on package-lock.json
 
-      - name: Bump Version
-        run: |
-          git config user.name "GitHub Actions"
-          git config user.email "actions@github.com"
-          # Decide manually: patch, minor, or major
-          npm version minor -m "CI: Bump version to %s [skip ci]" # Bump minor version - change to patch or major as needed
-          # Use token to push tags and commits
-          git push origin --follow-tags
+      # - name: Bump Version
+      #   run: |
+      #     git config user.name "GitHub Actions"
+      #     git config user.email "actions@github.com"
+      #     # Decide manually: patch, minor, or major
+      #     npm version patch -m "CI: Bump version to %s [skip ci]" # Bump patch version - change to minor or major as needed
+      #     # Use token to push tags and commits
+      #     git push origin --follow-tags
         # If version bump fails, the workflow will stop here
 
       - name: Install dependencies
-        run: npm install
+        run: npm install # Use npm ci for clean install in CI environments
         
       - name: Show Backend Version
         run: | 
@@ -81,5 +80,5 @@ jobs:
           echo "Testing SSH connection..."
           ssh -o StrictHostKeyChecking=no -i private_key $USER@$HOST "whoami" || { echo "SSH connection failed"; exit 1; }
           echo "Deploying to EC2..."
-          ssh -o StrictHostKeyChecking=no -i private_key $USER@$HOST "cd '$TARGET_DIR' && pwd && git fetch origin && git status && git pull origin trust-pay-stg --verbose && git log -1 --oneline && npm install && pm2 reload all --update-env" || { echo "Deployment failed"; exit 1; }
+          ssh -o StrictHostKeyChecking=no -i private_key $USER@$HOST "cd '$TARGET_DIR' && pwd && git fetch origin && git status && git pull origin trust-pay-stg --verbose && git log -1 --oneline && npm install && pm2 delete trust-pay-backend || true && pm2 start ecosystem.config.cjs --env production" || { echo "Deployment failed"; exit 1; }
           rm -f private_key

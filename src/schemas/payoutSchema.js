@@ -13,7 +13,10 @@ export const PAYOUT_DETAILS_SCHEMA = Joi.object({
   bank_name: Joi.string().label('bank_name').required(),
   amount: Joi.number().label('amount').required(),
   utr_id: Joi.string().label('utr_id').optional(),
-  merchant_order_id: Joi.string().allow('').label('merchant_order_id').optional(),
+  merchant_order_id: Joi.string()
+    .allow('')
+    .label('merchant_order_id')
+    .optional(),
   notifyUrl: Joi.string().uri().label('notify_url').optional(),
 });
 
@@ -35,7 +38,7 @@ export const UPDATE_DETAILS_SCHEMA = Joi.object({
   acc_holder_name: Joi.string().label('acc_holder_name').optional(),
   ifsc_code: Joi.string().label('ifsc_code').optional(),
   bank_name: Joi.string().label('bank_name').optional(),
-  bank_acc_id: Joi.string().label('bank_acc_id').optional(),
+  bank_acc_id: Joi.string().allow('').label('bank_acc_id').optional(),
   upi_id: Joi.string().email().label('upi_id').optional(), // UPI ID could be in email format
   utr_id: Joi.string().label('utr_id').optional(),
   is_enable: Joi.boolean().label('is_enable').default(true), // `is_enable` should be a boolean
@@ -62,12 +65,11 @@ export const UPDATE_DETAILS_SCHEMA = Joi.object({
     .label('vendor_id')
     .optional(),
 });
+
 export const ASSIGNED_VENDOR_SCHEMA = Joi.object({
   payouts_ids: Joi.array()
-    .items(
-      Joi.string().uuid({ version: ['uuidv4'] }),
-    )
-    .optional(), 
+    .items(Joi.string().uuid({ version: ['uuidv4'] }))
+    .optional(),
 });
 
 export const VALIDATE_PAYOUT_BY_ID = Joi.object({
@@ -88,3 +90,65 @@ export const VALIDATE_CHECK_PAY_OUT_STATUS = Joi.object({
   merchantCode: Joi.string().label('merchantCode').required(),
   merchantOrderId: Joi.string().label('merchantOrderId').required(),
 });
+
+export const TATAPAY_BULK_PAYOUT_SCHEMA = Joi.object({
+  payoutEntries: Joi.array()
+    .items(
+      Joi.object({
+        id: Joi.string().label('id').required(),
+        account_holder_name: Joi.string()
+          .label('account_holder_name')
+          .required(),
+        account_no: Joi.string().label('account_no').required(),
+        ifsc_code: Joi.string().label('ifsc_code').required(),
+        bank_name: Joi.string().label('bank_name').optional(),
+        amount: Joi.number().positive().label('amount').required(),
+        remark: Joi.string().label('remark').optional(),
+        address: Joi.string().label('address').optional(),
+        mode: Joi.string().label('mode').optional(),
+      }),
+    )
+    .label('payoutEntries')
+    .optional(),
+  payoutIds: Joi.array()
+    .items(Joi.string().label('payoutId'))
+    .label('payoutIds')
+    .optional(),
+})
+  .xor('payoutEntries', 'payoutIds')
+  .messages({
+    'object.xor':
+      'Either payoutEntries or payoutIds must be provided, but not both',
+    'object.missing': 'Either payoutEntries or payoutIds is required',
+  });
+
+export const RUPEEFLOW_BULK_PAYOUT_SCHEMA = Joi.object({
+  payoutEntries: Joi.array()
+    .items(
+      Joi.object({
+        id: Joi.string().label('id').required(),
+        account_holder_name: Joi.string()
+          .label('account_holder_name')
+          .required(),
+        account_no: Joi.string().label('account_no').required(),
+        ifsc_code: Joi.string().label('ifsc_code').required(),
+        bank_name: Joi.string().label('bank_name').optional(),
+        amount: Joi.number().positive().label('amount').required(),
+        remark: Joi.string().label('remark').optional(),
+        address: Joi.string().label('address').optional(),
+        mode: Joi.string().label('mode').optional(),
+      }),
+    )
+    .label('payoutEntries')
+    .optional(),
+  payoutIds: Joi.array()
+    .items(Joi.string().label('payoutId'))
+    .label('payoutIds')
+    .optional(),
+})
+  .xor('payoutEntries', 'payoutIds')
+  .messages({
+    'object.xor':
+      'Either payoutEntries or payoutIds must be provided, but not both',
+    'object.missing': 'Either payoutEntries or payoutIds is required',
+  });

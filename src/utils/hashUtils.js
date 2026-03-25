@@ -1,4 +1,4 @@
-import crypto from 'crypto';
+import crypto from 'node:crypto';
 
 export const createHash = (data) => {
   const hash = crypto.createHash('sha256').update(data).digest('hex'); // Use SHA-256 for deterministic hashing

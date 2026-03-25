@@ -13,6 +13,7 @@ export const ASSIGN_PAYIN_SCHEMA = Joi.object({
   returnUrl: Joi.string().label('returnUrl').optional(),
   notifyUrl: Joi.string().label('notifyUrl').optional(),
   roleToken: Joi.string().label('roleToken').optional(),
+  fromUi: Joi.boolean().label('fromUi').optional(),
 });
 
 export const VALIDATE_PAYIN_SCHEMA = Joi.object({
@@ -51,7 +52,7 @@ export const VALIDATE_PAY_IN_INTENT_GENERATE_ORDER = Joi.object({
     .label('merchantOrderId')
     .required(),
   amount: Joi.number().positive().label('amount').required(),
-  isRazorpay: Joi.boolean().label('isRazorpay').optional(),
+  Razorpay: Joi.boolean().label('Razorpay').optional(),
   cashfree: Joi.boolean().label('cashfree').optional(),
   zentechind: Joi.boolean().label('zentechind').optional(),
 });

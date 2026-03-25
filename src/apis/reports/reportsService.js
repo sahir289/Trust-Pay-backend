@@ -56,7 +56,13 @@ const getPayInReportService = async (req) => {
     } else {
       const vendorDetails = await getVendorsDaoArray(company_id, codes);
       bankIds = vendorDetails.map((banks) => banks.user_id);
-      const bankDetails = await getBankaccountDao({ user_id: bankIds });
+      const bankDetails = await getBankaccountDao(
+        { user_id: bankIds },
+        null,
+        null,
+        null,
+        null,
+      );
       vendorIds = bankDetails.map((merchant) => merchant.id);
       result = await getPayInVendorReportDao(
         vendorIds,
@@ -218,13 +224,29 @@ const getClientsAccountReportService = async (req) => {
       let allUserIdsToFetch = userIds;
 
       if (userIds && userIds.length > 0) {
-        const user = await getUsersDao({ company_id, id: userIds });
-        const designation = await getDesignationDao({
-          id: user[0]?.designation_id,
-        });
+        const user = await getUsersDao(
+          { company_id, id: userIds },
+          null,
+          null,
+          null,
+          null,
+          null,
+        );
+        const designation = await getDesignationDao(
+          {
+            id: user[0]?.designation_id,
+          },
+        );
         if (designation[0]?.designation === Role.MERCHANT) {
           try {
-            userHierarchy = await getUserHierarchysDao({ user_id: userIds });
+            userHierarchy = await getUserHierarchysDao(
+              { user_id: userIds },
+              null,
+              null,
+              null,
+              null,
+              null,
+            );
             subMerchants = userHierarchy
               .filter((h) => Array.isArray(h?.config?.siblings?.sub_merchants))
               .flatMap((h) => h.config.siblings.sub_merchants);
@@ -272,7 +294,14 @@ const getClientsAccountReportService = async (req) => {
             (merchant) => merchant.calculation_user_id,
           );
           if (allUserIds.length > 0) {
-            userHierarchy = await getUserHierarchysDao({ user_id: allUserIds });
+            userHierarchy = await getUserHierarchysDao(
+              { user_id: allUserIds },
+              null,
+              null,
+              null,
+              null,
+              null,
+            );
             // Extract all sub-merchants from all hierarchies (these are user IDs)
             subMerchants = userHierarchy
               .filter((h) => Array.isArray(h?.config?.siblings?.sub_merchants))
@@ -408,6 +437,7 @@ const getClientsAccountReportService = async (req) => {
               Object.keys(child).forEach((key) => {
                 if (
                   key !== 'code' &&
+                  key !== 'gm_code' &&
                   key !== 'parent_code' &&
                   key !== 'created_at' &&
                   key !== 'calculation_user_id' &&
@@ -416,7 +446,7 @@ const getClientsAccountReportService = async (req) => {
                   !isNaN(parseFloat(child[key]))
                 ) {
                   parentEntry[key] =
-                    (parentEntry[key] || 0) + parseFloat(child[key]);
+                    parseFloat(parentEntry[key] || 0) + parseFloat(child[key]);
                 }
               });
               parentMap[parentKey] = parentEntry;
@@ -523,6 +553,7 @@ const getClientsAccountReportService = async (req) => {
       } else {
         parentData.forEach((parent) => {
           parent.created_at = normalizeDate(parent.created_at);
+          parent.user_id = parent.calculation_user_id;
         });
         // No sub-merchants found, return all data as is with alphabetical sorting and date sorting
         result = parentData.sort((a, b) => {
@@ -545,365 +576,6 @@ const getClientsAccountReportService = async (req) => {
         );
 
         // Log which merchants are being returned
-        if (requestedCodes && requestedCodes.length > 0) {
-          const returnedCodes = result.map((r) => r.code).filter(Boolean);
-          const missingCodes = requestedCodes.filter(
-            (code) => !returnedCodes.includes(code),
-          );
-          logger.info(`Requested codes: ${requestedCodes.join(', ')}`);
-          logger.info(`Returned codes: ${returnedCodes.join(', ')}`);
-          if (missingCodes.length > 0) {
-            logger.warn(`Missing codes in result: ${missingCodes.join(', ')}`);
-          }
-        }
-
-        // Apply pagination if needed
-        if (page && limit) {
-          const pageNum = parseInt(page);
-          const limitNum = parseInt(limit);
-          const startIndex = (pageNum - 1) * limitNum;
-          const endIndex = startIndex + limitNum;
-          result = result.slice(startIndex, endIndex);
-        }
-      }
-    } else if (role_name === Role.VENDOR) {
-      // First, get user hierarchy to identify parent-child relationships if we have specific userIds
-      let allUserIdsToFetch = userIds;
-      let subVendors = [];
-      let userHierarchy = [];
-
-      if (userIds && userIds.length > 0) {
-        const user = await getUsersDao({ company_id, id: userIds });
-        const designation = await getDesignationDao({
-          id: user[0]?.designation_id,
-        });
-        if (designation[0]?.designation === Role.VENDOR) {
-          try {
-            userHierarchy = await getUserHierarchysDao({ user_id: userIds });
-            subVendors = userHierarchy
-              .filter((h) => Array.isArray(h?.config?.siblings?.sub_vendors))
-              .flatMap((h) => h.config.siblings.sub_vendors);
-
-            // Include child vendor user IDs in the fetch to ensure we get their data too
-            if (subVendors.length > 0) {
-              allUserIdsToFetch = [...new Set([...userIds, ...subVendors])];
-              logger.info(
-                `Including child vendor user IDs in fetch: ${subVendors.join(', ')}`,
-              );
-            }
-          } catch (error) {
-            logger.error('Error fetching user hierarchy:', error);
-          }
-        }
-      }
-
-      const allVendorData = await getVendorReportDao(
-        company_id,
-        allUserIdsToFetch, // Use expanded user IDs that include children
-        startDate,
-        endDate,
-        null, // Remove page parameter
-        null, // Remove limit parameter
-        role,
-      );
-
-      logger.info(
-        `Retrieved ${allVendorData.length} vendor records from database`,
-      );
-      if (requestedCodes && requestedCodes.length > 0) {
-        logger.info(
-          `Requested specific vendor codes: ${requestedCodes.join(', ')}`,
-        );
-        const foundCodes = allVendorData.map((v) => v.code).filter(Boolean);
-        logger.info(`Found vendor codes: ${foundCodes.join(', ')}`);
-      }
-
-      // If we don't have specific user IDs, get all user hierarchies to identify parent-child relationships
-      if (!userIds || userIds.length === 0) {
-        // For all vendors, we need to identify parent-child relationships
-        // Get all user hierarchies to identify parent-child relationships
-        try {
-          const allUserIds = allVendorData.map(
-            (vendor) => vendor.calculation_user_id,
-          );
-          if (allUserIds.length > 0) {
-            userHierarchy = await getUserHierarchysDao({ user_id: allUserIds });
-            // Extract all sub-vendors from all hierarchies (these are user IDs)
-            subVendors = userHierarchy
-              .filter((h) => Array.isArray(h?.config?.siblings?.sub_vendors))
-              .flatMap((h) => h.config.siblings.sub_vendors);
-
-            logger.info(
-              `Found ${subVendors.length} sub-vendor user IDs from hierarchies: ${subVendors.slice(0, 5).join(', ')}${subVendors.length > 5 ? '...' : ''}`,
-            );
-          }
-        } catch (error) {
-          logger.error('Error fetching all user hierarchies:', error);
-        }
-      }
-
-      const parentData = allVendorData;
-      let childData = [];
-
-      // If we identified sub-vendors, separate parent and child data
-      if (subVendors.length > 0) {
-        logger.info(
-          `Found ${subVendors.length} sub-vendors for clubbing: ${subVendors.join(', ')}`,
-        );
-
-        // Child data (vendors that are sub-vendors)
-        // Check both calculation_user_id and code for matching
-        childData = parentData.filter(
-          (vendor) =>
-            subVendors.includes(vendor.calculation_user_id) ||
-            subVendors.includes(vendor.code),
-        );
-
-        // Update parentData to only include parent vendors
-        // Ensure we don't exclude vendors that should be parents
-        const finalParentData = parentData.filter(
-          (vendor) =>
-            !subVendors.includes(vendor.calculation_user_id) &&
-            !subVendors.includes(vendor.code),
-        );
-
-        logger.info(
-          `Separated data - Parent records: ${finalParentData.length}, Child records: ${childData.length}`,
-        );
-
-        // Process the clubbing with separated parent and child data
-        if (Array.isArray(finalParentData)) {
-          // Normalize date to avoid timestamp mismatches
-          const normalizeDate = (date) =>
-            dayjs.tz(date, 'Asia/Kolkata').format('YYYY-MM-DD');
-
-          // Create a map for parent data by user_id and normalized created_at
-          const parentMap = {};
-          finalParentData.forEach((parent) => {
-            const userId = parent.calculation_user_id;
-            const key = `${userId}_${normalizeDate(parent.created_at)}`;
-            parentMap[key] = {
-              ...parent,
-              created_at: normalizeDate(parent.created_at),
-              user_id: userId,
-            };
-          });
-
-          // Sum child data into parent using userHierarchy for mapping
-          if (
-            Array.isArray(childData) &&
-            Array.isArray(userHierarchy) &&
-            childData.length > 0
-          ) {
-            // Build child-to-parent mapping from userHierarchy
-            const childToParentMap = {};
-            userHierarchy.forEach((h) => {
-              const parentUserId = h.user_id;
-              const subVendorsArr = Array.isArray(
-                h?.config?.siblings?.sub_vendors,
-              )
-                ? h.config.siblings.sub_vendors
-                : [];
-              subVendorsArr.forEach((childUserId) => {
-                // The sub_vendors array contains user_ids, not codes
-                childToParentMap[childUserId] = parentUserId;
-                // Also find the vendor code for this user_id and map it too
-                const childVendor = allVendorData.find(
-                  (v) => v.calculation_user_id === childUserId,
-                );
-                if (childVendor && childVendor.code) {
-                  childToParentMap[childVendor.code] = parentUserId;
-                }
-              });
-            });
-
-            logger.info(
-              `Built child-to-parent mapping with ${Object.keys(childToParentMap).length} entries`,
-            );
-
-            childData.forEach((child) => {
-              const childCodeNormalized = child.calculation_user_id;
-              const childCode = child.code;
-
-              // Try multiple approaches to find the parent
-              let mappedParentUserId =
-                childToParentMap[childCodeNormalized] ||
-                childToParentMap[childCode];
-
-              if (!mappedParentUserId) {
-                logger.warn(
-                  `Skipping child code ${childCode} (user_id: ${childCodeNormalized}) due to no valid parent user_id in childToParentMap`,
-                );
-                return;
-              }
-
-              // Try to find parent entry with the same date first
-              const childDate = normalizeDate(child.created_at);
-              let parentKey = `${mappedParentUserId}_${childDate}`;
-              let parentEntry = parentMap[parentKey];
-
-              // If no exact date match, try to find any parent entry for this user
-              if (!parentEntry) {
-                const alternativeKey = Object.keys(parentMap).find((key) =>
-                  key.startsWith(`${mappedParentUserId}_`),
-                );
-                if (alternativeKey) {
-                  parentEntry = parentMap[alternativeKey];
-                  parentKey = alternativeKey;
-                  logger.info(
-                    `Using alternative parent entry for child code ${childCode}: ${alternativeKey}`,
-                  );
-                }
-              }
-
-              if (!parentEntry) {
-                logger.warn(
-                  `No parent entry found for child code ${child.code} with parent user_id ${mappedParentUserId}`,
-                );
-                return;
-              }
-
-              // Sum numeric fields from child to parent
-              Object.keys(child).forEach((key) => {
-                if (
-                  key !== 'code' &&
-                  key !== 'parent_code' &&
-                  key !== 'created_at' &&
-                  key !== 'calculation_user_id' &&
-                  key !== 'company_id' &&
-                  key !== 'vendor_user_id' &&
-                  !isNaN(parseFloat(child[key]))
-                ) {
-                  parentEntry[key] =
-                    (parentEntry[key] || 0) + parseFloat(child[key]);
-                }
-              });
-              parentMap[parentKey] = parentEntry;
-            });
-          }
-
-          result = Object.values(parentMap)
-            .map(({ ...rest }) => rest)
-            .sort((a, b) => {
-              // First sort alphabetically by vendor code (case-insensitive)
-              const codeA = (a.code || '').toLowerCase();
-              const codeB = (b.code || '').toLowerCase();
-              const codeComparison = codeA.localeCompare(codeB);
-
-              // If vendor codes are the same, sort by date ascending (oldest first)
-              if (codeComparison === 0) {
-                const dateA = new Date(a.created_at || 0);
-                const dateB = new Date(b.created_at || 0);
-                return dateA - dateB; // Ascending order (oldest to newest)
-              }
-
-              return codeComparison;
-            });
-
-          logger.info(`Final clubbed result contains ${result.length} records`);
-
-          // Log which vendors are being returned after clubbing
-          if (requestedCodes && requestedCodes.length > 0) {
-            const returnedCodes = result.map((r) => r.code).filter(Boolean);
-
-            // If requestedCodes were user IDs, we need to find the corresponding vendor codes for comparison
-            let expectedCodes = requestedCodes;
-            const isUserIdList = requestedCodes.every(
-              (code) =>
-                code &&
-                code.match(
-                  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-                ),
-            );
-
-            if (isUserIdList) {
-              // Convert user IDs to vendor codes for meaningful comparison
-              expectedCodes = allVendorData
-                .filter((v) => requestedCodes.includes(v.calculation_user_id))
-                .map((v) => v.code);
-              logger.info(
-                `Requested user IDs converted to vendor codes: ${expectedCodes.join(', ')}`,
-              );
-            }
-
-            const missingCodes = expectedCodes.filter(
-              (code) => !returnedCodes.includes(code),
-            );
-            logger.info(
-              `After clubbing - Expected codes: ${expectedCodes.join(', ')}`,
-            );
-            logger.info(
-              `After clubbing - Returned codes: ${returnedCodes.join(', ')}`,
-            );
-            if (missingCodes.length > 0) {
-              logger.warn(
-                `After clubbing - Missing codes in result: ${missingCodes.join(', ')}`,
-              );
-            }
-          }
-
-          // Apply pagination to the final aggregated result
-          if (page && limit) {
-            const pageNum = parseInt(page);
-            const limitNum = parseInt(limit);
-            const startIndex = (pageNum - 1) * limitNum;
-            const endIndex = startIndex + limitNum;
-            result = result.slice(startIndex, endIndex);
-          }
-
-          // If we searched for specific vendor codes, filter result to only include those codes
-          if (requestedCodes && requestedCodes.length > 0) {
-            let expectedCodes = requestedCodes;
-            const isUserIdList = requestedCodes.every(
-              (code) =>
-                code &&
-                code.match(
-                  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
-                ),
-            );
-
-            if (isUserIdList) {
-              // Convert user IDs to vendor codes for filtering
-              expectedCodes = allVendorData
-                .filter((v) => requestedCodes.includes(v.calculation_user_id))
-                .map((v) => v.code);
-            }
-
-            // Filter result to only include originally requested vendor codes
-            result = result.filter((item) => expectedCodes.includes(item.code));
-            logger.info(
-              `Filtered final result to only include requested codes: ${result.map((r) => r.code).join(', ')}`,
-            );
-          }
-        } else {
-          result = [];
-          logger.warn('finalParentData is not an array:', finalParentData);
-        }
-      } else {
-        parentData.forEach((parent) => {
-          parent.created_at = normalizeDate(parent.created_at);
-        });
-        // No sub-vendors found, return all data as is with alphabetical sorting and date sorting
-        result = parentData.sort((a, b) => {
-          // First sort alphabetically by vendor code (case-insensitive)
-          const codeA = (a.code || '').toLowerCase();
-          const codeB = (b.code || '').toLowerCase();
-          const codeComparison = codeA.localeCompare(codeB);
-
-          // If vendor codes are the same, sort by date ascending (oldest first)
-          if (codeComparison === 0) {
-            const dateA = new Date(a.created_at || 0);
-            const dateB = new Date(b.created_at || 0);
-            return dateA - dateB; // Ascending order (oldest to newest)
-          }
-
-          return codeComparison;
-        });
-        logger.info(
-          `No sub-vendors found for clubbing. Returning ${parentData.length} vendor records as-is`,
-        );
-
-        // Log which vendors are being returned
         if (requestedCodes && requestedCodes.length > 0) {
           const returnedCodes = result.map((r) => r.code).filter(Boolean);
           const missingCodes = requestedCodes.filter(

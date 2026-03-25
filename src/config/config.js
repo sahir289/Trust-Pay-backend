@@ -1,16 +1,27 @@
 import dotenv from 'dotenv';
+import getGeoGuardConfig from './geoGuard.js';
 dotenv.config({ path: '.env' });
 
+const parsePositiveInt = (value, fallback) => {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+const withLegacy = (env, primary, legacy, fallback) =>
+  parsePositiveInt(env?.[primary] || env?.[legacy], fallback);
 
 // Env file configuration
 function config(Env) {
   return {
     env: Env?.NODE_ENV,
     port: Env?.PORT,
+    app: {
+      testingIp: Env?.LOCAL_IP,
+    },
     aws: {
       region: Env?.AWS_REGION || 'us-east-1',
-      accessKeyId: Env?.ACCESS_KEY,
-      secretAccessKey: Env.secretKeyS3,
+      accessKeyId: Env?.AWS_ACCESS_KEY_ID,
+      secretAccessKey: Env?.AWS_SECRET_ACCESS_KEY,
       cloudWatchLogGroup: Env?.AWS_LOG_GROUP_NAME,
     },
     jwt: {
@@ -23,15 +34,15 @@ function config(Env) {
     },
     rabbitmq : {
       url: Env?.RABBITMQ_URL || 'amqp://localhost:5672',
-      queueName: Env?.RABBITMQ_QUEUE_NAME || 'trust-pay-queue',
-      exchangeName: Env?.RABBITMQ_EXCHANGE_NAME || 'trust-pay-exchange',
-      routingKey: Env?.RABBITMQ_ROUTING_KEY || 'trust-pay-routing-key',
-      prefetchCount: parseInt(Env?.RABBITMQ_PREFETCH_COUNT) || 1,
       connectionTimeout: parseInt(Env?.RABBITMQ_CONNECTION_TIMEOUT) || 10000, // in milliseconds
       heartbeat: parseInt(Env?.RABBITMQ_HEARTBEAT) || 60,
-      retryAttempts: parseInt(Env?.RABBITMQ_RETRY_ATTEMPTS) || 5,
-      retryDelay: parseInt(Env?.RABBITMQ_RETRY_DELAY) || 5000, // in milliseconds
-      bankResponseQueue: 'bank-response-queue', // Add this line
+      reconnectBaseDelayMs: parseInt(Env?.RABBITMQ_RECONNECT_BASE_DELAY_MS) || 1000,
+      maxReconnectDelayMs: parseInt(Env?.RABBITMQ_MAX_RECONNECT_DELAY_MS) || 30000,
+      producerRetryAttempts: parseInt(Env?.RABBITMQ_PRODUCER_RETRY_ATTEMPTS) || 3,
+      producerRetryDelayMs: parseInt(Env?.RABBITMQ_PRODUCER_RETRY_DELAY_MS) || 500,
+      bankResponseQueue: Env?.RABBITMQ_BANK_RESPONSE_QUEUE || 'bank_response_queue',
+      bankResponseBotBulkQueue: Env?.RABBITMQ_BANK_RESPONSE_BOT_BULK_QUEUE || 'bank_response_bot_bulk_queue',
+      bulkPayoutQueue: Env?.RABBITMQ_BULK_PAYOUT_QUEUE || 'bulk_payout_queue',
     },
     telegram: {
       telegram_url: Env?.TELEGRAM_URL,
@@ -39,10 +50,61 @@ function config(Env) {
     ocr: {
       url: Env?.OCR_URL,
     },
+    redis: {
+      url: Env?.REDIS_URL || 'redis://localhost:6379',
+    },
     rateLimiter: {
-      points: parseInt(Env?.RATE_LIMIT_POINTS) || 20,
-      duration: parseInt(Env?.RATE_LIMIT_DURATION) || 60,
-      blockDuration: parseInt(Env?.RATE_LIMIT_BLOCK_DURATION) || 30,
+      points: parsePositiveInt(Env?.RATE_LIMIT_POINTS, 300),
+      duration: parsePositiveInt(Env?.RATE_LIMIT_DURATION, 60),
+      blockDuration: parsePositiveInt(Env?.RATE_LIMIT_BLOCK_DURATION, 30),
+      profiles: {
+        auth: {
+          points: parsePositiveInt(Env?.RATE_LIMIT_AUTH_POINTS, 120),
+          duration: parsePositiveInt(Env?.RATE_LIMIT_AUTH_DURATION, 60),
+          blockDuration: parsePositiveInt(
+            Env?.RATE_LIMIT_AUTH_BLOCK_DURATION,
+            60,
+          ),
+        },
+        read: {
+          points: parsePositiveInt(Env?.RATE_LIMIT_READ_POINTS, 1200),
+          duration: parsePositiveInt(Env?.RATE_LIMIT_READ_DURATION, 60),
+          blockDuration: parsePositiveInt(
+            Env?.RATE_LIMIT_READ_BLOCK_DURATION,
+            20,
+          ),
+        },
+        write: {
+          points: parsePositiveInt(Env?.RATE_LIMIT_WRITE_POINTS, 300),
+          duration: parsePositiveInt(Env?.RATE_LIMIT_WRITE_DURATION, 60),
+          blockDuration: parsePositiveInt(
+            Env?.RATE_LIMIT_WRITE_BLOCK_DURATION,
+            30,
+          ),
+        },
+        merchantIntegration: {
+          points: parsePositiveInt(
+            Env?.RATE_LIMIT_MERCHANT_INTEGRATION_POINTS,
+            200,
+          ),
+          duration: parsePositiveInt(
+            Env?.RATE_LIMIT_MERCHANT_INTEGRATION_DURATION,
+            60,
+          ),
+          blockDuration: parsePositiveInt(
+            Env?.RATE_LIMIT_MERCHANT_INTEGRATION_BLOCK_DURATION,
+            20,
+          ),
+        },
+        bankResponse: {
+          points: parsePositiveInt(Env?.RATE_LIMIT_BANK_POINTS, 300),
+          duration: parsePositiveInt(Env?.RATE_LIMIT_BANK_DURATION, 60),
+          blockDuration: parsePositiveInt(
+            Env?.RATE_LIMIT_BANK_BLOCK_DURATION,
+            30,
+          ),
+        },
+      },
     },
     elasticSearch: {
       node: Env?.ELASTICSEARCH_NODE || 'http://localhost:9200',
@@ -62,6 +124,173 @@ function config(Env) {
       url: Env?.ZENTECHIND_API_URL,
       salt: Env?.ZENTECHIND_SALT,
       collectionId: Env?.ZENTECHIND_COLLECTION_ID,
+    },
+    silkPay: {
+      url: Env?.SILK_PAY_API_URL,
+      initiatePayout: Env?.SILK_PAY_INITIATE_API_URL,
+      walletBalance: Env?.SILK_PAY_WALLET_BALANCE_API_URL,
+      secret: Env?.SILK_PAY_SECRET,
+      collectionId: Env?.SILK_PAY_COLLECTION_ID,
+      silkPayMerchant: Env?.SILK_PAY_MERCHANT_ID,
+      silkPayCallbackUrl: Env?.SILK_PAY_CALLBACK_URL,
+      silkPayPayoutCallbackUrl: Env?.SILK_PAY_PAYOUT_CALLBACK_URL
+    },
+    nmplPay: {
+      url: Env?.NMPL_PAY_API_URL,
+      salt: Env?.NMPL_PAY_SALT,
+      collectionId: Env?.NMPL_PAY_COLLECTION_ID,
+      tickSalt: Env?.NMPL_PAY_TICK_SALT,
+      tickCollectionId: Env?.NMPL_PAY_TICK_COLLECTION_ID,
+      nmplPaySpecialMerchant: Env?.SPECIAL_NMPL_PAY_MERCHANT,
+      nmplPaySpecialMerchant2: Env?.SPECIAL_NMPL_PAY_MERCHANT2,
+    },
+    clickrr : {
+      baseUrl: Env?.CLICKRR_BASE_API_URL,
+      initiatePayout: Env?.CLICKRR_INITIATE_API_URL,
+      walletBalance: Env?.CLICKRR_WALLET_BALANCE_API_URL,
+      apiKey: Env?.CLICKRR_API_KEY,
+      apiSecret: Env?.CLICKRR_API_SECRET,
+    },
+    payAssist : {
+      baseUrl: Env?.PAY_ASSIST_API_URL,
+    },
+    payDum : {
+      baseUrl: Env?.PAY_DUM_API_URL,
+    },
+    tataPay : {
+      baseUrl: Env?.TATA_PAY_BASE_API_URL,
+      bulkUrl: Env?.TATA_PAY_BULK_API_URL,
+    },
+    rupeeFlow : {
+      baseUrl: Env?.RUPEE_FLOW_BASE_API_URL,
+    },
+    bss : {
+      baseUrl: Env?.BSS_BASE_API_URL,
+      initiatePayout: Env?.BSS_WALLET_BALANCE_API_URL,
+      walletBalance: Env?.BSS_WALLET_BALANCE_API_URL,
+      apiKey: Env?.BSS_API_KEY,
+      apiSecret: Env?.BSS_API_SECRET,
+    },
+    bss02 : {
+      baseUrl: Env?.BSS_BASE_API_URL,
+      initiatePayout: Env?.BSS_WALLET_BALANCE_API_URL,
+      walletBalance: Env?.BSS_WALLET_BALANCE_API_URL,
+      apiKey: Env?.BSS02_API_KEY,
+      apiSecret: Env?.BSS02_API_SECRET,
+    },
+    bss03 : {
+      baseUrl: Env?.BSS_BASE_API_URL,
+      initiatePayout: Env?.BSS_WALLET_BALANCE_API_URL,
+      walletBalance: Env?.BSS_WALLET_BALANCE_API_URL,
+      apiKey: Env?.BSS03_API_KEY,
+      apiSecret: Env?.BSS03_API_SECRET,
+    },
+    controllerCacheTtls: {
+      auth: {
+        session: parsePositiveInt(Env?.AUTH_SESSION_CACHE_TTL_SEC, 30),
+      },
+      payin: {
+        search: withLegacy(
+          Env,
+          'PAYIN_SEARCH_CACHE_TTL_SEC',
+          'PAYIN_CACHE_TTL_SEC',
+          20,
+        ),
+        summary: withLegacy(
+          Env,
+          'PAYIN_SUMMARY_CACHE_TTL_SEC',
+          'PAYIN_CACHE_TTL_SEC',
+          10,
+        ),
+      },
+      payout: {
+        byId: withLegacy(
+          Env,
+          'PAYOUT_BY_ID_CACHE_TTL_SEC',
+          'PAYOUT_CACHE_TTL_SEC',
+          15,
+        ),
+        list: withLegacy(
+          Env,
+          'PAYOUT_LIST_CACHE_TTL_SEC',
+          'PAYOUT_CACHE_TTL_SEC',
+          20,
+        ),
+        search: withLegacy(
+          Env,
+          'PAYOUT_SEARCH_CACHE_TTL_SEC',
+          'PAYOUT_CACHE_TTL_SEC',
+          20,
+        ),
+      },
+      bankAccounts: {
+        byId: parsePositiveInt(Env?.BANK_ACCOUNTS_BY_ID_CACHE_TTL_SEC, 15),
+        list: parsePositiveInt(Env?.BANK_ACCOUNTS_LIST_CACHE_TTL_SEC, 20),
+        search: parsePositiveInt(Env?.BANK_ACCOUNTS_SEARCH_CACHE_TTL_SEC, 20),
+        merchantBank: parsePositiveInt(
+          Env?.BANK_ACCOUNTS_MERCHANT_BANK_CACHE_TTL_SEC,
+          20,
+        ),
+      },
+      users: {
+        byId: parsePositiveInt(Env?.USER_BY_ID_CACHE_TTL_SEC, 15),
+        list: parsePositiveInt(Env?.USERS_LIST_CACHE_TTL_SEC, 20),
+        search: parsePositiveInt(Env?.USERS_SEARCH_CACHE_TTL_SEC, 20),
+        byUsername: parsePositiveInt(Env?.USERS_BY_USERNAME_CACHE_TTL_SEC, 15),
+      },
+      merchants: {
+        byId: parsePositiveInt(Env?.MERCHANT_BY_ID_CACHE_TTL_SEC, 15),
+        byCode: parsePositiveInt(Env?.MERCHANT_BY_CODE_CACHE_TTL_SEC, 20),
+        list: parsePositiveInt(Env?.MERCHANTS_LIST_CACHE_TTL_SEC, 20),
+        search: parsePositiveInt(Env?.MERCHANTS_SEARCH_CACHE_TTL_SEC, 20),
+        codes: parsePositiveInt(Env?.MERCHANT_CODES_CACHE_TTL_SEC, 30),
+      },
+      vendors: {
+        byId: parsePositiveInt(Env?.VENDOR_BY_ID_CACHE_TTL_SEC, 15),
+        byCode: parsePositiveInt(Env?.VENDOR_BY_CODE_CACHE_TTL_SEC, 20),
+        list: parsePositiveInt(Env?.VENDORS_LIST_CACHE_TTL_SEC, 20),
+        search: parsePositiveInt(Env?.VENDORS_SEARCH_CACHE_TTL_SEC, 20),
+        codes: parsePositiveInt(Env?.VENDOR_CODES_CACHE_TTL_SEC, 30),
+      },
+      settlement: {
+        byId: parsePositiveInt(Env?.SETTLEMENT_BY_ID_CACHE_TTL_SEC, 15),
+        list: parsePositiveInt(Env?.SETTLEMENT_LIST_CACHE_TTL_SEC, 20),
+        search: parsePositiveInt(Env?.SETTLEMENT_SEARCH_CACHE_TTL_SEC, 20),
+      },
+      userHierarchy: {
+        byId: parsePositiveInt(Env?.USER_HIERARCHY_BY_ID_CACHE_TTL_SEC, 15),
+        list: parsePositiveInt(Env?.USER_HIERARCHY_LIST_CACHE_TTL_SEC, 20),
+      },
+      beneficiary: {
+        byId: parsePositiveInt(Env?.BENEFICIARY_BY_ID_CACHE_TTL_SEC, 15),
+        list: parsePositiveInt(Env?.BENEFICIARY_LIST_CACHE_TTL_SEC, 20),
+        search: parsePositiveInt(Env?.BENEFICIARY_SEARCH_CACHE_TTL_SEC, 20),
+        byBankName: parsePositiveInt(
+          Env?.BENEFICIARY_BY_BANKNAME_CACHE_TTL_SEC,
+          20,
+        ),
+      },
+      calculation: {
+        byId: parsePositiveInt(Env?.CALCULATION_BY_ID_CACHE_TTL_SEC, 15),
+        list: parsePositiveInt(Env?.CALCULATION_LIST_CACHE_TTL_SEC, 20),
+      },
+    },
+    orvixPay: {
+      url: Env?.ORVIX_PAY_API_URL,
+      salt: Env?.ORVIX_PAY_SALT,
+      collectionId: Env?.ORVIX_PAY_COLLECTION_ID,
+    },
+     orvixPay1: {
+      url: Env?.ORVIX_PAY_API_URL,
+      salt: Env?.ORVIX_PAY_SALT_1,
+      collectionId: Env?.ORVIX_PAY_COLLECTION_ID_1,
+    },
+    openStreetApi:{
+      openStreetMapUrl: Env?.OPEN_STREET_MAP_URL,
+      openStreetMapExtraParams :Env?.OPEN_STREET_MAP_EXTRA_PARAMS
+    },
+    proxyCheck: {
+      proxyCheckUrl: Env?.PROXY_CHECK_URL,
     },
     // reactAppBaseUrl: Env?.REACT_APP_BASE_URL,
     databaseUrl: Env?.DATABASE_URL,
@@ -112,4 +341,5 @@ function config(Env) {
 
 export default {
   ...config(process.env),
+  geoGuard: getGeoGuardConfig(process.env),
 };

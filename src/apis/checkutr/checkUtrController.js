@@ -8,7 +8,6 @@ import {
   updateCheckUtrService,
 } from './checkUtrServices.js';
 import { getPayinDetailsByMerchantOrderId } from '../payIn/payInDao.js';
-import { transactionWrapper } from '../../utils/db.js';
 
 const getCheckUtr = async (req, res) => {
   const { page, limit, sortOrder } = req.query;
@@ -54,7 +53,7 @@ const createCheckUtr = async (req, res) => {
   if (!payload) {
     throw new BadRequestError('payload is required');
   }
-  const checkUtr = await transactionWrapper(createCheckUtrService)(
+  const checkUtr = await createCheckUtrService(
     payload,
     merchant_order_id,
     utr,

@@ -9,6 +9,7 @@ const sendSuccess = (
   page,
 ) => {
   let finalRes = {
+    statusCode: status,
     error: {},
     meta: {},
     data: {},

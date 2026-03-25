@@ -8,6 +8,7 @@ export const Status = {
   REVERSED: 'REVERSED',
   IMG_PENDING: 'IMG_PENDING',
   PENDING: 'PENDING',
+  PROCESSING: 'PROCESSING',
   REJECTED: 'REJECTED',
   TEST_SUCCESS: 'TEST_SUCCESS',
   TEST_DROPPED: 'TEST_DROPPED',
@@ -28,6 +29,15 @@ export const Method = {
   AED: 'AED',
   CRYPTO: 'CRYPTO',
   EKO: 'EKO',
+  CLICKRR: 'CLICKRR',
+  TATAPAY: 'TATAPAY',
+  PAYASSIST: 'PAYASSIST',
+  PAYDUM: 'PAYDUM',
+  RUPEEFLOW: 'RUPEEFLOW',
+  BSS: 'BSS',
+  SILKPAY: 'SILKPAY',
+  BSS02: 'BSS02',
+  BSS03: 'BSS03',
 };
 
 export const Type = {
@@ -611,6 +621,7 @@ export const AccessRoles = {
     Role.MERCHANT_OPERATIONS,
     Role.SUB_MERCHANT,
     Role.VENDOR,
+    Role.VENDOR_ADMIN,
     Role.SUB_VENDOR,
     Role.VENDOR_OPERATIONS,
   ],
@@ -622,6 +633,7 @@ export const AccessRoles = {
     Role.SUB_MERCHANT,
     Role.MERCHANT,
     Role.VENDOR,
+    Role.VENDOR_ADMIN,
     Role.SUB_VENDOR,
   ],
   MERCHANT: [
@@ -640,6 +652,7 @@ export const AccessRoles = {
     Role.OPERATIONS,
     Role.VENDOR,
     Role.SUB_VENDOR,
+    Role.VENDOR_ADMIN,
     Role.VENDOR_OPERATIONS,
   ],
   PAYIN: [
@@ -652,6 +665,7 @@ export const AccessRoles = {
     Role.MERCHANT_OPERATIONS,
     Role.VENDOR,
     Role.SUB_VENDOR,
+    Role.VENDOR_ADMIN,
     Role.VENDOR_OPERATIONS,
   ],
   PAYOUT: [
@@ -663,6 +677,7 @@ export const AccessRoles = {
     Role.SUB_MERCHANT,
     Role.MERCHANT_OPERATIONS,
     Role.VENDOR,
+    Role.VENDOR_ADMIN,
     Role.SUB_VENDOR,
     Role.VENDOR_OPERATIONS,
   ],
@@ -675,6 +690,7 @@ export const AccessRoles = {
     Role.SUB_MERCHANT,
     Role.MERCHANT_OPERATIONS,
     Role.VENDOR,
+    Role.VENDOR_ADMIN,
     Role.SUB_VENDOR,
     Role.VENDOR_OPERATIONS,
   ],
@@ -688,6 +704,7 @@ export const AccessRoles = {
     Role.MERCHANT_OPERATIONS,
     Role.VENDOR,
     Role.SUB_VENDOR,
+    Role.VENDOR_ADMIN,
     Role.VENDOR_OPERATIONS,
   ],
   COMPANY: [
@@ -697,6 +714,7 @@ export const AccessRoles = {
     Role.OPERATIONS,
     Role.VENDOR,
     Role.SUB_VENDOR,
+    Role.VENDOR_ADMIN,
     Role.VENDOR_OPERATIONS,
   ],
   USER_HIERARCHY: {
@@ -727,6 +745,7 @@ export const AccessRoles = {
     Role.TRANSACTIONS,
     Role.VENDOR,
     Role.SUB_VENDOR,
+    Role.VENDOR_ADMIN,
     Role.VENDOR_OPERATIONS,
   ],
   BANK_ACCOUNT: [
@@ -736,6 +755,7 @@ export const AccessRoles = {
     Role.TRANSACTIONS,
     Role.VENDOR,
     Role.SUB_VENDOR,
+    Role.VENDOR_ADMIN,
     Role.VENDOR_OPERATIONS,
   ],
   CHARGE_BACK: {
@@ -746,6 +766,7 @@ export const AccessRoles = {
       Role.MERCHANT_ADMIN,
       Role.MERCHANT,
       Role.VENDOR,
+      Role.VENDOR_ADMIN,
       Role.SUB_VENDOR,
     ],
     CREATE_DELETE: [
@@ -761,6 +782,7 @@ export const AccessRoles = {
       Role.MERCHANT_ADMIN,
       Role.MERCHANT,
       Role.VENDOR,
+      Role.VENDOR_ADMIN,
       Role.SUB_VENDOR,
     ],
   },
@@ -771,6 +793,7 @@ export const AccessRoles = {
     Role.OPERATIONS,
     Role.MERCHANT,
     Role.VENDOR,
+    Role.VENDOR_ADMIN,
     Role.MERCHANT_OPERATIONS,
     Role.VENDOR_OPERATIONS,
     Role.SUB_MERCHANT,
@@ -783,6 +806,7 @@ export const AccessRoles = {
     Role.SUB_MERCHANT,
     Role.MERCHANT,
     Role.VENDOR,
+    Role.VENDOR_ADMIN,
     Role.SUB_VENDOR,
   ],
   DESIGNATION: [
@@ -792,6 +816,7 @@ export const AccessRoles = {
     Role.SUB_MERCHANT,
     Role.MERCHANT,
     Role.VENDOR,
+    Role.VENDOR_ADMIN,
     Role.SUB_VENDOR,
   ],
   COMPLAINTS: [Role.SUPER_ADMIN, Role.ADMIN],
@@ -802,6 +827,7 @@ export const AccessRoles = {
     Role.OPERATIONS,
     Role.MERCHANT,
     Role.VENDOR,
+    Role.VENDOR_ADMIN,
     Role.SUB_VENDOR,
     Role.VENDOR_OPERATIONS,
   ],
@@ -875,6 +901,8 @@ export const payAssistErrorCodeMap = {
   13: 'Insufficient Funds',
   14: 'Invalid Account Details',
   15: 'Invalid Account Details',
+  TXF: 'Transaction Failed',
+  ERR: 'Server Unreachable',
 };
 
 export const unblocked_countries = [
