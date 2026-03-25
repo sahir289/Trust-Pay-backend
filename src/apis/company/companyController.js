@@ -5,6 +5,8 @@ import {
   getCompanyByIdService,
   getCompanyService,
   updateCompanyService,
+  getCompanyNamesService,
+  signUpCompanyService,
 } from './companyServices.js';
 import {
   VALIDATE_COMPANY_SCHEMA,
@@ -67,10 +69,23 @@ const deleteCompany = async (req, res) => {
   return sendSuccess(res, {}, 'Delete Company successfully');
 };
 
+const getCompanyNamesController = async (req, res) => {
+  const data = await getCompanyNamesService();
+  return sendSuccess(res, data, 'Get company names successfully');
+};
+
+const signUpCompany = async (req, res) => {
+  const payload = req.body;
+  const data = await signUpCompanyService(payload);
+  return sendSuccess(res, data, 'Company signed up successfully');
+};
+
 export {
   getCompany,
   getCompanyById,
   createCompany,
   updateCompany,
   deleteCompany,
+  getCompanyNamesController,
+  signUpCompany,
 };

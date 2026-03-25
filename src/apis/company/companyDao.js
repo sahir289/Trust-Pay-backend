@@ -199,6 +199,17 @@ const updateCompanyConfigDao = async (id, data, conn) => {
   }
 };
 
+const getCompanyNamesDao = async (conn = null) => {
+  try {
+    const sql = `SELECT id, CONCAT(first_name, ' ', last_name) AS name FROM "${tableName.COMPANY}" WHERE is_obsolete = false ORDER BY first_name ASC`;
+    const result = await executeQuery(sql, [], conn);
+    return result.rows;
+  } catch (error) {
+    logger.error('Error fetching company names:', error);
+    throw error;
+  }
+};
+
 const deleteCompanyDao = async (id, data, conn = null) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.COMPANY, data, id);
@@ -225,4 +236,5 @@ export {
   getSilkPayDetailsByCompanyIdDao,
   getBSS02DetailsByCompanyIdDao,
   getBSS03DetailsByCompanyIdDao,
+  getCompanyNamesDao,
 };

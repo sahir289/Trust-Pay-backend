@@ -4,6 +4,7 @@ import {
   getCompanyDao,
   getCompanyDetailsByIdDao,
   updateCompanyDao,
+  getCompanyNamesDao,
 } from './companyDao.js';
 import { _createUserServiceInternal } from '../users/userService.js';
 // import { createDesignationService } from '../designation/designationServices.js';
@@ -204,10 +205,38 @@ const deleteCompanyService = async (id) => {
   }
 };
 
+const getCompanyNamesService = async () => {
+  try {
+    return await getCompanyNamesDao();
+  } catch (error) {
+    logger.error('Error getting company names:', error);
+    throw error;
+  }
+};
+
+const signUpCompanyService = async (payload) => {
+  let conn;
+  try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+    const result = await _createCompanyServiceInternal(payload, conn);
+    await commit(conn);
+    return result;
+  } catch (error) {
+    if (conn) await rollback(conn);
+    logger.error('Error while signing up company:', error);
+    throw error;
+  } finally {
+    if (conn) conn.release();
+  }
+};
+
 export {
   getCompanyService,
   getCompanyByIdService,
   createCompanyService,
   updateCompanyService,
   deleteCompanyService,
+  getCompanyNamesService,
+  signUpCompanyService,
 };
