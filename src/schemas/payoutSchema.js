@@ -3,7 +3,7 @@ import Joi from 'joi';
 export const PAYOUT_DETAILS_SCHEMA = Joi.object({
   ifsc_code: Joi.string().label('ifsc_code').required(),
   method: Joi.string().label('method').optional(),
-  bank_acc_id: Joi.string().allow('').label('bank_acc_id').optional(),
+  bank_acc_id: Joi.string().label('bank_acc_id').optional(),
   reason: Joi.string().label('reason').optional(),
   user_id: Joi.string().label('user_id').optional(),
   user: Joi.string().label('user').optional(),
@@ -38,7 +38,7 @@ export const UPDATE_DETAILS_SCHEMA = Joi.object({
   acc_holder_name: Joi.string().label('acc_holder_name').optional(),
   ifsc_code: Joi.string().label('ifsc_code').optional(),
   bank_name: Joi.string().label('bank_name').optional(),
-  bank_acc_id: Joi.string().label('bank_acc_id').optional(),
+  bank_acc_id: Joi.string().allow('').label('bank_acc_id').optional(),
   upi_id: Joi.string().email().label('upi_id').optional(), // UPI ID could be in email format
   utr_id: Joi.string().label('utr_id').optional(),
   is_enable: Joi.boolean().label('is_enable').default(true), // `is_enable` should be a boolean
