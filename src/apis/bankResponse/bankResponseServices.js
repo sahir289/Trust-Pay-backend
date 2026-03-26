@@ -1071,8 +1071,9 @@ const createBankResponseWebHookService = async (
   role,
   name,
   // user_id,
+  webhookconn,
 ) => {
-  let conn;
+  let conn = webhookconn || null;
   let committed = false;
   const postCommitTasks = [];
   try {

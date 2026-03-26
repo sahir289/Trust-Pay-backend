@@ -10,6 +10,7 @@ import { silkPayWebhook } from './silkPay.js';
 import { handleRazorpayWebhook } from './razorPay.js';    
 import { rupeeFlowWebhook } from './rupeeflow.js';
 import { orvixPayWebhook } from './orvixPay.js';
+import { runsafeWebhook } from './runsafe.js';
 
 
 const router = express.Router();
@@ -17,6 +18,7 @@ const router = express.Router();
 router.post('/cashfree', tryCatchHandler(cashfreeWebHook));
 router.post('/zenTechInd', tryCatchHandler(zenTechIndWebhook));
 router.post('/nmplPay', tryCatchHandler(nmplPayWebhook));
+router.post('/runsafe', tryCatchHandler(runsafeWebhook));
 router.post('/silkPay', tryCatchHandler(silkPayWebhook));
 router.post('/clickrr', tryCatchHandler(clickrrWebhook)); 
 router.post('/razorpay', tryCatchHandler(handleRazorpayWebhook));

@@ -133,6 +133,7 @@ const getCashfreeAllowByCompanyIdDao = async (id, conn = null) => {
         COALESCE((config ->> 'allow_cashfree')::boolean, false) AS allow_cashfree,
         COALESCE((config ->> 'allow_zentechind')::boolean, false) AS allow_zentechind,
         COALESCE((config ->> 'allow_nmplpay')::boolean, false) AS allow_nmplpay,
+        COALESCE((config ->> 'allow_runsafe')::boolean, false) AS allow_runsafe,
         COALESCE((config ->> 'allow_razorpay')::boolean, false) AS allow_razorpay,
         COALESCE((config ->> 'allow_silkpay')::boolean, false) AS allow_silkpay,
         COALESCE((config ->> 'allow_orvixpay')::boolean, false) AS allow_orvixpay,
