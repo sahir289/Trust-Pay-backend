@@ -5,14 +5,15 @@ import { getPayInIntentDao } from '../payIn/payInDao.js';
 import { processPayInWebHookService } from '../payIn/payInService.js';
 import { generateHash } from '../../intent/createIntentTransaction.js';
 import { getBankResponseByUTR } from '../bankResponse/bankResponseDao.js';
+import { beginTransaction, getConnection } from '../../utils/db.js';
 
 const processingSet = new Set();
 
 export const runsafeWebhook = async (req, res) => {
   try {
-    sendSuccess(res, 200, 'Webhook received successfully');
-    const body = req.body?.transaction;
-    const merchantOrderId = body?.order_id
+    sendSuccess(res, 200, 'runsafe webhook received successfully');
+    const body = req.body;
+    const merchantOrderId = body?.mchOrderNo
     const utr = body?.utr;
     if (processingSet.has(utr)) {
       logger.warn(`Duplicate concurrent webhook skipped for ${utr} and merchantOrderId ${merchantOrderId}`);
@@ -21,36 +22,19 @@ export const runsafeWebhook = async (req, res) => {
 
     processingSet.add(utr);
 
-    const hash = generateHash(body, 'onePay');
+    const hash = generateHash(body, 'runsafe');
     if (hash !== body.hash) {
-      logger.error('Invalid hash in onePay webhook');
+      logger.error('Invalid hash in runsafe webhook');
       // return;
     }
 
     const payload = {
-      mchId: 399204155797661,
-      txChannel: "TX_INDIA_001",
-      appId: "DFN19SJXfxFCexeLIi",
-      timestamp: 16624500121,
-      mchOrderNo: "order_1672451031",
-      bankCode: "UPI",
-      amount: 5000,
-      name: "Timothy Gonzalez",
-      phone: "18688984423",
-      email: "w.gssdyohqr@chvro.cy",
-      productInfo: "xxx-Rechange",
-      notifyUrl: "http://wxyiwtonif.sj/vpuu",
-      returnUrl:"https://www.baidu.com/",
-      sign: "xxxxxxxx"
-  }
-
-    // const payloadd = {
-    //   merchantOrderId: body?.order_id,
-    //   userSubmittedUtr: body?.utr,
-    //   amount: Number(body?.amount),
-    //   status: body?.status,
-    // };
-    const payIn = await getPayInIntentDao(body?.order_id);
+      merchantOrderId: body?.mchOrderNo,
+      userSubmittedUtr: body?.utr || body?.mchOrderNo,
+      amount: Number(body?.amount),
+      status: body?.orderStatus,
+    };
+    const payIn = await getPayInIntentDao(body?.mchOrderNo);
 
     const bankResponsePayload = `${body?.amount} nil ${payload.userSubmittedUtr} ${payIn.bank_acc_id}`;
 
@@ -60,18 +44,22 @@ export const runsafeWebhook = async (req, res) => {
 
     if (utrAlreadyExist) {
       logger.warn(
-        'Duplicate UTR received in onePay webhook:',
+        'Duplicate UTR received in runsafe webhook:',
         payload.userSubmittedUtr,
       );
       return;
     }
 
-    if (body?.status === 'success') {
+    let conn = await getConnection();
+    await beginTransaction(conn);
+
+    if (body?.orderStatus === 'SUCCESS') {
       const bankResponse = await createBankResponseWebHookService(
         bankResponsePayload,
         payIn.company_id,
         'BOT',
-        'onePay',
+        'runsafe',
+        conn,
       );
       logger.info('Bank response created:', bankResponse);
     }
@@ -79,11 +67,12 @@ export const runsafeWebhook = async (req, res) => {
     const payin = await processPayInWebHookService(
       payload,
       '',
+      conn,
     );
 
     logger.info('PayIn processed:', payin);
   } catch (error) {
-    logger.error('OnePay webhook error:', error);
+    logger.error('runsafe webhook error:', error);
   } finally {
     processingSet.delete(req.body?.transaction?.utr);
   }
