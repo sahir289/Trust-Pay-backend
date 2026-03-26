@@ -22,6 +22,7 @@ import { generateCacheKey } from '../../utils/redishashkey.js';
 import {
   normalizeQueryForCache,
   readJsonCache,
+  shouldServeCachedResponse,
   writeJsonCache,
   invalidateCompanyCacheByPrefix,
 } from '../../utils/controllerCache.js';
@@ -39,7 +40,7 @@ const getSettlementControllerById = async (req, res) => {
   const cacheKey = `settlement:read:${company_id}:byid:${id}:${role}`;
 
   const cached = await readJsonCache(cacheKey, 'Settlement by-id cache');
-  if (cached) {
+  if (shouldServeCachedResponse(cached, req.query)) {
     return sendSuccess(res, cached, 'got settlement');
   }
 
@@ -71,7 +72,7 @@ const getSettlementController = async (req, res) => {
   )}`;
 
   const cached = await readJsonCache(cacheKey, 'Settlement list cache');
-  if (cached) {
+  if (shouldServeCachedResponse(cached, req.query)) {
     return sendSuccess(res, cached, 'Settlements retrieved successfully');
   }
 
@@ -138,7 +139,7 @@ const getSettlementsBySearch = async (req, res) => {
   )}`;
 
   const cached = await readJsonCache(cacheKey, 'Settlement search cache');
-  if (cached) {
+  if (shouldServeCachedResponse(cached, req.query)) {
     return sendSuccess(res, cached, 'Settlements retrieved successfully');
   }
 

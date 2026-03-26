@@ -167,12 +167,7 @@ const getMerchantsService = async (
         : [];
     if (role === Role.MERCHANT) {
       const userHierarchys = await getUserHierarchysDao(
-        { user_id },
-        null,
-        null,
-        null,
-        null,
-        null,
+        { user_id }
       );
       const userHierarchy = userHierarchys[0];
       if (designation === Role.MERCHANT || designation === Role.SUB_MERCHANT) {
@@ -190,12 +185,7 @@ const getMerchantsService = async (
           const parentHierarchys = await getUserHierarchysDao(
             {
               user_id: parentUserId,
-            },
-            null,
-            null,
-            null,
-            null,
-            null,
+            }
           );
           const parentHierarchy = parentHierarchys[0];
           if (parentHierarchy?.config?.siblings?.sub_merchants) {
@@ -219,7 +209,7 @@ const getMerchantsService = async (
       pageSize,
       'updated_at',
       null,
-      role,
+      role
     );
 
     const finalResult = filterResponse(data, filterColumns);
@@ -255,12 +245,7 @@ const getMerchantsBySearchService = async (
         : [];
     if (role === Role.MERCHANT) {
       const userHierarchys = await getUserHierarchysDao(
-        { user_id },
-        null,
-        null,
-        null,
-        null,
-        null,
+        { user_id }
       );
       const userHierarchy = userHierarchys[0];
       if (designation === Role.MERCHANT || designation === Role.SUB_MERCHANT) {
@@ -278,12 +263,7 @@ const getMerchantsBySearchService = async (
           const parentHierarchys = await getUserHierarchysDao(
             {
               user_id: parentUserId,
-            },
-            null,
-            null,
-            null,
-            null,
-            null,
+            }
           );
           const parentHierarchy = parentHierarchys[0];
           if (parentHierarchy?.config?.siblings?.sub_merchants) {
@@ -316,7 +296,7 @@ const getMerchantsBySearchService = async (
       'updated_at',
       null,
       role,
-      searchTerms,
+      searchTerms
     );
 
     // let data = await getAllMerchantsDao(
@@ -354,12 +334,7 @@ const getMerchantsServiceCode = async (
 
     if (role === Role.MERCHANT) {
       const userHierarchys = await getUserHierarchysDao(
-        { user_id },
-        null,
-        null,
-        null,
-        null,
-        null,
+        { user_id }
       );
       const userHierarchy = userHierarchys[0];
 
@@ -376,12 +351,7 @@ const getMerchantsServiceCode = async (
           const parentHierarchys = await getUserHierarchysDao(
             {
               user_id: parentUserId,
-            },
-            null,
-            null,
-            null,
-            null,
-            null,
+            }
           );
           const parentHierarchy = parentHierarchys[0];
           const subMerchants =
@@ -414,7 +384,7 @@ const getMerchantsServiceCode = async (
 };
 
 // Update Merchant Service
-const _updateMerchantServiceInternal = async (ids, payload, conn) => {
+const _updateMerchantServiceInternal = async (ids, payload) => {
   try {
     // const filterColumns =
     //   role === Role.MERCHANT ? merchantColumns.MERCHANT : columns.MERCHANT;
@@ -425,7 +395,7 @@ const _updateMerchantServiceInternal = async (ids, payload, conn) => {
       };
     }
     delete payload.whitelist_ips;
-    const data = await updateMerchantDao(ids, payload, conn); // Adjust DAO call for update
+    const data = await updateMerchantDao(ids, payload); // Adjust DAO call for update
     logger.log('Merchant updated successfully');
     // const finalResult = filterResponse(data, filterColumns);
     // await notifyAdminsAndUsers({
@@ -445,23 +415,13 @@ const _updateMerchantServiceInternal = async (ids, payload, conn) => {
 };
 
 const updateMerchantService = async (ids, payload) => {
-  let conn;
-  let committed = false;
+
   try {
-    conn = await getConnection();
-    await beginTransaction(conn);
-    const data = await _updateMerchantServiceInternal(ids, payload, conn);
-    await commit(conn);
-    committed = true;
+    const data = await _updateMerchantServiceInternal(ids, payload);
     return data;
   } catch (error) {
-    if (conn && !committed) {
-      await rollback(conn);
-    }
     logger.error('Error while updating merchant', error);
     throw error;
-  } finally {
-    if (conn) conn.release();
   }
 };
 
@@ -636,7 +596,7 @@ const getMerchantByIdService = async (
       null,
       null,
       null,
-      filterColumns,
+      filterColumns
     );
 
     const merchant = dataArr[0];
@@ -651,12 +611,7 @@ const getMerchantByIdService = async (
     if (addUserHierarchy) {
       // user_id is unique
       const userHierarchys = await getUserHierarchysDao(
-        { user_id },
-        null,
-        null,
-        null,
-        null,
-        null,
+        { user_id }
       );
       const userHierarchy = userHierarchys[0];
 
@@ -678,7 +633,7 @@ const getMerchantByIdService = async (
         null,
         null,
         null,
-        filterColumns,
+        filterColumns
       );
     }
 

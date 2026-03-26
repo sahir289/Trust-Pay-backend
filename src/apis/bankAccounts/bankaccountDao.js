@@ -9,6 +9,42 @@ import {
 } from '../../utils/db.js';
 
 import { logger } from '../../utils/logger.js';
+
+const PRIVILEGED_BANK_DESIGNATIONS = new Set([
+  Role.ADMIN,
+  Role.OPERATIONS,
+  Role.TRANSACTIONS,
+]);
+
+const shouldIncludeMerchantDetails = (role, designation) =>
+  role !== Role.MERCHANT &&
+  PRIVILEGED_BANK_DESIGNATIONS.has(designation);
+
+const dynamicBalanceJoin = `
+  LEFT JOIN (
+    SELECT
+      br.bank_id,
+      COUNT(*)::INTEGER AS dynamic_payin_count,
+      COALESCE(SUM(br.amount), 0)::NUMERIC AS dynamic_today_balance
+    FROM public."BankResponse" br
+    WHERE br.status = '/success'
+      AND br.created_at >= DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Kolkata')
+      AND br.created_at < DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Kolkata') + INTERVAL '1 day'
+    GROUP BY br.bank_id
+  ) br_stats ON br_stats.bank_id = ba.id
+`;
+
+const merchantDetailsJoin = `
+  LEFT JOIN LATERAL (
+    SELECT 
+      jsonb_agg(jsonb_build_object('id', m.id, 'code', m.code)) AS merchant_details
+    FROM public."Merchant" m
+    WHERE m.id::text IN (
+      SELECT jsonb_array_elements_text((ba.config->'merchants')::jsonb)
+    )
+  ) m ON TRUE
+`;
+
 export const getBankaccountPayinDao = async (filters, conn = null) => {
   try {
     let query = `
@@ -61,6 +97,10 @@ const getBankAccountCoreByIdDao = async (filters, conn = null) => {
 };
 const getBankaccountDao = async (filters, page, limit, role, designation, conn = null) => {
   try {
+    const includeMerchantDetails = shouldIncludeMerchantDetails(
+      role,
+      designation,
+    );
     let queryParams = [];
     let conditions = [`ba.is_obsolete = false`];
     // if (filters.company_id) {
@@ -116,27 +156,14 @@ const getBankaccountDao = async (filters, page, limit, role, designation, conn =
       });
     }
     let commissionSelect = '';
-    // Subquery to calculate dynamic payin_count and today_balance from BankResponse
-    const dynamicBalanceSubquery = `
-      LEFT JOIN LATERAL (
-        SELECT 
-          COALESCE(COUNT(*), 0)::INTEGER AS dynamic_payin_count,
-          COALESCE(SUM(br.amount), 0)::NUMERIC AS dynamic_today_balance
-        FROM public."BankResponse" br
-        WHERE br.bank_id = ba.id
-          AND br.status = '/success'
-          AND br.created_at >= DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Kolkata')
-          AND br.created_at < DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Kolkata') + INTERVAL '1 day'
-      ) br_stats ON TRUE
-    `;
     if (role === 'MERCHANT') {
       commissionSelect = '';
     } else if (role === 'VENDOR') {
       commissionSelect = `
         ba.ifsc AS ifsc_code, 
-        COALESCE(br_stats.dynamic_payin_count, 0) AS payin_count, 
-        ba.balance, 
-        COALESCE(br_stats.dynamic_today_balance, 0) AS today_balance, 
+        ba.payin_count::float AS payin_count, 
+        ba.balance::float AS balance, 
+        ba.today_balance::float AS today_balance, 
         ba.bank_used_for,
         ba.user_id,
         ba.config->>'is_freeze' AS freezed,
@@ -150,13 +177,13 @@ const getBankaccountDao = async (filters, page, limit, role, designation, conn =
         ba.ifsc, 
         ba.min, 
         ba.max, 
-        COALESCE(br_stats.dynamic_payin_count, 0) AS payin_count, 
-        ba.balance, 
-        COALESCE(br_stats.dynamic_today_balance, 0) AS today_balance, 
+        ba.payin_count::float AS payin_count, 
+        ba.balance::float AS balance, 
+        ba.today_balance::float AS today_balance, 
         ba.bank_used_for, 
         creator.user_name AS created_by, 
         updater.user_name AS updated_by, 
-        ${designation === Role.ADMIN || Role.OPERATIONS || Role.TRANSACTIONS ? `COALESCE(m.merchant_details, '[]'::jsonb) AS Merchant_Details, ba.config,` : ''}
+        ${includeMerchantDetails ? `COALESCE(m.merchant_details, '[]'::jsonb) AS Merchant_Details, ba.config,` : ''}
         ba.created_at, 
         ba.updated_at`;
     }
@@ -179,15 +206,8 @@ const getBankaccountDao = async (filters, page, limit, role, designation, conn =
           public."BankAccount" ba
       LEFT JOIN public."Vendor" v 
           ON ba.user_id = v.user_id
-      ${role !== 'MERCHANT' ? dynamicBalanceSubquery : ''}
-      LEFT JOIN LATERAL (
-          SELECT 
-              jsonb_agg(jsonb_build_object('id', m.id, 'code', m.code)) AS merchant_details
-          FROM public."Merchant" m
-          WHERE m.id::text IN (
-                    SELECT jsonb_array_elements_text((ba.config->'merchants')::jsonb)
-          )
-      ) m ON TRUE
+        ${role === 'MERCHANT' ? '' : dynamicBalanceJoin}
+        ${includeMerchantDetails ? merchantDetailsJoin : ''}
        LEFT JOIN public."User" creator 
         ON ba.created_by = creator.id
       LEFT JOIN public."User" updater 
@@ -216,6 +236,10 @@ const getAllBankaccountDao = async (
   conn = null,
 ) => {
   try {
+    const includeMerchantDetails = shouldIncludeMerchantDetails(
+      role,
+      designation,
+    );
     let queryParams = [];
     let conditions = [`ba.is_obsolete = false`];
     // if (filters.company_id) {
@@ -271,27 +295,14 @@ const getAllBankaccountDao = async (
       });
     }
     let commissionSelect = '';
-    // Subquery to calculate dynamic payin_count and today_balance from BankResponse
-    const dynamicBalanceSubquery = `
-      LEFT JOIN LATERAL (
-        SELECT 
-          COALESCE(COUNT(*), 0)::INTEGER AS dynamic_payin_count,
-          COALESCE(SUM(br.amount), 0)::NUMERIC AS dynamic_today_balance
-        FROM public."BankResponse" br
-        WHERE br.bank_id = ba.id
-          AND br.status = '/success'
-          AND br.created_at >= DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Kolkata')
-          AND br.created_at < DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Kolkata') + INTERVAL '1 day'
-      ) br_stats ON TRUE
-    `;
     if (role === 'MERCHANT') {
       commissionSelect = '';
     } else if (role === 'VENDOR') {
       commissionSelect = `
         ba.ifsc AS ifsc_code, 
-        COALESCE(br_stats.dynamic_payin_count, 0) AS payin_count, 
-        ba.balance, 
-        COALESCE(br_stats.dynamic_today_balance, 0) AS today_balance,
+        ba.payin_count::float AS payin_count, 
+        ba.balance::float AS balance, 
+        ba.today_balance::float AS today_balance,
         ba.is_enabled,   
         ba.bank_used_for,
         ba.config->>'max_limit' AS daily_limit`;
@@ -302,16 +313,16 @@ const getAllBankaccountDao = async (
         ba.ifsc, 
         ba.min, 
         ba.max, 
-        COALESCE(br_stats.dynamic_payin_count, 0) AS payin_count, 
-        ba.balance, 
+        ba.payin_count::float AS payin_count, 
+        ba.balance::float AS balance, 
         ba.is_qr, 
         ba.is_bank, 
         ba.is_enabled, 
-        COALESCE(br_stats.dynamic_today_balance, 0) AS today_balance, 
+        ba.today_balance::float AS today_balance, 
         ba.bank_used_for, 
         creator.user_name AS created_by, 
         updater.user_name AS updated_by, 
-        ${designation === Role.ADMIN || Role.OPERATIONS || Role.TRANSACTIONS ? `COALESCE(m.merchant_details, '[]'::jsonb) AS Merchant_Details, ba.config,` : ''}
+        ${includeMerchantDetails ? `COALESCE(m.merchant_details, '[]'::jsonb) AS Merchant_Details, ba.config,` : ''}
         ba.created_at, 
         ba.updated_at`;
     }
@@ -330,15 +341,8 @@ const getAllBankaccountDao = async (
           public."BankAccount" ba
       LEFT JOIN public."Vendor" v 
           ON ba.user_id = v.user_id
-      ${role !== 'MERCHANT' ? dynamicBalanceSubquery : ''}
-      LEFT JOIN LATERAL (
-          SELECT 
-              jsonb_agg(jsonb_build_object('id', m.id, 'code', m.code)) AS merchant_details
-          FROM public."Merchant" m
-          WHERE m.id::text IN (
-                    SELECT jsonb_array_elements_text((ba.config->'merchants')::jsonb)
-          )
-      ) m ON TRUE
+        ${role === 'MERCHANT' ? '' : dynamicBalanceJoin}
+        ${includeMerchantDetails ? merchantDetailsJoin : ''}
        LEFT JOIN public."User" creator 
         ON ba.created_by = creator.id
       LEFT JOIN public."User" updater 
@@ -368,6 +372,10 @@ const getBankAccountsBySearchDao = async (
   conn = null,
 ) => {
   try {
+    const includeMerchantDetails = shouldIncludeMerchantDetails(
+      role,
+      designation,
+    );
     let queryParams = [];
     let conditions = [];
     let paramIndex = 1;
@@ -494,27 +502,14 @@ const getBankAccountsBySearchDao = async (
 
     // Role-based select fields
     let commissionSelect = '';
-    // Subquery to calculate dynamic payin_count and today_balance from BankResponse
-    const dynamicBalanceSubquery = `
-      LEFT JOIN LATERAL (
-        SELECT 
-          COALESCE(COUNT(*), 0)::INTEGER AS dynamic_payin_count,
-          COALESCE(SUM(br.amount), 0)::NUMERIC AS dynamic_today_balance
-        FROM public."BankResponse" br
-        WHERE br.bank_id = ba.id
-          AND br.status = '/success'
-          AND br.created_at >= DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Kolkata')
-          AND br.created_at < DATE_TRUNC('day', NOW() AT TIME ZONE 'Asia/Kolkata') + INTERVAL '1 day'
-      ) br_stats ON TRUE
-    `;
     if (role === 'MERCHANT') {
       commissionSelect = '';
     } else if (role === 'VENDOR') {
       commissionSelect = `
         ba.ifsc AS ifsc_code, 
-        COALESCE(br_stats.dynamic_payin_count, 0) AS payin_count, 
-        ba.balance, 
-        COALESCE(br_stats.dynamic_today_balance, 0) AS today_balance,
+        ba.payin_count::float AS payin_count, 
+        ba.balance::float AS balance, 
+        ba.today_balance::float AS today_balance,
         ba.is_enabled,   
         ba.bank_used_for,
         ba.config->>'max_limit' AS daily_limit,
@@ -525,19 +520,21 @@ const getBankAccountsBySearchDao = async (
         ba.ifsc, 
         ba.min, 
         ba.max, 
-        COALESCE(br_stats.dynamic_payin_count, 0) AS payin_count, 
-        ba.balance, 
+        ba.payin_count::float AS payin_count, 
+        ba.balance::float AS balance, 
         ba.is_qr, 
         ba.is_bank, 
         ba.is_enabled, 
-        COALESCE(br_stats.dynamic_today_balance, 0) AS today_balance, 
+        ba.today_balance::float AS today_balance, 
         ba.bank_used_for, 
         creator.user_name AS created_by, 
         updater.user_name AS updated_by, 
-        ${designation === Role.ADMIN || Role.OPERATIONS || Role.TRANSACTIONS ? `COALESCE(m.merchant_details, '[]'::jsonb) AS Merchant_Details, ba.config,` : ''}
+        ${includeMerchantDetails ? `COALESCE(m.merchant_details, '[]'::jsonb) AS Merchant_Details, ba.config,` : ''}
         ba.created_at, 
         ba.updated_at`;
     }
+
+      const whereClause = conditions.length ? conditions.join(' AND ') : '1 = 1';
 
     // Base query
     const baseQuery = `
@@ -557,25 +554,29 @@ const getBankAccountsBySearchDao = async (
         public."BankAccount" ba
       LEFT JOIN public."Vendor" v 
         ON ba.user_id = v.user_id
-      ${role !== 'MERCHANT' ? dynamicBalanceSubquery : ''}
-      LEFT JOIN LATERAL (
-        SELECT 
-          jsonb_agg(jsonb_build_object('id', m.id, 'code', m.code)) AS merchant_details
-        FROM public."Merchant" m
-        WHERE m.id::text IN (
-          SELECT jsonb_array_elements_text((ba.config->'merchants')::jsonb)
-        )
-      ) m ON TRUE
+      ${role === 'MERCHANT' ? '' : dynamicBalanceJoin}
+      ${includeMerchantDetails ? merchantDetailsJoin : ''}
       LEFT JOIN public."User" creator 
         ON ba.created_by = creator.id
       LEFT JOIN public."User" updater 
         ON ba.updated_by = updater.id
       WHERE 
-        ${conditions.length ? conditions.join(' AND ') : '1 = 1'}
+        ${whereClause}
     `;
 
-    // Count query
-    const countQuery = `SELECT COUNT(*) AS total FROM (${baseQuery}) AS count_table`;
+    const countBaseQuery = `
+      SELECT ba.id
+      FROM public."BankAccount" ba
+      LEFT JOIN public."Vendor" v 
+        ON ba.user_id = v.user_id
+      LEFT JOIN public."User" creator 
+        ON ba.created_by = creator.id
+      LEFT JOIN public."User" updater 
+        ON ba.updated_by = updater.id
+      WHERE ${whereClause}
+    `;
+
+    const countQuery = `SELECT COUNT(*) AS total FROM (${countBaseQuery}) AS count_table`;
 
     // Main query with sorting and pagination
     const mainQuery = `
@@ -592,15 +593,13 @@ const getBankAccountsBySearchDao = async (
       ${limitcondition};
     `;
 
-    // Execute queries
-    const [countResult, searchResult] = await Promise.all([
-      executeQuery(
-        countQuery,
-        queryParams.slice(0, page && limit ? -2 : queryParams.length),
-        conn,
-      ),
-      executeQuery(mainQuery, queryParams, conn),
-    ]);
+    // Execute queries sequentially to avoid holding two pool connections simultaneously
+    const countResult = await executeQuery(
+      countQuery,
+      queryParams.slice(0, page && limit ? -2 : queryParams.length),
+      conn,
+    );
+    const searchResult = await executeQuery(mainQuery, queryParams, conn);
 
     const totalCount = parseInt(countResult.rows[0].total);
     let totalPages = limit ? Math.ceil(totalCount / limit) : 1;
@@ -771,6 +770,44 @@ const createBankaccountDao = async (payload, conn = null) => {
   }
 };
 
+const patchBankaccountFastDao = async (id, payload, conn = null) => {
+  try {
+    return await buildAndExecuteUpdateQuery(
+      tableName.BANK_ACCOUNT,
+      payload,
+      id,
+      {},
+      { returnUpdated: true },
+      conn,
+    );
+  } catch (error) {
+    logger.error('Error in patchBankaccountFastDao:', error);
+    throw error;
+  }
+};
+
+const checkBankNickNameExistsDao = async (
+  companyId,
+  nickName,
+  conn = null,
+) => {
+  try {
+    const query = `
+      SELECT 1
+      FROM "${tableName.BANK_ACCOUNT}"
+      WHERE company_id = $1
+        AND nick_name = $2
+        AND is_obsolete = false
+      LIMIT 1
+    `;
+    const result = await executeQuery(query, [companyId, nickName], conn);
+    return result.rowCount > 0;
+  } catch (error) {
+    logger.error('Error in checkBankNickNameExistsDao:', error);
+    throw error;
+  }
+};
+
 const getBankAccountDaoNickName = async (
   company_id,
   type,
@@ -835,10 +872,10 @@ const getBankAccountDaoNickName = async (
 const updateBankaccountDao = async (id, payload, isParentDeleted, conn = null) => {
   try {
     // Fetch existing bank config to merge with added_at
-    const existingBankArr = await getBankaccountDao({
+    const existingBankArr = await getBankAccountCoreByIdDao({
       id: id.id,
       company_id: id.company_id,
-    }, null, null, null, null, conn);
+    }, conn);
     const existingBank = existingBankArr[0];
 
     if (!existingBank) {
@@ -1027,12 +1064,31 @@ const getBankIdsOnlyDao = async (userIds, bankUsedFor = 'PayIn', conn = null) =>
   }
 };
 
+// Batch fetch bank accounts by array of ids
+const getBankaccountDaoBatch = async (ids = [], conn = null) => {
+  if (!Array.isArray(ids) || ids.length === 0) return [];
+  try {
+    const sql = `
+      SELECT * FROM "BankAccount"
+      WHERE id = ANY($1::text[])
+        AND is_obsolete = false
+    `;
+    const result = await executeQuery(sql, [ids], conn);
+    return result.rows;
+  } catch (error) {
+    logger.error('Error in getBankaccountDaoBatch:', error);
+    throw error;
+  }
+};
+
 export {
   getBankaccountDao,
   getBankAccountCoreByIdDao,
   getBankAccountsBySearchDao,
   getAllBankaccountDao,
   createBankaccountDao,
+  checkBankNickNameExistsDao,
+  patchBankaccountFastDao,
   updateBankaccountDao,
   deleteBankaccountDao,
   getMerchantBankDao,
@@ -1044,4 +1100,5 @@ export {
   getBankAccountNickNameForEsDao,
   getBankAccountNickNameForPayinEsDao,
   getBankIdsOnlyDao,
+  getBankaccountDaoBatch,
 };

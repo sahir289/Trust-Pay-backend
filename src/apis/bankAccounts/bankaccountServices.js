@@ -6,15 +6,12 @@ import {
   getConnection,
   rollback,
 } from '../../utils/db.js';
-import { stringifyJSON } from '../../utils/index.js';
 import { logger } from '../../utils/logger.js';
 import redisClient from '../../utils/redisClient.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 import { deactivateBank } from '../../utils/sockets.js';
 import {
-  // getBankResponseDaoAll,
-  updateBotResponseDao,
-  getBankResponsesforFreeze,
+  bulkUpdateBankResponsesStatusDao,
 } from '../bankResponse/bankResponseDao.js';
 import { getCalculationforCronDao } from '../calculation/calculationDao.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
@@ -23,12 +20,93 @@ import {
   // getBankaccountDao,
   getBankAccountCoreByIdDao,
   createBankaccountDao,
+  patchBankaccountFastDao,
   updateBankaccountDao,
   deleteBankaccountDao,
   getBankAccountDaoNickName,
   getBankAccountsBySearchDao,
   getAllBankaccountDao,
 } from './bankaccountDao.js';
+
+const isPlainObject = (value) =>
+  typeof value === 'object' && value !== null && !Array.isArray(value);
+
+const isFastUpdateCandidate = (payload) => {
+  if (!isPlainObject(payload)) return false;
+
+  const topLevelKeys = Object.keys(payload);
+  const allowedKeys = new Set(['updated_by', 'is_enabled', 'config']);
+
+  const hasOnlyAllowedTopLevelKeys = topLevelKeys.every((key) =>
+    allowedKeys.has(key),
+  );
+
+  if (!hasOnlyAllowedTopLevelKeys) return false;
+
+  if (payload.is_enabled === true) return false;
+
+  if (payload.config !== undefined) {
+    if (!isPlainObject(payload.config)) return false;
+    const configKeys = Object.keys(payload.config);
+    if (configKeys.length !== 1 || configKeys[0] !== 'is_freeze') {
+      return false;
+    }
+    if (typeof payload.config.is_freeze !== 'boolean') {
+      return false;
+    }
+  }
+
+  return payload.is_enabled === false || payload?.config?.is_freeze !== undefined;
+};
+
+const applyBankUserScopeFilters = async (
+  filters,
+  role,
+  designation,
+  user_id,
+  conn = null,
+) => {
+  if (
+    role !== Role.VENDOR &&
+    role !== Role.SUB_VENDOR &&
+    designation !== Role.VENDOR_OPERATIONS
+  ) {
+    return filters;
+  }
+
+  const userHierarchys = await getUserHierarchysDao(
+    { user_id },
+    null,
+    null,
+    null,
+    null,
+    null,
+    conn,
+  );
+  const userHierarchy = userHierarchys?.[0];
+  const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
+
+  if (role === Role.VENDOR) {
+    filters.user_id =
+      Array.isArray(subVendors) && subVendors.length > 0
+        ? [user_id, ...subVendors]
+        : [user_id];
+  } else if (role === Role.SUB_VENDOR) {
+    filters.user_id = [user_id];
+  }
+
+  if (designation === Role.VENDOR_OPERATIONS) {
+    const parentID = userHierarchy?.config?.parent;
+    if (parentID) {
+      filters.user_id =
+        Array.isArray(subVendors) && subVendors.length > 0
+          ? [parentID, ...subVendors]
+          : [parentID];
+    }
+  }
+
+  return filters;
+};
 
 const BANK_NAMES_CACHE_TTL_SEC = Number.parseInt(
   process.env.BANK_NAMES_CACHE_TTL_SEC || '30',
@@ -45,50 +123,12 @@ const getBankaccountService = async (
   designation,
 ) => {
   try {
-    if (role == Role.VENDOR) {
-      const userHierarchys = await getUserHierarchysDao(
-        { user_id },
-        null,
-        null,
-        null,
-        null,
-        null,
-      );
-      const userHierarchy = userHierarchys?.[0];
-
-      const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
-      if (Array.isArray(subVendors) && subVendors.length > 0) {
-        const vendorUserIds = [user_id, ...subVendors];
-        filters.user_id = vendorUserIds;
-      } else {
-        filters.user_id = [user_id];
-      }
-    } else if (role == Role.SUB_VENDOR) {
-      filters.user_id = [user_id];
-    }
-
-    const userHierarchys = await getUserHierarchysDao(
-      { user_id },
-      null,
-      null,
-      null,
-      null,
-      null,
+    await applyBankUserScopeFilters(
+      filters,
+      role,
+      designation,
+      user_id,
     );
-    if (designation == Role.VENDOR_OPERATIONS) {
-      const userHierarchy = userHierarchys?.[0];
-      const parentID = userHierarchy?.config?.parent;
-      const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
-
-      if (parentID) {
-        if (Array.isArray(subVendors) && subVendors.length > 0) {
-          const vendorUserIds = [parentID, ...subVendors];
-          filters.user_id = vendorUserIds;
-        } else {
-          filters.user_id = [parentID];
-        }
-      }
-    }
 
     const pageNumber = parseInt(page, 10) || 1;
     const pageSize = parseInt(limit, 10) || 10;
@@ -97,7 +137,7 @@ const getBankaccountService = async (
       pageNumber,
       pageSize,
       role,
-      designation,
+      designation
     );
   } catch (error) {
     logger.error('error getting while  getting banks', error);
@@ -116,50 +156,12 @@ const getBankAccountBySearchService = async (
   search,
 ) => {
   try {
-    if (role == Role.VENDOR) {
-      const userHierarchys = await getUserHierarchysDao(
-        { user_id },
-        null,
-        null,
-        null,
-        null,
-        null,
-      );
-      const userHierarchy = userHierarchys?.[0];
-
-      const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
-      if (Array.isArray(subVendors) && subVendors.length > 0) {
-        const vendorUserIds = [user_id, ...subVendors];
-        filters.user_id = vendorUserIds;
-      } else {
-        filters.user_id = [user_id];
-      }
-    } else if (role == Role.SUB_VENDOR) {
-      filters.user_id = [user_id];
-    }
-
-    const userHierarchys = await getUserHierarchysDao(
-      { user_id },
-      null,
-      null,
-      null,
-      null,
-      null,
+    await applyBankUserScopeFilters(
+      filters,
+      role,
+      designation,
+      user_id,
     );
-    if (designation == Role.VENDOR_OPERATIONS) {
-      const userHierarchy = userHierarchys?.[0];
-      const parentID = userHierarchy?.config?.parent;
-      const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
-
-      if (parentID) {
-        if (Array.isArray(subVendors) && subVendors.length > 0) {
-          const vendorUserIds = [parentID, ...subVendors];
-          filters.user_id = vendorUserIds;
-        } else {
-          filters.user_id = [parentID];
-        }
-      }
-    }
 
     const pageNumber = parseInt(page, 10) || 1;
     const pageSize = parseInt(limit, 10) || 10;
@@ -176,7 +178,7 @@ const getBankAccountBySearchService = async (
       pageSize,
       role,
       designation,
-      searchTerms,
+      searchTerms
     );
     return banks;
   } catch (error) {
@@ -233,28 +235,12 @@ const getBankaccountServiceNickName = async (
     } else if (user) {
       filters.user_id = [user];
     }
-    const userHierarchys = await getUserHierarchysDao(
-      { user_id },
-      null,
-      null,
-      null,
-      null,
-      null,
+    await applyBankUserScopeFilters(
+      filters,
+      role,
+      designation,
+      user_id,
     );
-    if (designation == Role.VENDOR_OPERATIONS) {
-      const userHierarchy = userHierarchys?.[0];
-      const parentID = userHierarchy?.config?.parent;
-      const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
-
-      if (parentID) {
-        if (Array.isArray(subVendors) && subVendors.length > 0) {
-          const vendorUserIds = [parentID, ...subVendors];
-          filters.user_id = vendorUserIds;
-        } else {
-          filters.user_id = [parentID];
-        }
-      }
-    }
 
     const result = await getBankAccountDaoNickName(
       company_id,
@@ -326,6 +312,15 @@ const createBankaccountService = async (
   user_id,
   // company_id,
 ) => {
+  if (designation !== Role.VENDOR_OPERATIONS) {
+    return _createBankaccountServiceInternal(
+      payload,
+      designation,
+      user_id,
+      null,
+    );
+  }
+
   let conn;
   let committed = false;
   try {
@@ -361,6 +356,49 @@ const _updateBankaccountInternal = async (
 ) => {
   try {
     let result;
+
+    if (isFastUpdateCandidate(payload)) {
+      const freezeFlag = payload?.config?.is_freeze;
+      const fastPayload = { ...payload };
+
+      if (fastPayload.is_enabled === false) {
+        fastPayload.config = {
+          ...(isPlainObject(fastPayload.config) ? fastPayload.config : {}),
+          merchants: [],
+        };
+      }
+
+      result = await patchBankaccountFastDao(
+        { id: ids.id, company_id: ids.company_id },
+        fastPayload,
+        conn,
+      );
+
+      if (freezeFlag === true) {
+        await bulkUpdateBankResponsesStatusDao(
+          {
+            bank_id: ids.id,
+            is_used: false,
+            fromStatus: '/success',
+            toStatus: '/freezed',
+          },
+          conn,
+        );
+      }
+      if (freezeFlag === false) {
+        await bulkUpdateBankResponsesStatusDao(
+          {
+            bank_id: ids.id,
+            is_used: false,
+            fromStatus: '/freezed',
+            toStatus: '/success',
+          },
+          conn,
+        );
+      }
+
+      return result;
+    }
 
     const bank = await getBankAccountCoreByIdDao(
       {
@@ -422,19 +460,6 @@ const _updateBankaccountInternal = async (
     }
 
     //show notification only to vendor whose bank status is updated
-    let userId = bank[0].user_id;
-    const userHierarchys = await getUserHierarchysDao(
-      { user_id: userId },
-      null,
-      null,
-      null,
-      null,
-      null,
-      conn,
-    );
-    if (role === Role.VENDOR_OPERATIONS) {
-      userId = userHierarchys[0]?.config?.parent;
-    }
     if (
       Object.keys(payload).length === 1 &&
       payload.latest_balance &&
@@ -442,6 +467,19 @@ const _updateBankaccountInternal = async (
       bank[0].config?.max_limit &&
       bank[0].config?.max_limit !== 0
     ) {
+      let userId = bank[0].user_id;
+      if (role === Role.VENDOR_OPERATIONS && userId) {
+        const userHierarchys = await getUserHierarchysDao(
+          { user_id: userId },
+          null,
+          null,
+          null,
+          null,
+          null,
+          conn,
+        );
+        userId = userHierarchys?.[0]?.config?.parent || userId;
+      }
       if (payload.latest_balance >= bank[0].config?.max_limit) {
         payload.is_enabled = false;
         payload = {
@@ -474,7 +512,7 @@ const _updateBankaccountInternal = async (
       };
     }
 
-    const payloadData = JSON.parse(stringifyJSON(payload));
+    const freezeFlag = payload?.config?.is_freeze;
     if (Object.keys(payload).length > 0) {
       result = await updateBankaccountDao(
         { id: ids.id, company_id: ids.company_id },
@@ -483,47 +521,27 @@ const _updateBankaccountInternal = async (
         conn, // Pass connection
       );
     }
-    if (payloadData?.config?.is_freeze === true) {
-      const bankResponse = await getBankResponsesforFreeze(
+    if (freezeFlag === true) {
+      await bulkUpdateBankResponsesStatusDao(
         {
           bank_id: ids.id,
           is_used: false,
-          status: '/success',
+          fromStatus: '/success',
+          toStatus: '/freezed',
         },
         conn,
       );
-      if (bankResponse.length > 0) {
-        for (let i = 0; i < bankResponse.length; i++) {
-          await updateBotResponseDao(
-            bankResponse[i].id,
-            {
-              status: '/freezed',
-            },
-            conn,
-          );
-        }
-      }
     }
-    if (payloadData?.config?.is_freeze === false) {
-      const bankResponse = await getBankResponsesforFreeze(
+    if (freezeFlag === false) {
+      await bulkUpdateBankResponsesStatusDao(
         {
           bank_id: ids.id,
           is_used: false,
-          status: '/freezed',
+          fromStatus: '/freezed',
+          toStatus: '/success',
         },
         conn,
       );
-      if (bankResponse.length > 0) {
-        for (let i = 0; i < bankResponse.length; i++) {
-          await updateBotResponseDao(
-            bankResponse[i].id,
-            {
-              status: '/success',
-            },
-            conn,
-          );
-        }
-      }
     }
 
     return result;

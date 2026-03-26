@@ -454,7 +454,7 @@ let successRatioCronJob = null;
 
 // Only run cron jobs in the dedicated cron worker process (works in both prod and local)
 const isCronWorker = process.env.CRON_WORKER === 'true';
-if (isCronWorker) {
+if (isCronWorker && process.env.NODE_ENV === 'production') {
   successRatioCronJob = cron.schedule('*/11 * * * *', () => {
     formattedSuccessRatiosForAllCompanies();
   });

@@ -157,7 +157,7 @@ const updateResetHistoryService = async (id, company_id) => {
           payin_vendor_commission: null,
           user_submitted_utr: null,
           duration: null,
-        },
+        }
       );
       return 'Transaction Reset Successfully';
     } else {

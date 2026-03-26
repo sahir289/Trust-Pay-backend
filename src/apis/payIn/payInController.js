@@ -50,15 +50,17 @@ import { s3 } from '../../helpers/Aws.js';
 import { createHash } from '../../utils/hashUtils.js';
 import { logger } from '../../utils/logger.js';
 import { getRolesById } from '../roles/rolesDao.js';
-import { Role } from '../../constants/index.js';
+import { Role, Status } from '../../constants/index.js';
 import { verifyRazorPaySignature } from '../../razorpay/razorpay.js';
 import { generateCacheKey } from '../../utils/redishashkey.js';
 import {
   normalizeQueryForCache,
   readJsonCache,
+  shouldServeCachedResponse,
   writeJsonCache,
   invalidateCompanyCacheByPrefix,
 } from '../../utils/controllerCache.js';
+import { publishPayInProcess } from '../../rabbitmq/producer.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 
 const TestingIp = process.env.LOCAL_IP;
@@ -296,9 +298,14 @@ export const payInIntentGenerateOrder = async (req, res) => {
 };
 
 export const verifyPayinsrazorpay = async (req, res) => {
-  const {razorpay_payment_id, razorpay_order_id, razorpay_signature} = req.body;
+  const { razorpay_payment_id, razorpay_order_id, razorpay_signature } =
+    req.body;
 
-  const result = await verifyRazorPaySignature(razorpay_order_id, razorpay_payment_id, razorpay_signature);
+  const result = await verifyRazorPaySignature(
+    razorpay_order_id,
+    razorpay_payment_id,
+    razorpay_signature,
+  );
   return sendSuccess(res, result, 'Transaction verified successfully');
 };
 
@@ -397,7 +404,7 @@ export const getPayinsBySearch = async (req, res) => {
   )}`;
 
   const cached = await readJsonCache(cacheKey, 'PayIn search cache');
-  if (cached) {
+  if (shouldServeCachedResponse(cached, req.query)) {
     return sendSuccess(res, cached, 'Payins fetched successfully');
   }
   // if (!search) {
@@ -421,12 +428,13 @@ export const getPayinsBySearch = async (req, res) => {
 
   return sendSuccess(res, data, 'Payins fetched successfully');
 };
+
 export const getPayinsSummary = async (req, res) => {
   const { company_id } = req.user;
   const cacheKey = `payin:read:${company_id}:summary`;
 
   const cached = await readJsonCache(cacheKey, 'PayIn summary cache');
-  if (cached) {
+  if (shouldServeCachedResponse(cached, req.query)) {
     return sendSuccess(res, cached, 'Payins fetched successfully');
   }
 
@@ -448,16 +456,18 @@ export const processPayIn = async (req, res) => {
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
-  //added check for manually utr for uplaoded screenshot
-  const data = await processPayInService(
+  await publishPayInProcess({
     payload,
-    payload.code,
-    true,
-    true,
-  );
-  await invalidatePayinCache(req.user?.company_id);
-  // sendNewSuccess(res, data, 'PayIn processed successfully');
-  sendSuccess(res, data, 'PayIn processed successfully');
+    isH2H: false,
+  });
+  const data = {
+    queued: true,
+    merchantOrderId: payload.merchantOrderId,
+    mode: 'standard',
+    status: Status.PROCESSING,
+  };
+
+  sendSuccess(res, data, 'PayIn request queued successfully', 202);
 };
 export const processPayInH2H = async (req, res) => {
   const payload = {
@@ -468,18 +478,19 @@ export const processPayInH2H = async (req, res) => {
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
-  //added check for manually utr for uplaoded screenshot
-  const data = await processPayInService(
+  await publishPayInProcess({
     payload,
-    payload.code,
-    true,
-    true,
-    null,
-    true,
-  );
-  await invalidatePayinCache(req.user?.company_id);
-  sendNewSuccess(res, data, 'PayIn processed successfully');
-  // sendSuccess(res, data, 'PayIn processed successfully');
+    isH2H: true,
+  });
+
+  const data = {
+    queued: true,
+    merchantOrderId: payload.merchantOrderId,
+    mode: 'h2h',
+    status: Status.PROCESSING,
+  };
+
+  sendSuccess(res, data, 'PayIn request queued successfully', 202);
 };
 export const processPayInIMGUTR = async (req, res) => {
   const payload = {
@@ -490,12 +501,7 @@ export const processPayInIMGUTR = async (req, res) => {
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
-  const data = await processPayInService(
-    payload,
-    payload.code,
-    false,
-    true,
-  );
+  const data = await processPayInService(payload, payload.code, false, true);
   await invalidatePayinCache(req.user?.company_id);
   sendSuccess(res, data, 'PayIn updated successfully');
 };
@@ -572,11 +578,7 @@ export const updateUtrPayins = async (req, res) => {
   const { id } = req.params;
   const { utr } = req.body;
   const { user_id, user_name } = req.user;
-  const data = await updateUtrPayinService(
-    id,
-    user_id,
-    utr,
-  );
+  const data = await updateUtrPayinService(id, user_id, utr);
   await invalidatePayinCache(req.user.company_id);
   sendSuccess(
     res,

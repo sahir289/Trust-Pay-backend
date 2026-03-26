@@ -12,11 +12,15 @@ import {
 } from '../../schemas/bankAccoountSchema.js';
 import { ValidationError } from '../../utils/appErrors.js';
 import { sendError, sendSuccess } from '../../utils/responseHandlers.js';
-import { getBankaccountDao, getMerchantBankDao } from './bankaccountDao.js';
+import {
+  checkBankNickNameExistsDao,
+  getMerchantBankDao,
+} from './bankaccountDao.js';
 import { generateCacheKey } from '../../utils/redishashkey.js';
 import {
   normalizeQueryForCache,
   readJsonCache,
+  shouldServeCachedResponse,
   writeJsonCache,
   invalidateCompanyCacheByPrefix,
 } from '../../utils/controllerCache.js';
@@ -30,6 +34,53 @@ import {
   getBankAccountBySearchService,
   activeInactiveBankAccountService,
 } from './bankaccountServices.js';
+
+const normalizeBankNumericFields = (bank = {}) => {
+  if (!bank || typeof bank !== 'object') {
+    return bank;
+  }
+
+  const normalizedBank = { ...bank };
+  const numericKeys = ['balance', 'today_balance', 'min', 'max'];
+
+  numericKeys.forEach((key) => {
+    if (normalizedBank[key] !== undefined && normalizedBank[key] !== null) {
+      const parsedValue = Number(normalizedBank[key]);
+      if (!Number.isNaN(parsedValue)) {
+        normalizedBank[key] = parsedValue;
+      }
+    }
+  });
+
+  if (normalizedBank.payin_count !== undefined && normalizedBank.payin_count !== null) {
+    const parsedCount = Number.parseInt(normalizedBank.payin_count, 10);
+    if (!Number.isNaN(parsedCount)) {
+      normalizedBank.payin_count = parsedCount;
+    }
+  }
+
+  return normalizedBank;
+};
+
+const normalizeBankAccountsResponse = (payload) => {
+  if (Array.isArray(payload)) {
+    return payload.map(normalizeBankNumericFields);
+  }
+
+  if (!payload || typeof payload !== 'object') {
+    return payload;
+  }
+
+  if (Array.isArray(payload.banks)) {
+    return {
+      ...payload,
+      banks: payload.banks.map(normalizeBankNumericFields),
+    };
+  }
+
+  return normalizeBankNumericFields(payload);
+};
+
 const invalidateBankAccountsCache = async (companyId) =>
   invalidateCompanyCacheByPrefix(
     companyId,
@@ -56,14 +107,19 @@ const getBankaccount = async (req, res) => {
   )}`;
 
   const cached = await readJsonCache(cacheKey, 'BankAccounts list cache');
-  if (cached) {
-    return sendSuccess(res, cached, 'get Banks successfully');
+  if (shouldServeCachedResponse(cached, req.query)) {
+    return sendSuccess(
+      res,
+      normalizeBankAccountsResponse(cached),
+      'get Banks successfully',
+    );
   }
 
   const filters = {
     bank_used_for,
   };
-  const data = await getBankaccountService(
+  const data = normalizeBankAccountsResponse(
+    await getBankaccountService(
     filters,
     company_id,
     role,
@@ -71,6 +127,7 @@ const getBankaccount = async (req, res) => {
     limit,
     user_id,
     designation,
+    ),
   );
 
   await writeJsonCache(cacheKey, data, controllerCacheTtls.bankAccounts.list);
@@ -97,23 +154,29 @@ const getBankAccountBySearch = async (req, res) => {
   )}`;
 
   const cached = await readJsonCache(cacheKey, 'BankAccounts search cache');
-  if (cached) {
-    return sendSuccess(res, cached, 'get Banks successfully');
+  if (shouldServeCachedResponse(cached, req.query)) {
+    return sendSuccess(
+      res,
+      normalizeBankAccountsResponse(cached),
+      'get Banks successfully',
+    );
   }
 
   const filters = {
     bank_used_for,
     active,
   };
-  const data = await getBankAccountBySearchService(
-    filters,
-    company_id,
-    role,
-    page,
-    limit,
-    user_id,
-    designation,
-    search,
+  const data = normalizeBankAccountsResponse(
+    await getBankAccountBySearchService(
+      filters,
+      company_id,
+      role,
+      page,
+      limit,
+      user_id,
+      designation,
+      search,
+    ),
   );
 
   await writeJsonCache(cacheKey, data, controllerCacheTtls.bankAccounts.search);
@@ -142,7 +205,7 @@ const getBankaccountById = async (req, res) => {
   const cacheKey = `bankaccounts:read:${company_id}:byid:${id}:${role}`;
 
   const cached = await readJsonCache(cacheKey, 'BankAccounts by-id cache');
-  if (cached) {
+  if (shouldServeCachedResponse(cached, req.query)) {
     return sendSuccess(res, cached, 'get Bank successfully');
   }
 
@@ -183,18 +246,16 @@ const createBankaccount = async (req, res) => {
   delete payload.is_phonepay;
   delete payload.is_intent;
   delete payload.is_staticQR;
-  const { user_id, company_id, designation, role, user_name } = req.user;
+  const { user_id, company_id, designation, user_name } = req.user;
   payload.created_by = user_id;
   payload.updated_by = user_id;
   payload.company_id = company_id;
   //error for nick name must be unique
-  const unique = await getBankaccountDao(
-    { nick_name: payload.nick_name },
-    null,
-    null,
-    role,
+  const unique = await checkBankNickNameExistsDao(
+    company_id,
+    payload.nick_name,
   );
-  if (unique.length > 0) {
+  if (unique) {
     return sendError(res, 'Nick Name Must Be Unique', 400);
   }
   // const data =
@@ -259,7 +320,7 @@ const getMerchantBank = async (req, res) => {
   )}`;
 
   const cached = await readJsonCache(cacheKey, 'BankAccounts merchant-bank cache');
-  if (cached) {
+  if (shouldServeCachedResponse(cached, req.query)) {
     return sendSuccess(res, cached, 'Bank details fetched successfully');
   }
 

@@ -21,6 +21,7 @@ import { generateCacheKey } from '../../utils/redishashkey.js';
 import {
   normalizeQueryForCache,
   readJsonCache,
+  shouldServeCachedResponse,
   writeJsonCache,
   invalidateCompanyCacheByPrefix,
 } from '../../utils/controllerCache.js';
@@ -99,7 +100,7 @@ const getMerchants = async (req, res) => {
   )}`;
 
   const cached = await readJsonCache(cacheKey, 'Merchants list cache');
-  if (cached) {
+  if (shouldServeCachedResponse(cached, req.query)) {
     logger.log('get Merchants successfully (cache hit)');
     return sendSuccess(res, cached, 'Merchants fetched successfully');
   }
@@ -126,7 +127,7 @@ const getMerchantByCode = async (req, res) => {
   const cacheKey = `merchants:read:${company_id}:bycode:${code}`;
 
   const cached = await readJsonCache(cacheKey, 'Merchants by-code cache');
-  if (cached) {
+  if (shouldServeCachedResponse(cached, req.query)) {
     logger.log('get Merchants successfully (cache hit)');
     return sendSuccess(res, cached, 'Merchants fetched successfully');
   }
@@ -155,7 +156,7 @@ const getMerchantsBySearch = async (req, res) => {
   )}`;
 
   const cached = await readJsonCache(cacheKey, 'Merchants search cache');
-  if (cached) {
+  if (shouldServeCachedResponse(cached, req.query)) {
     logger.log('get Merchants successfully (cache hit)');
     return sendSuccess(res, cached, 'Merchants fetched successfully');
   }
@@ -198,7 +199,7 @@ const getMerchantCodes = async (req, res) => {
   )}`;
 
   const cached = await readJsonCache(cacheKey, 'Merchants codes cache');
-  if (cached) {
+  if (shouldServeCachedResponse(cached, req.query)) {
     logger.log('get Merchants successfully (cache hit)');
     return sendSuccess(res, cached, 'Merchants fetched successfully');
   }
@@ -227,7 +228,7 @@ const getMerchantsById = async (req, res) => {
   const cacheKey = `merchants:read:${company_id}:byid:${id}:${role}`;
 
   const cached = await readJsonCache(cacheKey, 'Merchants by-id cache');
-  if (cached) {
+  if (shouldServeCachedResponse(cached, req.query)) {
     return sendSuccess(res, cached, 'Merchant fetched successfully');
   }
 

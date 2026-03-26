@@ -78,6 +78,7 @@ const _createCompanyServiceInternal = async (payload, conn) => {
       telegramDuplicateDisputeChatId: '',
       telegramCheckUTRHistoryChatId: '',
       allowPayAssist: '',
+      allowPayDum: false,
       allow_cashfree: false,
       allow_zentechind: false,
       allow_nmplpay: false,
@@ -89,6 +90,13 @@ const _createCompanyServiceInternal = async (payload, conn) => {
       allowRupeeFlow: false,
       PAY_ASSIST: {
         walletsPayoutsUrl: config.payAssist.baseUrl || '',
+        walletsPayoutsAgentCode: '',
+        walletsPayoutsAgent: '',
+        walletsPayoutsApiKey: '',
+        defaultBankId: '',
+      },
+      PAY_DUM: {
+        walletsPayoutsUrl: config.payDum.baseUrl || '',
         walletsPayoutsAgentCode: '',
         walletsPayoutsAgent: '',
         walletsPayoutsApiKey: '',

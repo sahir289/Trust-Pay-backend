@@ -23,6 +23,12 @@ import {
   getUserForVerificationDao,
 } from './authDao.js';
 import {
+  AUTH_SESSION_CACHE_TTL_SEC,
+  buildAuthSessionCacheKey,
+  deleteCachedData,
+  setCachedData,
+} from '../../utils/redishashkey.js';
+import {
   createUserOtpDao,
   getUserOtpDao,
   updateUserOtpDao,
@@ -178,6 +184,17 @@ const loginService = async (
       `New session created for user: ${user.id}, session: ${sessionId}`,
     );
 
+    await setCachedData(
+      buildAuthSessionCacheKey({
+        user_id: user.id,
+        company_id: user.company_id,
+        session_id: sessionId,
+      }),
+      { session_id: sessionId },
+      AUTH_SESSION_CACHE_TTL_SEC,
+      'Auth session cache',
+    );
+
     // After successful login, force logout all other sessions for this user
     // This is done AFTER the transaction to ensure we don't interfere with the login process
     forceLogoutUser(user.id, null, sessionId);
@@ -220,6 +237,15 @@ const logoutService = async (decodeToken, session_id) => {
       decodeToken.user_id,
       decodeToken.company_id,
       session_id,
+    );
+
+    await deleteCachedData(
+      buildAuthSessionCacheKey({
+        user_id: decodeToken.user_id,
+        company_id: decodeToken.company_id,
+        session_id: session_id || decodeToken.session_id,
+      }),
+      'Auth session cache',
     );
 
     // Emit socket logout asynchronously so API latency depends on DB work,

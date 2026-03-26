@@ -58,12 +58,15 @@ const getLoginDao = async (user_id, company_id, conn = null) => {
 
 const getSessionByIdDao = async (decodeToken, conn = null) => {
   try {
-    const query = `SELECT session_id, config FROM "${tableName.ACCESS_TOKEN}" WHERE user_id=$1 AND company_id=$2 and is_obsolete = false`;
+    let query = `SELECT session_id, config FROM "${tableName.ACCESS_TOKEN}" WHERE user_id=$1 AND company_id=$2 and is_obsolete = false`;
+    const queryParams = [decodeToken.user_id, decodeToken.company_id];
 
-    const result = await executeQuery(query, [
-          decodeToken.user_id,
-          decodeToken.company_id,
-        ], conn);
+    if (decodeToken.session_id) {
+      query += ` AND session_id = $3`;
+      queryParams.push(decodeToken.session_id);
+    }
+
+    const result = await executeQuery(query, queryParams, conn);
     return result.rows?.[0] || undefined;
   } catch (error) {
     logger.error('Error in getting session details', error);

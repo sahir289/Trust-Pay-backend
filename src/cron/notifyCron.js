@@ -15,7 +15,7 @@ let isNotifyCronRunning = false; // Prevent overlapping executions
 
 // Only run cron jobs in the dedicated cron worker process (works in both prod and local)
 const isCronWorker = process.env.CRON_WORKER === 'true';
-if (isCronWorker) {
+if (isCronWorker && process.env.NODE_ENV === 'production') {
   notifyCronJob = cron.schedule('*/10 * * * * *', async () => {
     if (isNotifyCronRunning) {
       logger.warn('Notify cron is already running, skipping this execution');

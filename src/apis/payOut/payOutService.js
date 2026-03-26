@@ -65,7 +65,11 @@ import {
   createClickrrPayout,
   getClickrrWalletBalance,
 } from '../../clickrr/clickrr.js';
-import { createPayAssistPayout, getPayAssistWalletBalance } from '../../payassist/payassist.js';
+import {
+  createPayAssistPayout,
+  getPayAssistWalletBalance,
+} from '../../payassist/payassist.js';
+import { createPayDumPayout } from '../../paydum/paydum.js';
 import { createTataPayPayout } from '../../tatapay/tatapay.js';
 import {
   createRupeeFlowBulkPayout,
@@ -192,7 +196,9 @@ const _createPayoutServiceInternal = async (
     const details = await getMerchantsByCodeDao(code);
 
     if (!details[0] || details[0].length === 0) {
-      const error = new BadRequestError('Merchant is inactive. Contact support for help!');
+      const error = new BadRequestError(
+        'Merchant is inactive. Contact support for help!',
+      );
       error.statusCode = 404;
       throw error;
     }
@@ -210,7 +216,11 @@ const _createPayoutServiceInternal = async (
       } else {
         whitelist = [];
       }
-      if (whitelist.length && !whitelist.includes(userIp) && role !== Role.ADMIN) {
+      if (
+        whitelist.length &&
+        !whitelist.includes(userIp) &&
+        role !== Role.ADMIN
+      ) {
         throw new BadRequestError('IP not whitelisted');
       }
     }
@@ -263,7 +273,9 @@ const _createPayoutServiceInternal = async (
       (amount < details[0].min_payout || amount > details[0].max_payout) &&
       role !== Role.ADMIN
     ) {
-      throw new BadRequestError(`Amount should be between ${details[0].min_payout} and ${details[0].max_payout}`);
+      throw new BadRequestError(
+        `Amount should be between ${details[0].min_payout} and ${details[0].max_payout}`,
+      );
     }
 
     delete payload.x_api_key;
@@ -281,8 +293,12 @@ const _createPayoutServiceInternal = async (
       }
     }
 
-    const { allow_clickrr, clickrr_auto_approval_limit, allow_payassist, payassist_auto_approval_limit } =
-      details[0]?.config || {};
+    const {
+      allow_clickrr,
+      clickrr_auto_approval_limit,
+      allow_payassist,
+      payassist_auto_approval_limit,
+    } = details[0]?.config || {};
 
     if (allow_payassist) {
       const ids = { id: data.id, company_id: payload.company_id };
@@ -292,7 +308,6 @@ const _createPayoutServiceInternal = async (
       let updatedData;
       if (Number(payoutAmount) < Number(payassist_auto_approval_limit)) {
         if (
-          
           Number(payassistWalletBalance?.data?.walletBalance) <
           Number(payoutAmount)
         ) {
@@ -362,6 +377,7 @@ const _createPayoutServiceInternal = async (
       utr_id: data.utr_id || null,
       rejected_reason: data.rejected_reason || null,
       merchant_id: data.merchant_id || null,
+      company_id: data.company_id || null,
       payout_merchant_commission: data.payout_merchant_commission || 0,
       payout_vendor_commission: data.payout_vendor_commission || 0,
       actual_vendor_commission: data.actual_vendor_commission || '0',
@@ -779,7 +795,8 @@ const _updatePayoutServiceInternal = async (
     if (
       !payload?.config?.method === Method.CLICKRR &&
       !payload?.config?.method === Method.PAYASSIST &&
-      !payload?.config?.method === Method.TATAPAY && 
+      !payload?.config?.method === Method.PAYDUM &&
+      !payload?.config?.method === Method.TATAPAY &&
       !payload?.config?.method === Method.RUPEEFLOW &&
       !payload?.config?.method === Method.BSS &&
       !payload?.config?.method === Method.SILKPAY
@@ -894,8 +911,7 @@ const _updatePayoutServiceInternal = async (
         bankId,
       );
       payload = updatedPayload;
-    }
-    else if (payload?.config?.method === Method.BSS) {
+    } else if (payload?.config?.method === Method.BSS) {
       const method = payload.config.method;
       logger.info(`Processing BSS payout for method: ${method}`);
       const [company] = await getCompanyByIDDao({ id: ids.company_id }, conn);
@@ -919,8 +935,7 @@ const _updatePayoutServiceInternal = async (
         bankId,
       );
       payload = updatedPayload;
-    }
-    else if (payload?.config?.method === Method.SILKPAY) {
+    } else if (payload?.config?.method === Method.SILKPAY) {
       const method = payload.config.method;
       logger.info(`Processing SilkPay payout for method: ${method}`);
       const [company] = await getCompanyByIDDao({ id: ids.company_id }, conn);
@@ -944,8 +959,7 @@ const _updatePayoutServiceInternal = async (
         bankId,
       );
       payload = updatedPayload;
-    }
-    else if (payload?.config?.method === Method.BSS02) {
+    } else if (payload?.config?.method === Method.BSS02) {
       const method = payload.config.method;
       logger.info(`Processing BSS1013 payout for method: ${method}`);
       const [company] = await getCompanyByIDDao({ id: ids.company_id }, conn);
@@ -969,8 +983,7 @@ const _updatePayoutServiceInternal = async (
         bankId,
       );
       payload = updatedPayload;
-    }
-    else if (payload?.config?.method === Method.BSS03) {
+    } else if (payload?.config?.method === Method.BSS03) {
       const method = payload.config.method;
       logger.info(`Processing BSS1015 payout for method: ${method}`);
       const [company] = await getCompanyByIDDao({ id: ids.company_id }, conn);
@@ -994,8 +1007,7 @@ const _updatePayoutServiceInternal = async (
         bankId,
       );
       payload = updatedPayload;
-    }
-     else if (payload?.config?.method === Method.PAYASSIST) {
+    } else if (payload?.config?.method === Method.PAYASSIST) {
       const method = payload.config.method;
 
       const [company] = await getCompanyByIDDao({ id: ids.company_id }, conn);
@@ -1011,6 +1023,28 @@ const _updatePayoutServiceInternal = async (
         throw new NotFoundError(`Bank not found for ${method} payout`);
 
       const updatedPayload = await createPayAssistPayout(
+        payload,
+        ids,
+        singleWithdrawData,
+        bankId,
+      );
+      payload = updatedPayload;
+    } else if (payload?.config?.method === Method.PAYDUM) {
+      const method = payload.config.method;
+
+      const [company] = await getCompanyByIDDao({ id: ids.company_id }, conn);
+      if (!company) throw new NotFoundError('Company not found');
+
+      const bankId = company.config.PAY_DUM.defaultBankId;
+      if (!bankId)
+        throw new NotFoundError(`Default bank ID not found for ${method}`);
+
+      bankDataArr = await getBankByIdDao({ id: bankId }, conn);
+
+      if (!bankDataArr[0])
+        throw new NotFoundError(`Bank not found for ${method} payout`);
+
+      const updatedPayload = await createPayDumPayout(
         payload,
         ids,
         singleWithdrawData,
@@ -1067,8 +1101,9 @@ const _updatePayoutServiceInternal = async (
     }
 
     const data = await updatePayoutDao(ids, payload, conn);
+    let earlyReturnResult = null;
     if (data.status == Status.INITIATED) {
-      return data;
+      earlyReturnResult = data;
     }
     // Early return for simple updates
     const checkPayload = {
@@ -1076,7 +1111,7 @@ const _updatePayoutServiceInternal = async (
       updated_by: payload.updated_by,
     };
     if (stringifyJSON(payload) === stringifyJSON(checkPayload)) {
-      return data;
+      earlyReturnResult = data;
     }
 
     const notifyUrl = data.config?.urls?.notify || merchant?.payout_notify;
@@ -1091,28 +1126,37 @@ const _updatePayoutServiceInternal = async (
         status: data.status,
         utr_id: data.utr_id || '',
       });
-      return data;
+      earlyReturnResult = data;
     }
 
     const bankData = bankDataArr[0];
-    if (!bankData) {
-      throw new NotFoundError('Bank not found!');
-    }
-    if (bankData.is_obsolete) {
-      throw new BadRequestError('Bank account is obsolete');
-    }
-    if (bankData.is_blocked) {
-      throw new BadRequestError('Bank account is blocked');
-    }
-
-    const vendorArr = await getVendorByIdDao(
-      bankData.user_id,
-      ids.company_id,
-      conn,
-    );
-    const vendor = vendorArr[0];
-    if (!vendor) {
-      throw new NotFoundError('Vendor not found!');
+    let vendor = null;
+    // Only require bank for non-REJECTED and non-REVERSED (without approved_at) statuses
+    if (
+      ![Status.REJECTED, Status.INITIATED].includes(data.status) &&
+      !(data.status === Status.REVERSED && data.approved_at == null)
+    ) {
+      if (!bankData) {
+        throw new NotFoundError('Bank not found!');
+      }
+      if (bankData.is_obsolete) {
+        throw new BadRequestError('Bank account is obsolete');
+      }
+      if (bankData.is_blocked) {
+        throw new BadRequestError('Bank account is blocked');
+      }
+      const vendorArr = await getVendorByIdDao(
+        bankData.user_id,
+        ids.company_id,
+        conn,
+      );
+      vendor = vendorArr[0];
+      if (!vendor) {
+        throw new NotFoundError('Vendor not found!');
+      }
+    } else {
+      // For REJECTED or REVERSED (without approved_at), skip bank/vendor logic
+      vendor = {};
     }
 
     // Calculate commissions once
@@ -1185,7 +1229,7 @@ const _updatePayoutServiceInternal = async (
       await Promise.all([
         ...calculationUpdates,
         updateBankaccountDao(
-          { id: bankData.id },
+          { id: bankData.id, company_id: ids.company_id },
           {
             payin_count: Number(bankData.payin_count) + 1,
             today_balance: Number(bankData.today_balance) - Number(data.amount),
@@ -1243,7 +1287,7 @@ const _updatePayoutServiceInternal = async (
       await Promise.all([
         ...calculationUpdates,
         updateBankaccountDao(
-          { id: bankData.id },
+          { id: bankData.id, company_id: ids.company_id },
           {
             today_balance: Number(bankData.today_balance + data.amount),
             balance: Number(bankData.balance + data.amount),
@@ -1259,8 +1303,8 @@ const _updatePayoutServiceInternal = async (
       ]);
     }
 
+    // This is async function but it's just the callback sending function therefore we are not using await
     if (data.status !== Status.PENDING) {
-      // This is async function but it's just the callback sending function there fore we are not using await
       merchantPayoutCallback(notifyUrl, {
         code: merchant.code,
         merchantOrderId: data.merchant_order_id,
@@ -1273,6 +1317,7 @@ const _updatePayoutServiceInternal = async (
 
     const finalResult = filterResponse(data, filterColumns);
 
+    // Build responseObj once, after all data is available
     const responseObj = {
       id: data.id,
       sno: data.sno || null,
@@ -1284,6 +1329,7 @@ const _updatePayoutServiceInternal = async (
       utr_id: data.utr_id || null,
       rejected_reason: data.rejected_reason || null,
       merchant_id: data.merchant_id || null,
+      company_id: data.company_id || null,
       payout_merchant_commission: data.payout_merchant_commission || 0,
       payout_vendor_commission: data.payout_vendor_commission || 0,
       actual_vendor_commission: data.actual_vendor_commission || '0',
@@ -1317,11 +1363,17 @@ const _updatePayoutServiceInternal = async (
       },
       rejected_at: data.rejected_at || null,
     };
+
+    // Emit socket event for every payout status update, at the end
     setImmediate(() => {
       newTableEntry(tableName.PAYOUT, responseObj).catch((err) =>
         logger.error('Socket emit failed for payout:', err),
       );
     });
+    // Always emit socket, then return the correct result
+    if (earlyReturnResult !== null) {
+      return earlyReturnResult;
+    }
     return finalResult;
   } catch (error) {
     logger.error('error in _updatePayoutServiceInternal', error);
@@ -1620,55 +1672,101 @@ const _assignedPayoutServiceInternal = async (
       company_id,
       conn,
     );
-    const responseObj = {
-      id: data.id,
-      sno: data.sno || null,
-      amount: data.amount || 0,
-      status: data.status || null,
-      failed_reason: data.failed_reason || null,
-      currency: data.currency || 'INR',
-      upi_id: data.upi_id || null,
-      utr_id: data.utr_id || null,
-      rejected_reason: data.rejected_reason || null,
-      merchant_id: data.merchant_id || null,
-      payout_merchant_commission: data.payout_merchant_commission || 0,
-      payout_vendor_commission: data.payout_vendor_commission || 0,
-      actual_vendor_commission: data.actual_vendor_commission || '0',
-      brokerage_commission: data.brokerage_commission || '0',
-      merchant_order_id: data.merchant_order_id || null,
-      bank_acc_id: data.bank_acc_id || null,
-      approved_at: data.approved_at || null,
-      created_by: data.created_by || '',
-      updated_by: data.updated_by || '',
-      user: data.user || data.created_by || '',
-      created_at: data.created_at,
-      vendor_code: data.vendor_code || null,
-      vendor_id: data.vendor_id || null,
-      vendor_user_id: data.vendor_user_id || null,
-      payout_details: data.config || {},
-      updated_at: data.updated_at,
-      user_id: data.user_id || null,
-      nick_name: data.nick_name || null,
-      merchant_details: {
-        merchant_code: data.merchant_code || null,
-        return_url: null,
-        notify_url: null,
-        public_key: null,
-        private_key: null,
-      },
-      user_bank_details: {
-        account_holder_name: data.acc_holder_name || null,
-        account_no: data.acc_no || null,
-        ifsc_code: data.ifsc_code || null,
-        bank_name: data.bank_name || null,
-      },
-      rejected_at: data.rejected_at || null,
-    };
-    setImmediate(() => {
-      newTableEntry(tableName.PAYOUT, responseObj).catch((err) =>
-        logger.error('Socket emit failed for payout:', err),
-      );
-    });
+    // Handle payout id extraction from payload (array or object)
+    if (Array.isArray(payload)) {
+      // If payload is array of string IDs
+      for (const payoutId of payload) {
+        const ids = { id: payoutId, company_id };
+        const fullPayoutArr = await getPayoutsDao(
+          ids,
+          null,
+          null,
+          null,
+          'DESC',
+          null,
+          conn,
+        );
+        const fullPayout = Array.isArray(fullPayoutArr)
+          ? fullPayoutArr[0]
+          : fullPayoutArr;
+
+        const bankDataArr = await getBankByIdDao(
+          { id: fullPayout.bank_acc_id },
+          conn,
+        );
+        const bankData = bankDataArr[0];
+
+        const vendorArr = await getVendorsDao(
+          { id: fullPayout.vendor_id, company_id },
+          null,
+          null,
+          null,
+          'DESC',
+          null,
+          conn,
+        );
+        const vendor = vendorArr[0];
+
+        const merchantArr = await getMerchantByIdDao(
+          fullPayout.merchant_id,
+          ids.company_id,
+          conn,
+        );
+        const merchant = merchantArr[0];
+
+        const responseObj = {
+          id: fullPayout.id,
+          sno: fullPayout.sno || null,
+          amount: fullPayout.amount || 0,
+          status: fullPayout.status || null,
+          failed_reason: fullPayout.failed_reason || null,
+          currency: fullPayout.currency || 'INR',
+          upi_id: fullPayout.upi_id || null,
+          utr_id: fullPayout.utr_id || null,
+          rejected_reason: fullPayout.rejected_reason || null,
+          merchant_id: fullPayout.merchant_id || null,
+          company_id: fullPayout.company_id || null,
+          payout_merchant_commission:
+            fullPayout.payout_merchant_commission || 0,
+          payout_vendor_commission: fullPayout.payout_vendor_commission || 0,
+          actual_vendor_commission: fullPayout.actual_vendor_commission || '0',
+          brokerage_commission: fullPayout.brokerage_commission || '0',
+          merchant_order_id: fullPayout.merchant_order_id || null,
+          bank_acc_id: fullPayout.bank_acc_id || null,
+          approved_at: fullPayout.approved_at || null,
+          created_by: fullPayout.created_by || '',
+          updated_by: fullPayout.updated_by || '',
+          user: fullPayout.user || fullPayout.created_by || '',
+          created_at: fullPayout.created_at,
+          vendor_code: vendor?.code || null,
+          vendor_id: fullPayout.vendor_id || null,
+          vendor_user_id: vendor?.user_id || null,
+          payout_details: fullPayout.config || {},
+          updated_at: fullPayout.updated_at,
+          user_id: vendor?.user_id || null,
+          nick_name: bankData?.nick_name || null,
+          merchant_details: {
+            merchant_code: merchant?.code || null,
+            return_url: merchant?.config?.urls?.return || null,
+            notify_url: merchant?.config?.urls?.payout_notify || null,
+            public_key: merchant?.config?.keys?.public || null,
+            private_key: merchant?.config?.keys?.private || null,
+          },
+          user_bank_details: {
+            account_holder_name: fullPayout?.user_bank_details?.account_holder_name || null,
+            account_no: fullPayout?.user_bank_details?.account_no || null,
+            ifsc_code: fullPayout?.user_bank_details?.ifsc_code || null,
+            bank_name: fullPayout?.user_bank_details?.bank_name || null,
+          },
+          rejected_at: fullPayout.rejected_at || null,
+        };
+        setImmediate(() => {
+          newTableEntry(tableName.PAYOUT, responseObj).catch((err) =>
+            logger.error('Socket emit failed for payout:', err),
+          );
+        });
+      }
+    }
     return data;
   } catch (error) {
     logger.error('error in _assignedPayoutServiceInternal', error);
