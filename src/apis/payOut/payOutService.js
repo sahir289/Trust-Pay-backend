@@ -1739,7 +1739,7 @@ const _assignedPayoutServiceInternal = async (
           user: fullPayout.user || fullPayout.created_by || '',
           created_at: fullPayout.created_at,
           vendor_code: vendor?.code || null,
-          vendor_id: vendor?.designation_name !== Role.SUB_VENDOR ? fullPayout.vendor_id || null : null,
+          vendor_id: ![Role.VENDOR, Role.SUB_VENDOR, Role.VENDOR_OPERATIONS, Role.VENDOR_ADMIN].includes(vendor?.designation_name) ? fullPayout.vendor_id || null : null,
           vendor_user_id: vendor?.user_id || null,
           payout_details: fullPayout.config || {},
           updated_at: fullPayout.updated_at,
