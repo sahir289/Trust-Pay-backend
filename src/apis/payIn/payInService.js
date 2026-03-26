@@ -144,6 +144,8 @@ import {
 } from '../../utils/db.js';
 import { createSilkPaymentTransaction } from '../../intent/createSilkIntentTransaction.js';
 import { getCachedData ,setCachedData } from '../../utils/redishashkey.js';
+import { createOnePayPaymentTransaction } from '../../intent/createOnePayIntentTransaction.js';
+
 export const generatePayInUrlByHashService = async (req) => {
   try {
     const { user_id, code, ot, key, amount } = req.query;
@@ -880,6 +882,11 @@ export const payInIntentGenerateOrderService = async (
         const order = await createPaymentTransaction('nmplPay', payIn, amount);
         return order?.payment_url;
       },
+      runsafe: async () => {
+        const order = await createOnePayPaymentTransaction('runsafe', payIn, amount);
+        console.log('runsafe orderrr', order);
+        return order?.link;
+      },
       orvixPay: async () => {
         const order = await createPaymentTransaction('orvixPay', payIn, amount);
         return order?.payment_url;
@@ -897,6 +904,7 @@ export const payInIntentGenerateOrderService = async (
         return order?.id;
       },
     };
+    console.log('provider', provider);
     const handler = providerHandlers[provider];
     if (!handler) {
       throw new NotFoundError(`No handler found for provider: ${provider}`);
@@ -3545,10 +3553,12 @@ const _verifyPayinsServiceInternal = async (
       allowCashfree: cashfreeDetails?.allow_cashfree || false,
       allowZenTechInd: cashfreeDetails?.allow_zentechind || false,
       allowNmplPay: cashfreeDetails?.allow_nmplpay || false,
+      allowRunsafePay: cashfreeDetails?.allow_runsafe || false,
       allowSilkPay: cashfreeDetails?.allow_silkpay || false,
       allowRazorPay: cashfreeDetails?.allow_razorpay || false,
       allowOrvixPay: cashfreeDetails?.allow_orvixpay || false,
       allowOrvixPay1: cashfreeDetails?.allow_orvixpay1 || false,
+      allowrunsafe: cashfreeDetails?.allow_runsafe || false,
       status: payIn.status,
       min_amount: merchant[0].min_payin,
       max_amount: merchant[0].max_payin,

@@ -96,6 +96,12 @@ function config(Env) {
       nmplPaySpecialMerchant: Env?.SPECIAL_NMPL_PAY_MERCHANT,
       nmplPaySpecialMerchant2: Env?.SPECIAL_NMPL_PAY_MERCHANT2,
     },
+    runsafe: {
+      url: Env?.RUNSAFE_API_URL,
+      NotifyUrl: Env?.RUNSAFE_NOTIFY_URL,
+      privateKey: Env?.RUNSAFE_PRIVATE_KEY,
+      publicKey: Env?.RUNSAFE_PUBLIC_KEY,
+    },
     clickrr : {
       baseUrl: Env?.CLICKRR_BASE_API_URL,
       initiatePayout: Env?.CLICKRR_INITIATE_API_URL,

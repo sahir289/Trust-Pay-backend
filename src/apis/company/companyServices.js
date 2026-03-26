@@ -81,6 +81,7 @@ const _createCompanyServiceInternal = async (payload, conn) => {
       allow_cashfree: false,
       allow_zentechind: false,
       allow_nmplpay: false,
+      allow_runsafe: false,
       allow_silkpay: false,
       allow_razorpay: false,
       allowTataPay: false,
