@@ -1706,7 +1706,6 @@ const _assignedPayoutServiceInternal = async (
           conn,
         );
         const vendor = vendorArr[0];
-        console.log(vendor, 'vendor in assigned payout');
 
         const merchantArr = await getMerchantByIdDao(
           fullPayout.merchant_id,
