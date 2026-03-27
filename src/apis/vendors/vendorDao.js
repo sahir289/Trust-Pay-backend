@@ -170,6 +170,7 @@ export const getVendorsCodeDao = async (
         AND sv.is_obsolete = FALSE
       WHERE 
         v.is_obsolete = FALSE
+        AND v.is_enabled = TRUE
     `;
 
     if (excludeDisabledVendor) {

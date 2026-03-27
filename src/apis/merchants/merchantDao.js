@@ -93,6 +93,7 @@ export const getMerchantsCodeDao = async (
         AND sm.is_obsolete = FALSE
       WHERE 
         m.is_obsolete = FALSE
+        AND m.is_enabled = TRUE
     `;
     if (excludeDisabledMerchant) {
       sql += ` AND m.is_enabled = TRUE `;
