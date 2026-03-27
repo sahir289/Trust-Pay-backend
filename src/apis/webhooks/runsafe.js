@@ -3,16 +3,18 @@ import { sendSuccess } from '../../utils/responseHandlers.js';
 import { createBankResponseWebHookService } from '../bankResponse/bankResponseServices.js';
 import { getPayInIntentDao } from '../payIn/payInDao.js';
 import { processPayInWebHookService } from '../payIn/payInService.js';
-import { generateHash } from '../../intent/createIntentTransaction.js';
+// import { generateHash } from '../../intent/createIntentTransaction.js';
 import { getBankResponseByUTR } from '../bankResponse/bankResponseDao.js';
 import { beginTransaction, getConnection } from '../../utils/db.js';
 
 const processingSet = new Set();
 
 export const runsafeWebhook = async (req, res) => {
+  const data = req.body.post;
+  logger.info('Webhook received', data);
+  const body = typeof data === 'string' ? JSON.parse(data) : data;
   try {
     sendSuccess(res, 200, 'runsafe webhook received successfully');
-    const body = req.body;
     const merchantOrderId = body?.mchOrderNo
     const utr = body?.utr;
     if (processingSet.has(utr)) {
@@ -22,11 +24,6 @@ export const runsafeWebhook = async (req, res) => {
 
     processingSet.add(utr);
 
-    const hash = generateHash(body, 'runsafe');
-    if (hash !== body.hash) {
-      logger.error('Invalid hash in runsafe webhook');
-      // return;
-    }
 
     const payload = {
       merchantOrderId: body?.mchOrderNo,
@@ -74,6 +71,6 @@ export const runsafeWebhook = async (req, res) => {
   } catch (error) {
     logger.error('runsafe webhook error:', error);
   } finally {
-    processingSet.delete(req.body?.transaction?.utr);
+    processingSet.delete(body?.utr);
   }
 };
