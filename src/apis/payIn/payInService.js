@@ -915,7 +915,11 @@ export const payInIntentGenerateOrderService = async (
         return order?.payment_url;
       },
       runsafe: async () => {
-        const order = await createOnePayPaymentTransaction('runsafe', payIn, amount);
+        const order = await createOnePayPaymentTransaction(
+          'runsafe',
+          payIn,
+          amount,
+        );
         return order?.link;
       },
       orvixPay: async () => {
@@ -2255,16 +2259,45 @@ export const processPayInWebHookService = async (payload, updated_by, conn) => {
   try {
     const { userSubmittedUtr, merchantOrderId, amount, status } = payload;
 
-    const payIn = await getPayinsForServiccDao({
-      merchant_order_id: merchantOrderId,
-    },conn);
-    const [bank] = await getBankaccountDao({
-      id: payIn?.bank_acc_id,
-      company_id: payIn.company_id,
-    }, null, null, null, null, conn);
-    let bankResponse = await getBankResponseByJustUTRDao(userSubmittedUtr, conn);
-    const [vendor] = await getVendorsDao({ user_id: bank.user_id }, null, null, null, null,null, conn);
-    let [merchant] = await getMerchantsDao({ id: payIn.merchant_id }, null, null, null, null, null, conn);
+    const payIn = await getPayinsForServiccDao(
+      {
+        merchant_order_id: merchantOrderId,
+      },
+      conn,
+    );
+    const [bank] = await getBankaccountDao(
+      {
+        id: payIn?.bank_acc_id,
+        company_id: payIn.company_id,
+      },
+      null,
+      null,
+      null,
+      null,
+      conn,
+    );
+    let bankResponse = await getBankResponseByJustUTRDao(
+      userSubmittedUtr,
+      conn,
+    );
+    const [vendor] = await getVendorsDao(
+      { user_id: bank.user_id },
+      null,
+      null,
+      null,
+      null,
+      null,
+      conn,
+    );
+    let [merchant] = await getMerchantsDao(
+      { id: payIn.merchant_id },
+      null,
+      null,
+      null,
+      null,
+      null,
+      conn,
+    );
 
     const upperStatus = status.toUpperCase();
     const finalStatus =
@@ -2333,10 +2366,14 @@ export const processPayInWebHookService = async (payload, updated_by, conn) => {
       updatePayInData.payin_merchant_commission = merchantCommission;
       updatePayInData.payin_vendor_commission = vendorCommission;
 
-      await updateCalculationTable(merchant.user_id, {
-        payinCommission: merchantCommission,
-        amount: Number(bankResponse.amount),
-      }, conn);
+      await updateCalculationTable(
+        merchant.user_id,
+        {
+          payinCommission: merchantCommission,
+          amount: Number(bankResponse.amount),
+        },
+        conn,
+      );
     }
 
     await updatePayInUrlDao(payIn.id, updatePayInData, conn);
@@ -2562,7 +2599,6 @@ export const telegramResponseService = async (message) => {
         payIn.status,
       )
     ) {
-      
       await sendAlreadyConfirmedMessageTelegramBot(
         message.chat.id,
         content.utr,
@@ -2618,7 +2654,9 @@ export const telegramResponseService = async (message) => {
       otherBankResponsePayIns.length > 1
         ? otherBankResponsePayIns
         : otherUtrPayIns.length > 0
-          ? otherUtrPayIns.filter((item) => item.merchant_order_id !== message.caption)
+          ? otherUtrPayIns.filter(
+              (item) => item.merchant_order_id !== message.caption,
+            )
           : updatedBotResponsePayIns;
 
     // Handle used bank response or duplicate entries

@@ -1194,9 +1194,10 @@ const createBankResponseWebHookService = async (
     // Use a transaction for all DB operations for a single entry
     try {
       if (!webhookconn) {
-      conn = await getConnection();
-      await beginTransaction(conn);}
-      await applyBankResponseTxTimeouts(conn);
+        conn = await getConnection();
+        await beginTransaction(conn);
+        await applyBankResponseTxTimeouts(conn);
+      }
       botRes = await createBankResponseDao(updatedData, conn);
       // await sendNotification(updatedData.status.replace('/', ''), {
       //   id: botRes.id,
