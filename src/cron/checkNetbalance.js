@@ -13,7 +13,7 @@
 
 // let checkNetbalanceCronJob = null;
 
-// Only run cron jobs in the dedicated cron worker process (works in both prod and local)
+// // Only run cron jobs in the dedicated cron worker process (works in both prod and local)
 // const isCronWorker = process.env.CRON_WORKER === 'true';
 // if (isCronWorker && process.env.NODE_ENV === 'production') {
 //   checkNetbalanceCronJob = cron.schedule(
