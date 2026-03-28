@@ -121,7 +121,7 @@ class CloudWatchDailyForwarder {
       this.#transport.log(
         {
           level: parsed.level || 'info',
-          message: parsed.message || 'log',
+          message: parsed.msg || 'log',
           timestamp: parsed.time || parsed.timestamp || formatLocalTimestamp(),
           metadata: parsed,
         },
