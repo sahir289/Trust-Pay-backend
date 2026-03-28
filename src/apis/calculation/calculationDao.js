@@ -317,6 +317,7 @@ export const getCalculationsSumDao = async (filters, conn) => {
     let merchantQuery = `${baseQuery} 
       JOIN "${tableName.MERCHANT}" m ON m.user_id = c.user_id
       WHERE c.is_obsolete = FALSE 
+      AND m.is_enabled = TRUE
       AND c.created_at BETWEEN '${startDate}' AND '${endDate}'
       AND r.role = 'MERCHANT' `;
     let vendorQuery = `${baseQuery} 
@@ -596,6 +597,7 @@ export const getCalculationsSumDao = async (filters, conn) => {
       JOIN "${tableName.ROLE}" r ON u.role_id = r.id
       JOIN "${tableName.MERCHANT}" m ON c.user_id = m.user_id
       WHERE c.created_at BETWEEN '${startDate}' AND '${endDate}'
+      AND m.is_enabled = TRUE
       AND r.role = 'MERCHANT'
     `;
 
@@ -846,6 +848,7 @@ export const getCalculationsForInternalUseDao = async (
     let merchantQuery = `${baseQuery} 
       JOIN "${tableName.MERCHANT}" m ON m.user_id = c.user_id
       WHERE c.is_obsolete = FALSE 
+      AND m.is_enabled = TRUE
       AND c.created_at BETWEEN '${startDate}' AND '${endDate}'
       AND r.role = 'MERCHANT' `;
     let vendorQuery = `${baseQuery} 
@@ -1048,6 +1051,7 @@ export const getCalculationsForInternalUseDao = async (
           LEFT JOIN "${tableName.MERCHANT}" m ON m.user_id = c.user_id
           LEFT JOIN "${tableName.VENDOR}" v ON v.user_id = c.user_id
           WHERE c.is_obsolete = FALSE
+          AND m.is_obsolete = FALSE
           AND u.is_obsolete = FALSE
           AND c.created_at BETWEEN '${startDate}' AND '${endDate}'
           ${condition}
@@ -1200,6 +1204,7 @@ export const getCalculationsForInternalUseDao = async (
       JOIN "${tableName.ROLE}" r ON u.role_id = r.id
       JOIN "${tableName.MERCHANT}" m ON c.user_id = m.user_id
       WHERE c.created_at BETWEEN '${startDate}' AND '${endDate}'
+      AND m.is_enabled = TRUE
       AND r.role = 'MERCHANT'
     `;
 
@@ -1965,6 +1970,7 @@ const calculatePayinDataDao = async (
         FROM "${tableName.PAYIN}" p
         JOIN "${tableName.MERCHANT}" m ON p.merchant_id = m.id
         WHERE m.user_id = $1
+          AND m.is_enabled = true
           AND p.company_id = $2
           AND p.is_obsolete = false
           AND (p.approved_at)::date = $3::date
@@ -2055,6 +2061,7 @@ const calculatePayoutDataDao = async (
         FROM "${tableName.PAYOUT}" p
         JOIN "${tableName.MERCHANT}" m ON p.merchant_id = m.id
         WHERE m.user_id = $1
+          AND m.is_enabled = true
           AND p.company_id = $2
           AND p.is_obsolete = false
           AND (
@@ -2417,6 +2424,7 @@ const calculateAdjustmentDataDao = async (
         FROM "${tableName.PAYIN}" p
         JOIN "${tableName.MERCHANT}" m ON p.merchant_id = m.id
         WHERE m.user_id = $1
+          AND m.is_enabled = true
           AND p.company_id = $2
           AND p.is_obsolete = false
           AND p.status = 'SUCCESS'
