@@ -128,13 +128,11 @@ const collectCalculationData = async () => {
       }
     }
 
-    // Execute writes sequentially within a single transaction for atomicity
-    const updatedCount =
-      updates.length > 0
-        ? await batchUpdateTodayNetBalanceDao(updates, conn)
-        : 0;
-    const createdCount =
-      creates.length > 0 ? await batchCreateCalculationDao(creates, conn) : 0;
+     // Execute batch operations in parallel
+     const [updatedCount, createdCount] = await Promise.all([
+      updates.length > 0 ? batchUpdateTodayNetBalanceDao(updates, conn) : 0,
+      creates.length > 0 ? batchCreateCalculationDao(creates, conn) : 0,
+    ]);
     
     logger.info(`Calculation cron: Created ${createdCount}, Updated ${updatedCount} entries`);
 
