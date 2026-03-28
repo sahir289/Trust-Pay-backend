@@ -2,7 +2,6 @@ import moment from 'moment-timezone';
 import {
   beginTransaction,
   commit,
-  executeQuery,
   getConnection,
   rollback,
 } from '../utils/db.js';
@@ -20,7 +19,7 @@ const collectBankData = async (timezone = 'Asia/Kolkata') => {
     //added payin_count to update everyday
     await createBankHistoryService(conn);
     const sql = `UPDATE public."BankAccount" SET today_balance = 0 , payin_count = 0`;
-    await executeQuery(sql, conn);
+    await conn.query(sql);
 
     await commit(conn);
     committed = true;
