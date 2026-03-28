@@ -19,6 +19,11 @@ const LOG_TO_STDOUT = process.env.LOG_TO_STDOUT !== 'false';
 const LOG_TO_FILE = process.env.LOG_TO_FILE !== 'false';
 const LOG_RETENTION_DAYS = Number.parseInt(process.env.LOG_RETENTION_DAYS || '7', 10);
 const MAX_QUEUE_BYTES = Number.parseInt(process.env.LOG_MAX_QUEUE_BYTES || `${8 * 1024 * 1024}`, 10);
+const FILE_SINK_RETRY_MS = Number.parseInt(process.env.LOG_FILE_SINK_RETRY_MS || '5000', 10);
+const FILE_SINK_ERROR_THROTTLE_MS = Number.parseInt(
+  process.env.LOG_FILE_SINK_ERROR_THROTTLE_MS || '15000',
+  10,
+);
 
 const isPlainObject = (value) =>
   value !== null && typeof value === 'object' && !Array.isArray(value) && !(value instanceof Error);
@@ -66,6 +71,9 @@ class DailyFileSink {
   #draining = false;
   #closed = false;
   #cleanupTimer = null;
+  #nextRetryAt = 0;
+  #lastReportedErrorAt = 0;
+  #lastReportedErrorSignature = '';
 
   constructor({ logDir, retentionDays }) {
     this.#logDir = logDir;
@@ -73,13 +81,27 @@ class DailyFileSink {
   }
 
   async init() {
-    await fsp.mkdir(this.#logDir, { recursive: true });
+    await fsp.mkdir(this.#logDir, { recursive: true }).catch((error) => {
+      this.#reportError('mkdir failed', error);
+      this.#scheduleRetry();
+    });
+
     await this.#rotateIfNeeded();
-    await this.#cleanupOldFiles();
+    await this.#cleanupOldFiles().catch((error) => {
+      this.#reportError('cleanup failed', error);
+    });
 
     // Periodic cleanup (lightweight), keeps retention bounded even for low-traffic services
     this.#cleanupTimer = setInterval(() => {
-      this.#cleanupOldFiles().catch(() => {});
+      this.#cleanupOldFiles().catch((error) => {
+        this.#reportError('cleanup interval failed', error);
+      });
+
+      if (!this.#stream && !this.#closed && Date.now() >= this.#nextRetryAt) {
+        this.#rotateIfNeeded().catch((error) => {
+          this.#reportError('retry rotate failed', error);
+        });
+      }
     }, 6 * 60 * 60 * 1000);
 
     if (typeof this.#cleanupTimer?.unref === 'function') {
@@ -96,19 +118,70 @@ class DailyFileSink {
       this.#stream = null;
     }
 
-    this.#activeDate = today;
     const filePath = getDailyLogFilePath(this.#logDir);
-    this.#stream = fs.createWriteStream(filePath, {
-      flags: 'a',
-      encoding: 'utf8',
-      highWaterMark: 1024 * 1024,
-    });
 
-    this.#stream.on('error', () => {
-      // Keep service alive even if disk has transient issues.
-    });
+    try {
+      const stream = fs.createWriteStream(filePath, {
+        flags: 'a',
+        encoding: 'utf8',
+        highWaterMark: 1024 * 1024,
+      });
 
-    this.#flushQueue();
+      stream.on('error', (error) => {
+        this.#reportError('stream error', error);
+
+        if (this.#stream === stream) {
+          this.#stream = null;
+          this.#activeDate = null;
+          this.#scheduleRetry();
+        }
+      });
+
+      stream.on('close', () => {
+        if (!this.#closed && this.#stream === stream) {
+          this.#stream = null;
+          this.#activeDate = null;
+          this.#scheduleRetry();
+        }
+      });
+
+      this.#stream = stream;
+      this.#activeDate = today;
+      this.#nextRetryAt = 0;
+      this.#flushQueue();
+    } catch (error) {
+      this.#stream = null;
+      this.#activeDate = null;
+      this.#scheduleRetry();
+      this.#reportError('rotate failed', error);
+    }
+  }
+
+  #scheduleRetry() {
+    this.#nextRetryAt = Date.now() + FILE_SINK_RETRY_MS;
+  }
+
+  #reportError(context, error) {
+    const message = truncateString(error?.message || 'unknown', 500);
+    const signature = `${context}:${message}`;
+    const now = Date.now();
+    const shouldReport =
+      signature !== this.#lastReportedErrorSignature ||
+      now - this.#lastReportedErrorAt >= FILE_SINK_ERROR_THROTTLE_MS;
+
+    if (!shouldReport) return;
+
+    this.#lastReportedErrorAt = now;
+    this.#lastReportedErrorSignature = signature;
+
+    process.stderr.write(
+      `${JSON.stringify({
+        level: 'error',
+        time: formatLocalTimestamp(),
+        message: `logger file sink ${context}`,
+        error: message,
+      })}\n`,
+    );
   }
 
   async #cleanupOldFiles() {
@@ -133,6 +206,14 @@ class DailyFileSink {
 
     if (this.#queuedBytes + bytes > MAX_QUEUE_BYTES) {
       this.#droppedMessages += 1;
+
+      if (this.#droppedMessages === 1 || this.#droppedMessages % 1000 === 0) {
+        this.#reportError(
+          'queue overflow',
+          new Error(`droppedMessages=${this.#droppedMessages} queuedBytes=${this.#queuedBytes}`),
+        );
+      }
+
       return;
     }
 
@@ -175,7 +256,12 @@ class DailyFileSink {
     if (this.#closed) return false;
 
     const line = Buffer.isBuffer(chunk) ? chunk.toString('utf8') : String(chunk);
-    this.#rotateIfNeeded().catch(() => {});
+
+    if (!this.#stream && Date.now() >= this.#nextRetryAt) {
+      this.#rotateIfNeeded().catch((error) => {
+        this.#reportError('write-triggered rotate failed', error);
+      });
+    }
 
     if (!this.#stream || this.#draining) {
       this.#enqueue(line);
@@ -335,7 +421,6 @@ const getColoredLevel = (level) => {
 const writeStdout = (level, message, meta) => {
   if (!stdoutLogger) return;
 
-  // const timestamp = formatLocalTimestamp();
   const coloredLevel = getColoredLevel(level);
   const hasMeta = meta && Object.keys(meta).length > 0;
 
