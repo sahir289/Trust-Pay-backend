@@ -12,7 +12,7 @@ await import('./src/cron/gatherAllData.js');
 await import('./src/cron/notifyCron.js');
 await import('./src/cron/calculationCron.js');
 await import('./src/cron/pendingPayout.js');
-await import('./src/cron/checkNetbalance.js');
+// await import('./src/cron/checkNetbalance.js');
 await import('./src/cron/successRatioCron.js');
 
 logger.info(chalk.bold.green('All cron jobs initialized successfully'));
@@ -23,15 +23,17 @@ let shuttingDown = false;
 async function gracefulShutdown(signal) {
   if (shuttingDown) return;
   shuttingDown = true;
-  
-  logger.info(chalk.bold.yellow(`Cron Worker received ${signal} - shutting down gracefully...`));
-  
+
+  logger.info(
+    chalk.bold.yellow(
+      `Cron Worker received ${signal} - shutting down gracefully...`,
+    ),
+  );
+
   try {
     // Flush logger
-      // Flush logger before exit (must be the last logger interaction)
-      await logger.close();
-    
-      // logger.info(chalk.bold.green('Cron Worker shutdown complete'));
+    // Flush logger before exit (must be the last logger interaction)
+    await logger.close();
     process.exit(0);
   } catch (error) {
     logger.error('Error during cron worker shutdown:', error);
