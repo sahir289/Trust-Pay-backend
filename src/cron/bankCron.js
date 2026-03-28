@@ -11,10 +11,6 @@ import { createBankHistoryService } from '../apis/bankHistory/bankHistorySevice.
 
 const collectBankData = async (timezone = 'Asia/Kolkata') => {
   const startTime = moment().tz(timezone, true);
-  const yesterdayDate = startTime
-    .clone()
-    .subtract(1, 'day')
-    .format('YYYY-MM-DD');
   let conn;
   let committed = false;
   try {
@@ -23,8 +19,8 @@ const collectBankData = async (timezone = 'Asia/Kolkata') => {
 
     //added payin_count to update everyday
     await createBankHistoryService(conn);
-    const sql = `UPDATE public."BankAccount" SET today_balance = 0 , payin_count = 0  WHERE updated_at = $1`;
-    await executeQuery(sql, [yesterdayDate], conn);
+    const sql = `UPDATE public."BankAccount" SET today_balance = 0 , payin_count = 0`;
+    await executeQuery(sql, conn);
 
     await commit(conn);
     committed = true;
