@@ -29,16 +29,32 @@ export const bssTransactionStatusCallback = async (req, res) => {
     }
     conn = await getConnection();
     await beginTransaction(conn);
-    const [singleWithdrawData] = await getPayoutsDao({ merchant_order_id: apitxnid });
+    const [singleWithdrawData] = await getPayoutsDao({
+      merchant_order_id: apitxnid,
+    });
     if (!singleWithdrawData) {
       return res.status(404).send('Payment not found');
     }
+
+    if (
+      ![Status.INITIATED, Status.PENDING].includes(singleWithdrawData.status)
+    ) {
+      logger.info('Payout already processed', {
+        payoutId: singleWithdrawData.id,
+        status: singleWithdrawData.status,
+      });
+      return res.status(200).send('Payout already processed');
+    }
+
     logger.info('Fetched payout data for OrderID:', apitxnid);
 
     const [company] = await getCompanyByIDDao({
       id: singleWithdrawData.company_id,
     });
-    logger.info('Fetched company data for company_id:', singleWithdrawData.company_id);
+    logger.info(
+      'Fetched company data for company_id:',
+      singleWithdrawData.company_id,
+    );
     const handlePayoutUpdate = async (
       responseData,
       isApproved = false,
@@ -66,9 +82,7 @@ export const bssTransactionStatusCallback = async (req, res) => {
       if (isApproved) {
         Object.assign(updatePayload, {
           status: Status.APPROVED,
-          utr_id: isTransactionUnderProcess
-            ? null
-            : responseData.CallBack.RRN,
+          utr_id: isTransactionUnderProcess ? null : responseData.CallBack.RRN,
           approved_at: new Date().toISOString(),
         });
       } else if (!isApproved && isTransactionUnderProcess) {
@@ -78,8 +92,7 @@ export const bssTransactionStatusCallback = async (req, res) => {
       } else {
         logger.info('Payout rejected with response data:', responseData);
         updatePayload.config.rejected_reason =
-          responseData.CallBack.Message ||
-          'Server Unreachable';
+          responseData.CallBack.Message || 'Server Unreachable';
         updatePayload.rejected_at = new Date().toISOString();
       }
       logger.info('Final update payload for payout:', updatePayload);
@@ -90,19 +103,28 @@ export const bssTransactionStatusCallback = async (req, res) => {
           id: singleWithdrawData.id,
           company_id: singleWithdrawData.company_id,
         },
-        updatePayload
+        updatePayload,
       );
     };
 
-      if (payload?.CallBack?.Status === Status.SUCCESS || payload?.CallBack?.Status === 'Success') {
-        await handlePayoutUpdate(payload, true);
-      } else if (payload?.CallBack?.Status === 'Pending' || payload?.CallBack?.Status === Status.PENDING) {
-        await handlePayoutUpdate(payload, false, true);
-      } else if (payload?.CallBack?.Status === 'Failed' || payload?.CallBack?.Status === Status.FAILED) {
-        await handlePayoutUpdate(payload, false);
-      } else {
-        return res.status(400).send(payload.ErrorMessage);
-      }
+    if (
+      payload?.CallBack?.Status === Status.SUCCESS ||
+      payload?.CallBack?.Status === 'Success'
+    ) {
+      await handlePayoutUpdate(payload, true);
+    } else if (
+      payload?.CallBack?.Status === 'Pending' ||
+      payload?.CallBack?.Status === Status.PENDING
+    ) {
+      await handlePayoutUpdate(payload, false, true);
+    } else if (
+      payload?.CallBack?.Status === 'Failed' ||
+      payload?.CallBack?.Status === Status.FAILED
+    ) {
+      await handlePayoutUpdate(payload, false);
+    } else {
+      return res.status(400).send(payload.ErrorMessage);
+    }
 
     // Log the updated payout status
     logger.info('Payout Updated by PayAssist callback', {
