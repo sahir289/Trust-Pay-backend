@@ -41,6 +41,16 @@ export const bss02TransactionStatusCallback = async (req, res) => {
     if (!singleWithdrawData) {
       return res.status(404).send('Payment not found');
     }
+
+    if (
+      ![Status.INITIATED, Status.PENDING].includes(singleWithdrawData.status)
+    ) {
+      logger.info('Payout already processed', {
+        payoutId: singleWithdrawData.id,
+        status: singleWithdrawData.status,
+      });
+      return res.status(200).send('Payout already processed');
+    }
     logger.info('Fetched payout data for OrderID:', apitxnid);
 
     const [company] = await getCompanyByIDDao(

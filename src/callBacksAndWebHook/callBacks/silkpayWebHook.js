@@ -30,9 +30,15 @@ export const silkPayTransactionStatusCallback = async (req, res) => {
     if (!singleWithdrawData) {
       return res.status(404).send('Payment not found');
     }
-    if (singleWithdrawData.status === Status.APPROVED) {
-      logger.info('Payout already approved for OrderID:', apitxnid);
-      return res.status(200).send('Payout already approved');
+
+    if (
+      ![Status.INITIATED, Status.PENDING].includes(singleWithdrawData.status)
+    ) {
+      logger.info('Payout already processed', {
+        payoutId: singleWithdrawData.id,
+        status: singleWithdrawData.status,
+      });
+      return res.status(200).send('Payout already processed');
     }
     logger.info('Fetched payout data for OrderID:', apitxnid);
 
