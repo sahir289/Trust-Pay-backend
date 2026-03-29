@@ -1051,7 +1051,7 @@ export const getCalculationsForInternalUseDao = async (
           LEFT JOIN "${tableName.MERCHANT}" m ON m.user_id = c.user_id
           LEFT JOIN "${tableName.VENDOR}" v ON v.user_id = c.user_id
           WHERE c.is_obsolete = FALSE
-          AND m.is_obsolete = FALSE
+          AND m.is_enabled = TRUE
           AND u.is_obsolete = FALSE
           AND c.created_at BETWEEN '${startDate}' AND '${endDate}'
           ${condition}
