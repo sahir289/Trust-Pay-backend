@@ -1193,9 +1193,11 @@ const createBankResponseWebHookService = async (
 
     // Use a transaction for all DB operations for a single entry
     try {
-      conn = await getConnection();
-      await beginTransaction(conn);
-      await applyBankResponseTxTimeouts(conn);
+      if (!webhookconn) {
+        conn = await getConnection();
+        await beginTransaction(conn);
+        await applyBankResponseTxTimeouts(conn);
+      }
       botRes = await createBankResponseDao(updatedData, conn);
       // await sendNotification(updatedData.status.replace('/', ''), {
       //   id: botRes.id,
@@ -1207,10 +1209,10 @@ const createBankResponseWebHookService = async (
       // });
 
       if (updatedData.status === '/repeated') {
-        await commit(conn);
+        if (!webhookconn) {await commit(conn);
         committed = true;
         conn.release();
-        conn = null; // Prevent double release
+        conn = null;} // Prevent double release
         if (isValidAmountCode) {
           return {
             message: `Entry with REPEATED AMOUNT CODE: ${upi_short_code} Added`,
@@ -1298,8 +1300,8 @@ const createBankResponseWebHookService = async (
         );
       }
 
-      await commit(conn);
-      committed = true;
+      if (!webhookconn) {await commit(conn);
+      committed = true;}
       // const bankDetails = await getBankaccountDao(
       //   { id: botRes?.bank_id, company_id: companyId },
       //   null,
@@ -1341,17 +1343,19 @@ const createBankResponseWebHookService = async (
       throw err;
     }
   } catch (error) {
-    if (conn && !committed) {
+    if ((conn && !committed) && !webhookconn) {
       await rollback(conn);
     }
 
     logger.error('Error in createBankResponseService:', error);
     throw error;
   } finally {
-    if (committed) {
+    if (committed && !webhookconn) {
       runPostCommitTasks(postCommitTasks, 'createBankResponseWebHookService');
     }
-    if (conn) conn.release();
+    if (conn && !webhookconn) {
+      conn.release();
+    }
   }
 };
 
