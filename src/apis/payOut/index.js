@@ -34,8 +34,6 @@ import { silkPayTransactionStatusCallback } from '../../callBacksAndWebHook/call
 import { getSilkPayWalletBalance } from '../../silkpay/silkpay.js';
 import { bss02TransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/bss02WebHook.js';
 import { bss03TransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/bss03WebHook.js';
-import { getPayDumWalletBalance } from '../../paydum/paydum.js';
-import { payDumTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/payDumWebHook.js';
 const router = express.Router();
 
 /**
