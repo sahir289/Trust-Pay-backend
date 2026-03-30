@@ -34,6 +34,16 @@ export const payDumTransactionStatusCallback = async (req, res) => {
       return res.status(404).send('Payment not found');
     }
 
+    if (
+      ![Status.INITIATED, Status.PENDING].includes(singleWithdrawData.status)
+    ) {
+      logger.info('Payout already processed', {
+        payoutId: singleWithdrawData.id,
+        status: singleWithdrawData.status,
+      });
+      return res.status(200).send('Payout already processed');
+    }
+
     const [company] = await getCompanyByIDDao({
       id: singleWithdrawData.company_id,
     });
