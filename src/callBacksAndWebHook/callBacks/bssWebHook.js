@@ -41,6 +41,17 @@ export const bssTransactionStatusCallback = async (req, res) => {
     if (!singleWithdrawData) {
       return res.status(404).send('Payment not found');
     }
+
+    if (
+      ![Status.INITIATED, Status.PENDING].includes(singleWithdrawData.status)
+    ) {
+      logger.info('Payout already processed', {
+        payoutId: singleWithdrawData.id,
+        status: singleWithdrawData.status,
+      });
+      return res.status(200).send('Payout already processed');
+    }
+
     logger.info('Fetched payout data for OrderID:', apitxnid);
 
     const [company] = await getCompanyByIDDao(
@@ -101,8 +112,7 @@ export const bssTransactionStatusCallback = async (req, res) => {
       } else {
         logger.info('Payout rejected with response data:', responseData);
         updatePayload.config.rejected_reason =
-          responseData.CallBack.Message ||
-          'Server Unreachable';
+          responseData.CallBack.Message || 'Server Unreachable';
         updatePayload.rejected_at = new Date().toISOString();
       }
       logger.info('Final update payload for payout:', updatePayload);
