@@ -39,7 +39,6 @@ export const Method = {
   BSS02: 'BSS02',
   BSS03: 'BSS03',
   VERTEXPAY: 'VERTEXPAY',
-  PAYDUM: 'PAYDUM',
 };
 
 export const Type = {
