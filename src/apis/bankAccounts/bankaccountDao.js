@@ -9,6 +9,7 @@ import {
 } from '../../utils/db.js';
 
 import { logger } from '../../utils/logger.js';
+import { checkLockEdit } from '../../utils/advisoryLock.js';
 
 const PRIVILEGED_BANK_DESIGNATIONS = new Set([
   Role.ADMIN,
@@ -161,9 +162,9 @@ const getBankaccountDao = async (filters, page, limit, role, designation, conn =
     } else if (role === 'VENDOR') {
       commissionSelect = `
         ba.ifsc AS ifsc_code, 
-        COALESCE(br_stats.dynamic_payin_count, 0) AS payin_count, 
-        ba.balance, 
-        COALESCE(br_stats.dynamic_today_balance, 0) AS today_balance, 
+        ba.payin_count::float AS payin_count, 
+        ba.balance::float AS balance, 
+        ba.today_balance::float AS today_balance, 
         ba.bank_used_for,
         ba.user_id,
         ba.config->>'is_freeze' AS freezed,
@@ -177,9 +178,9 @@ const getBankaccountDao = async (filters, page, limit, role, designation, conn =
         ba.ifsc, 
         ba.min, 
         ba.max, 
-        COALESCE(br_stats.dynamic_payin_count, 0) AS payin_count, 
-        ba.balance, 
-        COALESCE(br_stats.dynamic_today_balance, 0) AS today_balance, 
+        ba.payin_count::float AS payin_count, 
+        ba.balance::float AS balance, 
+        ba.today_balance::float AS today_balance, 
         ba.bank_used_for, 
         creator.user_name AS created_by, 
         updater.user_name AS updated_by, 
@@ -206,7 +207,7 @@ const getBankaccountDao = async (filters, page, limit, role, designation, conn =
           public."BankAccount" ba
       LEFT JOIN public."Vendor" v 
           ON ba.user_id = v.user_id
-        ${role !== 'MERCHANT' ? dynamicBalanceJoin : ''}
+        ${role === 'MERCHANT' ? '' : dynamicBalanceJoin}
         ${includeMerchantDetails ? merchantDetailsJoin : ''}
        LEFT JOIN public."User" creator 
         ON ba.created_by = creator.id
@@ -300,9 +301,9 @@ const getAllBankaccountDao = async (
     } else if (role === 'VENDOR') {
       commissionSelect = `
         ba.ifsc AS ifsc_code, 
-        COALESCE(br_stats.dynamic_payin_count, 0) AS payin_count, 
-        ba.balance, 
-        COALESCE(br_stats.dynamic_today_balance, 0) AS today_balance,
+        ba.payin_count::float AS payin_count, 
+        ba.balance::float AS balance, 
+        ba.today_balance::float AS today_balance,
         ba.is_enabled,   
         ba.bank_used_for,
         ba.config->>'max_limit' AS daily_limit`;
@@ -313,12 +314,12 @@ const getAllBankaccountDao = async (
         ba.ifsc, 
         ba.min, 
         ba.max, 
-        COALESCE(br_stats.dynamic_payin_count, 0) AS payin_count, 
-        ba.balance, 
+        ba.payin_count::float AS payin_count, 
+        ba.balance::float AS balance, 
         ba.is_qr, 
         ba.is_bank, 
         ba.is_enabled, 
-        COALESCE(br_stats.dynamic_today_balance, 0) AS today_balance, 
+        ba.today_balance::float AS today_balance, 
         ba.bank_used_for, 
         creator.user_name AS created_by, 
         updater.user_name AS updated_by, 
@@ -341,7 +342,7 @@ const getAllBankaccountDao = async (
           public."BankAccount" ba
       LEFT JOIN public."Vendor" v 
           ON ba.user_id = v.user_id
-        ${role !== 'MERCHANT' ? dynamicBalanceJoin : ''}
+        ${role === 'MERCHANT' ? '' : dynamicBalanceJoin}
         ${includeMerchantDetails ? merchantDetailsJoin : ''}
        LEFT JOIN public."User" creator 
         ON ba.created_by = creator.id
@@ -507,9 +508,9 @@ const getBankAccountsBySearchDao = async (
     } else if (role === 'VENDOR') {
       commissionSelect = `
         ba.ifsc AS ifsc_code, 
-        COALESCE(br_stats.dynamic_payin_count, 0) AS payin_count, 
-        ba.balance, 
-        COALESCE(br_stats.dynamic_today_balance, 0) AS today_balance,
+        ba.payin_count::float AS payin_count, 
+        ba.balance::float AS balance, 
+        ba.today_balance::float AS today_balance,
         ba.is_enabled,   
         ba.bank_used_for,
         ba.config->>'max_limit' AS daily_limit,
@@ -520,12 +521,12 @@ const getBankAccountsBySearchDao = async (
         ba.ifsc, 
         ba.min, 
         ba.max, 
-        COALESCE(br_stats.dynamic_payin_count, 0) AS payin_count, 
-        ba.balance, 
+        ba.payin_count::float AS payin_count, 
+        ba.balance::float AS balance, 
         ba.is_qr, 
         ba.is_bank, 
         ba.is_enabled, 
-        COALESCE(br_stats.dynamic_today_balance, 0) AS today_balance, 
+        ba.today_balance::float AS today_balance, 
         ba.bank_used_for, 
         creator.user_name AS created_by, 
         updater.user_name AS updated_by, 
@@ -554,7 +555,7 @@ const getBankAccountsBySearchDao = async (
         public."BankAccount" ba
       LEFT JOIN public."Vendor" v 
         ON ba.user_id = v.user_id
-      ${role !== 'MERCHANT' ? dynamicBalanceJoin : ''}
+      ${role === 'MERCHANT' ? '' : dynamicBalanceJoin}
       ${includeMerchantDetails ? merchantDetailsJoin : ''}
       LEFT JOIN public."User" creator 
         ON ba.created_by = creator.id
@@ -593,15 +594,13 @@ const getBankAccountsBySearchDao = async (
       ${limitcondition};
     `;
 
-    // Execute queries
-    const [countResult, searchResult] = await Promise.all([
-      executeQuery(
-        countQuery,
-        queryParams.slice(0, page && limit ? -2 : queryParams.length),
-        conn,
-      ),
-      executeQuery(mainQuery, queryParams, conn),
-    ]);
+    // Execute queries sequentially to avoid holding two pool connections simultaneously
+    const countResult = await executeQuery(
+      countQuery,
+      queryParams.slice(0, page && limit ? -2 : queryParams.length),
+      conn,
+    );
+    const searchResult = await executeQuery(mainQuery, queryParams, conn);
 
     const totalCount = parseInt(countResult.rows[0].total);
     let totalPages = limit ? Math.ceil(totalCount / limit) : 1;
@@ -871,8 +870,53 @@ const getBankAccountDaoNickName = async (
   }
 };
 
+const shouldAcquireBankBalanceLock = (payload = {}) => {
+  if (!payload || typeof payload !== 'object') return false;
+  return (
+    Object.hasOwn(payload, 'balance') ||
+    Object.hasOwn(payload, 'today_balance') ||
+    Object.hasOwn(payload, 'payin_count')
+  );
+};
+
+const logBankBalanceBlockers = async (conn, context) => {
+  if (!conn?.query) return;
+
+  try {
+    const blockers = await conn.query(`
+      SELECT
+        a.pid,
+        a.usename,
+        a.application_name,
+        a.client_addr,
+        a.state,
+        a.wait_event_type,
+        a.wait_event,
+        NOW() - a.query_start AS query_age,
+        LEFT(a.query, 300) AS query
+      FROM pg_stat_activity a
+      WHERE a.pid = ANY(pg_blocking_pids(pg_backend_pid()));
+    `);
+
+    logger.warn(`Detected blocking sessions for ${context}`, {
+      blockerCount: blockers.rowCount,
+      blockers: blockers.rows,
+    });
+  } catch (diagError) {
+    logger.warn(`Unable to capture blocking session diagnostics for ${context}`, {
+      error: diagError.message,
+    });
+  }
+};
+
+const getPostgresErrorCode = (error) => error?.code || error?.err?.code;
+
 const updateBankaccountDao = async (id, payload, isParentDeleted, conn = null) => {
   try {
+    if (conn && id?.id && shouldAcquireBankBalanceLock(payload)) {
+      await checkLockEdit(`bank-balance:${id.id}`, true, conn);
+    }
+
     // Fetch existing bank config to merge with added_at
     const existingBankArr = await getBankAccountCoreByIdDao({
       id: id.id,
@@ -937,6 +981,9 @@ const updateBankaccountDao = async (id, payload, isParentDeleted, conn = null) =
     return result;
     
   } catch (error) {
+    if (getPostgresErrorCode(error) === '55P03' && conn) {
+      await logBankBalanceBlockers(conn, 'updateBankaccountDao');
+    }
     logger.error('Error in updateBankaccountDao:', error);
     throw error;
   }
@@ -1036,9 +1083,13 @@ const updateBanktBalanceDao = async (
       filters,
       { balance: '+', today_balance: '+' },
     );
-    
+
+    if (conn && filters?.id) {
+      await checkLockEdit(`bank-balance:${filters.id}`, true, conn);
+    }
+
     const result = await executeQuery(sql, params, conn);
-    
+
     return result.rows[0];
   } catch (error) {
     logger.error('Error in updateBanktBalanceDao:', error);
@@ -1061,18 +1112,35 @@ const atomicUpdateBankBalanceDao = async (
   updated_by,
   conn = null,
 ) => {
+  const [sql, params] = buildUpdateQuery(
+    tableName.BANK_ACCOUNT,
+    { balance: amount, today_balance: amount, payin_count: 1, updated_by },
+    filters,
+    { balance: '+', today_balance: '+', payin_count: '+' }, // Atomic increment for all three
+  );
+
+  if (conn && filters?.id) {
+    await checkLockEdit(`bank-balance:${filters.id}`, true, conn);
+  }
+
+  // IMPORTANT: when an external transaction connection is supplied,
+  // do not retry here. Any SQL error can mark the transaction as aborted.
+  // Retry decisions belong to the transaction boundary owner.
+  if (conn) {
+    try {
+      const result = await conn.query(sql, params);
+      return result.rows[0];
+    } catch (error) {
+      if (getPostgresErrorCode(error) === '55P03') {
+        await logBankBalanceBlockers(conn, 'atomicUpdateBankBalanceDao');
+      }
+      logger.error('Error in atomicUpdateBankBalanceDao:', error);
+      throw error;
+    }
+  }
+
   try {
-    const [sql, params] = buildUpdateQuery(
-      tableName.BANK_ACCOUNT,
-      { balance: amount, today_balance: amount, payin_count: 1, updated_by },
-      filters,
-      { balance: '+', today_balance: '+', payin_count: '+' }, // Atomic increment for all three
-    );
-    
-    const result = conn 
-      ? await conn.query(sql, params)
-      : await executeQuery(sql, params);
-    
+    const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in atomicUpdateBankBalanceDao:', error);
@@ -1095,18 +1163,35 @@ const atomicDecrementBankBalanceDao = async (
   updated_by,
   conn = null,
 ) => {
+  const [sql, params] = buildUpdateQuery(
+    tableName.BANK_ACCOUNT,
+    { balance: amount, today_balance: amount, payin_count: 1, updated_by },
+    filters,
+    { balance: '-', today_balance: '-', payin_count: '-' }, // Atomic decrement for all three
+  );
+
+  if (conn && filters?.id) {
+    await checkLockEdit(`bank-balance:${filters.id}`, true, conn);
+  }
+
+  // IMPORTANT: when an external transaction connection is supplied,
+  // do not retry here. Any SQL error can mark the transaction as aborted.
+  // Retry decisions belong to the transaction boundary owner.
+  if (conn) {
+    try {
+      const result = await conn.query(sql, params);
+      return result.rows[0];
+    } catch (error) {
+      if (getPostgresErrorCode(error) === '55P03') {
+        await logBankBalanceBlockers(conn, 'atomicDecrementBankBalanceDao');
+      }
+      logger.error('Error in atomicDecrementBankBalanceDao:', error);
+      throw error;
+    }
+  }
+
   try {
-    const [sql, params] = buildUpdateQuery(
-      tableName.BANK_ACCOUNT,
-      { balance: amount, today_balance: amount, payin_count: 1, updated_by },
-      filters,
-      { balance: '-', today_balance: '-', payin_count: '-' }, // Atomic decrement for all three
-    );
-    
-    const result = conn 
-      ? await conn.query(sql, params)
-      : await executeQuery(sql, params);
-    
+    const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in atomicDecrementBankBalanceDao:', error);

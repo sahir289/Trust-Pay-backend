@@ -147,6 +147,11 @@ module.exports = {
                 CW_POLL_INTERVAL_MS: 1000,
                 CW_LOG_LEVEL: 'info',
                 CW_STREAM_PREFIX: '',
+                CW_START_POSITION: 'beginning',
+                CW_ERROR_THROTTLE_MS: 15000,
+                // Dead-letter queue: lines that fail CW delivery are stored here and auto-replayed.
+                CW_DLQ_PREFIX: 'cw-dlq',
+                CW_DLQ_REPLAY_INTERVAL_MS: 60000,
             },
             env_development: {
                 NODE_ENV: 'development',
@@ -155,6 +160,10 @@ module.exports = {
                 CW_POLL_INTERVAL_MS: 1000,
                 CW_LOG_LEVEL: 'info',
                 CW_STREAM_PREFIX: 'dev-',
+                CW_START_POSITION: 'beginning',
+                CW_ERROR_THROTTLE_MS: 15000,
+                CW_DLQ_PREFIX: 'cw-dlq',
+                CW_DLQ_REPLAY_INTERVAL_MS: 60000,
             },
             error_file: './logs/pm2-cw-forwarder-error.log',
             out_file: './logs/pm2-cw-forwarder-out.log',

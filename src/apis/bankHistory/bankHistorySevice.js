@@ -20,7 +20,7 @@ export const createBankHistoryService = async (conn) => {
     const results = await Promise.all(
       payloads.map((payload) => createBankHistoryDao(payload, conn)),
     );
-    return results; 
+    return results;
   } catch (error) {
     logger.error('Error while creating bank history', error);
     throw error;

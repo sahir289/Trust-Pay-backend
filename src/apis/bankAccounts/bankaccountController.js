@@ -35,6 +35,53 @@ import {
   activeInactiveBankAccountService,
   restBankNotificationService,
 } from './bankaccountServices.js';
+
+const normalizeBankNumericFields = (bank = {}) => {
+  if (!bank || typeof bank !== 'object') {
+    return bank;
+  }
+
+  const normalizedBank = { ...bank };
+  const numericKeys = ['balance', 'today_balance', 'min', 'max'];
+
+  numericKeys.forEach((key) => {
+    if (normalizedBank[key] !== undefined && normalizedBank[key] !== null) {
+      const parsedValue = Number(normalizedBank[key]);
+      if (!Number.isNaN(parsedValue)) {
+        normalizedBank[key] = parsedValue;
+      }
+    }
+  });
+
+  if (normalizedBank.payin_count !== undefined && normalizedBank.payin_count !== null) {
+    const parsedCount = Number.parseInt(normalizedBank.payin_count, 10);
+    if (!Number.isNaN(parsedCount)) {
+      normalizedBank.payin_count = parsedCount;
+    }
+  }
+
+  return normalizedBank;
+};
+
+const normalizeBankAccountsResponse = (payload) => {
+  if (Array.isArray(payload)) {
+    return payload.map(normalizeBankNumericFields);
+  }
+
+  if (!payload || typeof payload !== 'object') {
+    return payload;
+  }
+
+  if (Array.isArray(payload.banks)) {
+    return {
+      ...payload,
+      banks: payload.banks.map(normalizeBankNumericFields),
+    };
+  }
+
+  return normalizeBankNumericFields(payload);
+};
+
 const invalidateBankAccountsCache = async (companyId) =>
   invalidateCompanyCacheByPrefix(
     companyId,
@@ -62,13 +109,18 @@ const getBankaccount = async (req, res) => {
 
   const cached = await readJsonCache(cacheKey, 'BankAccounts list cache');
   if (shouldServeCachedResponse(cached, req.query)) {
-    return sendSuccess(res, cached, 'get Banks successfully');
+    return sendSuccess(
+      res,
+      normalizeBankAccountsResponse(cached),
+      'get Banks successfully',
+    );
   }
 
   const filters = {
     bank_used_for,
   };
-  const data = await getBankaccountService(
+  const data = normalizeBankAccountsResponse(
+    await getBankaccountService(
     filters,
     company_id,
     role,
@@ -76,6 +128,7 @@ const getBankaccount = async (req, res) => {
     limit,
     user_id,
     designation,
+    ),
   );
 
   await writeJsonCache(cacheKey, data, controllerCacheTtls.bankAccounts.list);
@@ -103,22 +156,28 @@ const getBankAccountBySearch = async (req, res) => {
 
   const cached = await readJsonCache(cacheKey, 'BankAccounts search cache');
   if (shouldServeCachedResponse(cached, req.query)) {
-    return sendSuccess(res, cached, 'get Banks successfully');
+    return sendSuccess(
+      res,
+      normalizeBankAccountsResponse(cached),
+      'get Banks successfully',
+    );
   }
 
   const filters = {
     bank_used_for,
     active,
   };
-  const data = await getBankAccountBySearchService(
-    filters,
-    company_id,
-    role,
-    page,
-    limit,
-    user_id,
-    designation,
-    search,
+  const data = normalizeBankAccountsResponse(
+    await getBankAccountBySearchService(
+      filters,
+      company_id,
+      role,
+      page,
+      limit,
+      user_id,
+      designation,
+      search,
+    ),
   );
 
   await writeJsonCache(cacheKey, data, controllerCacheTtls.bankAccounts.search);

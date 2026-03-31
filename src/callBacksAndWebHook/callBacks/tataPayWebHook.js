@@ -28,14 +28,13 @@ export const tataPayTransactionStatusCallback = async (req, res) => {
     }
 
     if (
-      singleWithdrawData.status === Status.APPROVED ||
-      singleWithdrawData.status === Status.REJECTED
+      ![Status.INITIATED, Status.PENDING].includes(singleWithdrawData.status)
     ) {
       logger.info('Payout already processed', {
         payoutId: singleWithdrawData.id,
         status: singleWithdrawData.status,
       });
-      return
+      return res.status(200).send('Payout already processed');
     }
 
     const [company] = await getCompanyByIDDao({

@@ -2,7 +2,6 @@ import cron from 'node-cron';
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc.js';
 import timezone from 'dayjs/plugin/timezone.js';
-// import { transactionWrapper } from '../utils/db.js';
 import {
   getCalculationByDateAndUserDao,
   getLatestCalculationsForAllUsersDao,
@@ -22,7 +21,6 @@ let retryCount = 0;
 const MAX_RETRIES = 3; // Total attempts: 1 initial + 2 retries
 
 let calculationCronJob = null;
-// let retryCronJob = null;
 
 // Only run cron jobs in the dedicated cron worker process (works in both prod and local)
 const isCronWorker = process.env.CRON_WORKER === 'true';
@@ -83,7 +81,8 @@ export const stopCalculationCron = () => {
 const collectCalculationData = async () => {
   const executionStartTime = dayjs().tz(IST).format('YYYY-MM-DDTHH:mm:ssZ');
   logger.info(`Starting calculation cron job at: ${executionStartTime}`);
-  let conn; let committed = false;
+  let conn;
+  let committed = false;
 
   try {
     conn = await getConnection();
@@ -112,7 +111,7 @@ const collectCalculationData = async () => {
 
     for (const calc of latestCalculations) {
       const existingEntry = existingEntriesMap.get(calc.user_id);
-      const prevNetBalance = parseFloat(calc.net_balance) || 0;
+      const prevNetBalance = Number.parseFloat(calc.net_balance) || 0;
 
       if (existingEntry) {
         // Entry exists - queue for batch update
@@ -129,8 +128,8 @@ const collectCalculationData = async () => {
       }
     }
 
-    // Execute batch operations in parallel
-    const [updatedCount, createdCount] = await Promise.all([
+     // Execute batch operations in parallel
+     const [updatedCount, createdCount] = await Promise.all([
       updates.length > 0 ? batchUpdateTodayNetBalanceDao(updates, conn) : 0,
       creates.length > 0 ? batchCreateCalculationDao(creates, conn) : 0,
     ]);
@@ -141,12 +140,14 @@ const collectCalculationData = async () => {
     logger.info(
       `Cron job executed successfully for all users. Started: ${executionStartTime}, Completed: ${executionEndTime}`,
     );
-    await commit(conn); committed = true;
+    await commit(conn);
+    committed = true;
   } catch (error) {
     if (conn && !committed) await rollback(conn);
     logger.error('Error while collecting user data:', error?.message);
     throw error; // Re-throw to ensure fallback mechanisms can detect failures
-  } finally {
+  }
+  finally {
     if (conn) conn.release();
   }
 };

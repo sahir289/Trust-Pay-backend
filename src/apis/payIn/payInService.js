@@ -146,6 +146,8 @@ import {
 } from '../../utils/db.js';
 import { createSilkPaymentTransaction } from '../../intent/createSilkIntentTransaction.js';
 import { getCachedData, setCachedData } from '../../utils/redishashkey.js';
+import { createOnePayPaymentTransaction } from '../../intent/createOnePayIntentTransaction.js';
+
 export const generatePayInUrlByHashService = async (req) => {
   try {
     const { user_id, code, ot, key, amount } = req.query;
@@ -912,6 +914,14 @@ export const payInIntentGenerateOrderService = async (
         const order = await createPaymentTransaction('nmplPay', payIn, amount);
         return order?.payment_url;
       },
+      runsafe: async () => {
+        const order = await createOnePayPaymentTransaction(
+          'runsafe',
+          payIn,
+          amount,
+        );
+        return order?.link;
+      },
       orvixPay: async () => {
         const order = await createPaymentTransaction('orvixPay', payIn, amount);
         return order?.payment_url;
@@ -933,6 +943,7 @@ export const payInIntentGenerateOrderService = async (
         return order?.id;
       },
     };
+    console.log('provider', provider);
     const handler = providerHandlers[provider];
     if (!handler) {
       throw new NotFoundError(`No handler found for provider: ${provider}`);
@@ -2244,20 +2255,49 @@ export const processPayInService = async (
   }
 };
 
-export const processPayInWebHookService = async (payload, updated_by) => {
+export const processPayInWebHookService = async (payload, updated_by, conn) => {
   try {
     const { userSubmittedUtr, merchantOrderId, amount, status } = payload;
 
-    const payIn = await getPayinsForServiccDao({
-      merchant_order_id: merchantOrderId,
-    });
-    const [bank] = await getBankaccountDao({
-      id: payIn?.bank_acc_id,
-      company_id: payIn.company_id,
-    });
-    let bankResponse = await getBankResponseByJustUTRDao(userSubmittedUtr);
-    const [vendor] = await getVendorsDao({ user_id: bank.user_id });
-    let [merchant] = await getMerchantsDao({ id: payIn.merchant_id });
+    const payIn = await getPayinsForServiccDao(
+      {
+        merchant_order_id: merchantOrderId,
+      },
+      conn,
+    );
+    const [bank] = await getBankaccountDao(
+      {
+        id: payIn?.bank_acc_id,
+        company_id: payIn.company_id,
+      },
+      null,
+      null,
+      null,
+      null,
+      conn,
+    );
+    let bankResponse = await getBankResponseByJustUTRDao(
+      userSubmittedUtr,
+      conn,
+    );
+    const [vendor] = await getVendorsDao(
+      { user_id: bank.user_id },
+      null,
+      null,
+      null,
+      null,
+      null,
+      conn,
+    );
+    let [merchant] = await getMerchantsDao(
+      { id: payIn.merchant_id },
+      null,
+      null,
+      null,
+      null,
+      null,
+      conn,
+    );
 
     const upperStatus = status.toUpperCase();
     const finalStatus =
@@ -2326,13 +2366,17 @@ export const processPayInWebHookService = async (payload, updated_by) => {
       updatePayInData.payin_merchant_commission = merchantCommission;
       updatePayInData.payin_vendor_commission = vendorCommission;
 
-      await updateCalculationTable(merchant.user_id, {
-        payinCommission: merchantCommission,
-        amount: Number(bankResponse.amount),
-      });
+      await updateCalculationTable(
+        merchant.user_id,
+        {
+          payinCommission: merchantCommission,
+          amount: Number(bankResponse.amount),
+        },
+        conn,
+      );
     }
 
-    await updatePayInUrlDao(payIn.id, updatePayInData);
+    await updatePayInUrlDao(payIn.id, updatePayInData, conn);
 
     const result = {
       status: finalStatus,
@@ -2555,7 +2599,6 @@ export const telegramResponseService = async (message) => {
         payIn.status,
       )
     ) {
-      
       await sendAlreadyConfirmedMessageTelegramBot(
         message.chat.id,
         content.utr,
@@ -2611,7 +2654,9 @@ export const telegramResponseService = async (message) => {
       otherBankResponsePayIns.length > 1
         ? otherBankResponsePayIns
         : otherUtrPayIns.length > 0
-          ? otherUtrPayIns.filter((item) => item.merchant_order_id !== message.caption)
+          ? otherUtrPayIns.filter(
+              (item) => item.merchant_order_id !== message.caption,
+            )
           : updatedBotResponsePayIns;
 
     // Handle used bank response or duplicate entries
@@ -3726,10 +3771,12 @@ const _verifyPayinsServiceInternal = async (
       allowCashfree: cashfreeDetails?.allow_cashfree || false,
       allowZenTechInd: cashfreeDetails?.allow_zentechind || false,
       allowNmplPay: cashfreeDetails?.allow_nmplpay || false,
+      allowRunsafePay: cashfreeDetails?.allow_runsafe || false,
       allowSilkPay: cashfreeDetails?.allow_silkpay || false,
       allowRazorPay: cashfreeDetails?.allow_razorpay || false,
       allowOrvixPay: cashfreeDetails?.allow_orvixpay || false,
       allowOrvixPay1: cashfreeDetails?.allow_orvixpay1 || false,
+      allowrunsafe: cashfreeDetails?.allow_runsafe || false,
       status: payIn.status,
       min_amount: merchant[0].min_payin,
       max_amount: merchant[0].max_payin,
