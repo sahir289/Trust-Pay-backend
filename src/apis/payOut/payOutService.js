@@ -800,7 +800,10 @@ const _updatePayoutServiceInternal = async (
       !payload?.config?.method === Method.TATAPAY &&
       !payload?.config?.method === Method.RUPEEFLOW &&
       !payload?.config?.method === Method.BSS &&
-      !payload?.config?.method === Method.SILKPAY
+      !payload?.config?.method === Method.SILKPAY &&
+      !payload?.config?.method === Method.BSS02 &&
+      !payload?.config?.method === Method.BSS03 &&
+      !payload?.config?.method === Method.VERTEXPAY
     )
       await checkLockEdit(ids.id, false, conn);
 
