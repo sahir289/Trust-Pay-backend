@@ -9,6 +9,7 @@ import {
 } from '../../utils/db.js';
 
 import { logger } from '../../utils/logger.js';
+import { checkLockEdit } from '../../utils/advisoryLock.js';
 
 const PRIVILEGED_BANK_DESIGNATIONS = new Set([
   Role.ADMIN,
@@ -869,8 +870,53 @@ const getBankAccountDaoNickName = async (
   }
 };
 
+const shouldAcquireBankBalanceLock = (payload = {}) => {
+  if (!payload || typeof payload !== 'object') return false;
+  return (
+    Object.hasOwn(payload, 'balance') ||
+    Object.hasOwn(payload, 'today_balance') ||
+    Object.hasOwn(payload, 'payin_count')
+  );
+};
+
+const logBankBalanceBlockers = async (conn, context) => {
+  if (!conn?.query) return;
+
+  try {
+    const blockers = await conn.query(`
+      SELECT
+        a.pid,
+        a.usename,
+        a.application_name,
+        a.client_addr,
+        a.state,
+        a.wait_event_type,
+        a.wait_event,
+        NOW() - a.query_start AS query_age,
+        LEFT(a.query, 300) AS query
+      FROM pg_stat_activity a
+      WHERE a.pid = ANY(pg_blocking_pids(pg_backend_pid()));
+    `);
+
+    logger.warn(`Detected blocking sessions for ${context}`, {
+      blockerCount: blockers.rowCount,
+      blockers: blockers.rows,
+    });
+  } catch (diagError) {
+    logger.warn(`Unable to capture blocking session diagnostics for ${context}`, {
+      error: diagError.message,
+    });
+  }
+};
+
+const getPostgresErrorCode = (error) => error?.code || error?.err?.code;
+
 const updateBankaccountDao = async (id, payload, isParentDeleted, conn = null) => {
   try {
+    if (conn && id?.id && shouldAcquireBankBalanceLock(payload)) {
+      await checkLockEdit(`bank-balance:${id.id}`, true, conn);
+    }
+
     // Fetch existing bank config to merge with added_at
     const existingBankArr = await getBankAccountCoreByIdDao({
       id: id.id,
@@ -935,6 +981,9 @@ const updateBankaccountDao = async (id, payload, isParentDeleted, conn = null) =
     return result;
     
   } catch (error) {
+    if (getPostgresErrorCode(error) === '55P03' && conn) {
+      await logBankBalanceBlockers(conn, 'updateBankaccountDao');
+    }
     logger.error('Error in updateBankaccountDao:', error);
     throw error;
   }
@@ -964,9 +1013,13 @@ const updateBanktBalanceDao = async (
       filters,
       { balance: '+', today_balance: '+' },
     );
-    
+
+    if (conn && filters?.id) {
+      await checkLockEdit(`bank-balance:${filters.id}`, true, conn);
+    }
+
     const result = await executeQuery(sql, params, conn);
-    
+
     return result.rows[0];
   } catch (error) {
     logger.error('Error in updateBanktBalanceDao:', error);
@@ -989,18 +1042,35 @@ const atomicUpdateBankBalanceDao = async (
   updated_by,
   conn = null,
 ) => {
+  const [sql, params] = buildUpdateQuery(
+    tableName.BANK_ACCOUNT,
+    { balance: amount, today_balance: amount, payin_count: 1, updated_by },
+    filters,
+    { balance: '+', today_balance: '+', payin_count: '+' }, // Atomic increment for all three
+  );
+
+  if (conn && filters?.id) {
+    await checkLockEdit(`bank-balance:${filters.id}`, true, conn);
+  }
+
+  // IMPORTANT: when an external transaction connection is supplied,
+  // do not retry here. Any SQL error can mark the transaction as aborted.
+  // Retry decisions belong to the transaction boundary owner.
+  if (conn) {
+    try {
+      const result = await conn.query(sql, params);
+      return result.rows[0];
+    } catch (error) {
+      if (getPostgresErrorCode(error) === '55P03') {
+        await logBankBalanceBlockers(conn, 'atomicUpdateBankBalanceDao');
+      }
+      logger.error('Error in atomicUpdateBankBalanceDao:', error);
+      throw error;
+    }
+  }
+
   try {
-    const [sql, params] = buildUpdateQuery(
-      tableName.BANK_ACCOUNT,
-      { balance: amount, today_balance: amount, payin_count: 1, updated_by },
-      filters,
-      { balance: '+', today_balance: '+', payin_count: '+' }, // Atomic increment for all three
-    );
-    
-    const result = conn 
-      ? await conn.query(sql, params)
-      : await executeQuery(sql, params);
-    
+    const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in atomicUpdateBankBalanceDao:', error);
@@ -1023,18 +1093,35 @@ const atomicDecrementBankBalanceDao = async (
   updated_by,
   conn = null,
 ) => {
+  const [sql, params] = buildUpdateQuery(
+    tableName.BANK_ACCOUNT,
+    { balance: amount, today_balance: amount, payin_count: 1, updated_by },
+    filters,
+    { balance: '-', today_balance: '-', payin_count: '-' }, // Atomic decrement for all three
+  );
+
+  if (conn && filters?.id) {
+    await checkLockEdit(`bank-balance:${filters.id}`, true, conn);
+  }
+
+  // IMPORTANT: when an external transaction connection is supplied,
+  // do not retry here. Any SQL error can mark the transaction as aborted.
+  // Retry decisions belong to the transaction boundary owner.
+  if (conn) {
+    try {
+      const result = await conn.query(sql, params);
+      return result.rows[0];
+    } catch (error) {
+      if (getPostgresErrorCode(error) === '55P03') {
+        await logBankBalanceBlockers(conn, 'atomicDecrementBankBalanceDao');
+      }
+      logger.error('Error in atomicDecrementBankBalanceDao:', error);
+      throw error;
+    }
+  }
+
   try {
-    const [sql, params] = buildUpdateQuery(
-      tableName.BANK_ACCOUNT,
-      { balance: amount, today_balance: amount, payin_count: 1, updated_by },
-      filters,
-      { balance: '-', today_balance: '-', payin_count: '-' }, // Atomic decrement for all three
-    );
-    
-    const result = conn 
-      ? await conn.query(sql, params)
-      : await executeQuery(sql, params);
-    
+    const result = await executeQuery(sql, params);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in atomicDecrementBankBalanceDao:', error);

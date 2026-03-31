@@ -3,17 +3,42 @@ import { sendSuccess } from '../../utils/responseHandlers.js';
 import { createBankResponseWebHookService } from '../bankResponse/bankResponseServices.js';
 import { getPayInIntentDao } from '../payIn/payInDao.js';
 import { processPayInWebHookService } from '../payIn/payInService.js';
-import { generateHash } from '../../intent/createIntentTransaction.js';
 import { getBankResponseByUTR } from '../bankResponse/bankResponseDao.js';
-import { beginTransaction, getConnection } from '../../utils/db.js';
+import { beginTransaction, commit, getConnection, rollback } from '../../utils/db.js';
+import { checkLockEdit } from '../../utils/advisoryLock.js';
 
 const processingSet = new Set();
 
+const parsePositiveInt = (value, fallback) => {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+const RUNSAFE_DB_LOCK_TIMEOUT_MS = parsePositiveInt(
+  process.env.RUNSAFE_DB_LOCK_TIMEOUT_MS,
+  20000,
+);
+const RUNSAFE_DB_STATEMENT_TIMEOUT_MS = parsePositiveInt(
+  process.env.RUNSAFE_DB_STATEMENT_TIMEOUT_MS,
+  120000,
+);
+const RUNSAFE_LOCK_RETRIES = parsePositiveInt(
+  process.env.RUNSAFE_LOCK_RETRIES,
+  3,
+);
+
+const isRetryableTxError = (error) =>
+  ['55P03', '40P01', '40001'].includes(error?.code)
+  || error?.message?.includes('currently being updated');
+
+
 export const runsafeWebhook = async (req, res) => {
+  const data = req.body.post;
+  logger.info('Webhook received', data);
+  const body = typeof data === 'string' ? JSON.parse(data) : data;
   try {
     sendSuccess(res, 200, 'runsafe webhook received successfully');
-    const body = req.body;
-    const merchantOrderId = body?.mchOrderNo
+    const merchantOrderId = body?.mchOrderNo;
     const utr = body?.utr;
     if (processingSet.has(utr)) {
       logger.warn(`Duplicate concurrent webhook skipped for ${utr} and merchantOrderId ${merchantOrderId}`);
@@ -22,58 +47,111 @@ export const runsafeWebhook = async (req, res) => {
 
     processingSet.add(utr);
 
-    const hash = generateHash(body, 'runsafe');
-    if (hash !== body.hash) {
-      logger.error('Invalid hash in runsafe webhook');
-      // return;
-    }
-
     const payload = {
       merchantOrderId: body?.mchOrderNo,
       userSubmittedUtr: body?.utr || body?.mchOrderNo,
       amount: Number(body?.amount),
       status: body?.orderStatus,
     };
-    const payIn = await getPayInIntentDao(body?.mchOrderNo);
 
-    const bankResponsePayload = `${body?.amount} nil ${payload.userSubmittedUtr} ${payIn.bank_acc_id}`;
+    for (let attempt = 1; attempt <= RUNSAFE_LOCK_RETRIES; attempt++) {
+      let conn;
+      let committed = false;
+      try {
+        conn = await getConnection();
+        await beginTransaction(conn);
+        await conn.query(
+          `SET LOCAL lock_timeout = '${RUNSAFE_DB_LOCK_TIMEOUT_MS}ms'`,
+        );
+        await conn.query(
+          `SET LOCAL statement_timeout = '${RUNSAFE_DB_STATEMENT_TIMEOUT_MS}ms'`,
+        );
 
-    const utrAlreadyExist = await getBankResponseByUTR(
-      payload.userSubmittedUtr,
-    );
+        await checkLockEdit(
+          `runsafe:${merchantOrderId}:${payload.userSubmittedUtr}`,
+          true,
+          conn,
+        );
 
-    if (utrAlreadyExist) {
-      logger.warn(
-        'Duplicate UTR received in runsafe webhook:',
-        payload.userSubmittedUtr,
-      );
-      return;
+        const payIn = await getPayInIntentDao(body?.mchOrderNo, conn);
+
+        if (!payIn?.id) {
+          logger.warn(
+            `PayIn not found for merchantOrderId ${merchantOrderId}, skipping runsafe webhook processing`,
+          );
+          await commit(conn);
+          committed = true;
+          return;
+        }
+
+        const bankResponsePayload = `${body?.amount} nil ${payload.userSubmittedUtr} ${payIn.bank_acc_id}`;
+
+        const utrAlreadyExist = await getBankResponseByUTR(
+          payload.userSubmittedUtr,
+          conn,
+        );
+
+        if (utrAlreadyExist) {
+          logger.warn(
+            'Duplicate UTR received in runsafe webhook:',
+            payload.userSubmittedUtr,
+          );
+          await commit(conn);
+          committed = true;
+          return;
+        }
+
+        if (body?.orderStatus === 'SUCCESS') {
+          const bankResponse = await createBankResponseWebHookService(
+            bankResponsePayload,
+            payIn.company_id,
+            'BOT',
+            'runsafe',
+            conn,
+          );
+          logger.info('Bank response created:', bankResponse);
+        }
+        logger.info('Calling processPayInWebHookService for payload', payload);
+        const payin = await processPayInWebHookService(
+          payload,
+          '',
+          conn,
+        );
+
+        await commit(conn);
+        committed = true;
+        logger.info('PayIn processed:', payin);
+        return;
+      } catch (error) {
+        if (conn && !committed) {
+          await rollback(conn);
+        }
+
+        const retryable = isRetryableTxError(error);
+        const isLastAttempt = attempt === RUNSAFE_LOCK_RETRIES;
+
+        logger.error('runsafe webhook error:', error);
+
+        if (!retryable || isLastAttempt) {
+          return;
+        }
+
+        const retryDelayMs = attempt * 500;
+        logger.warn(
+          `Retrying runsafe webhook transaction after transient DB lock error (attempt ${attempt}/${RUNSAFE_LOCK_RETRIES}) in ${retryDelayMs}ms`,
+        );
+        await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+      } finally {
+        if (conn) {
+          try {
+            conn.release();
+          } catch (releaseErr) {
+            logger.error('Error releasing DB connection:', releaseErr);
+          }
+        }
+      }
     }
-
-    let conn = await getConnection();
-    await beginTransaction(conn);
-
-    if (body?.orderStatus === 'SUCCESS') {
-      const bankResponse = await createBankResponseWebHookService(
-        bankResponsePayload,
-        payIn.company_id,
-        'BOT',
-        'runsafe',
-        conn,
-      );
-      logger.info('Bank response created:', bankResponse);
-    }
-    logger.info('Calling processPayInWebHookService for payload', payload);
-    const payin = await processPayInWebHookService(
-      payload,
-      '',
-      conn,
-    );
-
-    logger.info('PayIn processed:', payin);
-  } catch (error) {
-    logger.error('runsafe webhook error:', error);
   } finally {
-    processingSet.delete(req.body?.transaction?.utr);
+    processingSet.delete(body?.utr);
   }
 };

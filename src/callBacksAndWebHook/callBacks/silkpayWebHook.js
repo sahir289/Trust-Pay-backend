@@ -113,7 +113,7 @@ export const silkPayTransactionStatusCallback = async (req, res) => {
       }
 
     // Log the updated payout status
-    logger.info('Payout Updated by PayAssist callback', {
+    logger.info('Payout Updated by SILKPAY callback', {
       status: singleWithdrawData.status,
     });
 
