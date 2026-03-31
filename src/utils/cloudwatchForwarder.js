@@ -3,6 +3,11 @@ import fsp from 'node:fs/promises';
 import path from 'node:path';
 import CloudWatchTransport from 'winston-cloudwatch';
 import {
+  CloudWatchLogsClient,
+  CreateLogGroupCommand,
+  CreateLogStreamCommand,
+} from '@aws-sdk/client-cloudwatch-logs';
+import {
   formatLocalTimestamp,
   getDateStamp,
   getDailyLogFilePath,
@@ -27,6 +32,14 @@ const awsAccessKeyId = config.aws.accessKeyId;
 const awsSecretAccessKey = config.aws.secretAccessKey;
 const logGroupName = config.aws.cloudWatchLogGroup;
 
+const cloudWatchLogsClient = new CloudWatchLogsClient({
+  region: awsRegion,
+  credentials: {
+    accessKeyId: awsAccessKeyId,
+    secretAccessKey: awsSecretAccessKey,
+  },
+});
+
 if (!awsRegion || !awsAccessKeyId || !awsSecretAccessKey || !logGroupName) {
   process.stderr.write(
     '[CW Forwarder] Missing AWS config values. Required: aws.region, aws.accessKeyId, aws.secretAccessKey, aws.cloudWatchLogGroup\n',
@@ -38,6 +51,39 @@ const getCurrentFilePath = (date = new Date()) => getDailyLogFilePath(LOG_DIR, d
 const getCurrentStreamName = (date = new Date()) => `${STREAM_PREFIX}${getDateStamp(date)}`;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+const isAlreadyExistsError = (error) => {
+  const name = error?.name || '';
+  const message = error?.message || '';
+  return (
+    name === 'ResourceAlreadyExistsException' ||
+    name === 'ResourceAlreadyExists' ||
+    message.includes('already exists')
+  );
+};
+
+const ensureCloudWatchStream = async (streamName, reportError) => {
+  try {
+    await cloudWatchLogsClient.send(new CreateLogGroupCommand({ logGroupName }));
+  } catch (error) {
+    if (!isAlreadyExistsError(error)) {
+      reportError('CreateLogGroup', error);
+    }
+  }
+
+  try {
+    await cloudWatchLogsClient.send(
+      new CreateLogStreamCommand({
+        logGroupName,
+        logStreamName: streamName,
+      }),
+    );
+  } catch (error) {
+    if (!isAlreadyExistsError(error)) {
+      reportError(`CreateLogStream [${streamName}]`, error);
+    }
+  }
+};
 
 /**
  * Build a winston-cloudwatch transport for a given stream name.
@@ -90,6 +136,7 @@ const buildInfo = (rawLine) => {
 class CloudWatchDailyForwarder {
   #transport = null;
   #activeDate = null;
+  #lastPrecreatedDate = null;
   #offset = 0;
   #partialLine = '';
   #running = false;
@@ -157,6 +204,9 @@ class CloudWatchDailyForwarder {
       `${STREAM_PREFIX}${dateStr}`,
       (error) => this.#reportError(`Transport [${STREAM_PREFIX}${dateStr}]`, error),
     );
+    await ensureCloudWatchStream(`${STREAM_PREFIX}${dateStr}`, (context, error) =>
+      this.#reportError(context, error),
+    );
 
     const stateOffset = this.#state?.[dateStr]?.offset;
     if (Number.isFinite(stateOffset) && stateOffset >= 0) {
@@ -169,6 +219,22 @@ class CloudWatchDailyForwarder {
 
     this.#partialLine = '';
     process.stdout.write(`[CW Forwarder] Active stream: ${getCurrentStreamName(now)}\n`);
+  }
+
+  async #precreateNextDateStreamIfNeeded(now = new Date()) {
+    if (now.getHours() !== 23 || now.getMinutes() !== 59) return;
+
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const tomorrowDate = getDateStamp(tomorrow);
+
+    if (this.#lastPrecreatedDate === tomorrowDate) return;
+
+    await ensureCloudWatchStream(`${STREAM_PREFIX}${tomorrowDate}`, (context, error) =>
+      this.#reportError(context, error),
+    );
+    this.#lastPrecreatedDate = tomorrowDate;
+    process.stdout.write(`[CW Forwarder] Pre-created upcoming stream: ${STREAM_PREFIX}${tomorrowDate}\n`);
   }
 
   /**
@@ -333,8 +399,10 @@ class CloudWatchDailyForwarder {
     let nextDLQReplay = Date.now() + DLQ_REPLAY_INTERVAL_MS;
 
     while (this.#running) {
+      const now = new Date();
       try {
-        await this.#processDelta();
+        await this.#processDelta(now);
+        await this.#precreateNextDateStreamIfNeeded(now);
       } catch (error) {
         process.stderr.write(`[CW Forwarder] Loop error: ${error?.message || 'unknown'}\n`);
       }
