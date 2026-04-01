@@ -24,19 +24,19 @@ import {
   RUPEEFLOW_BULK_PAYOUT_SCHEMA,
 } from '../../schemas/payoutSchema.js';
 import { ValidationError } from '../../utils/appErrors.js';
-import { generateCacheKey } from '../../utils/redishashkey.js';
+// import { generateCacheKey } from '../../utils/redishashkey.js';
 import {
-  normalizeQueryForCache,
-  readJsonCache,
-  shouldServeCachedResponse,
-  writeJsonCache,
+  // normalizeQueryForCache,
+  // readJsonCache,
+  // shouldServeCachedResponse,
+  // writeJsonCache,
   invalidateCompanyCacheByPrefix,
 } from '../../utils/controllerCache.js';
-import config from '../../config/config.js';
+// import config from '../../config/config.js';
 // import { BadRequestError } from '../../utils/appErrors.js';
 
 const TestingIp = process.env.LOCAL_IP;
-const { controllerCacheTtls } = config;
+// const { controllerCacheTtls } = config;
 
 const invalidatePayoutCache = async (companyId) =>
   invalidateCompanyCacheByPrefix(companyId, 'payout:read:', 'PayOut cache');
@@ -108,41 +108,44 @@ const getPayoutsById = async (req, res) => {
   }
   const { id } = req.params;
   const { company_id, role } = req.user;
-  const cacheKey = `payout:read:${company_id}:byid:${id}:${role}`;
+  // const cacheKey = `payout:read:${company_id}:byid:${id}:${role}`;
 
-  const cached = await readJsonCache(cacheKey, 'PayOut by-id cache');
-  if (shouldServeCachedResponse(cached, req.query)) {
-    return sendSuccess(res, cached, 'Payouts fetched successfully');
-  }
+  // const cached = await readJsonCache(cacheKey, 'PayOut by-id cache');
+  // if (shouldServeCachedResponse(cached, req.query)) {
+  //   return sendSuccess(res, cached, 'Payouts fetched successfully');
+  // }
 
   const data = await getPayoutsService({ id, company_id }, role);
 
-  await writeJsonCache(cacheKey, data, controllerCacheTtls.payout.byId);
+  // await writeJsonCache(cacheKey, data, controllerCacheTtls.payout.byId);
   return sendSuccess(res, data, 'Payouts fetched successfully');
 };
 
 const getPayouts = async (req, res) => {
   const { company_id, role, user_id, designation } = req.user;
   const { page, limit, sortOrder } = req.query;
-  const normalizedQuery = normalizeQueryForCache(req.query);
-  const cacheKey = `payout:read:${company_id}:list:${generateCacheKey(
-    {
-      company_id,
-      role,
-      user_id,
-      designation,
-      page,
-      limit,
-      sortOrder,
-      query: normalizedQuery,
-    },
-    'payout-list',
-  )}`;
 
-  const cached = await readJsonCache(cacheKey, 'PayOut list cache');
-  if (shouldServeCachedResponse(cached, req.query)) {
-    return sendSuccess(res, cached, 'Payouts fetched successfully');
-  }
+
+  // commented code for caching based on query params, can be enabled when needed. Currently disabled to avoid cache serving stale data 
+  // const normalizedQuery = normalizeQueryForCache(req.query);
+  // const cacheKey = `payout:read:${company_id}:list:${generateCacheKey(
+  //   {
+  //     company_id,
+  //     role,
+  //     user_id,
+  //     designation,
+  //     page,
+  //     limit,
+  //     sortOrder,
+  //     query: normalizedQuery,
+  //   },
+  //   'payout-list',
+  // )}`;
+
+  // const cached = await readJsonCache(cacheKey, 'PayOut list cache');
+  // if (shouldServeCachedResponse(cached, req.query)) {
+  //   return sendSuccess(res, cached, 'Payouts fetched successfully');
+  // }
 
   delete req.query.limit;
   delete req.query.sortOrder;
@@ -158,33 +161,35 @@ const getPayouts = async (req, res) => {
     designation,
   );
 
-  await writeJsonCache(cacheKey, data, controllerCacheTtls.payout.list);
+  // await writeJsonCache(cacheKey, data, controllerCacheTtls.payout.list);
   return sendSuccess(res, data, 'Payouts fetched successfully');
 };
 
 const getPayoutsBySearch = async (req, res) => {
   const { company_id, role, user_id, designation } = req.user;
   const { search, page = 1, limit = 10, isAmount } = req.query;
-  const normalizedQuery = normalizeQueryForCache(req.query);
-  const cacheKey = `payout:read:${company_id}:search:${generateCacheKey(
-    {
-      company_id,
-      role,
-      user_id,
-      designation,
-      search,
-      page,
-      limit,
-      isAmount,
-      query: normalizedQuery,
-    },
-    'payout-search',
-  )}`;
 
-  const cached = await readJsonCache(cacheKey, 'PayOut search cache');
-  if (shouldServeCachedResponse(cached, req.query)) {
-    return sendSuccess(res, cached, 'Payouts fetched successfully');
-  }
+  // commented code for caching based on search query and other params, can be enabled when needed. Currently disabled to avoid cache serving stale data 
+  // const normalizedQuery = normalizeQueryForCache(req.query);
+  // const cacheKey = `payout:read:${company_id}:search:${generateCacheKey(
+  //   {
+  //     company_id,
+  //     role,
+  //     user_id,
+  //     designation,
+  //     search,
+  //     page,
+  //     limit,
+  //     isAmount,
+  //     query: normalizedQuery,
+  //   },
+  //   'payout-search',
+  // )}`;
+
+  // const cached = await readJsonCache(cacheKey, 'PayOut search cache');
+  // if (shouldServeCachedResponse(cached, req.query)) {
+  //   return sendSuccess(res, cached, 'Payouts fetched successfully');
+  // }
 
   // if (!search) {
   //   throw new BadRequestError('search is required');
@@ -203,7 +208,7 @@ const getPayoutsBySearch = async (req, res) => {
     isAmount,
   );
 
-  await writeJsonCache(cacheKey, data, controllerCacheTtls.payout.search);
+  // await writeJsonCache(cacheKey, data, controllerCacheTtls.payout.search);
   return sendSuccess(res, data, 'Payouts fetched successfully');
 };
 
