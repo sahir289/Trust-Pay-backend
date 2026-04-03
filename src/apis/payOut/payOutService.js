@@ -838,6 +838,12 @@ const _updatePayoutServiceInternal = async (
       Object.assign(payload, { utr_id: '', rejected_reason: '' });
     }
 
+    const isOnlyUtrUpdate =
+      Boolean(payload?.utr_id) &&
+      Object.keys(payload).every((key) =>
+        ['utr_id', 'updated_by'].includes(key),
+      );
+
     // Fetch payout data first
     const singleWithdrawDataArr = await getPayoutsDao(
       ids,
@@ -1227,7 +1233,7 @@ const _updatePayoutServiceInternal = async (
     }
 
     // Handle status-specific updates
-    if (data.status === Status.APPROVED) {
+    if (!isOnlyUtrUpdate && data.status === Status.APPROVED) {
       // Prepare calculation updates including parent vendor if needed
       const calculationUpdates = [
         updateCalculationTable(
@@ -1285,7 +1291,11 @@ const _updatePayoutServiceInternal = async (
           conn,
         ),
       ]);
-    } else if (data.status === Status.REVERSED && data.approved_at !== null) {
+    } else if (
+      !isOnlyUtrUpdate &&
+      data.status === Status.REVERSED &&
+      data.approved_at !== null
+    ) {
       // Prepare calculation updates including parent vendor if needed
       const calculationUpdates = [
         updateCalculationTable(
