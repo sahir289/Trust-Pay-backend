@@ -5,7 +5,7 @@ import { Role, Status } from '../../constants/index.js';
 import { logger } from '../../utils/logger.js';
 import { getCompanyByIDDao } from '../../apis/company/companyDao.js';
 import { getVendorsDao } from '../../apis/vendors/vendorDao.js';
-import { updatePayoutService } from '../../apis/payOut/payOutService.js';
+import { _updatePayoutServiceInternal } from '../../apis/payOut/payOutService.js';
 import { getUserByCompanyCreatedAtDao } from '../../apis/users/userDao.js';
 import {
   beginTransaction,
@@ -26,7 +26,7 @@ export const vertexPayTransactionStatusCallback = async (req, res) => {
     }
     conn = await getConnection();
     await beginTransaction(conn);
-    const [singleWithdrawData] = await getPayoutByTxnId(apitxnid, conn);
+    const singleWithdrawData = await getPayoutByTxnId(apitxnid, conn);
     if (!singleWithdrawData) {
       return res.status(404).send('Payment not found');
     }
@@ -40,16 +40,19 @@ export const vertexPayTransactionStatusCallback = async (req, res) => {
       });
       return res.status(200).send('Payout already processed');
     }
-    
+
     logger.info('Fetched payout data for OrderID:', apitxnid);
 
     const [company] = await getCompanyByIDDao({
       id: singleWithdrawData.company_id,
     });
-    logger.info('Fetched company data for company_id:', singleWithdrawData.company_id);
+    logger.info(
+      'Fetched company data for company_id:',
+      singleWithdrawData.company_id,
+    );
 
     // Prepare update payload based on callback response
-    const bankId = company.config.VERTEXPAY.defaultBankId;
+    const bankId = company.config.VERTEX_PAY.defaultBankId;
     const [bankVendor] = await getBankByIdDao({ id: bankId });
     const [vendor] = await getVendorsDao({ user_id: bankVendor.user_id });
     const updatePayload = {
@@ -68,28 +71,30 @@ export const vertexPayTransactionStatusCallback = async (req, res) => {
 
     // Status mapping: 'success' => APPROVED, 'failed' => REJECTED, else PENDING
     const statusStr = (payload.status || '').toString().toLowerCase();
-    if (statusStr === 'success') {
+    if (statusStr === 'success' || statusStr === 'SUCCESS') {
       Object.assign(updatePayload, {
         status: Status.APPROVED,
         utr_id: payload.rrn || '',
         approved_at: new Date().toISOString(),
       });
-    } else if (statusStr === 'failed') {
+    } else if (statusStr === 'failed' || statusStr === 'FAILED') {
       updatePayload.status = Status.REJECTED;
-      updatePayload.config.rejected_reason = payload.description || 'Transaction failed';
+      updatePayload.config.rejected_reason =
+        payload.description || 'Transaction failed';
       updatePayload.rejected_at = new Date().toISOString();
     } else {
       updatePayload.status = Status.PENDING;
     }
 
     logger.info('Final update payload for payout:', updatePayload);
-    await updatePayoutService(
-      conn,
+    await _updatePayoutServiceInternal(
       {
         id: singleWithdrawData.id,
         company_id: singleWithdrawData.company_id,
       },
-      updatePayload
+      updatePayload,
+      null,
+      conn,
     );
 
     logger.info('Payout Updated by VERTEXPAY callback', {
@@ -99,6 +104,7 @@ export const vertexPayTransactionStatusCallback = async (req, res) => {
     await commit(conn);
     return res.status(200).send('Payout Updated Successfully');
   } catch (err) {
+    console.log(err);
     await rollback(conn);
     logger.error('getting error while updating payout', err);
   } finally {

@@ -784,37 +784,34 @@ export const buildAndExecuteUpdateQuery = async (
       const processNestedKeys = (obj, parentKey = []) => {
         Object.entries(obj).forEach(([key, value]) => {
           const currentPath = [...parentKey, key];
+          const path = currentPath.join(',');
           // merging merchant_added object
           if (
             key === 'merchant_added' &&
             typeof value === 'object' &&
             !Array.isArray(value)
           ) {
-            const path = currentPath.join(',');
             const mergeSnippet = `coalesce(${jsonbSetQuery}#>'{${path}}', '{}'::jsonb) || $${index}::jsonb`;
             jsonbSetQuery = `jsonb_set(${jsonbSetQuery}, '{${path}}', ${mergeSnippet})`;
             values.push(stringifyJSON(value));
             index++;
-          } else if (
-            value &&
-            typeof value === 'object' &&
-            !Array.isArray(value)
-          ) {
+          } else if (value && typeof value === 'object' && !Array.isArray(value)) {
             // Recursively process nested objects
             processNestedKeys(value, currentPath);
+          } else if (value === null || value === undefined) {
+            // Remove the key from config if value is null/undefined
+            jsonbSetQuery = `${jsonbSetQuery} - '{${path}}'`;
           } else {
             // Add jsonb_set for the current key
-            const path = currentPath.join(',');
             jsonbSetQuery = `jsonb_set(${jsonbSetQuery}, '{${path}}', $${index}::jsonb)`;
             values.push(stringifyJSON(value));
             index++;
           }
         });
       };
-
       processNestedKeys(data.config);
       setClause.push(`"config" = ${jsonbSetQuery}`);
-      delete data.config; // Remove `config` from the main data object
+      delete data.config;
     }
 
     // Handle other updates

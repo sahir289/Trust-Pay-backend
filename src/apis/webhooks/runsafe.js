@@ -33,8 +33,8 @@ const isRetryableTxError = (error) =>
 
 
 export const runsafeWebhook = async (req, res) => {
-  const data = req.body.post;
-  logger.info('Webhook received', data);
+  const data = req.body;
+  logger.info('Webhook received ++++', data);
   const body = typeof data === 'string' ? JSON.parse(data) : data;
   try {
     sendSuccess(res, 200, 'runsafe webhook received successfully');

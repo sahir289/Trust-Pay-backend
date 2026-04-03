@@ -155,9 +155,9 @@ export const createVertexPayPayout = async (
       throw new Error('Payout method missing in payload');
     }
 
-    if (payload.txnStatus) {
+    if (payload.status) {
       checkVertexPay = { ...payload };
-      delete payload.txnStatus;
+      delete payload.status;
     } else {
       checkVertexPay = await initiateVertexPayPayout(
         singleWithdrawData,
@@ -169,13 +169,13 @@ export const createVertexPayPayout = async (
 
     // Handle two different response formats:
     // 1. API response: { data: { data: { batchId, payoutOrders: [...] } } }
-    // 2. Webhook format: { txnStatus, utr_id, config: { orderId, txnRefId, txnid } }
+    // 2. Webhook format: { status, utr_id, config: { orderId, txnRefId, txnid } }
 
 
     let statusCode;
     let payoutResp;
 
-    if (checkVertexPay.txnStatus) {
+    if (checkVertexPay.status) {
       // Webhook format - status is already processed
       statusCode = checkVertexPay.status;
       payload.config.txnid = checkVertexPay.transactionId;
@@ -197,11 +197,11 @@ export const createVertexPayPayout = async (
     }
 
     // Map status code to internal status
-    if (statusCode === 2) {
+    if (statusCode === 2 || statusCode === 'success' || statusCode === 'SUCCESS' || statusCode === Status.APPROVED) {
       payload.status = Status.APPROVED;
       payload.utr_id = payload.utr_id || '';
       payload.approved_at = new Date().toISOString();
-    } else if (statusCode === 0 || statusCode === 1) {
+    } else if (statusCode === 0 || statusCode === 1 || statusCode === 'pending' || statusCode === 'PENDING' || statusCode === Status.PENDING) {
       payload.status = Status.PENDING;
     } else {
       payload.status = Status.REJECTED;

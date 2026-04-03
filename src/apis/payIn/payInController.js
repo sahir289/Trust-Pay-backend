@@ -52,19 +52,19 @@ import { logger } from '../../utils/logger.js';
 import { getRolesById } from '../roles/rolesDao.js';
 import { Role, Status } from '../../constants/index.js';
 import { verifyRazorPaySignature } from '../../razorpay/razorpay.js';
-import { generateCacheKey } from '../../utils/redishashkey.js';
+// import { generateCacheKey } from '../../utils/redishashkey.js';
 import {
-  normalizeQueryForCache,
-  readJsonCache,
-  shouldServeCachedResponse,
-  writeJsonCache,
+  // normalizeQueryForCache,
+  // readJsonCache,
+  // shouldServeCachedResponse,
+  // writeJsonCache,
   invalidateCompanyCacheByPrefix,
 } from '../../utils/controllerCache.js';
 import { publishPayInProcess } from '../../rabbitmq/producer.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 
 const TestingIp = process.env.LOCAL_IP;
-const { controllerCacheTtls } = config;
+// const { controllerCacheTtls } = config;
 
 const invalidatePayinCache = async (companyId) =>
   invalidateCompanyCacheByPrefix(companyId, 'payin:read:', 'PayIn cache');
@@ -387,26 +387,28 @@ export const resetDeposit = async (req, res) => {
 export const getPayinsBySearch = async (req, res) => {
   const { company_id, role, user_id, designation } = req.user;
   const { search, page = 1, limit = 10, updatedPayin } = req.query;
-  const normalizedQuery = normalizeQueryForCache(req.query);
-  const cacheKey = `payin:read:${company_id}:search:${generateCacheKey(
-    {
-      company_id,
-      role,
-      user_id,
-      designation,
-      search,
-      page,
-      limit,
-      updatedPayin,
-      query: normalizedQuery,
-    },
-    'payin-search',
-  )}`;
 
-  const cached = await readJsonCache(cacheKey, 'PayIn search cache');
-  if (shouldServeCachedResponse(cached, req.query)) {
-    return sendSuccess(res, cached, 'Payins fetched successfully');
-  }
+  // commented code for caching based on search query and other params, can be enabled when needed. Currently disabled to avoid cache serving stale data during development and testing
+  // const normalizedQuery = normalizeQueryForCache(req.query);
+  // const cacheKey = `payin:read:${company_id}:search:${generateCacheKey(
+  //   {
+  //     company_id,
+  //     role,
+  //     user_id,
+  //     designation,
+  //     search,
+  //     page,
+  //     limit,
+  //     updatedPayin,
+  //     query: normalizedQuery,
+  //   },
+  //   'payin-search',
+  // )}`;
+
+  // const cached = await readJsonCache(cacheKey, 'PayIn search cache');
+  // if (shouldServeCachedResponse(cached, req.query)) {
+  //   return sendSuccess(res, cached, 'Payins fetched successfully');
+  // }
   // if (!search) {
   //   throw new BadRequestError('search is required');
   // }
@@ -424,25 +426,25 @@ export const getPayinsBySearch = async (req, res) => {
     updatedPayin,
   );
 
-  await writeJsonCache(cacheKey, data, controllerCacheTtls.payin.search);
+  // await writeJsonCache(cacheKey, data, controllerCacheTtls.payin.search);
 
   return sendSuccess(res, data, 'Payins fetched successfully');
 };
 
 export const getPayinsSummary = async (req, res) => {
   const { company_id } = req.user;
-  const cacheKey = `payin:read:${company_id}:summary`;
+  // const cacheKey = `payin:read:${company_id}:summary`;
 
-  const cached = await readJsonCache(cacheKey, 'PayIn summary cache');
-  if (shouldServeCachedResponse(cached, req.query)) {
-    return sendSuccess(res, cached, 'Payins fetched successfully');
-  }
+  // const cached = await readJsonCache(cacheKey, 'PayIn summary cache');
+  // if (shouldServeCachedResponse(cached, req.query)) {
+  //   return sendSuccess(res, cached, 'Payins fetched successfully');
+  // }
 
   const data = await getPayinsSummaryService({
     company_id,
   });
 
-  await writeJsonCache(cacheKey, data, controllerCacheTtls.payin.summary);
+  // await writeJsonCache(cacheKey, data, controllerCacheTtls.payin.summary);
 
   return sendSuccess(res, data, 'Payins fetched successfully');
 };
