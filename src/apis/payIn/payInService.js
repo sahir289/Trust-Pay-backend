@@ -42,7 +42,7 @@ import {
   getPayInIntentDao,
   getPayInsForCronDao,
   getPayInWithMerchantOrderIdDao,
-  atomicClaimPayInUrlDao,
+  // atomicClaimPayInUrlDao,
 } from './payInDao.js';
 import {
   BadRequestError,
@@ -3719,13 +3719,31 @@ const _verifyPayinsServiceInternal = async (
       ...payIn.config,
       user: user_location,
     });
-    // Atomically claim the URL, PostgreSQL guarantees only one concurrent
-    // caller whose WHERE one_time_used=false matches will win, the rest get null back without any locking or transaction required.
-    const claimed = await atomicClaimPayInUrlDao(payIn.id, updatedConfig);
-    if (!claimed) {
-      const result = { redirect_url: payIn.config?.urls?.return };
+
+     const updateResult = await updatePayInUrlDao(payIn.id, {
+      config: updatedConfig,
+      one_time_used: oneTimeUsed || false,
+    });
+
+    if (!updateResult) {
+      throw new InternalServerError('Failed to update payin URL');
+    }
+
+     if (oneTimeUsed === 'true' && updateResult.one_time_used) {
+      // If already used
+      const result = {
+        redirect_url: payIn.config?.urls?.return,
+      };
       return { error: `This payin url is already used`, result };
     }
+
+    // Atomically claim the URL, PostgreSQL guarantees only one concurrent
+    // caller whose WHERE one_time_used=false matches will win, the rest get null back without any locking or transaction required.
+    // const claimed = await atomicClaimPayInUrlDao(payIn.id, updatedConfig);
+    // if (!claimed) {
+    //   const result = { redirect_url: payIn.config?.urls?.return };
+    //   return { error: `This payin url is already used`, result };
+    // }
 
     const merchant = await getMerchantsForValidatePayinDao({
       id: payIn.merchant_id,
