@@ -292,6 +292,33 @@ export const getMerchantByIdDao = async (id, company_id, conn = null) => {
     throw error;
   }
 };
+export const getMerchantForNotifyDao = async (
+  filters = {},
+  company_id,
+  conn = null,
+) => {
+  try {
+    const selectColumns = `
+      id,
+      code
+    `;
+    const baseQuery = `
+      SELECT ${selectColumns}
+      FROM "${tableName.MERCHANT}"
+      WHERE is_obsolete = false
+    `;
+    const queryFilters = { ...filters };
+    if (company_id !== undefined && company_id !== null) {
+      queryFilters.company_id = company_id;
+    }
+    const [sql, params] = buildSelectQuery(baseQuery, queryFilters);
+    const result = await executeQuery(sql, params, conn);
+    return result.rows || [];
+  } catch (error) {
+    logger.error('Error in getMerchantForNotifyDao:', error);
+    throw error;
+  }
+};
 
 export const getMerchantsDao = async (
   filters,
