@@ -78,7 +78,7 @@ export const initiateBSS03Payout = async (payload, company_id) => {
     const url = `${baseUrl}${initiatePayoutUrl}`;
     logger.info('BSS1015 payout request URL:', url);
     const response = await axios.post(url, newPayload);
-    logger.log(response, "bss1015 payout response");
+    // logger.log(response, "bss1015 payout response");
     logger.log('BSS1015 payout initiated successfully:', {
       merchant_order_id: payload?.merchant_order_id,
       data: response.data,

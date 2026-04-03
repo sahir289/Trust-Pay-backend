@@ -800,9 +800,9 @@ const _updatePayoutServiceInternal = async (
       !payload?.config?.method === Method.TATAPAY &&
       !payload?.config?.method === Method.RUPEEFLOW &&
       !payload?.config?.method === Method.BSS &&
-      !payload?.config?.method === Method.SILKPAY &&
       !payload?.config?.method === Method.BSS02 &&
       !payload?.config?.method === Method.BSS03 &&
+      !payload?.config?.method === Method.SILKPAY &&
       !payload?.config?.method === Method.VERTEXPAY
     )
       await checkLockEdit(ids.id, false, conn);
@@ -835,6 +835,12 @@ const _updatePayoutServiceInternal = async (
     if (payload.status === Status.INITIATED) {
       Object.assign(payload, { utr_id: '', rejected_reason: '' });
     }
+
+    const isOnlyUtrUpdate =
+      Boolean(payload?.utr_id) &&
+      Object.keys(payload).every((key) =>
+        ['utr_id', 'updated_by'].includes(key),
+      );
 
     // Fetch payout data first
     const singleWithdrawDataArr = await getPayoutsDao(
@@ -1225,7 +1231,7 @@ const _updatePayoutServiceInternal = async (
     }
 
     // Handle status-specific updates
-    if (data.status === Status.APPROVED) {
+    if (!isOnlyUtrUpdate && data.status === Status.APPROVED) {
       // Prepare calculation updates including parent vendor if needed
       const calculationUpdates = [
         updateCalculationTable(
@@ -1283,7 +1289,11 @@ const _updatePayoutServiceInternal = async (
           conn,
         ),
       ]);
-    } else if (data.status === Status.REVERSED && data.approved_at !== null) {
+    } else if (
+      !isOnlyUtrUpdate &&
+      data.status === Status.REVERSED &&
+      data.approved_at !== null
+    ) {
       // Prepare calculation updates including parent vendor if needed
       const calculationUpdates = [
         updateCalculationTable(
