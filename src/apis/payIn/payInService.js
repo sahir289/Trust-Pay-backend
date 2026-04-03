@@ -3805,14 +3805,9 @@ const _verifyPayinsServiceInternal = async (
 };
 
 // No transaction needed here for two reasons:
-// 1. Race-condition safety is handled atomically at the DB level via
-//    atomicClaimPayInUrlDao (UPDATE ... WHERE one_time_used=false RETURNING *).
-//    PostgreSQL's row-level locking ensures exactly one concurrent caller
-//    wins the claim — no BEGIN/COMMIT wrapper is required.
-// 2. All other reads (merchant, bank, vendor) are independent reference-data
-//    lookups that don't need to be consistent with each other or with the
-//    payin write. Holding a writer connection open for their duration only
-//    exhausts pool capacity on this high-frequency endpoint.
+// 1. Race-condition safety is handled atomically at the DB level via atomicClaimPayInUrlDao (UPDATE ... WHERE one_time_used=false RETURNING *).
+//    PostgreSQL's row-level locking ensures exactly one concurrent caller wins the claim — no BEGIN/COMMIT wrapper is required.
+// 2. All other reads (merchant, bank, vendor) are independent reference-data. lookups that don't need to be consistent with each other or with the payin write
 export const verifyPayinsService = async (
   merchantOrderId,
   user_location,
