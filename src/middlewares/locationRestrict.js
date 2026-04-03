@@ -30,9 +30,11 @@ const getUserLocationMiddleware = async (req, res, next) => {
     const response = await axios.get(url);
 
     const userData = response.data[userIp];
-    if (!userData) {
-      return res.status(500).json({ message: 'Error fetching location data' });
-    }
+     if (!userData) {
+       logger.warn('User location data not found, skipping checks');
+        req.user_location = {user_ip: userIp};
+       return next();
+     }
     const { latitude, longitude, vpn, region, country } = userData;
     const user = {
       user_ip: userIp,
@@ -47,7 +49,23 @@ const getUserLocationMiddleware = async (req, res, next) => {
       longitude: userData.longitude,
     };
     const payInUrl = await getPayInwithMerchantDao(req.params.merchantOrderId);
-    const isIpBlocked = payInUrl.blocked_users_ip[0]?.user_ip.includes(userIp);
+       if (!payInUrl) {
+         logger.warn('payIn not found, skipping restrictions');
+         req.user_location = {
+           user_ip: userIp,
+           continent: userData.continent,
+           continent_code: userData.continentcode,
+           country: userData.country,
+           region: userData.region,
+           timezone: userData.timezone,
+           city: userData.city,
+           postcode: userData.postcode,
+           latitude: userData.latitude,
+           longitude: userData.longitude,
+         };
+         return next();
+       }
+    const isIpBlocked = payInUrl?.blocked_users_ip[0]?.user_ip.includes(userIp);
     if (isIpBlocked) {
       const url = await processPayInRestricted(
         payInUrl,
@@ -58,8 +76,8 @@ const getUserLocationMiddleware = async (req, res, next) => {
         error: { message: 'Access Denied!', data: { url } },
       });
     }
-    const isIdBlocked = payInUrl.blocked_users_id[0]?.userId.includes(
-      payInUrl.userid,
+    const isIdBlocked = payInUrl?.blocked_users_id[0]?.userId.includes(
+      payInUrl?.userid,
     );
     if (isIdBlocked) {
       const url = await processPayInRestricted(
@@ -85,8 +103,8 @@ const getUserLocationMiddleware = async (req, res, next) => {
       });
     }
     // let rakpayId = 'eb58a8cb-dee6-46fb-878b-3f24272cf980';
-    if (payInUrl.unblockedcountries) {
-      const countryData = payInUrl.unblockedcountries.find(
+    if (payInUrl?.unblockedcountries) {
+      const countryData = payInUrl?.unblockedcountries.find(
         (c) => c.country === country,
       );
       if (!countryData) {
@@ -106,8 +124,8 @@ const getUserLocationMiddleware = async (req, res, next) => {
         });
       }
       if (
-        countryData.regions.length > 0 &&
-        !countryData.regions.includes(region)
+        countryData?.regions?.length > 0 &&
+        !countryData?.regions?.includes(region)
       ) {
         payInUrl.config = {
           ...payInUrl.config,

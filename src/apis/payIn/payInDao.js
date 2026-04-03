@@ -2083,6 +2083,27 @@ export const updatePayInUrlDao = async (id, data, conn = null) => {
   }
 };
 
+/**
+ * Atomically claims the payin URL by setting one_time_used = true.
+ * Uses a conditional UPDATE so only the first concurrent caller wins. as we are using cluster and multiple instance can try to claim the same url so this will ensure only one instance can claim it.
+ * Returns the updated row if the claim succeeded, null if already claimed.
+ */
+export const atomicClaimPayInUrlDao = async (id, config) => {
+  try {
+    const sql = `
+      UPDATE "${tableName.PAYIN}"
+      SET one_time_used = true, config = $2
+      WHERE id = $1 AND one_time_used = false
+      RETURNING *
+    `;
+    const result = await executeQuery(sql, [id, config]);
+    return result.rows[0] || null;
+  } catch (error) {
+    logger.error('Error atomically claiming PayIn URL:', error);
+    throw error;
+  }
+};
+
 export const getPayinDetailsByMerchantOrderId = async (merchantOrderId, conn = null) => {
   if (!merchantOrderId || typeof merchantOrderId !== 'string') {
     throw new BadRequestError('Valid merchantOrderId is required');

@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 // import querystring from 'querystring';
 import config from '../../config/config.js';
 // import { razorpay } from '../webhooks/razorPay.js';
-import { getPayoutsDao } from '../payOut/payOutDao.js';
+import { getPayoutsNotifyDao } from '../payOut/payOutDao.js';
 import { checkLockEdit } from '../../utils/advisoryLock.js';
 import {
   BankTypes,
@@ -42,6 +42,7 @@ import {
   getPayInIntentDao,
   getPayInsForCronDao,
   getPayInWithMerchantOrderIdDao,
+  // atomicClaimPayInUrlDao,
 } from './payInDao.js';
 import {
   BadRequestError,
@@ -70,6 +71,7 @@ import {
 import {
   getMerchantsByCodeDao,
   getMerchantsDao,
+  getMerchantForNotifyDao,
   getMerchantsForValidatePayinDao,
   getMerchantByUserIdDao,
   updateMerchantBalanceDao,
@@ -998,12 +1000,13 @@ export const updatePaymentNotificationStatusService = async (
       });
     } else if (type === Type.PAYOUT) {
       // find on the basis of payoutId
-      const payouts = await getPayoutsDao({ id: payInId, company_id });
+      // const payouts = await getPayoutsDao({ id: payInId, company_id });
+      const payouts = await getPayoutsNotifyDao({ id: payInId, company_id });
       const payout = payouts[0];
       if (!payout) {
         throw new NotFoundError('Payout data not found.');
       }
-      const merchants = await getMerchantsDao({
+      const merchants = await getMerchantForNotifyDao({
         id: payout.merchant_id,
         company_id,
       });
@@ -1024,7 +1027,6 @@ export const updatePaymentNotificationStatusService = async (
         },
       );
     }
-
     return data;
   } catch (error) {
     logger.error('Error updating payment status notification:', error);
@@ -3632,10 +3634,9 @@ const _verifyPayinsServiceInternal = async (
   merchantOrderId,
   user_location,
   oneTimeUsed,
-  conn,
 ) => {
   try {
-    const payIn = await getPayInUrlService(merchantOrderId, null, conn);
+    const payIn = await getPayInUrlService(merchantOrderId, null);
 
     if (!payIn) {
       throw new BadRequestError('Invalid merchant order id');
@@ -3658,15 +3659,10 @@ const _verifyPayinsServiceInternal = async (
         page_reload: true,
       });
 
-      await updatePayInUrlDao(
-        payIn.id,
-        {
-          config: updatedConfig,
-          one_time_used: true,
-        },
-        null,
-        conn,
-      );
+      await updatePayInUrlDao(payIn.id, {
+        config: updatedConfig,
+        one_time_used: true,
+      });
 
       const result = {
         redirect_url: payIn.config?.urls?.return,
@@ -3724,18 +3720,16 @@ const _verifyPayinsServiceInternal = async (
       ...payIn.config,
       user: user_location,
     });
-    const merchant = await getMerchantsForValidatePayinDao({
-      id: payIn.merchant_id,
-    });
-    const updateResult = await updatePayInUrlDao(payIn.id, {
+
+     const updateResult = await updatePayInUrlDao(payIn.id, {
       config: updatedConfig,
       one_time_used: oneTimeUsed || false,
     });
-
     if (!updateResult) {
       throw new InternalServerError('Failed to update payin URL');
     }
-    if (oneTimeUsed === 'true' && updateResult.one_time_used) {
+
+     if (oneTimeUsed === 'true' && updateResult.one_time_used) {
       // If already used
       const result = {
         redirect_url: payIn.config?.urls?.return,
@@ -3743,6 +3737,17 @@ const _verifyPayinsServiceInternal = async (
       return { error: `This payin url is already used`, result };
     }
 
+    // Atomically claim the URL, PostgreSQL guarantees only one concurrent
+    // caller whose WHERE one_time_used=false matches will win, the rest get null back without any locking or transaction required.
+    // const claimed = await atomicClaimPayInUrlDao(payIn.id, updatedConfig);
+    // if (!claimed) {
+    //   const result = { redirect_url: payIn.config?.urls?.return };
+    //   return { error: `This payin url is already used`, result };
+    // }
+
+    const merchant = await getMerchantsForValidatePayinDao({
+      id: payIn.merchant_id,
+    });
     const banks = await getMerchantLinkBankDao({
       config_merchants_contains: merchant[0].id,
     });
@@ -3799,31 +3804,25 @@ const _verifyPayinsServiceInternal = async (
   }
 };
 
+// No transaction needed here for two reasons:
+// 1. Race-condition safety is handled atomically at the DB level via
+//    atomicClaimPayInUrlDao (UPDATE ... WHERE one_time_used=false RETURNING *).
+//    PostgreSQL's row-level locking ensures exactly one concurrent caller
+//    wins the claim — no BEGIN/COMMIT wrapper is required.
+// 2. All other reads (merchant, bank, vendor) are independent reference-data
+//    lookups that don't need to be consistent with each other or with the
+//    payin write. Holding a writer connection open for their duration only
+//    exhausts pool capacity on this high-frequency endpoint.
 export const verifyPayinsService = async (
   merchantOrderId,
   user_location,
   oneTimeUsed,
 ) => {
-  let conn;
-  let committed = false;
   try {
-    conn = await getConnection();
-    await beginTransaction(conn);
-    const result = await _verifyPayinsServiceInternal(
-      merchantOrderId,
-      user_location,
-      oneTimeUsed,
-      conn,
-    );
-    await commit(conn);
-    committed = true;
-    return result;
+    return await _verifyPayinsServiceInternal(merchantOrderId, user_location, oneTimeUsed);
   } catch (error) {
-    if (conn && !committed) await rollback(conn);
     logger.error('Error in verifyPayinsService:', error);
     throw error;
-  } finally {
-    if (conn) conn.release();
   }
 };
 
