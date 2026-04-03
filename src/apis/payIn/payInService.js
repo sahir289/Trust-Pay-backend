@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 // import querystring from 'querystring';
 import config from '../../config/config.js';
 // import { razorpay } from '../webhooks/razorPay.js';
-import { getPayoutsDao } from '../payOut/payOutDao.js';
+import { getPayoutsNotifyDao } from '../payOut/payOutDao.js';
 import { checkLockEdit } from '../../utils/advisoryLock.js';
 import {
   BankTypes,
@@ -70,6 +70,7 @@ import {
 import {
   getMerchantsByCodeDao,
   getMerchantsDao,
+  getMerchantForNotifyDao,
   getMerchantsForValidatePayinDao,
   getMerchantByUserIdDao,
   updateMerchantBalanceDao,
@@ -998,12 +999,13 @@ export const updatePaymentNotificationStatusService = async (
       });
     } else if (type === Type.PAYOUT) {
       // find on the basis of payoutId
-      const payouts = await getPayoutsDao({ id: payInId, company_id });
+      // const payouts = await getPayoutsDao({ id: payInId, company_id });
+      const payouts = await getPayoutsNotifyDao({ id: payInId, company_id });
       const payout = payouts[0];
       if (!payout) {
         throw new NotFoundError('Payout data not found.');
       }
-      const merchants = await getMerchantsDao({
+      const merchants = await getMerchantForNotifyDao({
         id: payout.merchant_id,
         company_id,
       });
@@ -1024,7 +1026,6 @@ export const updatePaymentNotificationStatusService = async (
         },
       );
     }
-
     return data;
   } catch (error) {
     logger.error('Error updating payment status notification:', error);
@@ -3731,7 +3732,6 @@ const _verifyPayinsServiceInternal = async (
       config: updatedConfig,
       one_time_used: oneTimeUsed || false,
     });
-
     if (!updateResult) {
       throw new InternalServerError('Failed to update payin URL');
     }

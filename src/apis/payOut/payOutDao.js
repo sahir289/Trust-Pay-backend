@@ -8,6 +8,7 @@ import {
   buildUpdateQuery,
   executeQuery,
 } from '../../utils/db.js';
+import { buildSelectQuery } from '../../utils/db.js';
 // import { createPayoutInES ,updatePayoutInES} from '../../elasticSearch/payout/common.js';
 // import { getPayoutByESSearch } from '../../elasticSearch/payout/common.js';
 // import { getMerchantForEsDao } from '../merchants/merchantDao.js';
@@ -362,7 +363,36 @@ export const getPayoutBankDetailsDao = async (filters, company_id, conn = null) 
     throw error.message;
   }
 };
+export const getPayoutsNotifyDao = async (filters = {}, company_id, conn = null) => {
+  try {
+    const selectColumns = `
+      id,
+      amount,
+      status,
+      utr_id,
+      merchant_order_id,
+      merchant_id,
+      config AS payout_details
+    `;
 
+    const baseQuery = `
+      SELECT ${selectColumns}
+      FROM "${tableName.PAYOUT}"
+      WHERE is_obsolete = false
+    `;
+
+    const queryFilters = { ...filters };
+    if (company_id !== undefined && company_id !== null) {
+      queryFilters.company_id = company_id;
+    }
+    const [sql, params] = buildSelectQuery(baseQuery, queryFilters);
+    const result = await executeQuery(sql, params, conn);
+    return result.rows || [];
+  } catch (error) {
+    logger.error('Error in getPayoutsDao:', error);
+    throw error;
+  }
+};
 export const getAllPayoutsDao = async (
   filters,
   company_id,
