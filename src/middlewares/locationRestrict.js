@@ -32,6 +32,7 @@ const getUserLocationMiddleware = async (req, res, next) => {
     const userData = response.data[userIp];
      if (!userData) {
        logger.warn('User location data not found, skipping checks');
+        req.user_location = {user_ip: userIp};
        return next();
      }
     const { latitude, longitude, vpn, region, country } = userData;
