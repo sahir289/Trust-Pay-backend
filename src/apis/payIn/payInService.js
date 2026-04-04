@@ -579,6 +579,7 @@ export const assignedBankToPayInUrlService = async (
 ) => {
   // Validate the PayIn URL
   try {
+    logger.info(`Verifying PayIn with merchantOrderId: ${merchantOrderId}, amount: ${amount}, type: ${type}, isAdmin: ${isAdmin}`);
     const payIn = await getPayInUrlService(merchantOrderId);
     const payInConfig = payIn.config || {};
     let merchant = {};
@@ -711,6 +712,7 @@ export const assignedBankToPayInUrlService = async (
     // Randomly assign one enabled bank account
     const selectedBankDetails =
       enabledBanks[Math.floor(Math.random() * enabledBanks.length)];
+    logger.info(`Bank assigned for PayIn ${payIn.id}: ${selectedBankDetails.nick_name} (${selectedBankDetails.id})`);
     const duration = calculateDuration(payIn.created_at);
     const updatePayIn = await updatePayInUrlDao(payIn.id, {
       amount: parseFloat(amount),
@@ -1706,6 +1708,8 @@ export const _processPayInServiceInternal = async (
     };
     return { error: `This payin url is already used`, result };
   }
+
+  logger.info(`PayIn: ${JSON.stringify(payIn)} found for merchantOrderId: ${merchantOrderId}`);
   //lock payin transaction
   // Validate that we have valid values for lock key
   if (!payIn.bank_acc_id || !userSubmittedUtr) {
