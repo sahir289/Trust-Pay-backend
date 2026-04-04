@@ -494,7 +494,9 @@ export const getPayInUrlService = async (
 ) => {
   try {
     const currentTime = Date.now();
+    logger.info(`Fetching PayIn for merchantOrderId: ${id} in getPayInUrlService with tele_check: ${tele_check}`);
     const payIn = await getPayinsForServiccDao({ merchant_order_id: id }, conn);
+    logger.info(`PayIn: ${JSON.stringify(payIn)} found for merchantOrderId: ${id} in getPayInUrlService`);
 
     if (!payIn) {
       throw new NotFoundError('Payment Url is incorrect');
@@ -579,6 +581,7 @@ export const assignedBankToPayInUrlService = async (
 ) => {
   // Validate the PayIn URL
   try {
+    logger.info(`Verifying PayIn with merchantOrderId: ${merchantOrderId}, amount: ${amount}, type: ${type}, isAdmin: ${isAdmin}`);
     const payIn = await getPayInUrlService(merchantOrderId);
     const payInConfig = payIn.config || {};
     let merchant = {};
