@@ -19,6 +19,7 @@ export const silkPayTransactionStatusCallback = async (req, res) => {
   const payload = req.body;
   const apitxnid = payload?.mOrderId;
   let conn;
+  let committed = false;
   logger.info('Received SILKPAY callback payload:', payload);
   try {
     if (!apitxnid || apitxnid === '') {
@@ -28,6 +29,7 @@ export const silkPayTransactionStatusCallback = async (req, res) => {
     await beginTransaction(conn);
     const [singleWithdrawData] = await getPayoutsDao({ merchant_order_id: apitxnid });
     if (!singleWithdrawData) {
+      await rollback(conn);
       return res.status(404).send('Payment not found');
     }
 
@@ -38,6 +40,7 @@ export const silkPayTransactionStatusCallback = async (req, res) => {
         payoutId: singleWithdrawData.id,
         status: singleWithdrawData.status,
       });
+      await rollback(conn);
       return res.status(200).send('Payout already processed');
     }
     logger.info('Fetched payout data for OrderID:', apitxnid);
@@ -109,6 +112,7 @@ export const silkPayTransactionStatusCallback = async (req, res) => {
       } else if (payload?.status === 3 || payload?.status === "3") {
         await handlePayoutUpdate(payload, false);
       } else {
+        await rollback(conn);
         return res.status(400).send(payload.ErrorMessage);
       }
 
@@ -118,10 +122,11 @@ export const silkPayTransactionStatusCallback = async (req, res) => {
     });
 
     await commit(conn);
+    committed = true;
 
     return res.status(200).send('Payout Updated Successfully');
   } catch (err) {
-    await rollback(conn);
+    if (conn && !committed) await rollback(conn);
     // Log any errors while updating the payout
     logger.error('getting error while updating payout', err);
   } finally {
