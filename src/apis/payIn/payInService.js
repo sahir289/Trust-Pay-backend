@@ -1042,21 +1042,23 @@ export const updateDepositStatusService = async (
   company_id,
   updated_by,
 ) => {
+  // Guard: check cooldown BEFORE acquiring a DB connection so we never open a
+  // transaction that we immediately abandon (which contaminates the pool).
+  const KEY_PREFIX = company_id;
+  const cacheKey = `${KEY_PREFIX}:${merchantOrderId}`;
+  const HOLD_TIME = 3;
+  const cooldownActive = await getCachedData(cacheKey);
+  if (cooldownActive) {
+    logger.log(`Duplicate merchantOrderId ${merchantOrderId}  ${HOLD_TIME}s`);
+    return;
+  }
+  await setCachedData(cacheKey, '1', HOLD_TIME);
+
   let conn;
   let committed = false;
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const KEY_PREFIX = company_id;
-    const cacheKey = `${KEY_PREFIX}:${merchantOrderId}`;
-    const HOLD_TIME = 3;
-    const cooldownActive = await getCachedData(cacheKey);
-    if (cooldownActive) {
-      logger.log(`Duplicate merchantOrderId ${merchantOrderId}  ${HOLD_TIME}s`);
-      return;
-    } else {
-      await setCachedData(cacheKey, '1', HOLD_TIME);
-    }
     const payInData = await getPayInForUpdateServiceDao(
       {
         merchant_order_id: merchantOrderId,
@@ -2456,18 +2458,20 @@ export const processPayInWebHookService = async (payload, updated_by, conn) => {
 // };
 
 export const telegramResponseService = async (message) => {
+  // Guard: validate photo before acquiring a DB connection so we never open a
+  // transaction that we immediately abandon (which contaminates the pool).
+  const { photo } = message;
+  const TELEGRAM_BOT_TOKEN = config.telegramOcrBotToken;
+  if (!photo) {
+    logger.error('No Telegram Message Photo found!', message);
+    return;
+  }
+
   let conn;
   let committed = false;
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const { photo } = message;
-    const TELEGRAM_BOT_TOKEN = config.telegramOcrBotToken;
-
-    if (!photo) {
-      logger.error('No Telegram Message Photo found!', message);
-      return;
-    }
 
     const lastPhoto = Array.isArray(photo) ? photo.pop() : photo;
     const filePath = await getTelegramFilePath(lastPhoto?.file_id);
@@ -2485,6 +2489,7 @@ export const telegramResponseService = async (message) => {
         TELEGRAM_BOT_TOKEN,
         message.message_id,
       );
+      await rollback(conn);
       return;
     }
 
@@ -2494,6 +2499,7 @@ export const telegramResponseService = async (message) => {
         TELEGRAM_BOT_TOKEN,
         message.message_id,
       );
+      await rollback(conn);
       return;
     }
 
@@ -2528,6 +2534,7 @@ export const telegramResponseService = async (message) => {
         TELEGRAM_BOT_TOKEN,
         message.message_id,
       );
+      await rollback(conn);
       return;
     }
     if (!bankResponse) {
@@ -2537,6 +2544,7 @@ export const telegramResponseService = async (message) => {
         TELEGRAM_BOT_TOKEN,
         message.message_id,
       );
+      await rollback(conn);
       return;
     }
     if (payIn.status === Status.FAILED) {
@@ -2547,6 +2555,7 @@ export const telegramResponseService = async (message) => {
         message.message_id,
         Status.FAILED,
       );
+      await rollback(conn);
       return;
     }
     if (payIn.status === Status.INITIATED) {
@@ -2557,6 +2566,7 @@ export const telegramResponseService = async (message) => {
         message.message_id,
         Status.INITIATED,
       );
+      await rollback(conn);
       return;
     }
     // Fetch related pay-in URLs concurrently
@@ -2613,6 +2623,7 @@ export const telegramResponseService = async (message) => {
         otherUtrPayIns,
         payIn,
       );
+      await rollback(conn);
       return;
     }
 
@@ -2628,6 +2639,7 @@ export const telegramResponseService = async (message) => {
         TELEGRAM_BOT_TOKEN,
         message.message_id,
       );
+      await rollback(conn);
       return;
     }
 
@@ -2642,6 +2654,7 @@ export const telegramResponseService = async (message) => {
           message.message_id,
           otherBotResponsePayIns,
         );
+        await rollback(conn);
         return;
       } else {
         await sendMerchantOrderIDStatusDuplicateTelegramMessage(
@@ -2652,6 +2665,7 @@ export const telegramResponseService = async (message) => {
           message.message_id,
           otherUtrPayIns,
         );
+        await rollback(conn);
         return;
       }
     }
@@ -2675,6 +2689,7 @@ export const telegramResponseService = async (message) => {
         duplicateEntry,
         payIn,
       );
+      await rollback(conn);
       return;
     }
 
@@ -2720,6 +2735,7 @@ export const processPayInByImageService = async (payload) => {
       const result = {
         redirect_url: payInData.config?.urls?.return,
       };
+      await rollback(conn);
       return { error: `This payin url is already used`, result };
     }
     const isUtrMissing =
@@ -3306,6 +3322,7 @@ export const telegramCheckUTRService = async (
 
     // check old code flow
     if (payIn.status === Status.SUCCESS) {
+      await rollback(conn);
       return {
         message: `${payIn.merchant_order_id} is already confirmed with ${payIn.user_submitted_utr || otherBankResponse.utr || ''}`,
       };
@@ -3318,6 +3335,7 @@ export const telegramCheckUTRService = async (
       conn,
     );
     if (isAlreadyExit && isAlreadyExit.status !== Status.FAILED) {
+      await rollback(conn);
       return {
         message: `Utr: ${utr} is ${isAlreadyExit.status} with ${isAlreadyExit.merchant_order_id}`,
       };
@@ -3326,6 +3344,7 @@ export const telegramCheckUTRService = async (
       await updateUtrPayinService(null, isAlreadyExit.id, updated_by, utr);
     }
     if (![Status.ASSIGNED, Status.DROPPED].includes(payIn.status)) {
+      await rollback(conn);
       return {
         status: payIn.status,
         message: `${payIn.merchant_order_id} is in ${payIn.status} with ${payIn.user_submitted_utr || otherBankResponse.utr || ''}`,
