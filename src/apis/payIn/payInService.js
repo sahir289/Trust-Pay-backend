@@ -624,8 +624,8 @@ export const assignedBankToPayInUrlService = async (
     const merchantArr = await getMerchantsDao({ id: payIn.merchant_id });
     merchant = merchantArr[0] || {};
     if (!merchant) {
-      // throw new NotFoundError('No merchant found');
-      return { message: `No merchant found` };
+      throw new NotFoundError('No merchant found');
+      // return { message: `No merchant found` };
     }
     const maxPayIn = Number(merchant.max_payin);
     const minPayIn = Number(merchant.min_payin);
@@ -633,7 +633,8 @@ export const assignedBankToPayInUrlService = async (
 
     if ((amt > maxPayIn || amt < minPayIn) && !isAdmin) {
       //-- exact amounts should also be considered
-      return { message: `Amount must be between ${minPayIn} and ${maxPayIn}` };
+      throw new BadRequestError(`Amount must be between ${minPayIn} and ${maxPayIn}`);
+      // return { message: `Amount must be between ${minPayIn} and ${maxPayIn}` };
     }
     const banks = await getMerchantBankDao({
       config_merchants_contains: merchant.id,
