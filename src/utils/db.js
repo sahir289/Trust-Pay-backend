@@ -173,6 +173,22 @@ export const createPool = (connectionString, name) => {
 
 const writerPool = createPool(config?.databaseWriterUrl, 'Writer');
 const readerPool = createPool(config?.databaseReaderUrl, 'Reader');
+const DB_TX_STATE = Symbol('dbTransactionState');
+
+const getTransactionState = (client) => client?.[DB_TX_STATE] ?? null;
+
+const setTransactionState = (client, nextState) => {
+  if (!client) return;
+  client[DB_TX_STATE] = {
+    ...getTransactionState(client),
+    ...nextState,
+  };
+};
+
+const clearTransactionState = (client) => {
+  if (!client?.[DB_TX_STATE]) return;
+  delete client[DB_TX_STATE];
+};
 
 /**
  * Monitor pool health - warn when running low on connections
@@ -307,11 +323,15 @@ const getConnection = async (type = 'writer') => {
       });
 
       // Add tracking (capture caller file/line best-effort)
-      const stack = new Error().stack?.split('\n').slice(2, 6).join('\n');
+      const stack = new Error('DB connection checkout stack')
+        .stack?.split('\n')
+        .slice(2, 6)
+        .join('\n');
       trackDbConnection({ stack });
 
       const checkoutAt = Date.now();
-      const checkoutStack = new Error().stack
+      const checkoutStack = new Error('DB connection hold stack')
+        .stack
         ?.split('\n')
         .slice(2, 8)
         .join('\n');
@@ -349,6 +369,26 @@ const getConnection = async (type = 'writer') => {
         clearTimeout(holdWarnTimer);
 
         const heldMs = Date.now() - checkoutAt;
+        const txState = getTransactionState(client);
+
+        if (
+          txState?.state === 'open' ||
+          txState?.state === 'rollback-failed'
+        ) {
+          logger.error(
+            '[DB Connection] Dirty transaction detected during release; destroying client',
+            {
+              type,
+              heldMs,
+              txState,
+              pools: getPoolStats(),
+              checkoutStack,
+            },
+          );
+          clearTransactionState(client);
+          return originalRelease(true);
+        }
+
         if (heldMs >= DB_CONN_HOLD_WARN_MS) {
           logger.warn('[DB Connection] Long-held connection released', {
             type,
@@ -359,6 +399,7 @@ const getConnection = async (type = 'writer') => {
           });
         }
 
+        clearTransactionState(client);
         return originalRelease(...args);
       };
 
@@ -491,6 +532,14 @@ export const dbPoolMonitor = () => {
  */
 const beginTransaction = async (client) => {
   await client.query('BEGIN');
+  setTransactionState(client, {
+    state: 'open',
+    startedAt: new Date().toISOString(),
+    beginStack: new Error('Transaction begin stack')
+      .stack?.split('\n')
+      .slice(2, 8)
+      .join('\n'),
+  });
   logger.info('Transaction started');
 };
 
@@ -512,6 +561,7 @@ const beginTransaction = async (client) => {
  */
 const commit = async (client) => {
   await client.query('COMMIT');
+  clearTransactionState(client);
   logger.info('Transaction committed');
 };
 
@@ -535,8 +585,14 @@ const commit = async (client) => {
 const rollback = async (client) => {
   try {
     await client.query('ROLLBACK');
+    clearTransactionState(client);
     logger.info('Transaction rolled back');
   } catch (error) {
+    setTransactionState(client, {
+      state: 'rollback-failed',
+      rollbackFailedAt: new Date().toISOString(),
+      rollbackError: error?.message,
+    });
     logger.warn(
       'Rollback skipped / failed (transaction already closed or connection dead)',
       error,

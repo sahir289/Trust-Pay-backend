@@ -19,6 +19,7 @@ export const vertexPayTransactionStatusCallback = async (req, res) => {
   const payload = req.body;
   const apitxnid = payload?.transaction_id;
   let conn;
+  let committed = false;
   logger.info('Received VERTEXPAY callback payload:', payload);
   try {
     if (!apitxnid || apitxnid === '') {
@@ -28,6 +29,7 @@ export const vertexPayTransactionStatusCallback = async (req, res) => {
     await beginTransaction(conn);
     const singleWithdrawData = await getPayoutByTxnId(apitxnid, conn);
     if (!singleWithdrawData) {
+      await rollback(conn);
       return res.status(404).send('Payment not found');
     }
 
@@ -38,6 +40,7 @@ export const vertexPayTransactionStatusCallback = async (req, res) => {
         payoutId: singleWithdrawData.id,
         status: singleWithdrawData.status,
       });
+      await rollback(conn);
       return res.status(200).send('Payout already processed');
     }
 
@@ -102,10 +105,11 @@ export const vertexPayTransactionStatusCallback = async (req, res) => {
     });
 
     await commit(conn);
+    committed = true;
     return res.status(200).send('Payout Updated Successfully');
   } catch (err) {
     console.log(err);
-    await rollback(conn);
+    if (conn && !committed) await rollback(conn);
     logger.error('getting error while updating payout', err);
   } finally {
     if (conn) {
