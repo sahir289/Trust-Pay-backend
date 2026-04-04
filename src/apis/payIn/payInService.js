@@ -711,6 +711,7 @@ export const assignedBankToPayInUrlService = async (
     // Randomly assign one enabled bank account
     const selectedBankDetails =
       enabledBanks[Math.floor(Math.random() * enabledBanks.length)];
+    logger.info(`Bank assigned for PayIn ${payIn.id}: ${selectedBankDetails.nick_name} (${selectedBankDetails.id})`);
     const duration = calculateDuration(payIn.created_at);
     const updatePayIn = await updatePayInUrlDao(payIn.id, {
       amount: parseFloat(amount),
