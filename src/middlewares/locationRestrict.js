@@ -50,20 +50,9 @@ const getUserLocationMiddleware = async (req, res, next) => {
     };
     const payInUrl = await getPayInwithMerchantDao(req.params.merchantOrderId);
        if (!payInUrl) {
-         logger.warn('payIn not found, skipping restrictions');
-         req.user_location = {
-           user_ip: userIp,
-           continent: userData.continent,
-           continent_code: userData.continentcode,
-           country: userData.country,
-           region: userData.region,
-           timezone: userData.timezone,
-           city: userData.city,
-           postcode: userData.postcode,
-           latitude: userData.latitude,
-           longitude: userData.longitude,
-         };
-         return next();
+         return res.status(403).json({
+           error: { message: 'Payment is Expired!', data: { } },
+         });
        }
     const isIpBlocked = payInUrl?.blocked_users_ip[0]?.user_ip.includes(userIp);
     if (isIpBlocked) {
