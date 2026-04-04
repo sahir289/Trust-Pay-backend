@@ -494,7 +494,9 @@ export const getPayInUrlService = async (
 ) => {
   try {
     const currentTime = Date.now();
+    logger.info(`Fetching PayIn for merchantOrderId: ${id} in getPayInUrlService with tele_check: ${tele_check}`);
     const payIn = await getPayinsForServiccDao({ merchant_order_id: id }, conn);
+    logger.info(`PayIn: ${JSON.stringify(payIn)} found for merchantOrderId: ${id} in getPayInUrlService`);
 
     if (!payIn) {
       throw new NotFoundError('Payment Url is incorrect');
