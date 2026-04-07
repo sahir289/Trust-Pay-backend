@@ -4006,16 +4006,18 @@ export const generateUpiUrlService = async (payload = {}) => {
     throw new BadRequestError('Missing required fields: amount, orderId, name');
   }
 
-  const MERCHANT_UPI = 'yourupi@bank';
+  const PAYTM_MERCHANT_UPI = '7208647020@ptaxis';
+  const MERCHANT_UPI = '7208647020@ptaxis';
+  const GPAY_MERCHANT_UPI = 'pratikhire2254-1@okaxis';
   try {
     const encodedName = encodeURIComponent(payload?.name);
-    const upiLink = `upi://pay?pa=${MERCHANT_UPI}&pn=${encodedName}&am=${payload.amount}&cu=INR&tr=${payload.orderId}`;
+    const upiLink = `upi://pay?pa=${GPAY_MERCHANT_UPI}&pn=${encodedName}&am=${payload.amount}&cu=INR&tr=${payload.orderId}`;
 
     // ✅ Paytm
-    const paytmLink = `paytmmp://cash_wallet?pa=${MERCHANT_UPI}&pn=${encodedName}&tr=${payload.orderId}&am=${payload.amount}&cu=INR`;
+    const paytmLink = `paytmmp://cash_wallet?pa=${PAYTM_MERCHANT_UPI}&pn=${encodedName}&tr=${payload.orderId}&am=${payload.amount}&cu=INR`;
 
     // ✅ Google Pay
-    const gpayLink = `tez://upi/pay?pa=${MERCHANT_UPI}&pn=${encodedName}&am=${payload.amount}&cu=INR&tr=${payload.orderId}`;
+    const gpayLink = `tez://upi/pay?pa=${GPAY_MERCHANT_UPI}&pn=${encodedName}&am=${payload.amount}&cu=INR&tr=${payload.orderId}`;
 
     // ✅ PhonePe
     const phonepeLink = `phonepe://pay?pa=${MERCHANT_UPI}&pn=${encodedName}&am=${payload.amount}&cu=INR&tr=${payload.orderId}`;
