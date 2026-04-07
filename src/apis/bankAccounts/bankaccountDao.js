@@ -988,7 +988,22 @@ const updateBankaccountDao = async (id, payload, isParentDeleted, conn = null) =
     throw error;
   }
 };
-
+const deleteBankaccountByUserIdDao = async (id, payload, conn = null) => {
+  try {
+     const result = await buildAndExecuteUpdateQuery(
+       tableName.BANK_ACCOUNT,
+       payload,
+       id,
+       {}, 
+       { returnUpdated: true }, 
+       conn,
+     );
+    return result;
+  } catch (error) {
+    logger.error('Error in deleteBankaccountDao:', error);
+    throw error;
+  }
+};
 const deleteBankaccountDao = async (id, data, conn = null) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.BANK_ACCOUNT, data, id);
@@ -1188,4 +1203,5 @@ export {
   getBankAccountNickNameForPayinEsDao,
   getBankIdsOnlyDao,
   getBankaccountDaoBatch,
+  deleteBankaccountByUserIdDao,
 };

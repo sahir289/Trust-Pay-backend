@@ -655,10 +655,10 @@ export const assignedBankToPayInUrlService = async (
     if (banksWithValidAmount.length === 0) {
       await updatePayInUrlDao(payIn.id, {
         is_url_expires: true,
-        status: Status.DROPPED,
+        status: Status.FAILED,
       });
       merchantPayinCallback(payInConfig.urls?.notify, {
-        status: Status.DROPPED,
+        status: Status.FAILED,
         merchantOrderId: payIn.merchant_order_id,
         payinId: payIn.id,
         amount: null,
