@@ -494,9 +494,13 @@ export const getPayInUrlService = async (
 ) => {
   try {
     const currentTime = Date.now();
-    logger.info(`Fetching PayIn for merchantOrderId: ${id} in getPayInUrlService with tele_check: ${tele_check}`);
+    logger.info(
+      `Fetching PayIn for merchantOrderId: ${id} in getPayInUrlService with tele_check: ${tele_check}`,
+    );
     const payIn = await getPayinsForServiccDao({ merchant_order_id: id }, conn);
-    logger.info(`PayIn: ${JSON.stringify(payIn)} found for merchantOrderId: ${id} in getPayInUrlService`);
+    logger.info(
+      `PayIn: ${JSON.stringify(payIn)} found for merchantOrderId: ${id} in getPayInUrlService`,
+    );
 
     if (!payIn) {
       throw new NotFoundError('Payment Url is incorrect');
@@ -581,7 +585,9 @@ export const assignedBankToPayInUrlService = async (
 ) => {
   // Validate the PayIn URL
   try {
-    logger.info(`Verifying PayIn with merchantOrderId: ${merchantOrderId}, amount: ${amount}, type: ${type}, isAdmin: ${isAdmin}`);
+    logger.info(
+      `Verifying PayIn with merchantOrderId: ${merchantOrderId}, amount: ${amount}, type: ${type}, isAdmin: ${isAdmin}`,
+    );
     const payIn = await getPayInUrlService(merchantOrderId);
     const payInConfig = payIn.config || {};
     let merchant = {};
@@ -635,7 +641,9 @@ export const assignedBankToPayInUrlService = async (
 
     if ((amt > maxPayIn || amt < minPayIn) && !isAdmin) {
       //-- exact amounts should also be considered
-      throw new BadRequestError(`Amount must be between ${minPayIn} and ${maxPayIn}`);
+      throw new BadRequestError(
+        `Amount must be between ${minPayIn} and ${maxPayIn}`,
+      );
       // return { message: `Amount must be between ${minPayIn} and ${maxPayIn}` };
     }
     const banks = await getMerchantBankDao({
@@ -715,7 +723,9 @@ export const assignedBankToPayInUrlService = async (
     // Randomly assign one enabled bank account
     const selectedBankDetails =
       enabledBanks[Math.floor(Math.random() * enabledBanks.length)];
-    logger.info(`Bank assigned for PayIn ${payIn.id}: ${selectedBankDetails.nick_name} (${selectedBankDetails.id})`);
+    logger.info(
+      `Bank assigned for PayIn ${payIn.id}: ${selectedBankDetails.nick_name} (${selectedBankDetails.id})`,
+    );
     const duration = calculateDuration(payIn.created_at);
     const updatePayIn = await updatePayInUrlDao(payIn.id, {
       amount: parseFloat(amount),
@@ -1714,7 +1724,9 @@ export const _processPayInServiceInternal = async (
     return { error: `This payin url is already used`, result };
   }
 
-  logger.info(`PayIn: ${JSON.stringify(payIn)} found for merchantOrderId: ${merchantOrderId}`);
+  logger.info(
+    `PayIn: ${JSON.stringify(payIn)} found for merchantOrderId: ${merchantOrderId}`,
+  );
   //lock payin transaction
   // Validate that we have valid values for lock key
   if (!payIn.bank_acc_id || !userSubmittedUtr) {
@@ -3747,7 +3759,7 @@ const _verifyPayinsServiceInternal = async (
       user: user_location,
     });
 
-     const updateResult = await updatePayInUrlDao(payIn.id, {
+    const updateResult = await updatePayInUrlDao(payIn.id, {
       config: updatedConfig,
       one_time_used: oneTimeUsed || false,
     });
@@ -3755,7 +3767,7 @@ const _verifyPayinsServiceInternal = async (
       throw new InternalServerError('Failed to update payin URL');
     }
 
-     if (oneTimeUsed === 'true' && updateResult.one_time_used) {
+    if (oneTimeUsed === 'true' && updateResult.one_time_used) {
       // If already used
       const result = {
         redirect_url: payIn.config?.urls?.return,
@@ -3840,7 +3852,11 @@ export const verifyPayinsService = async (
   oneTimeUsed,
 ) => {
   try {
-    return await _verifyPayinsServiceInternal(merchantOrderId, user_location, oneTimeUsed);
+    return await _verifyPayinsServiceInternal(
+      merchantOrderId,
+      user_location,
+      oneTimeUsed,
+    );
   } catch (error) {
     logger.error('Error in verifyPayinsService:', error);
     throw error;
@@ -3933,52 +3949,84 @@ export function setDeeplinkParam(deeplink, key, value) {
  *  - businessName -> bn optional (not used by all apps)
  *  - mode, purpose (optional)
  */
+// export const generateUpiUrlService = async (payload = {}) => {
+//   try {
+//     // Basic validation
+//     const amountStr = formatAmount(payload.amount);
+//     if (!amountStr) throw new BadRequestError('Invalid amount');
+
+//     const pa = (payload.payeeVPA || '').trim();
+//     // if (!validateVpa(pa)) throw new BadRequestError('Invalid VPA format');
+
+//     const transactionId = generateTransactionId();
+
+//     // Build canonical params used by all UPI schemes
+//     const canonicalParams = {
+//       pa, // payee VPA
+//       pn: payload.payeeName?.trim() || 'Merchant', // payee name (pn)
+//       am: amountStr, // amount
+//       cu: 'INR', // currency
+//       tr: transactionId, // transaction reference
+//       tn: (payload.transactionNote || '').trim() || transactionId, // txn note (fallback to txid)
+//       tid: transactionId, // terminal id / txn id
+//       featuretype: 'money_transfer',
+//       mc: 'VKTRAD47056927653169',
+//     };
+
+//     // optional additions
+//     // if (payload.merchantCode) canonicalParams.mc = 'VKTRAD47056927653169' || payload.merchantCode;
+//     if (payload.businessName) canonicalParams.bn = payload.businessName.trim();
+//     if (payload.mode) canonicalParams.mode = payload.mode;
+//     if (payload.purpose) canonicalParams.purpose = payload.purpose;
+
+//     const encoded = buildQuery(canonicalParams);
+
+//     // Compose platform-specific deep links (ap param is app package where applicable)
+//     const gpayUrl = `upi://pay?${encoded}&ap=com.google.android.apps.nbu.paisa.user`;
+//     const phonepeUrl = `upi://pay?${encoded}&ap=com.phonepe.app`;
+//     const paytmUrl = `upi://pay?${encoded}&ap=net.one97.paytm`;
+//     const genericUpiUrl = `upi://pay?${encoded}`;
+
+//     return {
+//       gpayUrl,
+//       phonepeUrl,
+//       paytmUrl,
+//       genericUpiUrl,
+//       transactionId,
+//       rawParams: canonicalParams, // useful for logging / debugging
+//     };
+//   } catch (error) {
+//     logger.error('Error in generateUpiUrlService:', error);
+//     throw error;
+//   }
+// };
+
 export const generateUpiUrlService = async (payload = {}) => {
+  if (!payload?.amount || !payload?.orderId || !payload?.name) {
+    throw new BadRequestError('Missing required fields: amount, orderId, name');
+  }
+
+  const MERCHANT_UPI = 'yourupi@bank';
   try {
-    // Basic validation
-    const amountStr = formatAmount(payload.amount);
-    if (!amountStr) throw new BadRequestError('Invalid amount');
+    const encodedName = encodeURIComponent(payload?.name);
+    const upiLink = `upi://pay?pa=${MERCHANT_UPI}&pn=${encodedName}&am=${payload.amount}&cu=INR&tr=${payload.orderId}`;
 
-    const pa = (payload.payeeVPA || '').trim();
-    // if (!validateVpa(pa)) throw new BadRequestError('Invalid VPA format');
+    // ✅ Paytm
+    const paytmLink = `paytmmp://cash_wallet?pa=${MERCHANT_UPI}&pn=${encodedName}&tr=${payload.orderId}&am=${payload.amount}&cu=INR`;
 
-    const transactionId = generateTransactionId();
+    // ✅ Google Pay
+    const gpayLink = `tez://upi/pay?pa=${MERCHANT_UPI}&pn=${encodedName}&am=${payload.amount}&cu=INR&tr=${payload.orderId}`;
 
-    // Build canonical params used by all UPI schemes
-    const canonicalParams = {
-      pa, // payee VPA
-      pn: payload.payeeName?.trim() || 'Merchant', // payee name (pn)
-      am: amountStr, // amount
-      cu: 'INR', // currency
-      tr: transactionId, // transaction reference
-      tn: (payload.transactionNote || '').trim() || transactionId, // txn note (fallback to txid)
-      tid: transactionId, // terminal id / txn id
-      featuretype: 'money_transfer',
-      mc: 'VKTRAD47056927653169',
+    // ✅ PhonePe
+    const phonepeLink = `phonepe://pay?pa=${MERCHANT_UPI}&pn=${encodedName}&am=${payload.amount}&cu=INR&tr=${payload.orderId}`;
+
+    const data = {
+      upiLink,
+      paytmLink,
+      gpayLink,
+      phonepeLink,
     };
-
-    // optional additions
-    // if (payload.merchantCode) canonicalParams.mc = 'VKTRAD47056927653169' || payload.merchantCode;
-    if (payload.businessName) canonicalParams.bn = payload.businessName.trim();
-    if (payload.mode) canonicalParams.mode = payload.mode;
-    if (payload.purpose) canonicalParams.purpose = payload.purpose;
-
-    const encoded = buildQuery(canonicalParams);
-
-    // Compose platform-specific deep links (ap param is app package where applicable)
-    const gpayUrl = `upi://pay?${encoded}&ap=com.google.android.apps.nbu.paisa.user`;
-    const phonepeUrl = `upi://pay?${encoded}&ap=com.phonepe.app`;
-    const paytmUrl = `upi://pay?${encoded}&ap=net.one97.paytm`;
-    const genericUpiUrl = `upi://pay?${encoded}`;
-
-    return {
-      gpayUrl,
-      phonepeUrl,
-      paytmUrl,
-      genericUpiUrl,
-      transactionId,
-      rawParams: canonicalParams, // useful for logging / debugging
-    };
+    return data;
   } catch (error) {
     logger.error('Error in generateUpiUrlService:', error);
     throw error;
