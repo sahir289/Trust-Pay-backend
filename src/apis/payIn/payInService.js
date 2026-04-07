@@ -4013,9 +4013,9 @@ export const generateUpiUrlService = async (payload = {}) => {
   const orderId = payload.orderId || generateTxnId();
   const PaytmbankName =  'Pratik Milind Hire';
   // const GPAYbankName = 'Pratik Hire';
-  const PAYTM_MERCHANT_UPI = '7208647020@ptaxis';
+  const PAYTM_MERCHANT_UPI = 'akashtravels6326@iob';
   const MERCHANT_UPI = '7208647020@ptaxis';
-  const GPAY_MERCHANT_UPI = 'pratikhire2254-1@okaxis';
+  const GPAY_MERCHANT_UPI = 'akashtravels6326@iob';
   
   try {
     const encodedName = encodeURIComponent(PaytmbankName);
