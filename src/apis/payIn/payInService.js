@@ -122,7 +122,7 @@ import { createHash } from '../../utils/hashUtils.js';
 import { logger } from '../../utils/logger.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 // import { generateUUID } from '../../utils/generateUUID.js';
-import { randomUUID } from 'crypto';
+// import { randomUUID } from 'crypto';
 import { usedTokens } from '../../app.js';
 import {
   getCashfreeAllowByCompanyIdDao,
@@ -3863,13 +3863,13 @@ export const verifyPayinsService = async (
   }
 };
 
-function generateTransactionId() {
-  const uuid =
-    typeof randomUUID === 'function'
-      ? randomUUID()
-      : Date.now().toString(16) + Math.random().toString(16).slice(2);
-  return `IND${uuid.replace(/-/g, '').slice(0, 13)}`; // make sure total fits 32 chars with IND prefix
-}
+// function generateTransactionId() {
+//   const uuid =
+//     typeof randomUUID === 'function'
+//       ? randomUUID()
+//       : Date.now().toString(16) + Math.random().toString(16).slice(2);
+//   return `IND${uuid.replace(/-/g, '').slice(0, 13)}`; // make sure total fits 32 chars with IND prefix
+// }
 
 /**
  * Validate VPA (simple RFC-like), allow common characters and domain part alphabetic
@@ -3883,31 +3883,31 @@ function generateTransactionId() {
 /**
  * Safe formatter for amount: returns string with 2 decimals
  */
-function formatAmount(amount) {
-  const num = typeof amount === 'string' ? parseFloat(amount) : Number(amount);
-  if (Number.isNaN(num) || !isFinite(num) || num <= 0) return null;
-  // toFixed returns string; ensure rounding to two decimals
-  return num.toFixed(2);
-}
+// function formatAmount(amount) {
+//   const num = typeof amount === 'string' ? parseFloat(amount) : Number(amount);
+//   if (Number.isNaN(num) || !isFinite(num) || num <= 0) return null;
+//   // toFixed returns string; ensure rounding to two decimals
+//   return num.toFixed(2);
+// }
 
 /**
  * Convert params object to URL-encoded query (keeps null/empty as empty string)
  * Uses encodeURIComponent for values so we can include spaces, etc.
  */
-function buildQuery(paramsObj) {
-  const p = [];
-  Object.entries(paramsObj).forEach(([k, v]) => {
-    if (v === undefined) return;
-    // do not encode `pa` field
-    const val = v === null ? '' : String(v);
-    if (k === 'pa') {
-      p.push(`${k}=${val}`);
-    } else {
-      p.push(`${k}=${encodeURIComponent(val)}`);
-    }
-  });
-  return p.join('&');
-}
+// function buildQuery(paramsObj) {
+//   const p = [];
+//   Object.entries(paramsObj).forEach(([k, v]) => {
+//     if (v === undefined) return;
+//     // do not encode `pa` field
+//     const val = v === null ? '' : String(v);
+//     if (k === 'pa') {
+//       p.push(`${k}=${val}`);
+//     } else {
+//       p.push(`${k}=${encodeURIComponent(val)}`);
+//     }
+//   });
+//   return p.join('&');
+// }
 
 /**
  * parse a deeplink like "pa=...&pn=...&am=...&..."
