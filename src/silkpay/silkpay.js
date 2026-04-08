@@ -197,12 +197,15 @@ export async function createSilkPayPayout(
 
     payload.bank_acc_id = bankId;
 
-    if (status === 'Pending' || status === 'pending' || status === 'PENDING') {
+    if (status === 'Pending' || status === 'pending' || status === Status.PENDING) {
       payload.status = Status.PENDING;
     } else if (status === 'Success' || status === 'success' || status === Status.SUCCESS || status === Status.APPROVED) {
       (payload.bank_acc_id = bankId), (payload.status = Status.APPROVED);
       payload.utr_id = checkSilkPay?.utr_id || '';
       payload.approved_at = new Date().toISOString();
+    } else if (status === 'reversed' || status === Status.REVERSED) {
+      payload.status = Status.REVERSED;
+      payload.rejected_at = new Date().toISOString();
     } else if (status === 'Failed' || status === 'failed' || status === Status.FAILED) {
       payload.status = Status.REJECTED;
       payload.rejected_reason = checkSilkPay?.Message || 'Transaction failed';

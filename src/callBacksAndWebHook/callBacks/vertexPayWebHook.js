@@ -34,7 +34,8 @@ export const vertexPayTransactionStatusCallback = async (req, res) => {
     }
 
     if (
-      ![Status.INITIATED, Status.PENDING].includes(singleWithdrawData.status)
+      ![Status.INITIATED, Status.PENDING, Status.APPROVED].includes(singleWithdrawData.status) &&
+      singleWithdrawData.utr_id !== payload.rrn
     ) {
       logger.info('Payout already processed', {
         payoutId: singleWithdrawData.id,
@@ -81,10 +82,17 @@ export const vertexPayTransactionStatusCallback = async (req, res) => {
         approved_at: new Date().toISOString(),
       });
     } else if (statusStr === 'failed' || statusStr === 'FAILED') {
-      updatePayload.status = Status.REJECTED;
-      updatePayload.config.rejected_reason =
-        payload.description || 'Transaction failed';
-      updatePayload.rejected_at = new Date().toISOString();
+      if (singleWithdrawData.status === Status.APPROVED) {
+        Object.assign(updatePayload, {
+          status: Status.REJECTED,
+          rejected_at: new Date().toISOString(),
+        });
+      } else {
+        updatePayload.status = Status.REJECTED;
+        updatePayload.config.rejected_reason =
+          payload.description || 'Transaction failed';
+        updatePayload.rejected_at = new Date().toISOString();
+      }
     } else {
       updatePayload.status = Status.PENDING;
     }
@@ -108,7 +116,6 @@ export const vertexPayTransactionStatusCallback = async (req, res) => {
     committed = true;
     return res.status(200).send('Payout Updated Successfully');
   } catch (err) {
-    console.log(err);
     if (conn && !committed) await rollback(conn);
     logger.error('getting error while updating payout', err);
   } finally {

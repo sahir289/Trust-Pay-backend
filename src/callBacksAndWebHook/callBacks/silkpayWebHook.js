@@ -5,7 +5,7 @@ import { payAssistErrorCodeMap, Role, Status } from '../../constants/index.js';
 import { logger } from '../../utils/logger.js';
 import { getCompanyByIDDao } from '../../apis/company/companyDao.js';
 import { getVendorsDao } from '../../apis/vendors/vendorDao.js';
-import { updatePayoutService } from '../../apis/payOut/payOutService.js';
+import { _updatePayoutServiceInternal } from '../../apis/payOut/payOutService.js';
 import { getUserByCompanyCreatedAtDao } from '../../apis/users/userDao.js';
 import {
   beginTransaction,
@@ -27,14 +27,19 @@ export const silkPayTransactionStatusCallback = async (req, res) => {
     }
     conn = await getConnection();
     await beginTransaction(conn);
-    const [singleWithdrawData] = await getPayoutsDao({ merchant_order_id: apitxnid });
+    const [singleWithdrawData] = await getPayoutsDao({
+      merchant_order_id: apitxnid,
+    });
     if (!singleWithdrawData) {
       await rollback(conn);
       return res.status(404).send('Payment not found');
     }
 
     if (
-      ![Status.INITIATED, Status.PENDING].includes(singleWithdrawData.status)
+      ![Status.INITIATED, Status.PENDING, Status.APPROVED].includes(
+        singleWithdrawData.status,
+      ) &&
+      singleWithdrawData.utr_id !== payload?.utr
     ) {
       logger.info('Payout already processed', {
         payoutId: singleWithdrawData.id,
@@ -48,11 +53,15 @@ export const silkPayTransactionStatusCallback = async (req, res) => {
     const [company] = await getCompanyByIDDao({
       id: singleWithdrawData.company_id,
     });
-    logger.info('Fetched company data for company_id:', singleWithdrawData.company_id);
+    logger.info(
+      'Fetched company data for company_id:',
+      singleWithdrawData.company_id,
+    );
     const handlePayoutUpdate = async (
       responseData,
       isApproved = false,
       isTransactionUnderProcess = false,
+      isReversed = false,
     ) => {
       const bankId = company.config.SILKPAY.defaultBankId;
       const [bankVendor] = await getBankByIdDao({ id: bankId });
@@ -76,14 +85,17 @@ export const silkPayTransactionStatusCallback = async (req, res) => {
       if (isApproved) {
         Object.assign(updatePayload, {
           status: Status.APPROVED,
-          utr_id: isTransactionUnderProcess
-            ? null
-            : responseData.utr,
+          utr_id: isTransactionUnderProcess ? null : responseData.utr,
           approved_at: new Date().toISOString(),
         });
       } else if (!isApproved && isTransactionUnderProcess) {
         Object.assign(updatePayload, {
           status: Status.PENDING,
+        });
+      } else if (isReversed) {
+        Object.assign(updatePayload, {
+          status: Status.REVERSED,
+          rejected_at: new Date().toISOString(),
         });
       } else {
         logger.info('Payout rejected with response data:', responseData);
@@ -95,26 +107,31 @@ export const silkPayTransactionStatusCallback = async (req, res) => {
       }
       logger.info('Final update payload for payout:', updatePayload);
       // const data = await _updatePayoutServiceInternal(ids, payload, role, conn);
-      await updatePayoutService(
-        conn, 
+      await _updatePayoutServiceInternal(
         {
           id: singleWithdrawData.id,
           company_id: singleWithdrawData.company_id,
         },
-        updatePayload
+        updatePayload,
+        null,
+        conn,
       );
     };
 
-      if (payload?.status === 2 || payload?.status === '2' ) {
-        await handlePayoutUpdate(payload, true);
-      } else if (payload?.status === 1 || payload?.status === '1') {
-        await handlePayoutUpdate(payload, false, true);
-      } else if (payload?.status === 3 || payload?.status === "3") {
-        await handlePayoutUpdate(payload, false);
+    if (payload?.status === 2 || payload?.status === '2') {
+      await handlePayoutUpdate(payload, true);
+    } else if (payload?.status === 1 || payload?.status === '1') {
+      await handlePayoutUpdate(payload, false, true);
+    } else if (payload?.status === 3 || payload?.status === '3') {
+      if (singleWithdrawData.status === Status.APPROVED) {
+        await handlePayoutUpdate(payload, false, false, true);
       } else {
-        await rollback(conn);
-        return res.status(400).send(payload.ErrorMessage);
+        await handlePayoutUpdate(payload, false);
       }
+    } else {
+      await rollback(conn);
+      return res.status(400).send(payload.ErrorMessage);
+    }
 
     // Log the updated payout status
     logger.info('Payout Updated by SILKPAY callback', {

@@ -8,10 +8,8 @@ import { getUserByCompanyCreatedAtDao } from '../../apis/users/userDao.js';
 import { getVendorsDao } from '../../apis/vendors/vendorDao.js';
 import { Role, Status } from '../../constants/index.js';
 import { logger } from '../../utils/logger.js';
-import { sendSuccess } from '../../utils/responseHandlers.js';
 
 export const tataPayTransactionStatusCallback = async (req, res) => {
-  sendSuccess(res, {}, 'Webhook received successfully');
   const payload = req.body;
   const apitxnid = payload?.payoutId;
 
@@ -28,7 +26,8 @@ export const tataPayTransactionStatusCallback = async (req, res) => {
     }
 
     if (
-      ![Status.INITIATED, Status.PENDING].includes(singleWithdrawData.status)
+      ![Status.INITIATED, Status.PENDING, Status.APPROVED].includes(singleWithdrawData.status) &&
+      singleWithdrawData.utr_id !== payload?.utr
     ) {
       logger.info('Payout already processed', {
         payoutId: singleWithdrawData.id,

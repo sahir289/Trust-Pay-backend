@@ -174,12 +174,17 @@ export const createPayDumPayout = async (
     } else if (errorCode === 'TUP') {
       payload.status = Status.PENDING;
     } else {
-      payload.status = Status.REJECTED;
-      payload.config.rejected_reason =
-        checkPayDum?.Response?.message ||
-        payAssistErrorCodeMap[checkPayDum?.Response?.statusCode] ||
-        'Server Unreachable';
-      payload.rejected_at = new Date().toISOString();
+      if (checkPayDum?.Response?.status === Status.REVERSED) {
+        payload.status = Status.REVERSED;
+        payload.rejected_at = new Date().toISOString();
+      } else {
+        payload.status = Status.REJECTED;
+        payload.config.rejected_reason =
+          checkPayDum?.Response?.message ||
+          payAssistErrorCodeMap[checkPayDum?.Response?.statusCode] ||
+          'Server Unreachable';
+        payload.rejected_at = new Date().toISOString();
+      }
     }
 
     if (!payload.utr_id) {

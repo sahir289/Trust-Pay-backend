@@ -6,11 +6,9 @@ import { getCompanyByIDDao } from '../../apis/company/companyDao.js';
 import { getVendorsDao } from '../../apis/vendors/vendorDao.js';
 import { updatePayoutService } from '../../apis/payOut/payOutService.js';
 import { getUserByCompanyCreatedAtDao } from '../../apis/users/userDao.js';
-import { sendSuccess } from '../../utils/responseHandlers.js';
 
 // Define the optimized payDumTransactionStatusCallback function
 export const payDumTransactionStatusCallback = async (req, res) => {
-  sendSuccess(res, {}, 'Webhook received successfully');
   const payload = req.body;
   const apitxnid = payload?.Response?.apitxnid;
 
@@ -19,20 +17,24 @@ export const payDumTransactionStatusCallback = async (req, res) => {
       return res.status(404).send('Payment not found');
     }
 
-    const [singleWithdrawData] = await getPayoutsDao({ merchant_order_id: apitxnid });
+    const [singleWithdrawData] = await getPayoutsDao({
+      merchant_order_id: apitxnid,
+    });
     if (!singleWithdrawData) {
       return res.status(404).send('Payment not found');
     }
 
     if (
-      singleWithdrawData.status === Status.APPROVED ||
-      singleWithdrawData.status === Status.REJECTED
+      ![Status.INITIATED, Status.PENDING, Status.APPROVED].includes(
+        singleWithdrawData.status,
+      ) &&
+      singleWithdrawData.utr_id !== payload.Response?.utr
     ) {
       logger.info('Payout already processed', {
         payoutId: singleWithdrawData.id,
         status: singleWithdrawData.status,
       });
-      return;
+      return res.status(200).send('Payout already processed');
     }
 
     const [company] = await getCompanyByIDDao({
@@ -53,6 +55,7 @@ export const payDumTransactionStatusCallback = async (req, res) => {
       responseData,
       isApproved = false,
       isTransactionUnderProcess = false,
+      isReversed = false,
     ) => {
       const bankId = company.config.PAY_DUM.defaultBankId;
       const [bankVendor] = await getBankByIdDao({ id: bankId });
@@ -89,6 +92,11 @@ export const payDumTransactionStatusCallback = async (req, res) => {
         Object.assign(updatePayload, {
           status: Status.PENDING,
         });
+      } else if (isReversed) {
+        Object.assign(updatePayload, {
+          status: Status.REVERSED,
+          rejected_at: new Date().toISOString(),
+        });
       } else {
         updatePayload.config.rejected_reason =
           responseData.Response.message ||
@@ -115,7 +123,11 @@ export const payDumTransactionStatusCallback = async (req, res) => {
       } else if (errorCode === 'TUP') {
         await handlePayoutUpdate(payload, false, true);
       } else if (errorCode !== 'TUP' && errorCode !== '0') {
-        await handlePayoutUpdate(payload, false);
+        if (singleWithdrawData.status === Status.APPROVED) {
+          await handlePayoutUpdate(payload, false, false, true);
+        } else {
+          await handlePayoutUpdate(payload, false);
+        }
       } else {
         return res.status(400).send(payload.ErrorMessage);
       }
@@ -125,7 +137,8 @@ export const payDumTransactionStatusCallback = async (req, res) => {
     logger.info('Payout Updated by PayDum callback', {
       status: singleWithdrawData.status,
     });
-
+    
+    return res.status(200).send('Payout Updated Successfully');
   } catch (err) {
     // Log any errors while updating the payout
     logger.error('getting error while updating payout', err);

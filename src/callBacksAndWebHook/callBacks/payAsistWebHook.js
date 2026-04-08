@@ -10,11 +10,9 @@ import { getCompanyByIDDao } from '../../apis/company/companyDao.js';
 import { getVendorsDao } from '../../apis/vendors/vendorDao.js';
 import { updatePayoutService } from '../../apis/payOut/payOutService.js';
 import { getUserByCompanyCreatedAtDao } from '../../apis/users/userDao.js';
-import { sendSuccess } from '../../utils/responseHandlers.js';
 
 // Define the optimized payAssistTransactionStatusCallback function
 export const payAssistTransactionStatusCallback = async (req, res) => {
-  sendSuccess(res, {}, 'Webhook received successfully');
   const payload = req.body;
   const apitxnid = payload?.Response?.apitxnid;
 
@@ -29,7 +27,8 @@ export const payAssistTransactionStatusCallback = async (req, res) => {
     }
 
     if (
-      ![Status.INITIATED, Status.PENDING].includes(singleWithdrawData.status)
+      ![Status.INITIATED, Status.PENDING, Status.APPROVED].includes(singleWithdrawData.status) &&
+      singleWithdrawData.utr_id !== payload.Response?.utr
     ) {
       logger.info('Payout already processed', {
         payoutId: singleWithdrawData.id,
@@ -56,6 +55,7 @@ export const payAssistTransactionStatusCallback = async (req, res) => {
       responseData,
       isApproved = false,
       isTransactionUnderProcess = false,
+      isReversed = false,
     ) => {
       const bankId = company.config.PAY_ASSIST.defaultBankId;
       const [bankVendor] = await getBankByIdDao({ id: bankId });
@@ -92,6 +92,11 @@ export const payAssistTransactionStatusCallback = async (req, res) => {
         Object.assign(updatePayload, {
           status: Status.PENDING,
         });
+      } else if (isReversed) {
+        Object.assign(updatePayload, {
+          status: Status.REVERSED,
+          rejected_at: new Date().toISOString(),
+        });
       } else {
         updatePayload.config.rejected_reason =
           responseData.Response.message ||
@@ -119,7 +124,11 @@ export const payAssistTransactionStatusCallback = async (req, res) => {
       } else if (errorCode === 'TUP') {
         await handlePayoutUpdate(payload, false, true);
       } else if (errorCode !== 'TUP' && errorCode !== '0') {
-        await handlePayoutUpdate(payload, false);
+        if (singleWithdrawData.status === Status.APPROVED) {
+          await handlePayoutUpdate(payload, false, false, true);
+        } else {
+          await handlePayoutUpdate(payload, false);
+        }
       } else {
         return res.status(400).send(payload.ErrorMessage);
       }

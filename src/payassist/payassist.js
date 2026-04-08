@@ -50,9 +50,13 @@ export const initiatePayAssistPayout = async (payload, company_id) => {
 
     newPayload.agent_id = apiConfig.agentCode;
 
-    const response = await axios.post(`${apiConfig.baseUrl}/payout`, newPayload, {
-      headers: apiConfig.headers,
-    });
+    const response = await axios.post(
+      `${apiConfig.baseUrl}/payout`,
+      newPayload,
+      {
+        headers: apiConfig.headers,
+      },
+    );
 
     logger.info('PayAssist payout initiated successfully:', {
       merchant_order_id: payload?.merchant_order_id,
@@ -150,7 +154,7 @@ export const createPayAssistPayout = async (
     }
 
     if (payload.txnStatus) {
-      checkPayAssist = {...payload};
+      checkPayAssist = { ...payload };
       delete payload.txnStatus;
     } else {
       checkPayAssist = await initiatePayAssistPayout(
@@ -174,12 +178,17 @@ export const createPayAssistPayout = async (
     } else if (errorCode === 'TUP') {
       payload.status = Status.PENDING;
     } else {
-      payload.status = Status.REJECTED;
-      payload.config.rejected_reason =
-        checkPayAssist?.Response?.message ||
-        payAssistErrorCodeMap[checkPayAssist?.Response?.statusCode] ||
-        'Server Unreachable';
-      payload.rejected_at = new Date().toISOString();
+      if (checkPayAssist?.Response?.status === Status.REVERSED) {
+        payload.status = Status.REVERSED;
+        payload.rejected_at = new Date().toISOString();
+      } else {
+        payload.status = Status.REJECTED;
+        payload.config.rejected_reason =
+          checkPayAssist?.Response?.message ||
+          payAssistErrorCodeMap[checkPayAssist?.Response?.statusCode] ||
+          'Server Unreachable';
+        payload.rejected_at = new Date().toISOString();
+      }
     }
 
     if (!payload.utr_id) {

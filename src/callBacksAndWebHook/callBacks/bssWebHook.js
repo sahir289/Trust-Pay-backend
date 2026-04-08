@@ -45,7 +45,8 @@ export const bssTransactionStatusCallback = async (req, res) => {
     }
 
     if (
-      ![Status.INITIATED, Status.PENDING].includes(singleWithdrawData.status)
+      ![Status.INITIATED, Status.PENDING, Status.APPROVED].includes(singleWithdrawData.status) &&
+      singleWithdrawData.utr_id !== payload.CallBack.RRN
     ) {
       logger.info('Payout already processed', {
         payoutId: singleWithdrawData.id,
@@ -71,6 +72,7 @@ export const bssTransactionStatusCallback = async (req, res) => {
       responseData,
       isApproved = false,
       isTransactionUnderProcess = false,
+      isReversed = false,
       conn,
     ) => {
       const bankId = company.config.BSS.defaultBankId;
@@ -112,6 +114,11 @@ export const bssTransactionStatusCallback = async (req, res) => {
         Object.assign(updatePayload, {
           status: Status.PENDING,
         });
+      } else if (isReversed) {
+        Object.assign(updatePayload, {
+          status: Status.REVERSED,
+          rejected_at: new Date().toISOString(),
+        });
       } else {
         logger.info('Payout rejected with response data:', responseData);
         updatePayload.config.rejected_reason =
@@ -126,6 +133,7 @@ export const bssTransactionStatusCallback = async (req, res) => {
           company_id: singleWithdrawData.company_id,
         },
         updatePayload,
+        null,
         conn,
       );
     };
@@ -144,7 +152,11 @@ export const bssTransactionStatusCallback = async (req, res) => {
       payload?.CallBack?.Status === 'Failed' ||
       payload?.CallBack?.Status === Status.FAILED
     ) {
-      await handlePayoutUpdate(payload, false, false, conn);
+      if (singleWithdrawData.status === Status.APPROVED) {
+        await handlePayoutUpdate(payload, false, false, true, conn);
+      } else {
+        await handlePayoutUpdate(payload, false, false, false, conn);
+      }
     } else {
       await rollback(conn);
       return res.status(400).send(payload.ErrorMessage);

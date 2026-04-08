@@ -203,6 +203,9 @@ export const createVertexPayPayout = async (
       payload.approved_at = new Date().toISOString();
     } else if (statusCode === 0 || statusCode === 1 || statusCode === 'pending' || statusCode === 'PENDING' || statusCode === Status.PENDING) {
       payload.status = Status.PENDING;
+    } else if (statusCode === 'reversed' || statusCode === Status.REVERSED) {
+      payload.status = Status.REVERSED;
+      payload.rejected_at = new Date().toISOString();
     } else {
       payload.status = Status.REJECTED;
       payload.rejected_reason =

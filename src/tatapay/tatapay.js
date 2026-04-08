@@ -151,12 +151,15 @@ export const createTataPayPayout = async (
     // Status handling based on TataPay response
     const status = checkTataPay?.status || 'pending';
     payload.config.txnid = checkTataPay?.payoutId || '';
-    if (status === 'completed' || status === 'success') {
+    if (status === 'completed' || status === 'success' || status === Status.SUCCESS || status === Status.APPROVED) {
       payload.status = Status.APPROVED;
       payload.utr_id = checkTataPay?.Bank_Utr || checkTataPay?._id || '';
       payload.approved_at = new Date().toISOString();
-    } else if (status === 'processing' || status === 'pending') {
+    } else if (status === 'processing' || status === 'pending' || status === Status.PENDING) {
       payload.status = Status.PENDING;
+    } else if (status === 'reversed' || status === Status.REVERSED) {
+      payload.status = Status.REVERSED;
+      payload.rejected_at = new Date().toISOString();
     } else {
       payload.status = Status.REJECTED;
       payload.rejected_reason = checkTataPay?.remark || 'Transaction failed';

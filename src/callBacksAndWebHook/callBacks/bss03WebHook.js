@@ -45,7 +45,8 @@ export const bss03TransactionStatusCallback = async (req, res) => {
     }
 
     if (
-      ![Status.INITIATED, Status.PENDING].includes(singleWithdrawData.status)
+      ![Status.INITIATED, Status.PENDING, Status.APPROVED].includes(singleWithdrawData.status) &&
+      singleWithdrawData.utr_id !== payload.CallBack.RRN
     ) {
       logger.info('Payout already processed', {
         payoutId: singleWithdrawData.id,
@@ -70,6 +71,7 @@ export const bss03TransactionStatusCallback = async (req, res) => {
       responseData,
       isApproved = false,
       isTransactionUnderProcess = false,
+      isReversed = false,
       conn,
     ) => {
       const bankId = company.config.BSS03.defaultBankId;
@@ -111,6 +113,11 @@ export const bss03TransactionStatusCallback = async (req, res) => {
         Object.assign(updatePayload, {
           status: Status.PENDING,
         });
+      } else if (isReversed) {
+        Object.assign(updatePayload, {
+          status: Status.REVERSED,
+          rejected_at: new Date().toISOString(),
+        });
       } else {
         logger.info('Payout rejected with response data:', responseData);
         updatePayload.config.rejected_reason =
@@ -126,6 +133,7 @@ export const bss03TransactionStatusCallback = async (req, res) => {
           company_id: singleWithdrawData.company_id,
         },
         updatePayload,
+        null,
         conn,
       );
     };
@@ -134,17 +142,21 @@ export const bss03TransactionStatusCallback = async (req, res) => {
       payload?.CallBack?.Status === Status.SUCCESS ||
       payload?.CallBack?.Status === 'Success'
     ) {
-      await handlePayoutUpdate(payload, true, false, conn);
+      await handlePayoutUpdate(payload, true, false, false, conn);
     } else if (
       payload?.CallBack?.Status === 'Pending' ||
       payload?.CallBack?.Status === Status.PENDING
     ) {
-      await handlePayoutUpdate(payload, false, true, conn);
+      await handlePayoutUpdate(payload, false, true, false, conn);
     } else if (
       payload?.CallBack?.Status === 'Failed' ||
       payload?.CallBack?.Status === Status.FAILED
     ) {
-      await handlePayoutUpdate(payload, false, false, conn);
+      if (singleWithdrawData.status === Status.APPROVED) {
+        await handlePayoutUpdate(payload, false, false, true, conn);
+      } else {
+        await handlePayoutUpdate(payload, false, false, false, conn);
+      }
     } else {
       await rollback(conn);
       return res.status(400).send(payload.ErrorMessage);
