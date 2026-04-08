@@ -257,10 +257,7 @@ class DailyFileSink {
 
     const line = Buffer.isBuffer(chunk) ? chunk.toString('utf8') : String(chunk);
 
-    // BUG FIX: Always check rotation, not just when stream doesn't exist.
-    // This ensures we rotate to a new daily file when crossing midnight.
-    // rotateIfNeeded() has internal guards to return early if date hasn't changed.
-    if (Date.now() >= this.#nextRetryAt) {
+    if (!this.#stream && Date.now() >= this.#nextRetryAt) {
       this.#rotateIfNeeded().catch((error) => {
         this.#reportError('write-triggered rotate failed', error);
       });
