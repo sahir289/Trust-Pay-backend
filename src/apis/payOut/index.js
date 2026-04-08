@@ -36,6 +36,7 @@ import { bss02TransactionStatusCallback } from '../../callBacksAndWebHook/callBa
 import { bss03TransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/bss03WebHook.js';
 import { getVertexPayWalletBalance } from '../../vertexpay/vertexpay.js';
 import { vertexPayTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/vertexPayWebHook.js';
+import {runsafeTransactionStatusCallback} from "../../callBacksAndWebHook/callBacks/runsafeWebHook.js"
 const router = express.Router();
 
 /**
@@ -311,6 +312,12 @@ router.get(
   '/bss03/bss03-balance',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(getBSS03WalletBalance),
+);
+
+router.get(
+  '/runsafe/runsafe-balance',
+  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  tryCatchHandler(runsafeTransactionStatusCallback),
 );
 
 router.post(
