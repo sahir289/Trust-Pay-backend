@@ -133,8 +133,16 @@ const normalizeLogMessage = (rawLine) => {
 const buildLogEvent = (rawLine, fallbackTimeMs = Date.now()) => {
   const parsed = safeJsonParse(rawLine);
   const timestamp = normalizeTimestamp(parsed?.time || parsed?.timestamp, fallbackTimeMs);
+  const structured = parsed
+    ? {
+        level: parsed.level || 'info',
+        message: parsed.message || 'log',
+        timestamp: parsed.time || parsed.timestamp || formatLocalTimestamp(),
+        metadata: parsed,
+      }
+    : { message: rawLine };
   return {
-    message: normalizeLogMessage(rawLine),
+    message: normalizeLogMessage(JSON.stringify(structured)),
     timestamp,
   };
 };
