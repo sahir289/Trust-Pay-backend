@@ -30,7 +30,7 @@ import {
 } from './vendorDao.js';
 import { createCalculationDao } from '../calculation/calculationDao.js';
 import {
-  updateBankaccountDao,
+  deleteBankaccountByUserIdDao,
   getBankaccountCheckDao,
 } from '../bankAccounts/bankaccountDao.js';
 import { updateUserDao, getUsersNameDao } from '../users/userDao.js';
@@ -459,10 +459,17 @@ const _deleteVendorServiceInternal = async (ids, updated_by, conn) => {
     //delete banks and childs for particular user
     if (data) {
       const payloadBank = {
-        config: { is_freeze: true, isFromDeletedParent: true },
+        config: {
+          is_freeze: false,
+          is_intent: false,
+          is_phonepay: false,
+          is_staticQR: false,
+          isFromDeletedParent: true,
+        },
         is_qr: false,
         is_bank: false,
         is_enabled: false,
+        is_obsolete: true,
         updated_by,
       };
       await updateUserDao({ id: ids.user_id || ids.id }, payload, conn);
@@ -471,11 +478,10 @@ const _deleteVendorServiceInternal = async (ids, updated_by, conn) => {
         { is_obsolete: true },
         conn,
       );
-      await updateBankaccountDao(
-        // here is a bug in below line, here need to remove user_id 
-        { id: ids.bank_id, company_id: ids.company_id, user_id: ids.user_id || ids.id },
+      await deleteBankaccountByUserIdDao(
+        // here is a bug in below line, here need to remove user_id
+        { company_id: ids.company_id, user_id: ids.user_id || ids.id },
         payloadBank,
-        true,
         conn,
       );
       //for childs user hierachys
