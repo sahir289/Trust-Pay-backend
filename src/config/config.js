@@ -150,6 +150,12 @@ function config(Env) {
       privateKey: Env?.RUNSAFE_PRIVATE_KEY,
       publicKey: Env?.RUNSAFE_PUBLIC_KEY,
     },
+    cps: {
+      url: Env?.CPS_API_URL,
+      NotifyUrl: Env?.CPS_NOTIFY_URL,
+      privateKey: Env?.CPS_PRIVATE_KEY,
+      publicKey: Env?.CPS_PUBLIC_KEY,
+    },
     clickrr : {
       baseUrl: Env?.CLICKRR_BASE_API_URL,
       initiatePayout: Env?.CLICKRR_INITIATE_API_URL,

@@ -149,6 +149,7 @@ import {
 import { createSilkPaymentTransaction } from '../../intent/createSilkIntentTransaction.js';
 import { getCachedData, setCachedData } from '../../utils/redishashkey.js';
 import { createOnePayPaymentTransaction } from '../../intent/createOnePayIntentTransaction.js';
+import { createCpsPaymentTransaction } from '../../intent/createCpsIntentTransaction.js';
 
 export const generatePayInUrlByHashService = async (req) => {
   try {
@@ -938,6 +939,15 @@ export const payInIntentGenerateOrderService = async (
           amount,
         );
         return order?.link;
+      },
+      cpsPay: async () => {
+        const order = await createCpsPaymentTransaction(
+          'cps',
+          payIn,
+          amount,
+        );
+        console.log('cps order', order);
+        return order?.upiIntend;
       },
       orvixPay: async () => {
         const order = await createPaymentTransaction('orvixPay', payIn, amount);
@@ -3815,6 +3825,7 @@ const _verifyPayinsServiceInternal = async (
       allowZenTechInd: cashfreeDetails?.allow_zentechind || false,
       allowNmplPay: cashfreeDetails?.allow_nmplpay || false,
       allowRunsafePay: cashfreeDetails?.allow_runsafe || false,
+      allowCpsPay: cashfreeDetails?.allow_cps || false,
       allowSilkPay: cashfreeDetails?.allow_silkpay || false,
       allowRazorPay: cashfreeDetails?.allow_razorpay || false,
       allowOrvixPay: cashfreeDetails?.allow_orvixpay || false,
