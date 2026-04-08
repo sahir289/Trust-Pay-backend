@@ -1621,7 +1621,7 @@ export const getPayinsBySearchService = async (
     const offset = (pageNum - 1) * limitNum;
 
     if (
-      (designation === Role.VENDOR || designation === Role.VENDOR_OPERATIONS) &&
+      (designation === Role.VENDOR || designation === Role.VENDOR_OPERATIONS || designation === Role.SUB_VENDOR || designation === Role.VENDOR_ADMIN) &&
       Array.isArray(filters.bank_acc_id) &&
       filters.bank_acc_id.length === 0
     ) {
