@@ -1,6 +1,11 @@
 import { InternalServerError } from '../../utils/appErrors.js';
 import { createHash } from '../../utils/bcryptPassword.js';
-import { getConnection } from '../../utils/db.js';
+import {
+  getConnection,
+  beginTransaction,
+  commit,
+  rollback,
+} from '../../utils/db.js';
 import { generateUUID } from '../../utils/generateUUID.js';
 import { generatePassword } from '../../utils/generatePassword.js';
 import { sendCredentialsEmail } from '../../utils/sendMailer.js';
@@ -23,8 +28,8 @@ import {
   Role,
   vendorColumns,
 } from '../../constants/index.js';
-import { createMerchantService } from '../merchants/merchantService.js';
-import { createVendorService } from '../vendors/vendorService.js';
+import { _createMerchantServiceInternal } from '../merchants/merchantService.js';
+import { _createVendorServiceInternal } from '../vendors/vendorService.js';
 import { BadRequestError } from '../../utils/appErrors.js';
 import { logger } from '../../utils/logger.js';
 import {
@@ -35,6 +40,7 @@ import {
 import { getMerchantByUserIdDao } from '../merchants/merchantDao.js';
 import { getVendorByUserDao } from '../vendors/vendorDao.js';
 import { getCompanyByIDDao } from '../company/companyDao.js';
+import { getBankaccountCheckDao } from '../bankAccounts/bankaccountDao.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 
 const getUsersService = async (
@@ -46,7 +52,6 @@ const getUsersService = async (
   user_id,
 ) => {
   try {
-
     const filterColumns =
       role === Role.MERCHANT
         ? merchantColumns.USER
@@ -59,8 +64,19 @@ const getUsersService = async (
 
     let userIdFilter = [];
 
-    if (role === Role.VENDOR || role === Role.SUB_VENDOR || role === Role.MERCHANT) {
-      const userHierarchyData = await getUserHierarchysDao({ user_id });
+    if (
+      role === Role.VENDOR ||
+      role === Role.SUB_VENDOR ||
+      role === Role.MERCHANT
+    ) {
+      const userHierarchyData = await getUserHierarchysDao(
+        { user_id },
+        null,
+        null,
+        null,
+        null,
+        null,
+      );
       const userHierarchy = userHierarchyData[0];
 
       if (
@@ -71,9 +87,16 @@ const getUsersService = async (
         if (parentUserId) {
           userIdFilter.push(parentUserId);
 
-          const parentHierarchyData = await getUserHierarchysDao({
-            user_id: parentUserId,
-          });
+          const parentHierarchyData = await getUserHierarchysDao(
+            {
+              user_id: parentUserId,
+            },
+            null,
+            null,
+            null,
+            null,
+            null,
+          );
           const parentHierarchy = parentHierarchyData[0];
 
           if (role === Role.MERCHANT) {
@@ -83,9 +106,16 @@ const getUsersService = async (
 
             // Fetch child.operations from each submerchant
             for (const subId of subMerchants) {
-              const subHierarchyData = await getUserHierarchysDao({
-                user_id: subId,
-              });
+              const subHierarchyData = await getUserHierarchysDao(
+                {
+                  user_id: subId,
+                },
+                null,
+                null,
+                null,
+                null,
+                null,
+              );
               const subHierarchy = subHierarchyData?.[0];
               const subOps = subHierarchy?.config?.child?.operations ?? [];
               userIdFilter.push(...subOps);
@@ -103,9 +133,16 @@ const getUsersService = async (
 
         // Add submerchant child.operations
         for (const subId of subMerchants) {
-          const subHierarchyData = await getUserHierarchysDao({
-            user_id: subId,
-          });
+          const subHierarchyData = await getUserHierarchysDao(
+            {
+              user_id: subId,
+            },
+            null,
+            null,
+            null,
+            null,
+            null,
+          );
           const subHierarchy = subHierarchyData?.[0];
           const subOps = subHierarchy?.config?.child?.operations ?? [];
           userIdFilter.push(...subOps);
@@ -153,8 +190,19 @@ const getUsersBySearchService = async (
 
     let userIdFilter = [];
 
-    if (role === Role.VENDOR || role === Role.SUB_VENDOR || role === Role.MERCHANT) {
-      const userHierarchyData = await getUserHierarchysDao({ user_id });
+    if (
+      role === Role.VENDOR ||
+      role === Role.SUB_VENDOR ||
+      role === Role.MERCHANT
+    ) {
+      const userHierarchyData = await getUserHierarchysDao(
+        { user_id },
+        null,
+        null,
+        null,
+        null,
+        null,
+      );
       const userHierarchy = userHierarchyData[0];
 
       if (
@@ -165,9 +213,16 @@ const getUsersBySearchService = async (
         if (parentUserId) {
           userIdFilter.push(parentUserId);
 
-          const parentHierarchyData = await getUserHierarchysDao({
-            user_id: parentUserId,
-          });
+          const parentHierarchyData = await getUserHierarchysDao(
+            {
+              user_id: parentUserId,
+            },
+            null,
+            null,
+            null,
+            null,
+            null,
+          );
           const parentHierarchy = parentHierarchyData[0];
 
           if (role === Role.MERCHANT) {
@@ -177,9 +232,16 @@ const getUsersBySearchService = async (
 
             // Fetch child.operations from each submerchant
             for (const subId of subMerchants) {
-              const subHierarchyData = await getUserHierarchysDao({
-                user_id: subId,
-              });
+              const subHierarchyData = await getUserHierarchysDao(
+                {
+                  user_id: subId,
+                },
+                null,
+                null,
+                null,
+                null,
+                null,
+              );
               const subHierarchy = subHierarchyData?.[0];
               const subOps = subHierarchy?.config?.child?.operations ?? [];
               userIdFilter.push(...subOps);
@@ -197,24 +259,37 @@ const getUsersBySearchService = async (
 
         // Add submerchant child.operations
         for (const subId of subMerchants) {
-          const subHierarchyData = await getUserHierarchysDao({
-            user_id: subId,
-          });
+          const subHierarchyData = await getUserHierarchysDao(
+            {
+              user_id: subId,
+            },
+            null,
+            null,
+            null,
+            null,
+            null,
+          );
           const subHierarchy = subHierarchyData?.[0];
           const subOps = subHierarchy?.config?.child?.operations ?? [];
           userIdFilter.push(...subOps);
         }
 
         // Add sub_vendors and their operations
-        const subVendors =
-          userHierarchy?.config?.siblings?.sub_vendors ?? [];
+        const subVendors = userHierarchy?.config?.siblings?.sub_vendors ?? [];
         userIdFilter.push(...subVendors);
 
         // Add sub_vendor child.operations
         for (const subId of subVendors) {
-          const subHierarchyData = await getUserHierarchysDao({
-            user_id: subId,
-          });
+          const subHierarchyData = await getUserHierarchysDao(
+            {
+              user_id: subId,
+            },
+            null,
+            null,
+            null,
+            null,
+            null,
+          );
           const subHierarchy = subHierarchyData?.[0];
           const subOps = subHierarchy?.config?.child?.operations ?? [];
           userIdFilter.push(...subOps);
@@ -241,6 +316,7 @@ const getUsersBySearchService = async (
       pageNumber,
       pageSize,
       role,
+      // filterColumns
     );
 
     return data;
@@ -250,7 +326,6 @@ const getUsersBySearchService = async (
   }
 };
 const getUserByIdService = async (ids, role) => {
-  let conn;
   try {
     const filterColumns =
       role === Role.MERCHANT
@@ -258,27 +333,17 @@ const getUserByIdService = async (ids, role) => {
         : role === Role.VENDOR || role === Role.SUB_VENDOR
           ? vendorColumns.USER
           : columns.USER;
-    conn = await getConnection('reader');
-    const result = await getUserByIdDao(conn, ids);
+    const result = await getUserByIdDao(ids);
 
     const finalResult = filterResponse(result, filterColumns);
     return finalResult;
   } catch (error) {
     logger.error('error getting while getting user by id', error);
     throw error;
-  } finally {
-    if (conn) {
-      try {
-        conn.release();
-      } catch (releaseError) {
-        logger.error('Error while releasing the connection', releaseError);
-      }
-    }
   }
 };
 
 const getUsersByUserNameService = async (username, ids, role) => {
-  let conn;
   try {
     const filterColumns =
       role === Role.MERCHANT
@@ -286,25 +351,16 @@ const getUsersByUserNameService = async (username, ids, role) => {
         : role === Role.VENDOR || role === Role.SUB_VENDOR
           ? vendorColumns.USER
           : columns.USER;
-    conn = await getConnection('reader');
-    const data = await getUsersByUserNameDao(ids, username, conn);
+    const data = await getUsersByUserNameDao(ids, username);
     const finalResult = filterResponse(data, filterColumns);
     return finalResult;
   } catch (error) {
     logger.error('error getting while fetching user', error);
     throw error;
-  } finally {
-    if (conn) {
-      try {
-        conn.release();
-      } catch (releaseError) {
-        logger.error('Error while releasing the connection', releaseError);
-      }
-    }
   }
 };
 
-const createUserService = async (conn, payload) => {
+const _createUserServiceInternal = async (payload, conn) => {
   try {
     const { user_name } = payload;
     let company_id = payload.company_id;
@@ -346,15 +402,33 @@ const createUserService = async (conn, payload) => {
     delete payload.site;
     const User = await createUserDao(userPayload, conn);
 
-    const designation = await getDesignationDao({ id: payload.designation_id });
-
-    const userRole = await getRoleDao({ id: payload.role_id });
-    const userDesignation = await getDesignationDao({
-      id: payload.designation_id,
-    });
+    const designation = await getDesignationDao(
+      { id: payload.designation_id },
+      conn,
+    );
+    const userRole = await getRoleDao({ id: payload.role_id }, conn);
+    const userDesignation = await getDesignationDao(
+      {
+        id: payload.designation_id,
+      },
+      conn,
+    );
+    if (userDesignation[0]?.designation == Role.SUB_VENDOR) {
+      const banks = await getBankaccountCheckDao(
+        {
+          user_id: payload.parent_id,
+        },
+        conn,
+      );
+      if (banks) {
+        throw new BadRequestError(
+          'Parent cannot contain any existing banks. Please remove all banks from the parent before adding a new Vendor.',
+        );
+      }
+    }
     let unique_id = payload?.unique_admin_id;
-    if (userDesignation[0]?.designation == Role.ADMIN || userDesignation[0]?.designation == Role.SUPER_ADMIN) {
-      const company = await getCompanyByIDDao({ id: payload.company_id });
+    if (userDesignation[0]?.designation == Role.ADMIN) {
+      const company = await getCompanyByIDDao({ id: payload.company_id }, conn);
       if (company?.length > 0) {
         unique_id =
           company[0]?.config?.unique_admin_id &&
@@ -367,9 +441,18 @@ const createUserService = async (conn, payload) => {
     ) {
       ///for operations
 
-      const hierarchy = await getUserHierarchysDao({
-        user_id: payload?.parent_id ? payload?.parent_id : payload.created_by,
-      });
+      const hierarchy = await getUserHierarchysDao(
+        {
+          user_id: payload?.parent_id ? payload?.parent_id : payload.created_by,
+        },
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        conn,
+      );
       const hierarchyConfig = hierarchy[0]?.config;
       const currentChildren = hierarchy[0]?.config?.child?.operations || [];
       await updateUserHierarchyDao(
@@ -415,7 +498,7 @@ const createUserService = async (conn, payload) => {
         const user_id = payload?.parent_id
           ? payload?.parent_id
           : payload.created_by;
-        userCode = await getMerchantByUserIdDao(user_id);
+        userCode = await getMerchantByUserIdDao(user_id, conn);
         sub_code = `${userCode[0].code}(${payload.code})`;
       }
       const Private = generateUUID();
@@ -428,7 +511,7 @@ const createUserService = async (conn, payload) => {
         company_id: payload.company_id,
         first_name: payload.first_name,
         last_name: payload.last_name,
-        code: payload.code,
+        code: payload.code.trim(),
         balance: Number(0),
         min_payin: Number(payload.min_payin),
         max_payin: Number(payload.max_payin),
@@ -453,25 +536,33 @@ const createUserService = async (conn, payload) => {
           },
           allow_intent: false,
           allow_payout: false,
+          allow_clickrr: false,
+          allow_tatapay: false,
+          allow_payassist: false,
+          is_h2h: payload?.is_h2h || false,
           ...(sub_code && { sub_code }),
           unblocked_countries: unblocked_countries,
+          gm_code: payload.gm_code,
         },
       };
-      merchant = await createMerchantService(conn, merchantPayload);
+      merchant = await _createMerchantServiceInternal(merchantPayload, conn);
     }
     ///for vendor sub-vendor
     if (
       userDesignation[0]?.designation === Role.VENDOR ||
-      userDesignation[0]?.designation === Role.SUB_VENDOR
+      userDesignation[0]?.designation === Role.SUB_VENDOR ||
+      userDesignation[0]?.designation === Role.VENDOR_ADMIN
     ) {
       let userCode;
       let sub_code;
+      let is_owned = false;
       if (userDesignation[0]?.designation === Role.SUB_VENDOR) {
         const user_id = payload?.parent_id
           ? payload?.parent_id
           : payload.created_by;
-        userCode = await getVendorByUserDao(user_id);
+        userCode = await getVendorByUserDao(user_id, conn);
         sub_code = `${userCode[0].code}(${payload.code})`;
+        is_owned = payload.is_owned;
       }
       const vendorPayload = {
         user_id: User.id,
@@ -479,12 +570,17 @@ const createUserService = async (conn, payload) => {
         company_id: payload.company_id,
         first_name: payload.first_name,
         last_name: payload.last_name,
-        code: payload.code,
+        code: payload.code.trim(),
         balance: Number(0),
         config: {
           bank_response_access: false,
           net_balance: payload.net_balance || '0',
           ...(sub_code && { sub_code }),
+          ...(is_owned && { is_owned }),
+          is_enabled: true,
+          mediator_payin_commission: payload.mediator_payin_commission || 0,
+          mediator_payout_commission: payload.mediator_payout_commission || 0,
+          gm_code: payload.gm_code,
         },
         payin_commission: Number(payload.payin_commission),
         payout_commission: Number(payload.payout_commission),
@@ -494,7 +590,7 @@ const createUserService = async (conn, payload) => {
         role: userRole[0].role,
         parent_id: payload?.parent_id ? payload?.parent_id : payload.created_by,
       };
-      await createVendorService(conn, vendorPayload);
+      await _createVendorServiceInternal(vendorPayload, conn);
     }
 
     if (User) {
@@ -508,6 +604,7 @@ const createUserService = async (conn, payload) => {
           publicKey: merchant?.config ? merchant.config.keys.public : '',
           designation: designation[0]?.designation,
           unique_id,
+          h2h: payload.is_h2h,
         });
 
         if (!data) {
@@ -530,14 +627,33 @@ const createUserService = async (conn, payload) => {
     // });
     return User;
   } catch (error) {
-    console.error(error);
-    logger.error('Error in createUserService:', error);
-
+    logger.error('error in _createUserServiceInternal', error);
     throw error;
   }
 };
 
-const userUpdateService = async (conn, ids, payload) => {
+const createUserService = async (payload) => {
+  let conn;
+  let committed = false;
+  try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+    const User = await _createUserServiceInternal(payload, conn);
+    await commit(conn);
+    committed = true;
+    return User;
+  } catch (error) {
+    if (conn && !committed) {
+      await rollback(conn);
+    }
+    logger.error('Error in createUserService:', error);
+    throw error;
+  } finally {
+    if (conn) conn.release();
+  }
+};
+
+const _userUpdateServiceInternal = async (ids, payload, conn) => {
   try {
     // if (payload.email) {
     //   const verifyEmail = await getUsersDao({ email: payload.email });
@@ -556,8 +672,29 @@ const userUpdateService = async (conn, ids, payload) => {
     // });
     return User;
   } catch (error) {
+    logger.error('error in _userUpdateServiceInternal', error);
+    throw error;
+  }
+};
+
+const userUpdateService = async (ids, payload) => {
+  let conn;
+  let committed = false;
+  try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+    const User = await _userUpdateServiceInternal(ids, payload, conn);
+    await commit(conn);
+    committed = true;
+    return User;
+  } catch (error) {
+    if (conn && !committed) {
+      await rollback(conn);
+    }
     logger.error('error getting while updating user', error);
     throw error;
+  } finally {
+    if (conn) conn.release();
   }
 };
 
@@ -574,7 +711,7 @@ const sendMailService = async (payload) => {
     return await sendCredentialsEmail({
       email: user[0].email,
       username: user[0].user_name,
-      code: merchant ? user[0].code : '',
+      code: merchant ? merchant[0].code : '',
       secretKey: merchant ? merchant[0].config.keys.private : '',
       publicKey: merchant ? merchant[0].config.keys.public : '',
       designation: designation[0].designation,
@@ -593,4 +730,5 @@ export {
   createUserService,
   userUpdateService,
   sendMailService,
+  _createUserServiceInternal,
 };

@@ -2,7 +2,7 @@ import { getBankResponseDao } from '../apis/bankResponse/bankResponseDao.js';
 import { Status } from '../constants/index.js';
 import { createTelegramSender } from '../helpers/telegramApi.js';
 import { logger } from './logger.js';
-
+import { getCachedData, setCachedData } from './redishashkey.js';
 const telegramSender = createTelegramSender();
 
 export async function sendTelegramDashboardReportMessage(
@@ -47,13 +47,45 @@ export async function sendTelegramDashboardReportMessage(
   const istTime = new Date(
     now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }),
   );
-  let startHour = istTime.getHours() - 1;
-  let endHour = (startHour + 1) % 24;
-  const startAmpm = startHour >= 12 ? 'PM' : 'AM';
-  const endAmpm = endHour >= 12 ? 'PM' : 'AM';
-  startHour = startHour % 12 || 12;
-  endHour = endHour % 12 || 12;
-  const formattedTime = `${startHour}${startAmpm}-${endHour}${endAmpm}`;
+  //formatting time for 30 mins report
+  const currentMinutes = istTime.getMinutes();
+  const currentHours = istTime.getHours();
+  let startHour = currentHours;
+  let startMinutes = 0;
+  let endHour = currentHours;
+  let endMinutes = 0;
+  if (currentMinutes < 30) {
+    startHour = (currentHours - 1 + 24) % 24;
+    startMinutes = 30;
+    endHour = currentHours;
+    endMinutes = 0;
+  } else {
+    startHour = currentHours;
+    startMinutes = 0;
+    endHour = currentHours;
+    endMinutes = 30;
+  }
+  if (currentMinutes === 0) {
+    startHour = (currentHours - 1 + 24) % 24;
+    startMinutes = 30;
+    endHour = currentHours;
+    endMinutes = 0;
+  } else if (currentMinutes === 30) {
+    startHour = currentHours;
+    startMinutes = 0;
+    endHour = currentHours;
+    endMinutes = 30;
+  }
+  function formatTime(hour, minute) {
+    const ampm = hour >= 12 ? 'PM' : 'AM';
+    const displayHour = hour % 12 || 12;
+    const displayMinute = minute.toString().padStart(2, '0');
+    return `${displayHour}:${displayMinute}${ampm}`;
+  }
+  const formattedTime = `${formatTime(startHour, startMinutes)}-${formatTime(
+    endHour,
+    endMinutes,
+  )}`;
   const timeStamp = type === 'Hourly Report' ? formattedTime  : date ? date : currentDate;
 
   const merchantPayInDetails = merchant
@@ -957,13 +989,28 @@ export async function sendBankNotAssignedAlertTelegram(
   const message = `<b>⛔ Bank not Assigned with :</b> ${code}`;
 
   try {
+    const KEY_PREFIX = 'bank_alert';
+    const cacheKey = `${KEY_PREFIX}:${code}`;
+    const HOLD_TIME = 60; 
+    const cooldownActive = await getCachedData(cacheKey);
+    if (cooldownActive) {
+      logger.log(
+        `Duplicate alert suppressed for code: ${code} (bank_alert active for ${HOLD_TIME}s)`,
+      );
+      return; 
+    }
     const success = await telegramSender(
       chatId,
       message,
       null,
       TELEGRAM_BOT_TOKEN,
     );
-    logger.log(success ? 'Sent!' : 'Not sent.');
+    if (success) {
+      logger.log('Sent!');
+      await setCachedData(cacheKey, '1', HOLD_TIME);
+    } else {
+      logger.log('Not sent.');
+    }
   } catch (error) {
     logger.error('Error sending bank not assigned alert to Telegram:', error.message);
   }

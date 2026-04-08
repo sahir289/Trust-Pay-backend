@@ -59,3 +59,11 @@ export const VALIDATE_BANK_RESPONSE_BY_ID = Joi.string()
     'string.guid': 'ID must be a valid UUID',
     'any.optional': 'ID is optional',
   });
+
+  export const VALIDATE_ACTIVE_INACTIVE_BANK_ACCOUNT_SCHEMA = Joi.object({
+    bank_account_id: Joi.string()
+      .guid({ version: ['uuidv4'] })
+      .required()
+      .label('bank_account_id'),
+    is_active: Joi.boolean().required().label('is_active'),
+  });

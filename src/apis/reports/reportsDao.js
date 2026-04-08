@@ -11,6 +11,7 @@ const getPayInMerchantReportDao = async (
   role,
   status,
   updatedPayin,
+  conn = null
 ) => {
   try {
     let commissionSelect = `pi.payin_merchant_commission,
@@ -25,7 +26,7 @@ const getPayInMerchantReportDao = async (
       pi.created_at, 
       pi.updated_at`;
 
-    if (role === Role.ADMIN || role === Role.SUPER_ADMIN) {
+    if (role === Role.ADMIN) {
       commissionSelect += `, v.code AS vendor_code,
       pi.payin_vendor_commission `;
     }
@@ -56,24 +57,10 @@ const getPayInMerchantReportDao = async (
         LEFT JOIN public."BankAccount" b ON pi.bank_acc_id = b.id
         LEFT JOIN public."Vendor" v ON v.user_id = b.user_id
         LEFT JOIN public."BankResponse" br ON pi.bank_response_id = br.id
-        WHERE pi.is_obsolete = false`;
+        WHERE pi.company_id = $1 AND pi.is_obsolete = false`;
 
-    let parameters = [];
+    let parameters = [company_id];
     let paramIndex = parameters.length + 1;
-
-    if (company_id) {
-      // Parse company_id - handle both single values and comma-separated arrays
-      let companyIds = company_id;
-      if (typeof company_id === 'string' && company_id.includes(',')) {
-        companyIds = company_id.split(',').map(id => id.trim()).filter(id => id);
-      } else if (!Array.isArray(company_id)) {
-        companyIds = [company_id];
-      }
-      
-      query += ` AND pi.company_id = ANY($${paramIndex})`;
-      parameters.push(companyIds);
-      paramIndex++;
-    }
 
     if (merchant_id) {
       query += ` AND pi.merchant_id = ANY($${paramIndex})`;
@@ -112,7 +99,7 @@ const getPayInMerchantReportDao = async (
         paramIndex += 2;
       }
     }
-    const result = await executeQuery(query, parameters);
+    const result = await executeQuery(query, parameters, conn);
     return result.rows;
   } catch (error) {
     logger.error('Error in getPayInMerchantReportDao:', error);
@@ -128,6 +115,7 @@ const getPayInVendorReportDao = async (
   role,
   status,
   updatedPayin,
+  conn = null
 ) => {
   try {
     const commissionSelect = `
@@ -164,24 +152,10 @@ const getPayInVendorReportDao = async (
         LEFT JOIN public."BankAccount" b ON pi.bank_acc_id = b.id
         LEFT JOIN public."BankResponse" br ON pi.bank_response_id = br.id
         LEFT JOIN public."Vendor" v ON v.user_id = b.user_id
-        WHERE pi.is_obsolete = false`;
+        WHERE pi.company_id = $1 AND pi.is_obsolete = false`;
 
-    let parameters = [];
+    let parameters = [company_id];
     let paramIndex = parameters.length + 1;
-
-    if (company_id) {
-      // Parse company_id - handle both single values and comma-separated arrays
-      let companyIds = company_id;
-      if (typeof company_id === 'string' && company_id.includes(',')) {
-        companyIds = company_id.split(',').map(id => id.trim()).filter(id => id);
-      } else if (!Array.isArray(company_id)) {
-        companyIds = [company_id];
-      }
-      
-      query += ` AND pi.company_id = ANY($${paramIndex})`;
-      parameters.push(companyIds);
-      paramIndex++;
-    }
 
     if (id && id.length > 0) {
       query += ` AND pi.bank_acc_id = ANY($${paramIndex})`;
@@ -227,7 +201,7 @@ const getPayInVendorReportDao = async (
       }
     }
 
-    const result = await executeQuery(query, parameters);
+    const result = await executeQuery(query, parameters, conn);
     return result.rows;
   } catch (error) {
     logger.error('Error in getPayInVendorReportDao:', error);
@@ -242,6 +216,7 @@ const getPayOutMerchantReportDao = async (
   company_id,
   role,
   status,
+  conn = null
 ) => {
   try {
     let commissionSelect = `po.payout_merchant_commission,
@@ -256,7 +231,7 @@ const getPayOutMerchantReportDao = async (
       po.created_at, 
       po.updated_at`;
 
-    if (role === Role.ADMIN || role === Role.SUPER_ADMIN) {
+    if (role === Role.ADMIN) {
       commissionSelect += ` , ve.code AS vendor_code,
         po.payout_vendor_commission `;
     }
@@ -282,24 +257,10 @@ const getPayOutMerchantReportDao = async (
         LEFT JOIN public."Merchant" me ON po.merchant_id = me.id
         LEFT JOIN public."BankAccount" b ON po.bank_acc_id = b.id
         LEFT JOIN public."Vendor" ve ON ve.user_id = b.user_id
-        WHERE po.is_obsolete = false`;
+        WHERE po.company_id = $1  AND po.is_obsolete = false`;
 
-    let parameters = [];
+    let parameters = [company_id];
     let paramIndex = parameters.length + 1;
-
-    if (company_id) {
-      // Parse company_id - handle both single values and comma-separated arrays
-      let companyIds = company_id;
-      if (typeof company_id === 'string' && company_id.includes(',')) {
-        companyIds = company_id.split(',').map(id => id.trim()).filter(id => id);
-      } else if (!Array.isArray(company_id)) {
-        companyIds = [company_id];
-      }
-      
-      query += ` AND po.company_id = ANY($${paramIndex})`;
-      parameters.push(companyIds);
-      paramIndex++;
-    }
 
     if (merchant_id) {
       query += ` AND po.merchant_id =  ANY($${paramIndex})`;
@@ -348,18 +309,18 @@ const getPayOutMerchantReportDao = async (
         }
       } else {
         query += ` AND (
-          (po.status IN ('${Status.APPROVED}', '${Status.REVERSED}') AND po.approved_at BETWEEN $$  {paramIndex} AND   $${paramIndex + 1})
+          (po.status IN ('${Status.APPROVED}', '${Status.REVERSED}') AND po.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1})
           OR
-          (po.status = '${Status.REJECTED}' AND po.rejected_at BETWEEN $$  {paramIndex} AND   $${paramIndex + 1})
+          (po.status = '${Status.REJECTED}' AND po.rejected_at BETWEEN $${paramIndex} AND $${paramIndex + 1})
           OR
-          (po.status IN ('${Status.INITIATED}', '${Status.PENDING}') AND po.updated_at BETWEEN $$  {paramIndex} AND   $${paramIndex + 1})
+          (po.status IN ('${Status.INITIATED}', '${Status.PENDING}') AND po.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1})
         )`;
         parameters.push(startDate, endDate);
         paramIndex += 2;
       }
     }
-    query += ` ORDER BY sno ASC;`; //--sorting by codes than created_at
-    const result = await executeQuery(query, parameters);
+    query += ` ORDER BY sno ASC;`; 
+    const result = await executeQuery(query, parameters, conn);
     return result.rows;
   } catch (error) {
     logger.error('Error in getPayOutMerchantReportDao:', error);
@@ -374,6 +335,7 @@ const getPayOutVendorReportDao = async (
   company_id,
   role,
   status,
+  conn = null
 ) => {
   try {
     let commissionSelect = '';
@@ -394,7 +356,7 @@ const getPayOutVendorReportDao = async (
         po.payout_vendor_commission,
         po.created_at`;
     }
-    if (role === Role.ADMIN || role === Role.SUPER_ADMIN) {
+    if (role === Role.ADMIN) {
       commissionSelect += `
         po.payout_merchant_commission,
         json_build_object(
@@ -435,48 +397,33 @@ const getPayOutVendorReportDao = async (
       LEFT JOIN public."Merchant" me ON po.merchant_id = me.id
       LEFT JOIN public."BankAccount" b ON po.bank_acc_id = b.id
       LEFT JOIN public."Vendor" ve ON ve.user_id = b.user_id
-      WHERE po.is_obsolete = false`;
+      WHERE po.company_id = $1 AND po.is_obsolete = false`;
 
-    let parameters = [];
-    let paramIndex = parameters.length + 1;
+    let parameters = [company_id];
+    let paramIndex = 2;
 
-    if (company_id) {
-      // Parse company_id - handle both single values and comma-separated arrays
-      let companyIds = company_id;
-      if (typeof company_id === 'string' && company_id.includes(',')) {
-        companyIds = company_id.split(',').map(id => id.trim()).filter(id => id);
-      } else if (!Array.isArray(company_id)) {
-        companyIds = [company_id];
-      }
-      
-      query += ` AND po.company_id = ANY($${paramIndex})`;
-      parameters.push(companyIds);
-      paramIndex++;
-    }
-
-    if (id) {
-      const vendorIds = Array.isArray(id) ? id : [id];
+    if (id && Array.isArray(id) && id.length > 0) {
       query += ` AND po.vendor_id = ANY($${paramIndex})`;
-      parameters.push(vendorIds);
+      parameters.push(id);
       paramIndex++;
     }
     if (status) {
-      if (typeof status === 'string') {
-        status = status.split(',').map((s) => s.trim());
+      let statusArray = Array.isArray(status)
+        ? status
+        : typeof status === 'string'
+          ? status.split(',').map((s) => s.trim())
+          : [status];
+      if (statusArray.length > 0) {
+        query += ` AND po.status = ANY($${paramIndex})`;
+        parameters.push(statusArray);
+        paramIndex++;
       }
-      if (!Array.isArray(status)) {
-        status = [status];
-      }
-      query += ` AND po.status = ANY($${paramIndex})`;
-      parameters.push(status);
-      paramIndex++;
     }
     if (startDate && endDate) {
       if (status && Array.isArray(status) && status.length > 0) {
         const conditions = [];
         if (
-          status.includes(Status.APPROVED) ||
-          status.includes(Status.REVERSED)
+          status.some((s) => [Status.APPROVED, Status.REVERSED].includes(s))
         ) {
           conditions.push(
             `(po.status IN ('${Status.APPROVED}', '${Status.REVERSED}') AND po.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1})`,
@@ -488,8 +435,7 @@ const getPayOutVendorReportDao = async (
           );
         }
         if (
-          status.includes(Status.INITIATED) ||
-          status.includes(Status.PENDING)
+          status.some((s) => [Status.INITIATED, Status.PENDING].includes(s))
         ) {
           conditions.push(
             `(po.status IN ('${Status.INITIATED}', '${Status.PENDING}') AND po.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1})`,
@@ -502,11 +448,11 @@ const getPayOutVendorReportDao = async (
         }
       } else {
         query += ` AND (
-          (po.status IN ('${Status.APPROVED}', '${Status.REVERSED}') AND po.approved_at BETWEEN $$  {paramIndex} AND   $${paramIndex + 1})
+          (po.status IN ('${Status.APPROVED}', '${Status.REVERSED}') AND po.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1})
           OR
-          (po.status = '${Status.REJECTED}' AND po.rejected_at BETWEEN $$  {paramIndex} AND   $${paramIndex + 1})
+          (po.status = '${Status.REJECTED}' AND po.rejected_at BETWEEN $${paramIndex} AND $${paramIndex + 1})
           OR
-          (po.status IN ('${Status.INITIATED}', '${Status.PENDING}') AND po.updated_at BETWEEN $$  {paramIndex} AND   $${paramIndex + 1})
+          (po.status IN ('${Status.INITIATED}', '${Status.PENDING}') AND po.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1})
         )`;
         parameters.push(startDate, endDate);
         paramIndex += 2;
@@ -514,8 +460,7 @@ const getPayOutVendorReportDao = async (
     }
 
     query += ` ORDER BY sno ASC;`;
-
-    const result = await executeQuery(query, parameters);
+    const result = await executeQuery(query, parameters, conn);
     return result.rows;
   } catch (error) {
     logger.error('Error in getPayOutVendorReportDao:', error);
@@ -529,6 +474,7 @@ const getPayinReportDao = async (
   pageSize,
   sortBy,
   sortOrder,
+  conn = null
 ) => {
   try {
     const baseQuery = `SELECT * FROM "${tableName.PAYIN}" WHERE 1=1`;
@@ -540,7 +486,7 @@ const getPayinReportDao = async (
       sortBy,
       sortOrder,
     );
-    const result = await executeQuery(sql, queryParams);
+    const result = await executeQuery(sql, queryParams, conn);
     return result.rows;
   } catch (error) {
     logger.error('Error in getPayOutVendorReportDao:', error);
@@ -548,7 +494,7 @@ const getPayinReportDao = async (
   }
 };
 
-const getPayOutAll = async (filters, page, pageSize, sortBy, sortOrder) => {
+const getPayOutAll = async (filters, page, pageSize, sortBy, sortOrder, conn = null) => {
   try {
     const baseQuery = `SELECT merchant_order_id, ifsc_code, payout_vendor_commission, payout_merchant_commission,
     amount, utr_id, status, bank_acc_id, merchant_id
@@ -561,7 +507,7 @@ const getPayOutAll = async (filters, page, pageSize, sortBy, sortOrder) => {
       sortBy,
       sortOrder,
     );
-    const result = await executeQuery(sql, queryParams);
+    const result = await executeQuery(sql, queryParams, conn);
     return result.rows;
   } catch (error) {
     logger.error('Error in getPayOutVendorReportDao:', error);
@@ -577,6 +523,7 @@ const getMerchantReportDao = async (
   page,
   limit,
   role,
+  conn = null
 ) => {
   try {
     if (!startDate || !endDate) {
@@ -595,41 +542,43 @@ const getMerchantReportDao = async (
         c.total_payout_commission,
         c.total_settlement_count,
         c.total_settlement_amount,
+        COALESCE((c.config->>'total_aedSentSettlement_amount')::NUMERIC, 0)
+          AS total_aed_sent_settlement_amount,
+        COALESCE((c.config->>'total_bankSentSettlement_amount')::NUMERIC, 0)
+          AS total_bank_sent_settlement_amount,
+        COALESCE((c.config->>'total_cashSentSettlement_amount')::NUMERIC, 0)
+          AS total_cash_sent_settlement_amount,
+        COALESCE((c.config->>'total_cryptoSentSettlement_amount')::NUMERIC, 0)
+          AS total_crypto_sent_settlement_amount,
+        COALESCE((c.config->>'total_aedReceivedSettlement_amount')::NUMERIC, 0)
+          AS total_aed_received_settlement_amount,
+        COALESCE((c.config->>'total_bankReceivedSettlement_amount')::NUMERIC, 0)
+          AS total_bank_received_settlement_amount,
+        COALESCE((c.config->>'total_cashReceivedSettlement_amount')::NUMERIC, 0)
+          AS total_cash_received_settlement_amount,
+        COALESCE((c.config->>'total_cryptoReceivedSettlement_amount')::NUMERIC, 0)
+          AS total_crypto_received_settlement_amount,
         c.total_chargeback_count,
         c.total_chargeback_amount,
         c.current_balance,
         c.net_balance,
         c.created_at, 
         c.updated_at, 
-        c.company_id,
         c.total_reverse_payout_count, 
         c.total_reverse_payout_amount,
         c.total_reverse_payout_commission, 
-        (c.total_adjustment_amount + c.total_adjustment_commission) AS adjustment_amount_combined, 
+        c.total_adjustment_amount,  
         c.company_id,
         m.code
-        ${role === Role.ADMIN || role === Role.SUPER_ADMIN ? ', m.user_id AS merchant_user_id' : ''}
+        ${role === Role.ADMIN ? ", m.config->>'gm_code' AS gm_code, m.user_id AS merchant_user_id" : ''}
+        ${role === Role.ADMIN ? ", m.config->>'gm_code' AS gm_code, m.user_id AS merchant_user_id" : ''}
       FROM public."Calculation" c
       LEFT JOIN public."Merchant" m ON c.user_id = m.user_id
-      WHERE c.is_obsolete = false
+      WHERE c.company_id = $1 AND c.is_obsolete = false
     `;
 
-    let parameters = [];
+    let parameters = [company_id];
     let paramIndex = parameters.length + 1;
-
-    if (company_id) {
-      // Parse company_id - handle both single values and comma-separated arrays
-      let companyIds = company_id;
-      if (typeof company_id === 'string' && company_id.includes(',')) {
-        companyIds = company_id.split(',').map(id => id.trim()).filter(id => id);
-      } else if (!Array.isArray(company_id)) {
-        companyIds = [company_id];
-      }
-      
-      query += ` AND c.company_id = ANY($${paramIndex})`;
-      parameters.push(companyIds);
-      paramIndex++;
-    }
     if (userIds && Array.isArray(userIds) && userIds.length > 0) {
       query += ` AND c.user_id = ANY($${paramIndex})`;
       parameters.push(userIds);
@@ -658,7 +607,7 @@ const getMerchantReportDao = async (
       parameters.push(parseInt(limit), offset);
     }
 
-    const result = await executeQuery(query, parameters);
+    const result = await executeQuery(query, parameters, conn);
     return result.rows;
   } catch (error) {
     logger.error('Error in getMerchantReportDao:', error.message);
@@ -674,72 +623,63 @@ const getVendorReportDao = async (
   page,
   limit,
   role,
+  conn = null
 ) => {
   try {
     if (!startDate || !endDate) {
       throw new BadRequestError('Both startDate and endDate must be provided.');
     }
-    //date formatting
     let query = `
-  WITH filtered_vendors AS (
-    SELECT DISTINCT ON (c.id)
-    c.user_id AS calculation_user_id,
-    c.total_payin_count,
-    c.total_payin_amount,
-    c.total_payin_commission,
-    c.total_payout_count,
-    c.total_payout_amount,
-    c.total_payout_commission,
-    c.total_settlement_count,
-    c.total_settlement_amount,
-    c.total_chargeback_count,
-    c.total_chargeback_amount,
-    c.current_balance,
-    c.net_balance,
-    c.created_at,
-    c.updated_at,
-    c.company_id,
-    c.total_reverse_payout_count,
-    c.total_reverse_payout_amount,
-    c.total_reverse_payout_commission,
-    (c.total_adjustment_amount + c.total_adjustment_commission) AS adjustment_amount_combined, 
-    c.company_id,
-    v.code
-    ${role === Role.ADMIN || role === Role.SUPER_ADMIN ? ', v.user_id AS vendor_user_id' : ''}
-    FROM public."Calculation" c
-    LEFT JOIN public."Vendor" v ON c.user_id = v.user_id
-    WHERE c.is_obsolete = false`;
+    WITH filtered_vendors AS (
+      SELECT DISTINCT ON (c.id)
+      c.user_id AS calculation_user_id,
+      c.total_payin_count,
+      c.total_payin_amount,
+      c.total_payin_commission,
+      c.total_payout_count,
+      c.total_payout_amount,
+      c.total_payout_commission,
+      c.total_settlement_count,
+      c.total_settlement_amount,
+      COALESCE((c.config->>'total_aedSentSettlement_amount')::NUMERIC, 0)
+        AS total_aed_sent_settlement_amount,
+      COALESCE((c.config->>'total_bankSentSettlement_amount')::NUMERIC, 0)
+        AS total_bank_sent_settlement_amount,
+      COALESCE((c.config->>'total_cashSentSettlement_amount')::NUMERIC, 0)
+        AS total_cash_sent_settlement_amount,
+      COALESCE((c.config->>'total_internalSettlement_amount')::NUMERIC, 0)
+        AS total_internal_settlement_amount,
+      COALESCE((c.config->>'total_cryptoSentSettlement_amount')::NUMERIC, 0)
+        AS total_crypto_sent_settlement_amount,
+      COALESCE((c.config->>'total_aedReceivedSettlement_amount')::NUMERIC, 0)
+        AS total_aed_received_settlement_amount,
+      COALESCE((c.config->>'total_bankReceivedSettlement_amount')::NUMERIC, 0)
+        AS total_bank_received_settlement_amount,
+      COALESCE((c.config->>'total_cashReceivedSettlement_amount')::NUMERIC, 0)
+        AS total_cash_received_settlement_amount,
+      COALESCE((c.config->>'total_internalBankSettlement_amount')::NUMERIC, 0)
+        AS total_internal_bank_settlement_amount,
+      COALESCE((c.config->>'total_cryptoReceivedSettlement_amount')::NUMERIC, 0)
+        AS total_crypto_received_settlement_amount,
+      c.total_chargeback_count,
+      c.total_chargeback_amount,
+      c.current_balance,
+      c.net_balance,
+      c.created_at,
+      c.updated_at,
+      c.total_reverse_payout_count,
+      c.total_reverse_payout_amount,
+      c.total_reverse_payout_commission,
+      c.total_adjustment_amount,  
+      c.company_id,
+      v.code
+      ${role === Role.ADMIN ? ", v.config->>'gm_code' AS gm_code, v.user_id AS vendor_user_id" : ''}
+      FROM public."Calculation" c
+      LEFT JOIN public."Vendor" v ON c.user_id = v.user_id
+      WHERE c.company_id = $1 AND c.is_obsolete = false`;
 
-    let parameters = [];
+    let parameters = [company_id];
     let paramIndex = parameters.length + 1;
-
-    if (company_id) {
-      // Parse company_id - handle both single values and comma-separated arrays
-      let companyIds = company_id;
-      if (typeof company_id === 'string' && company_id.includes(',')) {
-        companyIds = company_id.split(',').map(id => id.trim()).filter(id => id);
-      } else if (!Array.isArray(company_id)) {
-        companyIds = [company_id];
-      }
-      
-      query += ` AND c.company_id = ANY($${paramIndex})`;
-      parameters.push(companyIds);
-      paramIndex++;
-    }
-
-    if (company_id) {
-      // Parse company_id - handle both single values and comma-separated arrays
-      let companyIds = company_id;
-      if (typeof company_id === 'string' && company_id.includes(',')) {
-        companyIds = company_id.split(',').map(id => id.trim()).filter(id => id);
-      } else if (!Array.isArray(company_id)) {
-        companyIds = [company_id];
-      }
-      
-      query += ` AND c.company_id = ANY($${paramIndex})`;
-      parameters.push(companyIds);
-      paramIndex++;
-    }
 
     if (userIds && Array.isArray(userIds) && userIds.length > 0) {
       query += ` AND c.user_id = ANY($${paramIndex})`;
@@ -755,14 +695,13 @@ const getVendorReportDao = async (
       SELECT * FROM filtered_vendors
       ORDER BY code ASC, created_at ASC`;
 
-    // Only apply database-level pagination if both page and limit are provided
     if (page && limit) {
       const offset = (page - 1) * limit;
       query += ` LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;
       parameters.push(limit, offset);
     }
 
-    const result = await executeQuery(query, parameters);
+    const result = await executeQuery(query, parameters, conn);
     return result.rows;
   } catch (error) {
     logger.error('Error in getVendorReportDao:', error);

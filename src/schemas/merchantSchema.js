@@ -104,6 +104,7 @@ const VALIDATE_UPDATE_MERCHANT_STATUS = Joi.object({
   updated_at: Joi.string().isoDate().optional().messages({
     'string.isoDate': 'Updated At must be a valid date in ISO 8601 format',
   }),
+  gm_code: Joi.string().label('gm_code').optional(),
 });
 
 // Validation Schema for Deleting a Merchant

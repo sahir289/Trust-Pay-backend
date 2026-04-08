@@ -12,7 +12,7 @@ import {
   getUserRoleController,
 } from './authController.js';
 import { isAuthenticated } from '../../middlewares/auth.js';
-
+import  {geoLocationGuard}  from '../../middlewares/loginLocationRestrict.js';
 const router = express.Router();
 
 /**
@@ -35,7 +35,7 @@ const router = express.Router();
  *                   type: string
  *                   example: "login successfully!"
  */
-router.post('/login', tryCatchHandler(loginController)); // login route
+router.post('/login', geoLocationGuard, tryCatchHandler(loginController)); // login route
 
 router.post('/refresh-token', tryCatchHandler(refreshTokenController));
 
@@ -63,11 +63,11 @@ router.get('/get-user-role', tryCatchHandler(getUserRoleController));
  */
 router.post('/logout', isAuthenticated, tryCatchHandler(logoutController));
 
-router.post('/otp_verification', tryCatchHandler(verfyOtpController));
+router.post('/otp_verification',geoLocationGuard, tryCatchHandler(verfyOtpController));
 
-router.post('/reset_password', tryCatchHandler(forgetPasswordController));
+router.post('/reset_password',geoLocationGuard, tryCatchHandler(forgetPasswordController));
 
-router.post('/user_verification', tryCatchHandler(verfyUserController));
+router.post('/user_verification',geoLocationGuard, tryCatchHandler(verfyUserController));
 
 router.post(
   '/change-password',

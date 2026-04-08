@@ -13,6 +13,7 @@ import {
   getUserRoleDao,
   getCalculationsForInternalUseDao,
 } from './calculationDao.js';
+import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 
 // Importing transaction wrapper for handling database transactions
 import {
@@ -20,24 +21,28 @@ import {
   merchantColumns,
   Role,
   vendorColumns,
+  tableName,
 } from '../../constants/index.js';
 import { filterResponse } from '../../helpers/index.js';
 // import { InternalServerError } from '../../utils/appErrors.js';
 import { logger } from '../../utils/logger.js';
 import { getMerchantsDao } from '../../apis/merchants/merchantDao.js';
 import { getPayInsForSuccessRatioDao } from '../../apis/payIn/payInDao.js';
-import { getConnection } from '../../utils/db.js';
+import {
+  getConnection,
+  executeQuery,
+  beginTransaction,
+  commit,
+  rollback,
+} from '../../utils/db.js';
 import dayjs from 'dayjs';
 import timezone from 'dayjs/plugin/timezone.js';
 import utc from 'dayjs/plugin/utc.js';
 import { BadRequestError } from '../../utils/appErrors.js';
 
-// Extend dayjs with timezone and utc plugins
+// Configure dayjs with timezone support
 dayjs.extend(utc);
 dayjs.extend(timezone);
-
-// Set default timezone to IST
-dayjs.tz.setDefault('Asia/Kolkata');
 
 // Service to fetch calculation data
 const getCalculationService = async (filters, role) => {
@@ -46,6 +51,7 @@ const getCalculationService = async (filters, role) => {
     if (!filters || !role) {
       throw new BadRequestError('Missing required parameters');
     }
+
     const result = await getCalculationsSumDao({
       ...filters,
       role,
@@ -70,26 +76,39 @@ const getCalculationService = async (filters, role) => {
 };
 
 // Service to create a new calculation record
-const createCalculationService = async (conn, payload, role) => {
+const createCalculationService = async (payload, role) => {
+  let conn; let committed = false; ;
   try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+
     const filterColumns =
       role === Role.MERCHANT || role === Role.SUB_MERCHANT
         ? merchantColumns.CALCULATION
         : role === Role.VENDOR || role === Role.SUB_VENDOR
           ? vendorColumns.CALCULATION
           : columns.CALCULATION;
-    const data = await createCalculationDao(conn, payload); // Ensuring transaction safety
+    const data = await createCalculationDao(payload, conn);
     const finalResult = filterResponse(data, filterColumns);
+
+    await commit(conn); committed = true;
     return finalResult;
   } catch (error) {
+    if (conn && !committed) await rollback(conn);
     logger.error('Error while creating calculation record:', error);
     throw error;
+  } finally {
+    if (conn) conn.release();
   }
 };
 
 // Service to update an existing calculation record
-const updateCalculationService = async (conn, filters, payload, role) => {
+const updateCalculationService = async (filters, payload, role) => {
+  let conn; let committed = false; ;
   try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+
     const filterColumns =
       role === Role.MERCHANT || role === Role.SUB_MERCHANT
         ? merchantColumns.CALCULATION
@@ -98,24 +117,25 @@ const updateCalculationService = async (conn, filters, payload, role) => {
           : columns.CALCULATION;
     const data = await updateCalculationDao(filters, payload, conn);
     const finalResult = filterResponse(data, filterColumns);
+
+    await commit(conn); committed = true;
     return finalResult;
   } catch (error) {
+    if (conn && !committed) await rollback(conn);
     logger.error('Error while updating calculation record:', error);
     throw error;
   } finally {
-    if (conn) {
-      try {
-        conn.release();
-      } catch (releaseError) {
-        logger.error('Error while releasing the connection:', releaseError);
-      }
-    }
+    if (conn) conn.release();
   }
 };
 
 // Service to mark a calculation record as obsolete (soft delete)
-const deleteCalculationService = async (conn, id, role) => {
+const deleteCalculationService = async (id, role) => {
+  let conn; let committed = false; ;
   try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+
     const filterColumns =
       role === Role.MERCHANT || role === Role.SUB_MERCHANT
         ? merchantColumns.CALCULATION
@@ -123,12 +143,17 @@ const deleteCalculationService = async (conn, id, role) => {
           ? vendorColumns.CALCULATION
           : columns.CALCULATION;
     const userData = { is_obsolete: true };
-    const data = await deleteCalculationDao(conn, id, userData);
+    const data = await deleteCalculationDao(id, userData, conn);
     const finalResult = filterResponse(data, filterColumns);
+
+    await commit(conn); committed = true;
     return finalResult;
   } catch (error) {
+    if (conn && !committed) await rollback(conn);
     logger.error('Error while deleting calculation record:', error);
     throw error;
+  } finally {
+    if (conn) conn.release();
   }
 };
 
@@ -224,11 +249,205 @@ const calculateSuccessRatios = async (merchants, date, user_id) => {
   }
 };
 
-const calculateSuccessRatiosService = async (date, user_ids) => {
-  let conn;
+// Helper function to aggregate payin data for vendor with sub-vendors
+const calculateVendorWithSubVendorPayinData = async (
+  vendorUserId,
+  companyId,
+  processDate,
+  additionalPayinData = null,
+) => {
   try {
-    conn = await getConnection();
+    // Get vendor hierarchy to check for sub-vendors
+    const userHierarchys = await getUserHierarchysDao({
+      user_id: vendorUserId,
+    });
+    let userIds = [vendorUserId]; // Always include vendor's own ID
 
+    // Include sub-vendors when available
+    const subVendors = userHierarchys?.[0]?.config?.siblings?.sub_vendors || [];
+    if (subVendors.length > 0) {
+      userIds = [...new Set([...userIds, ...subVendors])];
+      logger.info(
+        `Vendor ${vendorUserId} has sub-vendors: ${subVendors.join(', ')}. Aggregating payin data for all.`,
+      );
+    }
+
+    // For vendors with sub-vendors, calculate aggregated payin data from all sub-vendors
+    // but use the main vendor's commission rate
+    let aggregatedPayinData = {
+      total_payin_count: 0,
+      total_payin_amount: 0,
+      total_payin_commission: 0,
+    };
+
+    // Get main vendor's commission rate
+    const mainVendorQuery = `
+      SELECT payin_commission
+      FROM "${tableName.VENDOR}"
+      WHERE user_id = $1 AND is_obsolete = false
+    `;
+    const vendorCommissionResult = await executeQuery(mainVendorQuery, [vendorUserId]);
+    const mainVendorCommissionRate = vendorCommissionResult.rows[0]?.payin_commission || 0;
+
+    // Aggregate payin data from all user IDs (vendor + sub-vendors)
+    for (const userId of userIds) {
+      try {
+        // For each user ID, get bank response data (vendor payin logic)
+        const query = `
+          SELECT 
+            br.status,
+            COUNT(*) as count,
+            COALESCE(SUM(br.amount), 0) as total_amount
+          FROM "${tableName.BANK_RESPONSE}" br
+          JOIN "${tableName.BANK_ACCOUNT}" ba ON br.bank_id = ba.id
+          WHERE ba.user_id = $1
+            AND br.company_id = $2
+            AND br.is_obsolete = false
+            AND (br.created_at)::date = $3::date
+            AND br.status = '/success'
+          GROUP BY br.status
+        `;
+
+        const result = await executeQuery(query, [userId, companyId, processDate]);
+
+        result.rows.forEach((row) => {
+          if (row.status === '/success') {
+            aggregatedPayinData.total_payin_count += parseInt(row.count);
+            aggregatedPayinData.total_payin_amount += parseFloat(0);
+            // Use main vendor's commission rate for all payin amounts
+            aggregatedPayinData.total_payin_commission += 
+              parseFloat(row.total_amount) * (mainVendorCommissionRate / 100);
+          }
+        });
+
+        logger.info(
+          `Payin data for user ${userId}: Count=${result.rows[0]?.count || 0}, Amount=${result.rows[0]?.total_amount || 0}`,
+        );
+      } catch (userError) {
+        logger.warn(`Error calculating payin data for user ${userId}:`, userError);
+        // Continue with other users
+      }
+    }
+
+    // Add reversed internal settlements to payin data
+    if (additionalPayinData && additionalPayinData.count > 0) {
+      aggregatedPayinData.total_payin_count += additionalPayinData.count;
+      aggregatedPayinData.total_payin_amount += 0;
+      aggregatedPayinData.total_payin_commission += additionalPayinData.commission;
+    }
+
+    logger.info(
+      `Final aggregated payin data for vendor ${vendorUserId}: Count=${aggregatedPayinData.total_payin_count}, Amount=${aggregatedPayinData.total_payin_amount}, Commission=${aggregatedPayinData.total_payin_commission}`,
+    );
+
+    return aggregatedPayinData;
+  } catch (error) {
+    logger.error(`Error calculating vendor with sub-vendor payin data for ${vendorUserId}:`, error);
+    throw error;
+  }
+};
+
+// Helper function to aggregate payout data for vendor with sub-vendors
+const calculateVendorWithSubVendorPayoutData = async (
+  vendorUserId,
+  companyId,
+  processDate,
+) => {
+  try {
+    // Get vendor hierarchy to check for sub-vendors
+    const userHierarchys = await getUserHierarchysDao({
+      user_id: vendorUserId,
+    });
+    let userIds = [vendorUserId]; // Always include vendor's own ID
+
+    // Include sub-vendors when available
+    const subVendors = userHierarchys?.[0]?.config?.siblings?.sub_vendors || [];
+    if (subVendors.length > 0) {
+      userIds = [...new Set([...userIds, ...subVendors])];
+      logger.info(
+        `Vendor ${vendorUserId} has sub-vendors: ${subVendors.join(', ')}. Aggregating payout data for all.`,
+      );
+    }
+
+    // For vendors with sub-vendors, calculate aggregated payout data from all sub-vendors
+    // but use the main vendor's commission rate
+    let aggregatedPayoutData = {
+      total_payout_count: 0,
+      total_payout_amount: 0,
+      total_payout_commission: 0,
+      total_reverse_payout_count: 0,
+      total_reverse_payout_amount: 0,
+      total_reverse_payout_commission: 0,
+    };
+
+    // Get main vendor's commission rate for payout
+    const mainVendorQuery = `
+      SELECT payout_commission
+      FROM "${tableName.VENDOR}"
+      WHERE user_id = $1 AND is_obsolete = false
+    `;
+    const vendorCommissionResult = await executeQuery(mainVendorQuery, [vendorUserId]);
+    const mainVendorPayoutCommissionRate = vendorCommissionResult.rows[0]?.payout_commission || 0;
+
+    // Aggregate payout data from all user IDs (vendor + sub-vendors)
+    for (const userId of userIds) {
+      try {
+        // For each user ID, get payout data (vendor payout logic)
+        const query = `
+          SELECT 
+            p.status,
+            COUNT(*) as count,
+            COALESCE(SUM(p.amount), 0) as total_amount
+          FROM "${tableName.PAYOUT}" p
+          JOIN "${tableName.VENDOR}" v ON p.vendor_id = v.id
+          WHERE v.user_id = $1
+            AND p.company_id = $2
+            AND p.is_obsolete = false
+            AND (p.approved_at)::date = $3::date
+            AND p.status IN ('SUCCESS', 'REVERSED')
+          GROUP BY p.status
+        `;
+
+        const result = await executeQuery(query, [userId, companyId, processDate]);
+
+        result.rows.forEach((row) => {
+          if (row.status === 'SUCCESS') {
+            aggregatedPayoutData.total_payout_count += parseInt(row.count);
+            aggregatedPayoutData.total_payout_amount += parseFloat(0);
+            // Use main vendor's commission rate for all payout amounts
+            aggregatedPayoutData.total_payout_commission += 
+              parseFloat(row.total_amount) * (mainVendorPayoutCommissionRate / 100);
+          } else if (row.status === 'REVERSED') {
+            aggregatedPayoutData.total_reverse_payout_count += parseInt(row.count);
+            aggregatedPayoutData.total_reverse_payout_amount += parseFloat(0);
+            // Use main vendor's commission rate for reversed payouts
+            aggregatedPayoutData.total_reverse_payout_commission += 
+              parseFloat(row.total_amount) * (mainVendorPayoutCommissionRate / 100);
+          }
+        });
+
+        logger.info(
+          `Payout data for user ${userId}: SUCCESS Count=${result.rows.find(r => r.status === 'SUCCESS')?.count || 0}, REVERSED Count=${result.rows.find(r => r.status === 'REVERSED')?.count || 0}`,
+        );
+      } catch (userError) {
+        logger.warn(`Error calculating payout data for user ${userId}:`, userError);
+        // Continue with other users
+      }
+    }
+
+    logger.info(
+      `Final aggregated payout data for vendor ${vendorUserId}: Count=${aggregatedPayoutData.total_payout_count}, Amount=${aggregatedPayoutData.total_payout_amount}, Commission=${aggregatedPayoutData.total_payout_commission}, Reverse Count=${aggregatedPayoutData.total_reverse_payout_count}`,
+    );
+
+    return aggregatedPayoutData;
+  } catch (error) {
+    logger.error(`Error calculating vendor with sub-vendor payout data for ${vendorUserId}:`, error);
+    throw error;
+  }
+};
+
+const calculateSuccessRatiosService = async (date, user_ids) => {
+  try {
     // Get merchants data using user_ids
     const merchants = await getMerchantsDao({
       user_id: user_ids,
@@ -246,18 +465,18 @@ const calculateSuccessRatiosService = async (date, user_ids) => {
   } catch (error) {
     logger.error('Error in calculateSuccessRatiosService:', error);
     throw error;
-  } finally {
-    if (conn) {
-      conn.release();
-    }
   }
 };
 
-const updateCalculationsService = async (conn, filters) => {
+const updateCalculationsService = async (filters) => {
+  let conn; let committed = false; ;
   try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+
     const { date, user_id, startDate, endDate, company_id } = filters;
 
-    const role = await getUserRoleDao(user_id);
+    const role = await getUserRoleDao(user_id, conn);
 
     // Validate user_id
     if (!user_id || typeof user_id !== 'string') {
@@ -306,7 +525,7 @@ const updateCalculationsService = async (conn, filters) => {
       startDate: calculationStartDate,
       endDate: calculationEndDate,
       role,
-    });
+    }, conn);
 
     let processedUsers = [];
     let updatedCount = 0;
@@ -582,29 +801,94 @@ const updateCalculationsService = async (conn, filters) => {
                 role, // Pass role to determine settlement calculation logic
               );
 
-              // Get payin data with additional data from reversed internal settlements
-              const payinData = await calculatePayinDataDao(
-                user_id,
-                company_id,
-                processDate,
-                settlementData.reversed_internal_settlements,
-              );
+              // Check if this is a vendor with sub-vendors and handle payin data accordingly
+              let payinData;
+              let isVendorWithSubVendors = false;
+              if (role === Role.VENDOR) {
+                // Get vendor hierarchy to check for sub-vendors
+                const userHierarchys = await getUserHierarchysDao({
+                  user_id,
+                });
+                const subVendors = userHierarchys?.[0]?.config?.siblings?.sub_vendors || [];
+                
+                if (subVendors.length > 0) {
+                  isVendorWithSubVendors = true;
+                  // Vendor with sub-vendors: calculate aggregated payin data
+                  logger.info(
+                    `Vendor ${user_id} has sub-vendors: ${subVendors.join(', ')}. Using aggregated payin calculation.`,
+                  );
+                  payinData = await calculateVendorWithSubVendorPayinData(
+                    user_id,
+                    company_id,
+                    processDate,
+                    settlementData.reversed_internal_settlements,
+                  );
+                } else {
+                  // Vendor without sub-vendors: use normal payin calculation
+                  logger.info(
+                    `Vendor ${user_id} has no sub-vendors. Using normal payin calculation.`,
+                  );
+                  payinData = await calculatePayinDataDao(
+                    user_id,
+                    company_id,
+                    processDate,
+                    settlementData.reversed_internal_settlements,
+                  );
+                }
+              } else {
+                // For non-vendor roles (merchants, etc.): use normal payin calculation
+                payinData = await calculatePayinDataDao(
+                  user_id,
+                  company_id,
+                  processDate,
+                  settlementData.reversed_internal_settlements,
+                );
+              }
 
-              const payoutData = await calculatePayoutDataDao(
-                user_id,
-                company_id,
-                processDate,
-              );
-              const chargebackData = await calculateChargebackDataDao(
-                user_id,
-                company_id,
-                processDate,
-              );
-              const adjustmentData = await calculateAdjustmentDataDao(
-                user_id,
-                company_id,
-                processDate,
-              );
+              // For vendors with sub-vendors, aggregate both payin and payout data
+              // For others, calculate all transaction types
+              let payoutData, chargebackData, adjustmentData;
+              
+              if (isVendorWithSubVendors) {
+                // For vendors with sub-vendors: aggregate payout data from sub-vendors as well
+                payoutData = await calculateVendorWithSubVendorPayoutData(
+                  user_id,
+                  company_id,
+                  processDate,
+                );
+                
+                // Set other transaction data to zero for vendors with sub-vendors
+                chargebackData = {
+                  total_chargeback_count: 0,
+                  total_chargeback_amount: 0,
+                };
+                adjustmentData = {
+                  total_adjustment_count: 0,
+                  total_adjustment_amount: 0,
+                  total_adjustment_commission: 0,
+                };
+                
+                logger.info(
+                  `Vendor ${user_id} with sub-vendors: Aggregated payout data from sub-vendors. Skipping chargeback and adjustment calculations.`,
+                );
+              } else {
+                // For vendors without sub-vendors and other roles: calculate all transaction types
+                payoutData = await calculatePayoutDataDao(
+                  user_id,
+                  company_id,
+                  processDate,
+                );
+                chargebackData = await calculateChargebackDataDao(
+                  user_id,
+                  company_id,
+                  processDate,
+                );
+                adjustmentData = await calculateAdjustmentDataDao(
+                  user_id,
+                  company_id,
+                  processDate,
+                );
+              }
 
               // Validate that we have valid transaction data before proceeding
               if (
@@ -656,26 +940,45 @@ const updateCalculationsService = async (conn, filters) => {
               // Determine if user is merchant or vendor based on role
               const isMerchant = role === Role.MERCHANT;
 
-              const merchantBaseCalculation =
-                payinAmount -
-                payoutAmount -
-                (payinCommission + payoutCommission - reversePayoutCommission) -
-                chargebackAmount +
-                reversePayoutAmount;
-              const vendorBaseCalculation =
-                -payinAmount +
-                payoutAmount +
-                (-payinCommission -
-                  payoutCommission +
-                  reversePayoutCommission) +
-                chargebackAmount -
-                reversePayoutAmount;
+              let calculatedCurrentBalance;
               
-              // For merchants: settlements reduce balance (they pay out)
-              // For vendors: settlements increase balance (they receive)
-              const calculatedCurrentBalance = isMerchant
-                ? merchantBaseCalculation - settlementAmount
-                : vendorBaseCalculation + settlementAmount;
+              if (isVendorWithSubVendors) {
+                // For vendors with sub-vendors: calculate current balance using both payin and payout commission * -1
+                // We store the aggregated payin and payout amounts, counts, and commissions 
+                // But for balance calculation, only use commissions multiplied by -1
+                const payinCommissionForBalance = safeNumber(payinData.total_payin_commission) * -1;
+                const payoutCommissionForBalance = safeNumber(payoutData.total_payout_commission);
+                const reversePayoutCommissionForBalance = safeNumber(payoutData.total_reverse_payout_commission);
+                
+                // Total commission impact: payin commission + payout commission - reverse payout commission (all * -1)
+                calculatedCurrentBalance = payinCommissionForBalance + payoutCommissionForBalance - reversePayoutCommissionForBalance;
+                
+                logger.info(
+                  `Vendor ${user_id} with sub-vendors: Using commissions * -1 for balance calculation (payin commission: ${safeNumber(payinData.total_payin_commission)}, payout commission: ${safeNumber(payoutData.total_payout_commission)}, reverse payout commission: ${safeNumber(payoutData.total_reverse_payout_commission)}, total balance impact: ${calculatedCurrentBalance})`,
+                );
+              } else {
+                // For all other cases: use the full calculation
+                const merchantBaseCalculation =
+                  payinAmount -
+                  payoutAmount -
+                  (payinCommission + payoutCommission - reversePayoutCommission) -
+                  chargebackAmount +
+                  reversePayoutAmount;
+                const vendorBaseCalculation =
+                  -payinAmount +
+                  payoutAmount +
+                  (-payinCommission -
+                    payoutCommission +
+                    reversePayoutCommission) +
+                  chargebackAmount -
+                  reversePayoutAmount;
+                
+                // For merchants: settlements reduce balance
+                // For vendors: settlements increase balance
+                calculatedCurrentBalance = isMerchant
+                  ? merchantBaseCalculation - settlementAmount
+                  : vendorBaseCalculation - settlementAmount;
+              }
 
               // Ensure calculatedCurrentBalance is a valid number
               const safeCalculatedCurrentBalance = safeNumber(
@@ -685,16 +988,38 @@ const updateCalculationsService = async (conn, filters) => {
               // Calculate net balance using running total approach
               // Current balance represents the day's balance change
               // Net balance is the cumulative balance (previous net balance + current day's balance)
-              const balanceChange = safeCalculatedCurrentBalance;
-              const calculatedNetBalance = safeNumber(
-                runningNetBalance + balanceChange,
-              );
+              let calculatedNetBalance;
+              let balanceChange;
+              
+              if (isVendorWithSubVendors) {
+                // For vendors with sub-vendors: use commission-based current balance for net balance calculation
+                balanceChange = safeCalculatedCurrentBalance;
+                calculatedNetBalance = safeNumber(
+                  runningNetBalance + balanceChange,
+                );
+                
+                // Update the running balance for the next iteration
+                runningNetBalance = calculatedNetBalance;
+                
+                logger.info(
+                  `Vendor ${user_id} with sub-vendors: Net balance calculation using commission-based balance (balance change: ${balanceChange}, net balance: ${calculatedNetBalance})`,
+                );
+              } else {
+                // For all other cases: use normal net balance calculation
+                balanceChange = safeCalculatedCurrentBalance;
+                calculatedNetBalance = safeNumber(
+                  runningNetBalance + balanceChange,
+                );
+                
+                // Update the running balance for the next iteration
+                runningNetBalance = calculatedNetBalance;
+              }
 
-              // Update the running balance for the next iteration
-              runningNetBalance = calculatedNetBalance;
+              // Ensure calculatedNetBalance is a valid number
+              const safeCalculatedNetBalance = safeNumber(calculatedNetBalance);
 
               logger.info(
-                `Updated calculation for ${processDate}: Current Balance: ${safeCalculatedCurrentBalance}, Net Balance: ${calculatedNetBalance}`,
+                `Updated calculation for ${processDate}: Current Balance: ${safeCalculatedCurrentBalance}, Net Balance: ${safeCalculatedNetBalance}`,
               );
 
               // Prepare comprehensive update payload with recalculated values
@@ -742,7 +1067,7 @@ const updateCalculationsService = async (conn, filters) => {
 
                 // Calculated balances - ensure they are valid numbers
                 current_balance: safeCalculatedCurrentBalance,
-                net_balance: calculatedNetBalance,
+                net_balance: safeCalculatedNetBalance,
 
                 // Config fields - preserve existing config and add processing metadata
                 config: {
@@ -752,6 +1077,7 @@ const updateCalculationsService = async (conn, filters) => {
                     .tz('Asia/Kolkata')
                     .toISOString(),
                   processed_by_bulk_update: true,
+                  vendor_with_sub_vendors: isVendorWithSubVendors,
                   date_range_processed: {
                     start: calculationStartDate,
                     end: calculationEndDate,
@@ -773,10 +1099,13 @@ const updateCalculationsService = async (conn, filters) => {
                     },
                     recalculated_values: {
                       current_balance: safeCalculatedCurrentBalance,
-                      net_balance: calculatedNetBalance,
+                      net_balance: safeCalculatedNetBalance,
                       balance_change: balanceChange,
                       baseline_net_balance_used:
                         runningNetBalance - balanceChange,
+                      vendor_calculation_type: isVendorWithSubVendors 
+                        ? 'vendor_with_sub_vendors_payin_payout_commission_only' 
+                        : 'normal_calculation',
                     },
                     reversed_internal_settlements: {
                       count: safeNumber(
@@ -794,28 +1123,13 @@ const updateCalculationsService = async (conn, filters) => {
                           : 'Reversed internal settlements added to payin calculations instead of subtracted from settlements',
                     },
                     calculation_note:
-                      'Fixed balance calculation: current_balance represents daily balance, net_balance is cumulative (previous_net_balance + daily_balance)',
+                      isVendorWithSubVendors
+                        ? 'Vendor with sub-vendors: Payin and payout data aggregated from all sub-vendors using main vendor commission rates. Current balance and net balance calculated using only (payin commission + payout commission - reverse payout commission) * -1.'
+                        : 'Fixed balance calculation: current_balance represents daily balance, net_balance is cumulative (previous_net_balance + daily_balance)',
                   },
                   settlement_details: {
                     ...settlementData.settlement_details,
                   },
-                  // calculation_summary: {
-                  //   payin_total: payinData.total_payin_amount,
-                  //   payout_total: payoutData.total_payout_amount,
-                  //   commission_total:
-                  //     payinData.total_payin_commission -
-                  //     payoutData.total_payout_commission +
-                  //     payoutData.total_reverse_payout_commission,
-                  //   chargeback_total: chargebackData.total_chargeback_amount,
-                  //   reverse_payout_total:
-                  //     payoutData.total_reverse_payout_amount,
-                  //   settlement_total: settlementData.total_settlement_amount,
-                  //   adjustment_total: adjustmentData.total_adjustment_amount,
-                  //   base_calculation: baseCalculation,
-                  //   final_current_balance: calculatedCurrentBalance,
-                  //   reversed_internal_settlements_included_in_payin:
-                  //     settlementData.reversed_internal_settlements.amount,
-                  // },
                 },
               };
 
@@ -863,7 +1177,7 @@ const updateCalculationsService = async (conn, filters) => {
       });
     }
 
-    return {
+    const result = {
       updated_count: updatedCount,
       processed_users: processedUsers,
       failed_users: failedUsers,
@@ -874,7 +1188,7 @@ const updateCalculationsService = async (conn, filters) => {
       original_date_requested: date,
       total_users_requested: 1,
       success_rate: `${processedUsers.length}/1`,
-      message: `Successfully recalculated and updated calculations for user ${user_id} from ${calculationStartDate} to ${calculationEndDate}. ${updatedCount} total calculation records updated with fresh transaction data.`,
+      message: `Successfully recalculated and updated calculations for user ${user_id} from ${calculationStartDate} to ${calculationEndDate}. ${updatedCount} total calculation records updated with fresh transaction data. ${role === Role.VENDOR ? 'Applied vendor hierarchy logic for sub-vendor aggregation.' : ''}`,
       // processing_details: {
       //   date_range: {
       //     start: calculationStartDate,
@@ -928,9 +1242,15 @@ const updateCalculationsService = async (conn, filters) => {
       //   },
       // },
     };
+
+    await commit(conn); committed = true;
+    return result;
   } catch (error) {
+    if (conn && !committed) await rollback(conn);
     logger.error('Error in updateCalculationsService:', error);
     throw error;
+  } finally {
+    if (conn) conn.release();
   }
 };
 

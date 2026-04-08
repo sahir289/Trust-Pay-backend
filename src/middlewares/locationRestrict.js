@@ -8,6 +8,7 @@ const BLOCK_LAT = process.env.BLOCK_LAT;
 const BLOCK_LONG = process.env.BLOCK_LONG;
 const PROXY_CHECK_URL = process.env.PROXY_CHECK_URL;
 const TestingIp = process.env.LOCAL_IP;
+
 const getUserLocationMiddleware = async (req, res, next) => {
   let userIp =
     req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.ip;
@@ -52,10 +53,7 @@ const getUserLocationMiddleware = async (req, res, next) => {
         payInUrl,
         `Restricted User IP: ${userIp}`,
       );
-      logger.warn(
-        'Blocked user IP. Access denied.',
-        { userIp },
-      );
+      logger.warn('Blocked user IP. Access denied.', { userIp });
       return res.status(403).json({
         error: { message: 'Access Denied!', data: { url } },
       });
@@ -68,19 +66,18 @@ const getUserLocationMiddleware = async (req, res, next) => {
         payInUrl,
         `Restricted User: ${payInUrl.userid}`,
       );
-      logger.warn(
-        'Blocked user ID. Access denied.',
-      );
+      logger.warn('Blocked user ID. Access denied.');
       return res.status(403).json({
         error: { message: 'Access Denied!', data: { url } },
       });
     }
+    //remove vpn restriction for main
     if (vpn === 'yes') {
       // const id = req.params.merchantOrderId;
       payInUrl.config = {
         ...payInUrl.config,
         user: user,
-      }
+      };
       const url = await processPayInRestricted(payInUrl, 'VPN detected');
       logger.warn('VPN detected. Access denied.', userData);
       return res.status(403).json({
@@ -123,7 +120,6 @@ const getUserLocationMiddleware = async (req, res, next) => {
         );
         logger.error(`Access restricted for users in ${region}.`, userData);
         return res.status(403).json({
-        
           error: { message: 'Oops ! Service not available', data: { url } },
         });
       }
@@ -160,7 +156,7 @@ const getUserLocationMiddleware = async (req, res, next) => {
     };
     next();
   } catch (error) {
-    logger.error('Error fetching user location:', error);
+    logger.error('Error fetching user location:', error.message);
     res.status(500).json({ message: 'Error fetching user location' });
   }
 };

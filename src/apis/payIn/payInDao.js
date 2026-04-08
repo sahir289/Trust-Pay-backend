@@ -1,4 +1,4 @@
-import { Role, tableName } from '../../constants/index.js';
+import { tableName } from '../../constants/index.js';
 import { BadRequestError } from '../../utils/appErrors.js';
 // import { PayinResponses } from '../../constants/index.js';
 // import { Role } from '../../constants/index.js';
@@ -9,7 +9,6 @@ import {
   executeQuery,
 } from '../../utils/db.js';
 import dayjs from 'dayjs';
-import { getConnection } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
 // import {
 //   createPayinInES,
@@ -22,10 +21,10 @@ import { logger } from '../../utils/logger.js';
 // import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 // import { generateCacheKey ,setCachedData,getCachedData } from '../../utils/redishashkey.js';
 // import { newTableEntry } from '../../utils/sockets.js';
-export const generatePayInUrlDao = async (data) => {
+export const generatePayInUrlDao = async (data, conn = null) => {
   try {
     const [sql, params] = buildInsertQuery(tableName.PAYIN, data);
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     const insertedEntry = result.rows[0];
     // if (insertedEntry.merchant_id) {
     //   const code = await getMerchantForEsDao(insertedEntry.merchant_id);
@@ -43,7 +42,7 @@ export const generatePayInUrlDao = async (data) => {
     throw error;
   }
 };
-export const getPayInwithMerchantDao = async (merchantorderid) => {
+export const getPayInwithMerchantDao = async (merchantorderid, conn = null) => {
   try {
     const sql = `
     SELECT 
@@ -81,7 +80,7 @@ export const getPayInwithMerchantDao = async (merchantorderid) => {
     const filterArray = Array.isArray(merchantorderid)
       ? merchantorderid
       : [merchantorderid];
-    const result = await executeQuery(sql, filterArray);
+    const result = await executeQuery(sql, filterArray, conn);
     return result.rows[0];
   } catch (error) {
     logger.error(
@@ -92,8 +91,30 @@ export const getPayInwithMerchantDao = async (merchantorderid) => {
   }
 };
 
+export const getPayInWithMerchantOrderIdDao = async (merchantOrderid, conn = null) => {
+  try {
+    const sql = `
+    SELECT 
+      p.id,
+      p.merchant_order_id,
+      p.user_submitted_utr,
+      p.merchant_id
+    FROM "Payin" p
+    WHERE p.merchant_order_id = $1`;
+    const params = [merchantOrderid];
+    const result = await executeQuery(sql, params, conn);
+    return result.rows[0];
+  } catch (error) {
+    logger.error(
+      'Error getting PayIn URL with merchant order id:',
+      error,
+    );
+    throw error;
+  }
+}
+
 //new daos for payin, bankresponse , checkutr, resethistory
-export const getPayInsBankResDao = async (filters = {}) => {
+export const getPayInsBankResDao = async (filters = {}, conn = null) => {
   try {
     const selectColumns = `
       id,
@@ -101,6 +122,7 @@ export const getPayInsBankResDao = async (filters = {}) => {
       user_submitted_utr,
       upi_short_code,
       amount,
+      config,
       status,
       bank_acc_id,
       created_at,
@@ -110,7 +132,7 @@ export const getPayInsBankResDao = async (filters = {}) => {
       `SELECT ${selectColumns} FROM "${tableName.PAYIN}" WHERE is_obsolete = false`,
       filters,
     );
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows || [];
   } catch (error) {
     logger.error('Error in getPayInsDao:', error);
@@ -118,33 +140,42 @@ export const getPayInsBankResDao = async (filters = {}) => {
   }
 };
 
-export const getPayInsForSuccessRatioDao = async (filters = {}) => {
+export const getPayInsForSuccessRatioDao = async (filters = {}, conn = null) => {
   try {
-    const selectColumns = `
-      id,
-      merchant_id,
-      company_id,
-      status,
-      created_at,
-      updated_at,
-      user_submitted_utr
+    const now = new Date();
+    const last24Hours = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+
+    const sql = `
+      SELECT 
+        id,
+        merchant_id,
+        company_id,
+        status,
+        created_at,
+        updated_at,
+        user_submitted_utr
+      FROM "${tableName.PAYIN}" 
+      WHERE 
+        is_obsolete = false
+        AND created_at >= $1
+        AND created_at <= $2
+        AND company_id = $3
+      ORDER BY created_at DESC
     `;
 
-    const [sql, params] = buildSelectQuery(
-      `SELECT ${selectColumns} FROM "${tableName.PAYIN}" WHERE is_obsolete = false`,
-      filters,
-      filters,
-    );
-
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, [
+      last24Hours,
+      now,
+      filters.company_id,
+    ], conn);
     return result.rows || [];
   } catch (error) {
-    logger.error('Error getting PayIns for success ratio:', error);
+    logger.error('Error in getPayInsForSuccessRatioDao (last 24h):', error);
     throw error;
   }
 };
 
-export const getSuccessPayInsDao = async (filters = {}) => {
+export const getSuccessPayInsDao = async (filters = {}, conn = null) => {
   try {
     const selectColumns = `
       id,
@@ -158,14 +189,14 @@ export const getSuccessPayInsDao = async (filters = {}) => {
       `SELECT ${selectColumns} FROM "${tableName.PAYIN}" WHERE is_obsolete = false`,
       filters,
     );
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows;
   } catch (error) {
     logger.error('Error getting success PayIns:', error);
     throw error;
   }
 };
-export const getPayInForUpdateDao = async (filters = {}) => {
+export const getPayInForUpdateDao = async (filters = {}, conn = null) => {
   try {
     const selectColumns = `
       id,
@@ -188,14 +219,14 @@ export const getPayInForUpdateDao = async (filters = {}) => {
       `SELECT ${selectColumns} FROM "${tableName.PAYIN}" WHERE is_obsolete = false`,
       filters,
     );
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0] || null;
   } catch (error) {
     logger.error('Error getting PayIn for update service:', error);
     throw error;
   }
 };
-export const getPayInForUpdateServiceDao = async (filters = {}) => {
+export const getPayInForUpdateServiceDao = async (filters = {}, conn = null) => {
   try {
     const selectColumns = `
       id,
@@ -213,14 +244,14 @@ export const getPayInForUpdateServiceDao = async (filters = {}) => {
       `SELECT ${selectColumns} FROM "${tableName.PAYIN}" WHERE is_obsolete = false`,
       filters,
     );
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0] || null;
   } catch (error) {
     logger.error('Error getting PayIn for update:', error);
     throw error;
   }
 };
-export const getPayInForCheckStatusDao = async (filters) => {
+export const getPayInForCheckStatusDao = async (filters, conn = null) => {
   try {
     const selectColumns = `
       id,
@@ -238,7 +269,7 @@ export const getPayInForCheckStatusDao = async (filters) => {
       filters,
     );
 
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error getting PayIn details:', error);
@@ -246,7 +277,7 @@ export const getPayInForCheckStatusDao = async (filters) => {
   }
 };
 
-export const getPayinsForServiccDao = async (filters) => {
+export const getPayinsForServiccDao = async (filters, conn = null) => {
   try {
     const [sql, params] = buildSelectQuery(
       `SELECT 
@@ -273,7 +304,7 @@ export const getPayinsForServiccDao = async (filters) => {
        FROM "${tableName.PAYIN}" WHERE is_obsolete = false`,
       filters,
     );
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
 
     return result.rows[0];
   } catch (error) {
@@ -285,30 +316,32 @@ export const getPayinsForServiccDao = async (filters) => {
   }
 };
 
-export const getPayInForDisputeServiceDao = async (filters = {}) => {
+export const getPayInForDisputeServiceDao = async (filters = {}, conn = null) => {
   try {
     const selectColumns = `
-      id,
-      merchant_order_id,
-      merchant_id,
-      status,
-      bank_response_id,
-      created_at,
-      amount,
-      company_id,
-      config,
-      bank_acc_id,
-      user_submitted_utr,
-      amount,
-      is_url_expires,
-      expiration_date
+      p.id,
+      p.merchant_order_id,
+      p.merchant_id,
+      p.user,
+      p.upi_short_code,
+      p.status,
+      p.bank_response_id,
+      p.created_at,
+      p.amount,
+      p.company_id,
+      p.config,
+      p.bank_acc_id,
+      p.user_submitted_utr,
+      p.amount,
+      p.is_url_expires,
+      p.expiration_date
     `;
 
     const [sql, params] = buildSelectQuery(
-      `SELECT ${selectColumns} FROM "${tableName.PAYIN}" WHERE is_obsolete = false`,
+      `SELECT ${selectColumns} FROM "${tableName.PAYIN}" as p WHERE is_obsolete = false`,
       filters,
     );
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0] || null;
   } catch (error) {
     logger.error('Error getting PayIn for dispute service:', error);
@@ -316,29 +349,31 @@ export const getPayInForDisputeServiceDao = async (filters = {}) => {
   }
 };
 
-export const getPayInIntentDao = async (merchantOrderId ) => {
+export const getPayInIntentDao = async (merchantOrderId, conn = null) => {
   try {
     const selectColumns = `
-      id,
-      merchant_order_id,
-      user,
-      merchant_id,
-      status,
-      created_at,
-      amount,
-      company_id,
-      config,
-      bank_acc_id,
-      user_submitted_utr,
-      amount,
-      is_url_expires,
-      expiration_date,
-      bank_acc_id,
-      company_id
+      p.id,
+      p.merchant_order_id,
+      p.user,
+      p.merchant_id,
+      p.status,
+      p.created_at,
+      p.amount,
+      p.company_id,
+      p.config,
+      p.bank_acc_id,
+      p.user_submitted_utr,
+      p.is_url_expires,
+      p.expiration_date,
+      (
+        SELECT m.code
+        FROM "${tableName.MERCHANT}" m
+        WHERE m.id = p.merchant_id
+      ) AS merchant_code
     `;
-    const sql = `SELECT ${selectColumns} FROM "${tableName.PAYIN}" WHERE merchant_order_id = $1 AND is_obsolete = false`;
+    const sql = `SELECT ${selectColumns} FROM "${tableName.PAYIN}" p WHERE p.merchant_order_id = $1 AND p.is_obsolete = false`;
     const params = [merchantOrderId];
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0] || [];
   } catch (error) {
     logger.error('Error getting while creating intent link:', error);
@@ -346,7 +381,7 @@ export const getPayInIntentDao = async (merchantOrderId ) => {
   }
 };
 
-export const getPayInsForCronDao = async (filters = {}) => {
+export const getPayInsForCronDao = async (filters = {}, conn = null) => {
   try {
     const selectColumns = `
       id,
@@ -364,7 +399,7 @@ export const getPayInsForCronDao = async (filters = {}) => {
       `SELECT ${selectColumns} FROM "${tableName.PAYIN}" WHERE is_obsolete = false`,
       filters,
     );
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows || [];
   } catch (error) {
     logger.error('Error getting PayIns for cron:', error);
@@ -372,7 +407,37 @@ export const getPayInsForCronDao = async (filters = {}) => {
   }
 };
 
-export const getPayInForTelegramUtrDao = async (filters = {}) => {
+export const getExpiredPayInsDao = async (expireTime, status, dateField = 'created_at', conn = null) => {
+  try {
+    const selectColumns = `
+      id,
+      merchant_order_id,
+      status,
+      is_notified,
+      amount,
+      user_submitted_utr,
+      config,
+      created_at,
+      updated_at
+    `;
+
+    const sql = `
+      SELECT ${selectColumns} 
+      FROM "${tableName.PAYIN}" 
+      WHERE is_obsolete = false 
+        AND status = $1 
+        AND ${dateField} <= $2
+    `;
+    
+    const result = await executeQuery(sql, [status, expireTime], conn);
+    return result.rows || [];
+  } catch (error) {
+    logger.error('Error getting expired PayIns:', error);
+    throw error;
+  }
+};
+
+export const getPayInForTelegramUtrDao = async (filters = {}, conn = null) => {
   try {
     const selectColumns = `
       id,
@@ -389,7 +454,7 @@ export const getPayInForTelegramUtrDao = async (filters = {}) => {
       `SELECT ${selectColumns} FROM "${tableName.PAYIN}" WHERE 1=1`,
       filters,
     );
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0] || null;
   } catch (error) {
     logger.error('Error getting PayIn for telegram UTR check:', error);
@@ -397,7 +462,7 @@ export const getPayInForTelegramUtrDao = async (filters = {}) => {
   }
 };
 
-export const getPayInForResetDao = async (filters = {}) => {
+export const getPayInForResetDao = async (filters = {}, conn = null) => {
   try {
     const selectColumns = `
       id,
@@ -416,14 +481,14 @@ export const getPayInForResetDao = async (filters = {}) => {
       `SELECT ${selectColumns} FROM "${tableName.PAYIN}" WHERE 1=1`,
       filters,
     );
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0] || null;
   } catch (error) {
     logger.error('Error getting PayIn for reset service:', error);
     throw error;
   }
 };
-export const getPayInForTelegramResponseDao = async (filters = {}) => {
+export const getPayInForTelegramResponseDao = async (filters = {}, conn = null) => {
   try {
     const selectColumns = `
       id,
@@ -443,14 +508,14 @@ export const getPayInForTelegramResponseDao = async (filters = {}) => {
       `SELECT ${selectColumns} FROM "${tableName.PAYIN}" WHERE is_obsolete = false`,
       filters,
     );
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error getting PayIn for telegram response:', error);
     throw error;
   }
 };
-export const getPayInForTelegramResponseArrayDao = async (filters = {}) => {
+export const getPayInForTelegramResponseArrayDao = async (filters = {}, conn = null) => {
   try {
     const selectColumns = `
       id,
@@ -470,7 +535,7 @@ export const getPayInForTelegramResponseArrayDao = async (filters = {}) => {
       `SELECT ${selectColumns} FROM "${tableName.PAYIN}" WHERE is_obsolete = false`,
       filters,
     );
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows;
   } catch (error) {
     logger.error('Error getting PayIn for telegram response:', error);
@@ -478,7 +543,7 @@ export const getPayInForTelegramResponseArrayDao = async (filters = {}) => {
   }
 };
 
-export const getPayInResetBasicDao = async (filters) => {
+export const getPayInResetBasicDao = async (filters, conn = null) => {
   try {
     const baseQuery = `
       SELECT 
@@ -494,14 +559,14 @@ export const getPayInResetBasicDao = async (filters) => {
     `;
 
     const [sql, params] = buildSelectQuery(baseQuery, filters);
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0] || null;
   } catch (error) {
     logger.error('Error getting basic PayIn:', error);
     throw error;
   }
 };
-export const getPayInForExpireDao = async (filters) => {
+export const getPayInForExpireDao = async (filters, conn = null) => {
   try {
     const baseQuery = `
       SELECT 
@@ -512,7 +577,7 @@ export const getPayInForExpireDao = async (filters) => {
     `;
 
     const [sql, params] = buildSelectQuery(baseQuery, filters);
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0] || null;
   } catch (error) {
     logger.error('Error getting PayIn for expire:', error);
@@ -533,7 +598,7 @@ export const getPayInForExpireDao = async (filters) => {
 //   }
 // };
 
-export const getPayInPendingDao = async ({ company_id, status }) => {
+export const getPayInPendingDao = async ({ company_id, status }, conn = null) => {
   try {
     const sql = `
       SELECT 
@@ -552,7 +617,7 @@ export const getPayInPendingDao = async ({ company_id, status }) => {
         AND p.updated_at BETWEEN NOW() - INTERVAL '2 days' AND NOW()
     `;
     const params = [company_id, status];
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows;
   } catch (error) {
     logger.error('Error getting PayIn URL:', error);
@@ -560,7 +625,7 @@ export const getPayInPendingDao = async ({ company_id, status }) => {
   }
 };
 
-export const getPayInDaoByCode = async (filters) => {
+export const getPayInDaoByCode = async (filters, conn = null) => {
   try {
     const sql = `
     SELECT r.code, p.config, p.merchant_id, p.user
@@ -570,7 +635,7 @@ export const getPayInDaoByCode = async (filters) => {
       AND p.company_id = $2
   `;
     const params = [filters.id, filters.company_id];
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows;
   } catch (error) {
     logger.error('Error getting PayIn URL:', error);
@@ -703,7 +768,7 @@ export const getPayInDaoByCode = async (filters) => {
 //     });
 
 //     let commissionSelect = '';
-//     if (role === Role.MERCHANT) {
+//     if (role === 'MERCHANT') {
 //       commissionSelect = `
 //         p.payin_merchant_commission,
 //         p.merchant_id,
@@ -717,7 +782,7 @@ export const getPayInDaoByCode = async (filters) => {
 //           'notify_url', r.config->>'notify_url'
 //         ) AS merchant_details
 //       `;
-//     } else if (role === Role.VENDOR) {
+//     } else if (role === 'VENDOR') {
 //       commissionSelect = `
 //         p.payin_vendor_commission,
 //         v.code AS vendor_code
@@ -988,7 +1053,7 @@ export const getPayInDaoByCode = async (filters) => {
 //     });
 
 //     let commissionSelect = '';
-//     if (role === Role.MERCHANT) {
+//     if (role === 'MERCHANT') {
 //       commissionSelect = `
 //         p.is_notified,
 //         p.payin_merchant_commission,
@@ -1003,7 +1068,7 @@ export const getPayInDaoByCode = async (filters) => {
 //           'notify_url', r.config->>'notify_url'
 //         ) AS merchant_details
 //       `;
-//     } else if (role === Role.VENDOR) {
+//     } else if (role === 'VENDOR') {
 //       commissionSelect = `
 //         p.payin_vendor_commission,
 //         v.code AS vendor_code
@@ -1121,6 +1186,7 @@ export const getPayinsWithoutHistoryDao = async (
   offset,
   role,
   designation,
+  conn = null,
 ) => {
   try {
     // if (filters.search) {
@@ -1166,9 +1232,9 @@ export const getPayinsWithoutHistoryDao = async (
     //   return data;
     // }
     
-    const conditions = [`p.is_obsolete = false`];
-    const queryParams = [];
-    let paramIndex = 1;
+    const conditions = [`p.is_obsolete = false`, `p.company_id = $1`];
+    const queryParams = [filters.company_id];
+    let paramIndex = 2;
     const validColumns = new Set([
       'id',
       'sno',
@@ -1196,7 +1262,7 @@ export const getPayinsWithoutHistoryDao = async (
     ]);
 
     let commissionSelect = '';
-    if (role === Role.MERCHANT) {
+    if (role === 'MERCHANT') {
       commissionSelect = `
         p.payin_merchant_commission,
         p.merchant_order_id,
@@ -1209,11 +1275,13 @@ export const getPayinsWithoutHistoryDao = async (
           'return_url', m.config->>'return_url',
           'notify_url', m.config->>'notify_url'
         ) AS merchant_details`;
-    } else if (role === Role.VENDOR) {
+    } else if (role === 'VENDOR') {
       commissionSelect = `
         p.payin_vendor_commission,
+        COALESCE((p.config->>'actual_vendor_commission')::numeric, 0) AS actual_vendor_commission,
+        COALESCE((p.config->>'brokerage_commission')::numeric, 0) AS brokerage_commission,
         v.code AS vendor_code`;
-    } else if (role === Role.ADMIN && designation === Role.ADMIN) {
+    } else if (role === 'ADMIN' && designation === 'ADMIN') {
       commissionSelect = `
         p.payin_merchant_commission,
         json_build_object(
@@ -1225,6 +1293,8 @@ export const getPayinsWithoutHistoryDao = async (
         p.merchant_order_id,
         p.config AS payin_details,
         p.payin_vendor_commission,
+        COALESCE((p.config->>'actual_vendor_commission')::numeric, 0) AS actual_vendor_commission,
+        COALESCE((p.config->>'brokerage_commission')::numeric, 0) AS brokerage_commission,
         v.code AS vendor_code,
         v.user_id AS vendor_user_id,
         p.upi_short_code,
@@ -1232,30 +1302,6 @@ export const getPayinsWithoutHistoryDao = async (
         p.approved_at,
         u.user_name AS created_by,
         uu.user_name AS updated_by,
-        p.is_notified,
-        p.user,
-        p.created_at,
-        p.updated_at`;
-    } else if (role === Role.SUPER_ADMIN && designation === Role.SUPER_ADMIN) {
-      commissionSelect = `
-        p.payin_merchant_commission,
-        json_build_object(
-          'merchant_code', COALESCE(m.config->>'sub_code', m.code),
-          'dispute', m.dispute_enabled,
-          'return_url', m.config->>'return_url',
-          'notify_url', m.config->>'notify_url'
-        ) AS merchant_details,
-        p.merchant_order_id,
-        p.config AS payin_details,
-        p.payin_vendor_commission,
-        v.code AS vendor_code,
-        v.user_id AS vendor_user_id,
-        p.upi_short_code,
-        p.is_url_expires,
-        p.approved_at,
-        u.user_name AS created_by,
-        uu.user_name AS updated_by,
-        c.first_name || ' ' || c.last_name AS company,
         p.is_notified,
         p.user,
         p.created_at,
@@ -1309,33 +1355,8 @@ export const getPayinsWithoutHistoryDao = async (
       LEFT JOIN public."Vendor" v ON v.user_id = b.user_id
       LEFT JOIN public."User" u ON p.created_by = u.id 
       LEFT JOIN public."User" uu ON p.updated_by = uu.id
-      LEFT JOIN public."Company" c ON p.company_id = c.id
       WHERE ${conditions.join(' AND ')}
     `;
-
-    // Add company_id filter only if present in filters
-    if (filters.company_id) {
-      if (
-        typeof filters.company_id === 'string' &&
-        filters.company_id.includes(',')
-      ) {
-        const arr = filters.company_id
-          .split(',')
-          .map((v) => v.trim())
-          .filter(Boolean);
-        queryText += ` AND p."company_id" = ANY($${paramIndex})`;
-        queryParams.push(arr);
-        paramIndex++;
-      } else if (Array.isArray(filters.company_id)) {
-        queryText += ` AND p."company_id" = ANY($${paramIndex})`;
-        queryParams.push(filters.company_id);
-        paramIndex++;
-      } else {
-        queryText += ` AND p."company_id" = $${paramIndex}`;
-        queryParams.push(filters.company_id);
-        paramIndex++;
-      }
-    }
 
     // if (searchTerms && searchTerms.length > 0) {
     //   searchTerms.forEach((term) => {
@@ -1386,22 +1407,27 @@ export const getPayinsWithoutHistoryDao = async (
 
     if (filters.status) {
       const statusArray = filters.status.split(',').map((s) => s.trim());
-      conditions.push(`p.status IN (${statusArray.map((_, i) => `$${paramIndex + i}`).join(', ')})`);
+      queryText += ` AND p.status IN (${statusArray.map((_, i) => `$${paramIndex + i}`).join(', ')})`;
       queryParams.push(...statusArray);
       paramIndex += statusArray.length;
       delete filters.status;
     }
     if (filters.user_submitted_utr && filters.user_submitted_utr.trim()) {
-      conditions.push(
-        `(p.user_submitted_utr = $${paramIndex} OR br.utr = $${paramIndex})`,
-      );
+      conditions.push(`
+        (
+          p.user_submitted_utr = $${paramIndex}
+          OR p.bank_response_id IN (
+            SELECT id FROM public."BankResponse" WHERE utr = $${paramIndex}
+          )
+        )
+      `);
       queryParams.push(filters.user_submitted_utr.trim());
       paramIndex++;
       delete filters.user_submitted_utr;
     }
     if (filters.user_ids) {
       const userArray = filters.user_ids.split(',').map((s) => s.trim());
-      conditions.push(`v.user_id IN (${userArray.map((_, i) => `$${paramIndex + i}`).join(', ')})`);
+      queryText += ` AND v.user_id IN (${userArray.map((_, i) => `$${paramIndex + i}`).join(', ')})`;
       queryParams.push(...userArray);
       paramIndex += userArray.length;
       delete filters.user_ids;
@@ -1448,33 +1474,33 @@ export const getPayinsWithoutHistoryDao = async (
       if (handledKeys.has(key) || value == null || !validColumns.has(key)) {
         return;
       }
+      const nextParamIdx = queryParams.length + 1;
       if (Array.isArray(value)) {
         const placeholders = value
-          .map((_, idx) => `$${paramIndex + idx}`)
+          .map((_, idx) => `$${nextParamIdx + idx}`)
           .join(', ');
         conditions.push(`p.${key} IN (${placeholders})`);
         queryParams.push(...value);
-        paramIndex += value.length;
       } else {
         const isMultiValue = typeof value === 'string' && value.includes(',');
         const valueArray = isMultiValue
           ? value.split(',').map((v) => v.trim())
           : [value];
         const placeholders = valueArray
-          .map((_, idx) => `$${paramIndex + idx}`)
+          .map((_, idx) => `$${nextParamIdx + idx}`)
           .join(', ');
         conditions.push(
           isMultiValue
             ? `p.${key} IN (${placeholders})`
-            : `p.${key} = $${paramIndex}`,
+            : `p.${key} = $${nextParamIdx}`,
         );
         queryParams.push(...valueArray);
-        paramIndex += valueArray.length;
       }
     });
 
-    // Update queryText with all conditions at once
-    queryText = queryText.replace('WHERE p.is_obsolete = false', `WHERE ${conditions.join(' AND ')}`);
+    if (conditions.length > 2) {
+      queryText += ' AND (' + conditions.slice(2).join(' AND ') + ')';
+    }
 
     const countQuery = `SELECT COUNT(*) AS total FROM (${queryText}) AS count_table`;
     queryText += `
@@ -1487,14 +1513,15 @@ export const getPayinsWithoutHistoryDao = async (
     const countResult = await executeQuery(
       countQuery,
       queryParams.slice(0, -2),
+      conn
     );
-    let searchResult = await executeQuery(queryText, queryParams);
+    let searchResult = await executeQuery(queryText, queryParams, conn);
     const totalItems = parseInt(countResult.rows[0].total);
     let totalPages = Math.ceil(totalItems / limitNum);
 
     if (totalItems > 0 && searchResult.rows.length === 0 && offset > 0) {
       queryParams[queryParams.length - 1] = 0;
-      searchResult = await executeQuery(queryText, queryParams);
+      searchResult = await executeQuery(queryText, queryParams, conn);
       totalPages = Math.ceil(totalItems / limitNum);
     }
 
@@ -1517,6 +1544,7 @@ export const getPayinsWithHistoryDao = async (
   role,
   designation,
   updatedPayin = false,
+  conn = null,
 ) => {
   try {
     // const params = {
@@ -1533,9 +1561,9 @@ export const getPayinsWithHistoryDao = async (
     // if (cachedResult && cachedResult.totalCount>0) {
     //   return cachedResult;
     // }
-    const conditions = [`p.is_obsolete = false`];
-    const queryParams = [];
-    let paramIndex = 1;
+    const conditions = [`p.is_obsolete = false`, `p.company_id = $1`];
+    const queryParams = [filters.company_id];
+    let paramIndex = 2;
     const validColumns = new Set([
       'id',
       'sno',
@@ -1563,7 +1591,7 @@ export const getPayinsWithHistoryDao = async (
     ]);
 
     let commissionSelect = '';
-    if (role === Role.MERCHANT) {
+    if (role === 'MERCHANT') {
       commissionSelect = `
         p.payin_merchant_commission,
         p.merchant_order_id,
@@ -1576,11 +1604,13 @@ export const getPayinsWithHistoryDao = async (
           'return_url', m.config->>'return_url',
           'notify_url', m.config->>'notify_url'
         ) AS merchant_details`;
-    } else if (role === Role.VENDOR) {
+    } else if (role === 'VENDOR') {
       commissionSelect = `
         p.payin_vendor_commission,
+        COALESCE((p.config->>'actual_vendor_commission')::numeric, 0) AS actual_vendor_commission,
+        COALESCE((p.config->>'brokerage_commission')::numeric, 0) AS brokerage_commission,
         v.code AS vendor_code`;
-    } else if (role === Role.ADMIN && designation === Role.ADMIN) {
+    } else if (role === 'ADMIN' && designation === 'ADMIN') {
       commissionSelect = `
         p.payin_merchant_commission,
         json_build_object(
@@ -1592,6 +1622,8 @@ export const getPayinsWithHistoryDao = async (
         p.merchant_order_id,
         p.config AS payin_details,
         p.payin_vendor_commission,
+        COALESCE((p.config->>'actual_vendor_commission')::numeric, 0) AS actual_vendor_commission,
+        COALESCE((p.config->>'brokerage_commission')::numeric, 0) AS brokerage_commission,
         v.code AS vendor_code,
         v.user_id AS vendor_user_id,
         p.upi_short_code,
@@ -1603,8 +1635,7 @@ export const getPayinsWithHistoryDao = async (
         p.user,
         p.created_at,
         p.updated_at`;
-    }
-    else {
+    } else {
       commissionSelect = `
         p.payin_merchant_commission,
         json_build_object(
@@ -1618,12 +1649,10 @@ export const getPayinsWithHistoryDao = async (
         p.payin_vendor_commission,
         v.code AS vendor_code,
         v.user_id AS vendor_user_id,
-        p.upi_short_code,
         p.is_url_expires,
         p.approved_at,
         u.user_name AS created_by,
         uu.user_name AS updated_by,
-        c.first_name || ' ' || c.last_name AS company,
         p.is_notified,
         p.user,
         p.created_at,
@@ -1648,7 +1677,6 @@ export const getPayinsWithHistoryDao = async (
         ) AS bank_res_details,
         p.created_at,
         p.updated_at,
-        c.first_name || ' ' || c.last_name AS company,
         CASE 
           WHEN p.config::jsonb ? 'history' 
           THEN (
@@ -1684,36 +1712,9 @@ export const getPayinsWithHistoryDao = async (
       LEFT JOIN public."BankResponse" br ON p.bank_response_id = br.id
       LEFT JOIN public."Vendor" v ON v.user_id = b.user_id
       LEFT JOIN public."User" u ON p.created_by = u.id 
-      LEFT JOIN public."User" uu ON p.updated_by = uu.id 
-      LEFT JOIN public."Company" c
-        ON p.company_id = c.id
+      LEFT JOIN public."User" uu ON p.updated_by = uu.id
       WHERE ${conditions.join(' AND ')}
     `;
-
-    // Add company_id filter only if present in filters
-    if (filters.company_id) {
-      if (
-        typeof filters.company_id === 'string' &&
-        filters.company_id.includes(',')
-      ) {
-        const arr = filters.company_id
-          .split(',')
-          .map((v) => v.trim())
-          .filter(Boolean);
-        queryText += ` AND p."company_id" = ANY($${paramIndex})`;
-        queryParams.push(arr);
-        paramIndex++;
-      } else if (Array.isArray(filters.company_id)) {
-        queryText += ` AND p."company_id" = ANY($${paramIndex})`;
-        queryParams.push(filters.company_id);
-        paramIndex++;
-      } else {
-        queryText += ` AND p."company_id" = $${paramIndex}`;
-        queryParams.push(filters.company_id);
-        paramIndex++;
-      }
-    }
-
 //     if (searchTerms && searchTerms.length > 0) {
 //       searchTerms.forEach((term) => {
 //         if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
@@ -1730,23 +1731,22 @@ export const getPayinsWithHistoryDao = async (
 //         } else {
 //           conditions.push(`
 //           (
-          //   p.id::text ILIKE $${paramIndex}
-          //   OR p.sno::text ILIKE $${paramIndex}
-          //   OR p.upi_short_code ILIKE $${paramIndex}
-          //   OR p.status ILIKE $${paramIndex}
-          //   OR p.merchant_order_id ILIKE $${paramIndex}
-          //   OR p.user_submitted_utr ILIKE $${paramIndex}
-          //   OR p.user ILIKE $${paramIndex}
-          //   OR b.nick_name ILIKE $${paramIndex}
-          //   OR br.utr ILIKE $${paramIndex}
-          //   OR m.code ILIKE $${paramIndex}
-          //   OR v.code ILIKE $${paramIndex}
-          //   OR p.amount::text ILIKE $${paramIndex}
-          //   OR br.amount::text ILIKE $${paramIndex}
-          //   OR LOWER(c.first_name || ' ' || c.last_name) ILIKE $${paramIndex}
-          //   OR (p.config->>'user') ILIKE $${paramIndex}
-          //   OR (p.config->'urls'->>'site') ILIKE $${paramIndex}
-          //   OR (p.config->'urls'->>'notify') ILIKE $${paramIndex}
+//   p.id::text ILIKE $${paramIndex}
+//   OR p.sno::text ILIKE $${paramIndex}
+//   OR p.upi_short_code ILIKE $${paramIndex}
+//   OR p.status ILIKE $${paramIndex}
+//   OR p.merchant_order_id ILIKE $${paramIndex}
+//   OR p.user_submitted_utr ILIKE $${paramIndex}
+//   OR p.user ILIKE $${paramIndex}
+//   OR b.nick_name ILIKE $${paramIndex}
+//   OR br.utr ILIKE $${paramIndex}
+//   OR m.code ILIKE $${paramIndex}
+//   OR v.code ILIKE $${paramIndex}
+//   OR p.amount::text ILIKE $${paramIndex}
+//   OR br.amount::text ILIKE $${paramIndex}
+//   OR (p.config->>'user') ILIKE $${paramIndex}
+//   OR (p.config->'urls'->>'site') ILIKE $${paramIndex}
+//   OR (p.config->'urls'->>'notify') ILIKE $${paramIndex}
 // )
 //           `);
 //           queryParams.push(`%${term}%`);
@@ -1762,22 +1762,27 @@ export const getPayinsWithHistoryDao = async (
     ]);
     if (filters.status) {
       const statusArray = filters.status.split(',').map((s) => s.trim());
-      conditions.push(`p.status IN (${statusArray.map((_, i) => `$${paramIndex + i}`).join(', ')})`);
+      queryText += ` AND p.status IN (${statusArray.map((_, i) => `$${paramIndex + i}`).join(', ')})`;
       queryParams.push(...statusArray);
       paramIndex += statusArray.length;
       delete filters.status;
     }
     if (filters.user_submitted_utr && filters.user_submitted_utr.trim()) {
-      conditions.push(
-        `(p.user_submitted_utr = $${paramIndex} OR br.utr = $${paramIndex})`,
-      );
+      conditions.push(`
+        (
+          p.user_submitted_utr = $${paramIndex}
+          OR p.bank_response_id IN (
+            SELECT id FROM public."BankResponse" WHERE utr = $${paramIndex}
+          )
+        )
+      `);
       queryParams.push(filters.user_submitted_utr.trim());
       paramIndex++;
       delete filters.user_submitted_utr;
     }
     if (filters.user_ids) {
       const userArray = filters.user_ids.split(',').map((s) => s.trim());
-      conditions.push(`v.user_id IN (${userArray.map((_, i) => `$${paramIndex + i}`).join(', ')})`);
+      queryText += ` AND v.user_id IN (${userArray.map((_, i) => `$${paramIndex + i}`).join(', ')})`;
       queryParams.push(...userArray);
       paramIndex += userArray.length;
       delete filters.user_ids;
@@ -1805,43 +1810,43 @@ export const getPayinsWithHistoryDao = async (
       }
       const properDateStr = `${year}-${month}-${day}`;
       let startDate = dayjs
-          .tz(`${properDateStr} 00:00:00`, 'Asia/Kolkata')
-          .utc()
-          .format();
-        let endDate = dayjs
-          .tz(`${properDateStr} 23:59:59.999`, 'Asia/Kolkata')
-          .utc()
-          .format();
-        conditions.push(
-          `p.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`,
-        );
-        queryParams.push(startDate, endDate);
-        paramIndex += 2;
+        .tz(`${properDateStr} 00:00:00`, 'Asia/Kolkata')
+        .utc()
+        .format();
+      let endDate = dayjs
+        .tz(`${properDateStr} 23:59:59.999`, 'Asia/Kolkata')
+        .utc()
+        .format();
+      conditions.push(
+        `p.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`,
+      );
+      queryParams.push(startDate, endDate);
+      paramIndex += 2;
       delete filters.updated_at;
-      }
+    }
     Object.entries(filters).forEach(([key, value]) => {
       if (handledKeys.has(key) || value == null || !validColumns.has(key)) {
         return;
       }
+      const nextParamIdx = queryParams.length + 1;
       if (Array.isArray(value)) {
         const placeholders = value
-          .map((_, idx) => `$${paramIndex + idx}`)
+          .map((_, idx) => `$${nextParamIdx + idx}`)
           .join(', ');
         conditions.push(`p.${key} IN (${placeholders})`);
         queryParams.push(...value);
-        paramIndex += value.length;
       } else {
         const isMultiValue = typeof value === 'string' && value.includes(',');
         const valueArray = isMultiValue
           ? value.split(',').map((v) => v.trim())
           : [value];
         const placeholders = valueArray
-          .map((_, idx) => `$${paramIndex + idx}`)
+          .map((_, idx) => `$${nextParamIdx + idx}`)
           .join(', ');
         conditions.push(
           isMultiValue
             ? `p.${key} IN (${placeholders})`
-            : `p.${key} = $${paramIndex}`,
+            : `p.${key} = $${nextParamIdx}`,
         );
         if (updatedPayin) {
           conditions.push(
@@ -1849,18 +1854,12 @@ export const getPayinsWithHistoryDao = async (
           );
         }
         queryParams.push(...valueArray);
-        paramIndex += valueArray.length;
       }
     });
 
-    if (updatedPayin) {
-      conditions.push(
-        `(p.config->>'history' IS NOT NULL AND p.config::jsonb ? 'history')`,
-      );
+    if (conditions.length > 2) {
+      queryText += ' AND (' + conditions.slice(2).join(' AND ') + ')';
     }
-
-    // Update queryText with all conditions at once
-    queryText = queryText.replace('WHERE p.is_obsolete = false', `WHERE ${conditions.join(' AND ')}`);
 
     const countQuery = `SELECT COUNT(*) AS total FROM (${queryText}) AS count_table`;
     queryText += `
@@ -1872,13 +1871,14 @@ export const getPayinsWithHistoryDao = async (
     const countResult = await executeQuery(
       countQuery,
       queryParams.slice(0, -2),
+      conn
     );
-    let searchResult = await executeQuery(queryText, queryParams);
+    let searchResult = await executeQuery(queryText, queryParams, conn);
     const totalItems = parseInt(countResult.rows[0].total);
     let totalPages = Math.ceil(totalItems / limitNum);
     if (totalItems > 0 && searchResult.rows.length === 0 && offset > 0) {
       queryParams[queryParams.length - 1] = 0;
-      searchResult = await executeQuery(queryText, queryParams);
+      searchResult = await executeQuery(queryText, queryParams, conn);
       totalPages = Math.ceil(totalItems / limitNum);
     }
     const result = {
@@ -1893,94 +1893,35 @@ export const getPayinsWithHistoryDao = async (
     throw error;
   }
 };
-// Helper function to handle company_id filtering
-const buildCompanyIdCondition = (companyId, paramIndex) => {
-  if (!companyId) {
-    return { condition: '', params: [], paramIndex };
-  }
-
-  if (typeof companyId === 'string' && companyId.includes(',')) {
-    const companyIds = companyId
-      .split(',')
-      .map((id) => id.trim())
-      .filter(Boolean);
-    const placeholders = companyIds
-      .map((_, idx) => `$${paramIndex + idx}`)
-      .join(', ');
-    return {
-      condition: `company_id IN (${placeholders})`,
-      params: companyIds,
-      paramIndex: paramIndex + companyIds.length,
-    };
-  } else if (Array.isArray(companyId)) {
-    const placeholders = companyId
-      .map((_, idx) => `$${paramIndex + idx}`)
-      .join(', ');
-    return {
-      condition: `company_id IN (${placeholders})`,
-      params: companyId,
-      paramIndex: paramIndex + companyId.length,
-    };
-  } else {
-    return {
-      condition: `company_id = $${paramIndex}`,
-      params: [companyId],
-      paramIndex: paramIndex + 1,
-    };
-  }
-};
-
-export const getPayinsSumAndCountByStatusDao = async (filters) => {
+export const getPayinsSumAndCountByStatusDao = async (filters, conn = null) => {
   try {
     const conditions = [`p.is_obsolete = false`];
-    let queryParams = [];
-    let paramIndex = 1;
-
-    // Handle company_id filter using helper function
-    const companyCondition = buildCompanyIdCondition(
-      filters?.company_id,
-      paramIndex,
-    );
-    if (companyCondition?.condition) {
-      conditions.push(`p.${companyCondition.condition}`);
-      queryParams.push(...companyCondition.params);
-      paramIndex = companyCondition.paramIndex;
-    }
+    const queryParams = [filters.company_id];
+    let paramIndex = 2;
 
     const statusQuery = `
       SELECT DISTINCT status
       FROM public."Payin"
-      WHERE is_obsolete = false ${companyCondition?.condition ? `AND ${companyCondition.condition}` : ''}
+      WHERE is_obsolete = false AND company_id = $1
     `;
-    const statusResult = await executeQuery(statusQuery, queryParams.slice());
+    const statusResult = await executeQuery(statusQuery, [filters.company_id], conn);
     const validStatuses = statusResult.rows.map((row) => row.status);
 
     if (validStatuses.length === 0) {
       return { results: [] };
     }
 
-    const today = dayjs(Date.now()).tz('Asia/Kolkata').format('YYYY-MM-DD');
+    const today = dayjs().tz('Asia/Kolkata').format('YYYY-MM-DD');
     const startDate = dayjs
-      
       .tz(`${today} 00:00:00`, 'Asia/Kolkata')
-      
       .utc()
-      
       .format();
     const endDate = dayjs
-      
       .tz(`${today} 23:59:59.999`, 'Asia/Kolkata')
-      
       .utc()
-      
       .format();
-
-    // Use approved_at for SUCCESS status, updated_at for others
     conditions.push(
-      `CASE 
-        WHEN p.status = 'SUCCESS' THEN p.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
-        ELSE p.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}
-      END`,
+      `p.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`,
     );
     queryParams.push(startDate, endDate);
     paramIndex += 2;
@@ -1993,13 +1934,15 @@ export const getPayinsSumAndCountByStatusDao = async (filters) => {
       FROM (
         SELECT unnest($${paramIndex}::text[]) AS status
       ) s
-      LEFT JOIN public."Payin" p ON p.status = s.status AND ${conditions.join(' AND ')}
-      GROUP BY s.status
+      LEFT JOIN public."Payin" p ON p.status = s.status AND p.is_obsolete = false AND p.company_id = $1
     `;
-
     queryParams.push(validStatuses);
 
-    const result = await executeQuery(queryText, queryParams);
+    queryText += ' WHERE (' + conditions.join(' AND ') + ')';
+
+    queryText += ` GROUP BY s.status`;
+
+    const result = await executeQuery(queryText, queryParams, conn);
 
     const results = result.rows.map((row) => ({
       status: row.status,
@@ -2013,7 +1956,7 @@ export const getPayinsSumAndCountByStatusDao = async (filters) => {
     throw error;
   }
 };
-export const getPayInsForResetBankResDao = async (filters = {}) => {
+export const getPayInsForResetBankResDao = async (filters = {}, conn = null) => {
   try {
     const selectColumns = `
       id,
@@ -2033,7 +1976,7 @@ export const getPayInsForResetBankResDao = async (filters = {}) => {
       `SELECT ${selectColumns} FROM "${tableName.PAYIN}" WHERE is_obsolete = false and status != 'FAILED' and status != 'DUPLICATE'`,
       filters,
     );
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows || [];
   } catch (error) {
     logger.error('Error in getPayInsForResetDao:', error);
@@ -2057,14 +2000,14 @@ export const getPayInsForResetBankResDao = async (filters = {}) => {
 // };
 
 //process payin  dao fro geting payin for duplicate
-export const getPayInForCheckDao = async (filters = {}) => {
+export const getPayInForCheckDao = async (filters = {}, conn = null) => {
   try {
     const [sql, params] = buildSelectQuery(
       `SELECT id FROM "${tableName.PAYIN}" WHERE 1=1`,
       filters,
       // , page, limit
     );
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows;
   } catch (error) {
     logger.error('Error getting PayIn URLs:', error);
@@ -2072,18 +2015,27 @@ export const getPayInForCheckDao = async (filters = {}) => {
   }
 };
 
-export const updatePayInUrlDao = async (id, data, conn,
-  // Adddata
-) => {
+export const getPayInForDuplicate = async (filters = {}, conn = null) => {
   try {
+    // Adjusted query to match 3 parameters: orderid, user_submitted_utr, company_id
+    const [sql, params] = buildSelectQuery(
+      `SELECT id FROM "${tableName.PAYIN}" WHERE status != 'DUPLICATE' AND is_obsolete = false AND merchant_order_id != $1 AND "user_submitted_utr" = $2 AND "company_id" = $3`,
+      filters,
+      // , page, limit
+    );
+    const result = await executeQuery(sql, params, conn);
+    return result.rows;
+  } catch (error) {
+    logger.error('Error getting PayIn URLs:', error);
+    throw error;
+  }
+};
+
+export const updatePayInUrlDao = async (id, data, conn = null) => {
+  try {
+    // additionalData is temporary parameter for utr and amount (not used currently)
     const [sql, params] = buildUpdateQuery(tableName.PAYIN, data, { id });
-    let result;
-    if (conn && conn.query) {
-      result = await conn.query(sql, params);
-      // await newTableEntry(tableName.PAYIN);
-    } else {
-      result = await executeQuery(sql, params);
-    }
+    const result = await executeQuery(sql, params, conn);
     // if (data.status === Status.SUCCESS) {
     //   await newTableEntry('SUM');
     // }
@@ -2131,12 +2083,11 @@ export const updatePayInUrlDao = async (id, data, conn,
   }
 };
 
-export const getPayinDetailsByMerchantOrderId = async (merchantOrderId) => {
+export const getPayinDetailsByMerchantOrderId = async (merchantOrderId, conn = null) => {
   if (!merchantOrderId || typeof merchantOrderId !== 'string') {
     throw new BadRequestError('Valid merchantOrderId is required');
   }
 
-  let conn;
   const baseQuery = `
     SELECT 
       p.id AS payin_id,
@@ -2159,21 +2110,12 @@ export const getPayinDetailsByMerchantOrderId = async (merchantOrderId) => {
   `;
 
   try {
-    conn = await getConnection('reader');
-    const result = await conn.query(baseQuery, [merchantOrderId]);
+    const result = await executeQuery(baseQuery, [merchantOrderId], conn);
 
     return result.rows;
   } catch (error) {
     const errorMessage = `Error fetching payin details for merchantOrderId ${merchantOrderId}: ${error.message}`;
     logger.error(errorMessage);
     throw error;
-  } finally {
-    if (conn) {
-      try {
-        conn.release();
-      } catch (releaseError) {
-        logger.error('Error releasing connection:', releaseError);
-      }
-    }
   }
 };

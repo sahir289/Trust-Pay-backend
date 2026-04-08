@@ -10,10 +10,10 @@ import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 import dayjs from 'dayjs';
 
 // Create ChargeBack entry
-export const createChargeBackDao = async (data) => {
+export const createChargeBackDao = async (data, conn = null) => {
   try {
     const [sql, params] = buildInsertQuery(tableName.CHARGE_BACK, data);
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error creating ChargeBack entry:', error);
@@ -21,11 +21,11 @@ export const createChargeBackDao = async (data) => {
   }
 };
 
-export const getChargebackByIdDao = async (filters) => {
+export const getChargebackByIdDao = async (filters, conn = null) => {
   try {
     const query = `SELECT id, sno, merchant_user_id, vendor_user_id, payin_id, bank_acc_id, amount,config, reference_date, created_by, updated_by, created_at, updated_at FROM "${tableName.CHARGE_BACK}" WHERE 1=1`;
     const [sql, parameters] = buildSelectQuery(query, filters);
-    const result = await executeQuery(sql, parameters);
+    const result = await executeQuery(sql, parameters, conn);
     return result.rows;
   } catch (error) {
     logger.error(error);
@@ -42,6 +42,7 @@ export const getChargeBackDao = async (
   sortOrder,
   columns = [],
   role,
+  conn = null
 ) => {
   try {
     const {
@@ -243,7 +244,7 @@ export const getChargeBackDao = async (
       );
     }
 
-    const result = await executeQuery(baseQuery, queryParams);
+    const result = await executeQuery(baseQuery, queryParams, conn);
     return result.rows;
   } catch (error) {
     logger.error('Error fetching ChargeBack entries:', error);
@@ -259,6 +260,7 @@ export const getAllChargeBackDao = async (
   sortOrder,
   columns = [],
   role,
+  conn = null
 ) => {
   try {
     const {
@@ -458,7 +460,7 @@ export const getAllChargeBackDao = async (
       );
     }
 
-    const result = await executeQuery(baseQuery, queryParams);
+    const result = await executeQuery(baseQuery, queryParams, conn);
     return result.rows;
   } catch (error) {
     logger.error('Error fetching ChargeBack entries:', error);
@@ -475,6 +477,7 @@ export const getChargeBacksBySearchDao = async (
   columns = [],
   role,
   searchTerms = [],
+  conn = null
 ) => {
   try {
     const {
@@ -507,7 +510,6 @@ export const getChargeBacksBySearchDao = async (
             LOWER(p.user_submitted_utr::text) LIKE LOWER($${paramIndex}) OR
             LOWER(p.config->'user'->>'user_ip'::text) LIKE LOWER($${paramIndex}) OR
             LOWER(p.merchant_order_id::text) LIKE LOWER($${paramIndex}) OR
-            LOWER(c.first_name || ' ' || c.last_name) LIKE LOWER($${paramIndex}) OR
             LOWER(br.utr::text) LIKE LOWER($${paramIndex}) OR
             LOWER(ba.nick_name::text) LIKE LOWER($${paramIndex}) OR
             LOWER(u.user_name::text) LIKE LOWER($${paramIndex}) OR
@@ -577,7 +579,7 @@ export const getChargeBacksBySearchDao = async (
       'merchant_order_id',
       'user',
       'vendor_name',
-      'created_at',
+      'created_at'
     ]);
     for (const [key, value] of Object.entries(filters)) {
       if (!value || ignoredKeys.has(key)) continue;
@@ -622,17 +624,16 @@ export const getChargeBacksBySearchDao = async (
           ELSE m.code 
         END AS merchant_display_code
       `;
-    } else if (role === Role.ADMIN || role === Role.SUPER_ADMIN) {
+    }
+    else if (role === Role.ADMIN) {
       extraColumns += `,
         m.code AS merchant_name,
           cb.config,
         p.user AS user,
         p.config->'user'->>'user_ip' AS user_ip,
         p.merchant_order_id AS merchant_order_id, -- Fixed: Reference p.merchant_order_id
-        cb.company_id,
         u.user_name AS created_by,
         uu.user_name AS updated_by,
-        c.first_name || ' ' || c.last_name AS company,
         v.code AS vendor_name,
         CASE 
           WHEN m.config->>'sub_code' IS NOT NULL AND m.config->>'sub_code' != '' 
@@ -640,25 +641,26 @@ export const getChargeBacksBySearchDao = async (
           ELSE m.code 
         END AS merchant_display_code
       `;
+    }
 
-      const allColumns = `${baseColumns}, ${extraColumns}`;
+    const allColumns = `${baseColumns}, ${extraColumns}`;
 
-      // Sorting
-      const validSortColumns = [
-        'id',
-        'sno',
-        'payin_id',
-        'amount',
-        'created_at',
-        'updated_at',
-      ];
-      const safeSortBy = validSortColumns.includes(sortBy)
-        ? `cb.${sortBy}`
-        : 'cb.created_at';
-      const safeSortOrder = sortOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+    // Sorting
+    const validSortColumns = [
+      'id',
+      'sno',
+      'payin_id',
+      'amount',
+      'created_at',
+      'updated_at',
+    ];
+    const safeSortBy = validSortColumns.includes(sortBy)
+      ? `cb.${sortBy}`
+      : 'cb.created_at';
+    const safeSortOrder = sortOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
 
-      // Base FROM + JOIN
-      const baseFromClause = `
+    // Base FROM + JOIN
+    const baseFromClause = `
       FROM public."${CHARGE_BACK}" cb
       LEFT JOIN public."${VENDOR}" v ON cb.vendor_user_id = v.user_id
       LEFT JOIN public."${COMPANY}" cm ON cb.company_id = cm.id
@@ -667,16 +669,15 @@ export const getChargeBacksBySearchDao = async (
       LEFT JOIN "${BANK_RESPONSE}" br ON p.bank_response_id = br.id
       LEFT JOIN public."${USER}" u ON cb.created_by = u.id 
       LEFT JOIN public."${USER}" uu ON cb.updated_by = uu.id
-      LEFT JOIN public."${BANK_ACCOUNT}" ba ON cb.bank_acc_id = ba.id 
-      LEFT JOIN public."Company" c ON cb.company_id = c.id
+      LEFT JOIN public."${BANK_ACCOUNT}" ba ON cb.bank_acc_id = ba.id
     `;
 
-      // Final queries
-      const whereClause = `WHERE ${conditions.join(' AND ')}`;
-      const offset = (page - 1) * pageSize;
+    // Final queries
+    const whereClause = `WHERE ${conditions.join(' AND ')}`;
+    const offset = (page - 1) * pageSize;
 
-      const countQuery = `SELECT COUNT(*) ${baseFromClause} ${whereClause}`;
-      const dataQuery = `
+    const countQuery = `SELECT COUNT(*) ${baseFromClause} ${whereClause}`;
+    const dataQuery = `
       SELECT ${allColumns}
       ${baseFromClause}
       ${whereClause}
@@ -684,36 +685,37 @@ export const getChargeBacksBySearchDao = async (
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `;
 
-      queryParams.push(pageSize, offset);
+    queryParams.push(pageSize, offset);
 
-      const countResult = await executeQuery(
-        countQuery,
-        queryParams.slice(0, paramIndex - 1),
-      );
-      const totalCount = parseInt(countResult.rows[0]?.count || '0');
+    const countResult = await executeQuery(
+      countQuery,
+      queryParams.slice(0, paramIndex - 1),
+      conn
+    );
+    const totalCount = parseInt(countResult.rows[0]?.count || '0');
 
-      let result = await executeQuery(dataQuery, queryParams);
-      if (totalCount > 0 && result.rows.length === 0 && offset > 0) {
-        queryParams[queryParams.length - 1] = 0;
-        result = await executeQuery(dataQuery, queryParams);
-      }
-      return {
-        totalCount,
-        totalPages: Math.ceil(totalCount / pageSize),
-        chargeBacks: result.rows,
-      };
+    let result = await executeQuery(dataQuery, queryParams, conn);
+    if (totalCount > 0 && result.rows.length === 0 && offset > 0) {
+      queryParams[queryParams.length - 1] = 0; 
+      result = await executeQuery(dataQuery, queryParams, conn);
     }
+    return {
+      totalCount,
+      totalPages: Math.ceil(totalCount / pageSize),
+      chargeBacks: result.rows,
+    };
   } catch (error) {
     logger.error('Error in getChargeBacksBySearchDao:', error.message);
     throw error;
   }
 };
 
+
 // Update ChargeBack entry
-export const updateChargeBackDao = async (id, data) => {
+export const updateChargeBackDao = async (id, data, conn = null) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.CHARGE_BACK, data, id);
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error updating ChargeBack entry:', error);
@@ -722,13 +724,25 @@ export const updateChargeBackDao = async (id, data) => {
 };
 
 // Delete ChargeBack entry
-export const deleteChargeBackDao = async (id, data) => {
+export const deleteChargeBackDao = async (id, data, conn = null) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.CHARGE_BACK, data, id);
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error deleting ChargeBack entry:', error);
+    throw error;
+  }
+};
+
+// Lightweight existence check for ChargeBack by payin_id
+export const chargeBackExistsByPayinIdDao = async (payinId, conn = null) => {
+  try {
+    const sql = `SELECT 1 FROM "${tableName.CHARGE_BACK}" WHERE payin_id = $1 AND is_obsolete = false LIMIT 1`;
+    const result = await executeQuery(sql, [payinId], conn);
+    return result.rows.length > 0;
+  } catch (error) {
+    logger.error('Error checking chargeback existence by payin_id:', error);
     throw error;
   }
 };

@@ -2,21 +2,41 @@ import cron from 'node-cron';
 import moment from 'moment-timezone';
 import {
   getPayInsForCronDao,
+  getExpiredPayInsDao,
   updatePayInUrlDao,
 } from '../apis/payIn/payInDao.js';
 import { merchantPayinCallback } from '../callBacksAndWebHook/merchantCallBacks.js';
 import { logger } from '../utils/logger.js';
-import { calculateDuration } from '../helpers/index.js'; 
+import { calculateDuration } from '../helpers/index.js';
+// import config from '../config/config.js';
 
-if (process.env.NODE_ENV == 'production') {
-  cron.schedule('*/10 * * * * *', () => {
-    collectPayinData('Asia/Kolkata');
+let notifyCronJob = null;
+let isNotifyCronRunning = false; // Prevent overlapping executions
+
+// Only run cron jobs in the dedicated cron worker process (works in both prod and local)
+const isCronWorker = process.env.CRON_WORKER === 'true';
+if (isCronWorker && process.env.NODE_ENV === 'production') {
+  notifyCronJob = cron.schedule('*/10 * * * * *', async () => {
+    if (isNotifyCronRunning) {
+      logger.warn('Notify cron is already running, skipping this execution');
+      return;
+    }
+    isNotifyCronRunning = true;
+    try {
+      await collectPayinData('Asia/Kolkata');
+    } finally {
+      isNotifyCronRunning = false;
+    }
   });
-
-  logger.info('Running cron job in production environment');
-} else {
-  logger.error('Cron jobs are disabled in non-production environments.');
+  logger.info('Notify cron job initialized in cron worker');
 }
+
+export const stopNotifyCron = () => {
+  if (notifyCronJob) {
+    notifyCronJob.stop();
+    logger.info('Notify cron job stopped');
+  }
+};
 
 const collectPayinData = async (timezone = 'Asia/Kolkata') => {
   const currentTime = moment().tz(timezone, true);
@@ -27,51 +47,94 @@ const collectPayinData = async (timezone = 'Asia/Kolkata') => {
       status: ['FAILED', 'DROPPED'],
       is_notified: 'false',
     });
-    // Update INITIATED payins older than 10 minutes
-    const payinsInitiated = await getPayInsForCronDao({ status: 'INITIATED' });
-    for (const payin of payinsInitiated) {
-      if (new Date(payin?.created_at) <= new Date(expireTime)) {
+    
+    // Update INITIATED payins older than 10 minutes - fetch only expired ones
+    const payinsInitiatedExpired = await getExpiredPayInsDao(expireTime, 'INITIATED', 'created_at');
+    const payinsInitiatedAll = await getPayInsForCronDao({ status: 'INITIATED' });
+    
+    // FIXED: Process updates in small batches to prevent pool exhaustion
+    const BATCH_SIZE = 5; // Process 5 at a time instead of all at once
+    
+    // Process expired payins in batches
+    const expiredToUpdate = payinsInitiatedExpired;
+    for (let i = 0; i < expiredToUpdate.length; i += BATCH_SIZE) {
+      const batch = expiredToUpdate.slice(i, i + BATCH_SIZE);
+      await Promise.all(batch.map(async (payin) => {
         const duration = calculateDuration(payin.created_at);
-        await updatePayInUrlDao(payin.id, {
+        return updatePayInUrlDao(payin.id, {
           status: 'FAILED',
           is_url_expires: true,
           duration,
         });
-        logger.info(`INITIATED PayIn ${payin.id} FAILED due to timeout`);
-      } else if (payin.config.page_reload) {
+      }));
+    }
+    
+    // Process page_reload payins in batches
+    const reloadToUpdate = payinsInitiatedAll
+      .filter(payin => payin.config?.page_reload && !payinsInitiatedExpired.find(p => p.id === payin.id));
+    
+    for (let i = 0; i < reloadToUpdate.length; i += BATCH_SIZE) {
+      const batch = reloadToUpdate.slice(i, i + BATCH_SIZE);
+      await Promise.all(batch.map(async (payin) => {
         const duration = calculateDuration(payin.created_at);
-        const updatedData = {
+        return updatePayInUrlDao(payin.id, {
           status: 'FAILED',
           is_url_expires: true,
           duration,
-        };
-        await updatePayInUrlDao(payin.id, updatedData);
-        logger.info(`INITIATED PayIn ${payin.id} FAILED due to page_reload`);
-      }
+        });
+      }));
     }
-    // Update ASSIGNED payins older than 10 minutes
-    const payinsAssigned = await getPayInsForCronDao({ status: 'ASSIGNED' });
-    for (const payin of payinsAssigned) {
-      if (new Date(payin?.updated_at) <= new Date(expireTime)) {
+    
+    // Log summary
+    if (expiredToUpdate.length > 0) {
+      logger.info(`${expiredToUpdate.length} INITIATED PayIn(s) FAILED due to timeout`);
+    }
+    if (reloadToUpdate.length > 0) {
+      logger.info(`${reloadToUpdate.length} INITIATED PayIn(s) FAILED due to page_reload`);
+    }
+    
+    // Update ASSIGNED payins older than 10 minutes - fetch only expired ones
+    const payinsAssignedExpired = await getExpiredPayInsDao(expireTime, 'ASSIGNED', 'updated_at');
+    const payinsAssignedAll = await getPayInsForCronDao({ status: 'ASSIGNED' });
+    
+    // Process expired payins in batches
+    const assignedExpiredToUpdate = payinsAssignedExpired;
+    for (let i = 0; i < assignedExpiredToUpdate.length; i += BATCH_SIZE) {
+      const batch = assignedExpiredToUpdate.slice(i, i + BATCH_SIZE);
+      await Promise.all(batch.map(async (payin) => {
         const duration = calculateDuration(payin.created_at);
-        const updatedData = {
+        return updatePayInUrlDao(payin.id, {
           status: 'DROPPED',
           is_url_expires: true,
           duration,
-        };
-        await updatePayInUrlDao(payin.id, updatedData);
-        logger.info(`ASSIGNED PayIn ${payin.id} dropped due to timeout`);
-      } else if (payin.config.page_reload) {
+        });
+      }));
+    }
+    
+    // Process page_reload payins in batches
+    const assignedReloadToUpdate = payinsAssignedAll
+      .filter(payin => payin.config?.page_reload && !payinsAssignedExpired.find(p => p.id === payin.id));
+    
+    for (let i = 0; i < assignedReloadToUpdate.length; i += BATCH_SIZE) {
+      const batch = assignedReloadToUpdate.slice(i, i + BATCH_SIZE);
+      await Promise.all(batch.map(async (payin) => {
         const duration = calculateDuration(payin.created_at);
-        const updatedData = {
+        return updatePayInUrlDao(payin.id, {
           status: 'DROPPED',
           is_url_expires: true,
           duration,
-        };
-        await updatePayInUrlDao(payin.id, updatedData);
-        logger.info(`ASSIGNED PayIn ${payin.id} dropped due to page_reload`);
-      }
+        });
+      }));
     }
+    
+    // Log summary
+    if (assignedExpiredToUpdate.length > 0) {
+      logger.info(`${assignedExpiredToUpdate.length} ASSIGNED PayIn(s) DROPPED due to timeout`);
+    }
+    if (assignedReloadToUpdate.length > 0) {
+      logger.info(`${assignedReloadToUpdate.length} ASSIGNED PayIn(s) DROPPED due to page_reload`);
+    }
+    
     // Process notifications for dropped but unnotified payins
     if (payinsDropped?.length) {
       await processPayinNotifications(payinsDropped);
@@ -96,7 +159,7 @@ async function processPayinNotifications(payins) {
       if (payin?.config?.urls?.notify) {
         // This is async function but it's just the callback sending function there fore we are not using await
         merchantPayinCallback(payin?.config?.urls?.notify, notificationData);
-        await updatePayInUrlDao(payin.id, {is_notified: 'true'});
+        await updatePayInUrlDao(payin.id, { is_notified: 'true' });
       } else {
         logger.warn('Notify URL is missing for payin', { payinId: payin?.id });
       }

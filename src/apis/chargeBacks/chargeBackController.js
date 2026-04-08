@@ -16,7 +16,7 @@ import {
 import { ValidationError } from '../../utils/appErrors.js';
 import { getPayinDetailsByMerchantOrderId } from '../payIn/payInDao.js';
 import { NotFoundError } from '../../utils/appErrors.js';
-import { getChargeBackDao } from './chargeBackDao.js';
+import { chargeBackExistsByPayinIdDao } from './chargeBackDao.js';
 // import { BadRequestError } from '../../utils/appErrors.js';
 import { getBankResponseDaoById } from '../bankResponse/bankResponseDao.js';
 
@@ -35,16 +35,8 @@ const createChargeBack = async (req, res) => {
   if (PayinDetails.length == 0) {
     throw new NotFoundError('Invalid Order Id, Please enter valid Order Id');
   }
-  const isAlreadyExit = await getChargeBackDao(
-    {
-      payin_id: PayinDetails[0].payin_id,
-    },
-    null,
-    null,
-    'sno',
-    'DESC',
-  );
-  if (isAlreadyExit.length > 0) {
+  const isAlreadyExit = await chargeBackExistsByPayinIdDao(PayinDetails[0].payin_id);
+  if (isAlreadyExit) {
     throw new NotFoundError(
       `ChargeBack with ${payload.merchant_order_id} already exist`,
     );
@@ -79,7 +71,8 @@ const createChargeBack = async (req, res) => {
     PayinDetails[0].status == Status.BANK_MISMATCH ||
     PayinDetails[0].status == Status.FAILED
   ) {
-    if (PayinDetails[0].bank_response_id) {
+    // bankResponse getting from above code if bank_response_id is present in payin details otherwise it will be fetched here as bank_response_id is must for these two status
+    if (!bankResponse && PayinDetails[0].bank_response_id) {
       bankResponse = await getBankResponseDaoById({
         id: PayinDetails[0].bank_response_id,
         company_id: req.user.company_id,

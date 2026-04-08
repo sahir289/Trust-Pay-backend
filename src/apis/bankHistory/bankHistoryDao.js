@@ -6,12 +6,11 @@ import { tableName,  } from '../../constants/index.js';
 import { logger } from '../../utils/logger.js';
 import { BadRequestError } from '../../utils/appErrors.js';
 
-const getBankHistoryDao = async (filters) => {
+const getBankHistoryDao = async (filters, conn = null) => {
   try {
     if (!filters.bank_account_id || !filters.date) {
       throw new BadRequestError('bank_account_id and date are required');
     }
-
     const query = `
         SELECT count , today_balance FROM "${tableName.BANK_HISTORY}" 
         WHERE DATE(created_at) = $1 
@@ -19,9 +18,29 @@ const getBankHistoryDao = async (filters) => {
         AND is_obsolete = false 
         ORDER BY created_at DESC
       `;
-
     const params = [filters.date, filters.bank_account_id];
-    const result = await executeQuery(query, params);
+    const result = await executeQuery(query, params, conn);
+    return result.rows;
+  } catch (error) {
+    logger.error(`Error in getBankHistoryDao: ${error.message}`, {
+      errorMetadata: error,
+    });
+    throw error;
+  }
+};
+const getallBankHistoryDao = async (filters, conn = null) => {
+  try {
+    if (!filters.date) {
+      throw new BadRequestError('bank_account_id and date are required');
+    }
+    const query = `
+        SELECT count , today_balance FROM "${tableName.BANK_HISTORY}" 
+        WHERE DATE(created_at) = $1 
+        AND is_obsolete = false 
+        ORDER BY created_at DESC
+      `;
+    const params = [filters.date];
+    const result = await executeQuery(query, params, conn);
     return result.rows;
   } catch (error) {
     logger.error(`Error in getBankHistoryDao: ${error.message}`, {
@@ -31,16 +50,11 @@ const getBankHistoryDao = async (filters) => {
   }
 };
 
-const createBankHistoryDao = async ( data , conn) => {
+const createBankHistoryDao = async (data, conn = null) => {
   try {
     const [sql, params] = buildInsertQuery(tableName.BANK_HISTORY, data);
 
-    if (conn && conn.query) {
-      const result = await conn.query(sql, params);
-      return result.rows[0];
-    }
-
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in createBankHistoryDao:', error);
@@ -50,4 +64,4 @@ const createBankHistoryDao = async ( data , conn) => {
 
 
 
-export { getBankHistoryDao, createBankHistoryDao };
+export { getBankHistoryDao, createBankHistoryDao, getallBankHistoryDao };

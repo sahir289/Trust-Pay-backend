@@ -8,6 +8,7 @@ import {
   updateBankaccount,
   getBankaccountNickName,
   getBankAccountBySearch,
+  // activeInactiveBankAccount,
 } from './bankaccountController.js';
 const router = express.Router();
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
@@ -282,5 +283,10 @@ router.delete(
   [isAuthenticated, authorized(AccessRoles.BANK_ACCOUNT)],
   tryCatchHandler(deleteBankaccount),
 );
+
+// router.patch(
+//   '/active-inactive-bankAccount',
+//   tryCatchHandler(activeInactiveBankAccount),
+// );
 
 export default router;

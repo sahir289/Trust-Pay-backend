@@ -10,6 +10,7 @@ export const getTotalCountDao = async (
   roleIs,
   updated = false,
   updatedPayin = false,
+  conn = null,
 ) => {
   try {
     // Validate table name to prevent SQL injection
@@ -190,7 +191,7 @@ export const getTotalCountDao = async (
       });
     }
 
-    const result = await executeQuery(query, params);
+    const result = await executeQuery(query, params, conn);
     return parseInt(result.rows[0].count, 10); // Ensure the count is returned as an integer
   } catch (error) {
     if (error.code === '42P01') {

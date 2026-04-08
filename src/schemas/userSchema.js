@@ -51,6 +51,17 @@ export const CREATE_USER_SCHEMA = Joi.object({
   config: Joi.object().label('config').optional(),
   parent_id: Joi.string().label('parent_id').optional(),
   whitelist_ips: Joi.string().label('whitelist_ips').optional(),
+  is_h2h: Joi.boolean().label('is_h2h').optional(),
+  is_owned: Joi.boolean().label('is_owned').optional(),
+  mediator_payin_commission: Joi.number()
+    .min(0)
+    .label('mediator_payin_commission')
+    .optional(),
+  mediator_payout_commission: Joi.number()
+    .min(0)
+    .label('mediator_payout_commission')
+    .optional(),
+  gm_code: Joi.string().label('gm_code').optional(),
 });
 
 export const VALIDATE_USER_BY_ID = Joi.object({

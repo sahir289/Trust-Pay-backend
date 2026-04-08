@@ -4,13 +4,13 @@ import utc from 'dayjs/plugin/utc.js';
 import timezone from 'dayjs/plugin/timezone.js';
 // import { transactionWrapper } from '../utils/db.js';
 import {
-  createCalculationDao,
-  getCalculationforCronDao,
-  checkCalculationEntryForDateDao,
+  getCalculationByDateAndUserDao,
+  getLatestCalculationsForAllUsersDao,
+  batchUpdateTodayNetBalanceDao,
+  batchCreateCalculationDao,
 } from '../apis/calculation/calculationDao.js';
-import { getUsersForCronDao } from '../apis/users/userDao.js';
 import { logger } from '../utils/logger.js';
-
+import { beginTransaction, commit, getConnection, rollback } from '../utils/db.js';
 // Initialize dayjs plugins
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -21,10 +21,14 @@ const IST = 'Asia/Kolkata';
 let retryCount = 0;
 const MAX_RETRIES = 3; // Total attempts: 1 initial + 2 retries
 
-// Only run cron jobs in production environment
-if (process.env.NODE_ENV == 'production') {
+let calculationCronJob = null;
+// let retryCronJob = null;
+
+// Only run cron jobs in the dedicated cron worker process (works in both prod and local)
+const isCronWorker = process.env.CRON_WORKER === 'true';
+if (isCronWorker && process.env.NODE_ENV === 'production') {
   // Main cron job at midnight
-  cron.schedule(
+  calculationCronJob = cron.schedule(
     '0 0 * * *',
     async () => {
       retryCount = 0; // Reset retry count for new day
@@ -34,14 +38,13 @@ if (process.env.NODE_ENV == 'production') {
       timezone: IST,
     },
   );
-} else {
-  logger.error('Cron jobs are disabled in non-production environments.');
+  logger.info('Calculation cron job initialized in cron worker');
 }
 
 // Function to execute cron with retry mechanism
 const executeWithRetry = async (attemptDescription) => {
   retryCount++;
-  logger.info(`Running calculation cron job in production mode at ${attemptDescription}`);
+  logger.info(`Running calculation cron job at ${attemptDescription}`);
   
   try {
     await collectCalculationData();
@@ -70,64 +73,84 @@ const markExecution = () => {
   logger.info(`Cron execution marked successfully for date: ${currentDate}`);
 };
 
+export const stopCalculationCron = () => {
+  if (calculationCronJob) {
+    calculationCronJob.stop();
+    logger.info('Calculation cron job stopped');
+  }
+};
+
 const collectCalculationData = async () => {
   const executionStartTime = dayjs().tz(IST).format('YYYY-MM-DDTHH:mm:ssZ');
   logger.info(`Starting calculation cron job at: ${executionStartTime}`);
+  let conn; let committed = false;
 
   try {
-    // Check if entry for current date already exists
+    conn = await getConnection();
+    await beginTransaction(conn);
     const currentDate = dayjs().tz(IST).format('YYYY-MM-DD');
-    const entryExists = await checkCalculationEntryForDateDao(currentDate);
-    if (entryExists) {
-      logger.info(`Calculation entry for date ${currentDate} already exists. Skipping cron execution.`);
-      return;
-    }
-
-    const users = await getUsersForCronDao() || [];
-    const usersArray = users || [];
 
     // Create IST time in the exact format we want
-    const currentTime = dayjs().tz(IST).format('YYYY-MM-DDTHH:mm:ssZ'); // Will create: 2025-04-23T19:26:00+05:30
+    const currentTime = dayjs().tz(IST).format('YYYY-MM-DDTHH:mm:ssZ');
     logger.info(`Calculation Cron Running Current time in IST: ${currentTime}`);
 
-    for (const user of usersArray) {
-      try {
-        const calculation = await getCalculationforCronDao(user.id);
-        if (calculation.length > 0) {
-          const resetData = {
-            user_id: calculation[0].user_id,
-            role_id: calculation[0].role_id,
-            company_id: calculation[0].company_id,
-            net_balance: parseFloat(calculation[0].net_balance),
-            // config: calculation[0].config,
-            created_at: currentTime, // Store exact IST time
-          };
-          await processUpdate(resetData);
-        }
-      } catch (userError) {
-        logger.error(
-          `Error processing data for user ${user?.id}:`,
-          userError?.message,
-        );
+    // Batch fetch: Get existing entries for today and latest calculations for all users
+    const [existingEntries, latestCalculations] = await Promise.all([
+      getCalculationByDateAndUserDao(currentDate, conn),
+      getLatestCalculationsForAllUsersDao(conn),
+    ]);
+
+    // Create map of existing entries by user_id (for updates)
+    const existingEntriesMap = new Map(
+      (existingEntries || []).map(entry => [entry.user_id, entry])
+    );
+    logger.info(`Found ${existingEntriesMap.size} existing calculation entries for ${currentDate}`);
+
+    // Separate entries into updates and creates
+    const updates = [];
+    const creates = [];
+
+    for (const calc of latestCalculations) {
+      const existingEntry = existingEntriesMap.get(calc.user_id);
+      const prevNetBalance = parseFloat(calc.net_balance) || 0;
+
+      if (existingEntry) {
+        // Entry exists - queue for batch update
+        updates.push({ id: existingEntry.id, net_balance: prevNetBalance });
+      } else {
+        // No entry - queue for batch create
+        creates.push({
+          user_id: calc.user_id,
+          role_id: calc.role_id,
+          company_id: calc.company_id,
+          net_balance: prevNetBalance,
+          created_at: currentTime,
+        });
       }
     }
+
+    // Execute batch operations in parallel
+    const [updatedCount, createdCount] = await Promise.all([
+      updates.length > 0 ? batchUpdateTodayNetBalanceDao(updates, conn) : 0,
+      creates.length > 0 ? batchCreateCalculationDao(creates, conn) : 0,
+    ]);
+    
+    logger.info(`Calculation cron: Created ${createdCount}, Updated ${updatedCount} entries`);
 
     const executionEndTime = dayjs().tz(IST).format('YYYY-MM-DDTHH:mm:ssZ');
     logger.info(
       `Cron job executed successfully for all users. Started: ${executionStartTime}, Completed: ${executionEndTime}`,
     );
+    await commit(conn); committed = true;
   } catch (error) {
+    if (conn && !committed) await rollback(conn);
     logger.error('Error while collecting user data:', error?.message);
     throw error; // Re-throw to ensure fallback mechanisms can detect failures
+  } finally {
+    if (conn) conn.release();
   }
 };
-// Function to update the calculation data
-async function processUpdate(data) {
-  try {
-    await createCalculationDao(null, data);
-  } catch (error) {
-    logger.error('Error while updating calculation data:', error?.message);
-  }
-}
 
 export default collectCalculationData;
+
+

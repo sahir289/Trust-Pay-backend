@@ -18,7 +18,7 @@ import { logger } from '../../utils/logger.js';
 import dayjs from 'dayjs';
 const IST = 'Asia/Kolkata';
 
-export const createPayoutDao = async (conn, data) => {
+export const createPayoutDao = async (data, conn = null) => {
   try {
     // Ensure `config` is initialized if not provided
     if (!data.config) {
@@ -26,9 +26,7 @@ export const createPayoutDao = async (conn, data) => {
     }
 
     const [sql, params] = buildInsertQuery(tableName.PAYOUT, data);
-    const result = conn
-      ? await conn.query(sql, params)
-      : await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     // const insertedEntry = result.rows[0];
     // const merchant = await getMerchantForEsDao(insertedEntry.merchant_id);
     // insertedEntry.merchant_details = {
@@ -54,6 +52,7 @@ export const createPayoutDao = async (conn, data) => {
     throw error;
   }
 };
+
 export const assignedPayoutDao = async (
   payoutData,
   vendorId,
@@ -77,7 +76,7 @@ export const assignedPayoutDao = async (
       });
       const result = conn
         ? await conn.query(sql, params)
-        : await executeQuery(sql, params);
+        : await executeQuery(sql, params, conn);
       // const vendor_code = await getVendorCodeDao(vendorId.id);
       // const user = await getUsersNameDao(updated_by);
       // const esResult = {
@@ -105,6 +104,11 @@ export const getPayoutsDao = async (
   conn,
 ) => {
   try {
+    // Ensure sortOrder has a valid value
+    if (!sortOrder) {
+      sortOrder = 'DESC';
+    }
+
     if (typeof company_id === 'string') {
       company_id = company_id.trim();
     }
@@ -270,7 +274,7 @@ export const getPayoutsDao = async (
     if (conn && conn.query) {
       result = await conn.query(baseQuery, queryParams);
     } else {
-      result = await executeQuery(baseQuery, queryParams);
+      result = await executeQuery(baseQuery, queryParams, conn);
     }
     return result.rows;
   } catch (error) {
@@ -279,7 +283,43 @@ export const getPayoutsDao = async (
   }
 };
 
-export const getPayoutBankDetailsDao = async (filters, company_id) => {
+export const getPayoutByIdDao = async (id, company_id, conn = null) => {
+  try {
+    const sql = `SELECT id, status, config FROM "${tableName.PAYOUT}" WHERE id = $1 AND company_id = $2 AND is_obsolete = false`;
+    const queryParams = [id, company_id];
+    const result = await executeQuery(sql, queryParams, conn);
+    return result.rows.length > 0 ? result.rows[0] : null;
+  } catch (error) {
+    logger.error('Error fetching payout by utr id:', error.message);
+    throw error;
+  }
+}
+
+export const getPayoutByMerchantOrderIdDao = async (merchant_order_id, company_id, conn = null) => {
+  try {
+    const sql = `SELECT id, merchant_order_id FROM "${tableName.PAYOUT}" WHERE merchant_order_id = $1 AND company_id = $2 AND is_obsolete = false`;
+    const queryParams = [merchant_order_id, company_id];
+    const result = await executeQuery(sql, queryParams, conn);
+    return result.rows.length > 0 ? result.rows[0] : null;
+  } catch (error) {
+    logger.error('Error fetching payout by merchant order id:', error.message);
+    throw error;
+  }
+}
+
+export const getPayoutByUtrIdDao = async (utr_id, company_id, conn = null) => {
+  try {
+    const sql = `SELECT id, utr_id FROM "${tableName.PAYOUT}" WHERE utr_id = $1 AND company_id = $2 AND is_obsolete = false`;
+    const queryParams = [utr_id, company_id];
+    const result = await executeQuery(sql, queryParams, conn);
+    return result.rows.length > 0 ? result.rows[0] : null;
+  } catch (error) {
+    logger.error('Error fetching payout by utr id:', error.message);
+    throw error;
+  }
+}
+
+export const getPayoutBankDetailsDao = async (filters, company_id, conn = null) => {
   try {
     const conditions = [`u.is_obsolete = false`];
     const queryParams = [];
@@ -314,7 +354,7 @@ export const getPayoutBankDetailsDao = async (filters, company_id) => {
       ORDER BY u.sno DESC
     `;
 
-    const result = await executeQuery(baseQuery, queryParams);
+    const result = await executeQuery(baseQuery, queryParams, conn);
     return result.rows;
 
   } catch (error) {
@@ -355,9 +395,9 @@ export const getAllPayoutsDao = async (
 
       conditions.push(
         `CASE 
-          WHEN u.status = 'APPROVED' THEN u.approved_at 
+          WHEN u.status = 'REJECTED' THEN u.rejected_at 
           WHEN u.status = 'PENDING' THEN u.updated_at 
-          WHEN u.status IN ('REJECTED', 'REVERSED') THEN u.rejected_at 
+          WHEN u.status IN ('APPROVED', 'REVERSED') THEN u.approved_at 
           ELSE u.updated_at 
         END BETWEEN $${paramIndex} AND $${paramIndex + 1}`,
       );
@@ -370,17 +410,19 @@ export const getAllPayoutsDao = async (
       queryParams.push(limit, (page - 1) * limit);
       paramIndex += 2;
     }
-    if (filters?.userId) {
+    if (filters?.userId  && !filters.vendor_id) {
       const userIdsArray = typeof filters.userId === 'string' ? JSON.parse(filters.userId) : filters.userId;
       conditions.push(`u.vendor_id = ANY($${paramIndex})`);
       queryParams.push(userIdsArray);
       paramIndex += 1;
+      delete filters.userId;
     }
     if (filters?.status) {
       const statusArray = typeof filters.status === 'string' ? JSON.parse(filters.status) : filters.status;
       conditions.push(`u.status = ANY($${paramIndex})`);
       queryParams.push(statusArray);
       paramIndex += 1;
+      delete filters.status;
     }
 
     const handledKeys = new Set(['page', 'limit', 'startDate', 'endDate', 'userId', 'status']);
@@ -407,7 +449,6 @@ export const getAllPayoutsDao = async (
         paramIndex += valueArray.length;
       }
     });
-
     let commissionSelect = '';
     if (role === 'MERCHANT') {
       commissionSelect = `
@@ -469,6 +510,8 @@ export const getAllPayoutsDao = async (
           u.rejected_reason,
           ${commissionSelect}, 
           b.nick_name,
+          COALESCE((u.config->>'actual_vendor_commission')::numeric, 0) AS actual_vendor_commission,
+          COALESCE((u.config->>'brokerage_commission')::numeric, 0) AS brokerage_commission,
           json_build_object(
             'account_holder_name', u.acc_holder_name,
             'account_no', u.acc_no,
@@ -500,11 +543,23 @@ export const getAllPayoutsDao = async (
     if (conn && conn.query) {
       result = await conn.query(baseQuery, queryParams);
     } else {
-      result = await executeQuery(baseQuery, queryParams);
+      result = await executeQuery(baseQuery, queryParams, conn);
     }
     return result.rows;
   } catch (error) {
     logger.error('Error in getPayoutsDao:', error);
+    throw error;
+  }
+};
+
+export const getCompanyIdByMerchantOrderIdDao = async (id, conn = null) => {
+  try {
+    const sql = `SELECT id, merchant_order_id, company_id FROM "${tableName.PAYOUT}" WHERE merchant_order_id = $1 AND is_obsolete = false`;
+    const queryParams = [id];
+    const result = await executeQuery(sql, queryParams, conn);
+    return result.rows.length > 0 ? result.rows[0] : result.rows;
+  } catch (error) {
+    logger.error('Error fetching company:', error);
     throw error;
   }
 };
@@ -516,6 +571,7 @@ export const getPayoutsBySearchDao = async (
   offset,
   role,
   ifamount = false,
+  conn = null,
 ) => {
   try {
     const conditions = [`p.is_obsolete = false`];
@@ -615,6 +671,8 @@ export const getPayoutsBySearchDao = async (
     } else if (role === 'VENDOR') {
       commissionSelect = `
         p.payout_vendor_commission, 
+        COALESCE((p.config->>'actual_vendor_commission')::numeric, 0) AS actual_vendor_commission,
+        COALESCE((p.config->>'brokerage_commission')::numeric, 0) AS brokerage_commission,
         v.code AS vendor_code,
         p.config->>'method' AS payout_method,
         b.nick_name
@@ -624,6 +682,8 @@ export const getPayoutsBySearchDao = async (
         p.merchant_id, 
         p.payout_merchant_commission, 
         p.payout_vendor_commission, 
+        COALESCE((p.config->>'actual_vendor_commission')::numeric, 0) AS actual_vendor_commission,
+        COALESCE((p.config->>'brokerage_commission')::numeric, 0) AS brokerage_commission,
         p.merchant_order_id,
         p.bank_acc_id,
         p.approved_at, 
@@ -661,6 +721,8 @@ export const getPayoutsBySearchDao = async (
         p.utr_id, 
         p.rejected_reason,
         ${commissionSelect},
+        COALESCE((p.config->>'actual_vendor_commission')::numeric, 0) AS actual_vendor_commission,
+        COALESCE((p.config->>'brokerage_commission')::numeric, 0) AS brokerage_commission,
         json_build_object(
           'account_holder_name', p.acc_holder_name,
           'account_no', p.acc_no,
@@ -993,7 +1055,7 @@ export const getPayoutsBySearchDao = async (
       `;
 
       // Execute amount query
-      const amountResult = await executeQuery(amountQuery, amountParams);
+      const amountResult = await executeQuery(amountQuery, amountParams, conn);
       totalAmount = parseFloat(amountResult.rows[0]?.total_amount || 0);
     }
 
@@ -1009,8 +1071,9 @@ export const getPayoutsBySearchDao = async (
     const countResult = await executeQuery(
       countQuery,
       queryParams.slice(0, -2),
+      conn,
     );
-    const searchResult = await executeQuery(queryText, queryParams);
+    const searchResult = await executeQuery(queryText, queryParams, conn);
     let finalResult = searchResult;
     if (
       parseInt(countResult.rows[0].total) > 0 &&
@@ -1018,7 +1081,7 @@ export const getPayoutsBySearchDao = async (
       offset > 0
     ) {
       queryParams[queryParams.length - 1] = 0; 
-      finalResult = await executeQuery(queryText, queryParams);
+      finalResult = await executeQuery(queryText, queryParams, conn);
     }
     const data = {
       ...(ifamount && { totalAmount: totalAmount }),
@@ -1033,8 +1096,34 @@ export const getPayoutsBySearchDao = async (
     throw error;
   }
 };
-
-export const getPayoutsCronDao = async (conn, payload) => {
+export const getInitiatedAndPendingSummaryByMerchant = async (company_id, conn = null) => { 
+  try {
+    const queryText = `
+      SELECT 
+        m.code AS merchant_code,
+        COUNT(p.id) AS total_count,
+        COALESCE(SUM(p.amount), 0) AS total_amount
+      FROM public."Payout" p
+      LEFT JOIN public."Merchant" m ON p.merchant_id = m.id
+      WHERE p.company_id = $1
+      AND p.is_obsolete = false
+      AND m.is_obsolete = false
+      AND p.status IN ('INITIATED', 'PENDING')
+      GROUP BY m.code
+      ORDER BY total_amount DESC, merchant_code;
+    `;
+    const result = await executeQuery(queryText, [company_id], conn); 
+    return result?.rows?.map(row => ({
+      merchant: row?.merchant_code,
+      count: parseInt(row?.total_count, 10) || 0,
+      amount: parseFloat(row?.total_amount) || 0,
+    }));
+  } catch (error) {
+    logger.error('Error in getInitiatedAndPendingSummaryByMerchant:', error.message);
+    throw error;
+  }
+};
+export const getPayoutsCronDao = async (payload, conn = null) => {
   try {
     let baseQuery = `SELECT * FROM public."Payout" 
       WHERE is_obsolete = false AND status = $1
@@ -1042,7 +1131,7 @@ export const getPayoutsCronDao = async (conn, payload) => {
     `;
     const queryParams = [payload];
 
-    const result = await conn.query(baseQuery, queryParams);
+    const result = await executeQuery(baseQuery, queryParams, conn);
     return result.rows;
   } catch (error) {
     logger.error('Error in createPayoutDao:', error);
@@ -1050,17 +1139,17 @@ export const getPayoutsCronDao = async (conn, payload) => {
   }
 };
 
-export const updatePayoutDao = async (ids, data, conn) => {
+export const updatePayoutDao = async (ids, data, conn = null) => {
   try {
     // Clone the data object to avoid modifying the original
     const updateData = { ...data };
     // If config is present, ensure it's properly formatted
     if (updateData.config && typeof updateData.config === 'object') {
       // Get existing config first to merge with new config
-      const existingData = await executeQuery(
-        `SELECT config FROM "${tableName.PAYOUT}" WHERE id = $1`,
-        [ids.id],
-      );
+      const existingQuery = `SELECT config FROM "${tableName.PAYOUT}" WHERE id = $1`;
+      const existingData = conn
+        ? await conn.query(existingQuery, [ids.id])
+        : await executeQuery(existingQuery, [ids.id], conn);
       if (existingData.rows.length > 0) {
         const existingConfig = existingData.rows[0].config || {};
         // Merge existing config with new config
@@ -1118,14 +1207,14 @@ export const updatePayoutDao = async (ids, data, conn) => {
   }
 };
 
-export const getPayoutByTxnId = async (txnId) => {
+export const getPayoutByTxnId = async (txnId, conn = null) => {
   try {
     const query = `
       SELECT * FROM public."Payout"
       WHERE config->>'txnid' = $1
     `;
     const params = [txnId];
-    const result = await executeQuery(query, params);
+    const result = await executeQuery(query, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error occurred while fetching payout by txnId:', error);
@@ -1133,10 +1222,10 @@ export const getPayoutByTxnId = async (txnId) => {
   }
 }
 
-export const deletePayoutDao = async (ids, data) => {
+export const deletePayoutDao = async (ids, data, conn = null) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.PAYOUT, data, ids);
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error occurred while deleting payout:', error);

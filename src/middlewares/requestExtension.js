@@ -2,13 +2,16 @@ import { generateUUID } from '../utils/generateUUID.js';
 import { logger } from '../utils/logger.js';
 
 const methodNotFound = (req, res) => {
-  logger.error('the url you are trying to reach is not hosted on our server');
+  logger.error(`the url: ${req.originalUrl} you are trying to reach is not hosted on our server`);
   const err = new Error('Not Found');
   err.status = 404;
-  res.status(err.status).json({
-    type: 'error',
-    message: 'the url you are trying to reach is not hosted on our server',
-  });
+  let finalRes = {
+    statusCode: err.status,
+    message: `the url: ${req.originalUrl} you are trying to reach is not hosted on our server`,
+    meta: {},
+    data: {},
+  };
+  res.status(err.status).json(finalRes);
   // next(err);
 };
 

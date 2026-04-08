@@ -11,7 +11,6 @@ import {
   VALIDATE_DELETE_ROLE,
   VALIDATE_ROLE_BY_ID,
 } from '../../schemas/roleSchema.js';
-import { transactionWrapper } from '../../utils/db.js';
 import { ValidationError } from '../../utils/appErrors.js';
 
 const getRoles = async (req, res) => {
@@ -45,7 +44,7 @@ const createRole = async (req, res) => {
   payload.company_id = company_id;
   payload.created_by = user_id;
   payload.updated_by = user_id;
-  await transactionWrapper(createRoleService)(payload);
+  await createRoleService(payload);
 
   return sendSuccess(res, {}, 'Create Role successfully');
 };
@@ -63,7 +62,7 @@ const updateRole = async (req, res) => {
   const { id } = req.params;
   const { company_id, user_id } = req.user;
   payload.updated_by = user_id;
-  await transactionWrapper(updateRoleService)({ id, company_id }, payload);
+  await updateRoleService({ id, company_id }, payload);
 
   return sendSuccess(res, {}, 'Update Role successfully');
 };

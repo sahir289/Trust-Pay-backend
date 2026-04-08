@@ -17,6 +17,7 @@ import userHierarchy from './userHierarchy/index.js';
 import payOut from './payOut/index.js';
 import complaints from './complaints/index.js';
 import reports from './reports/index.js';
+// Cron import removed - crons run in dedicated cron-worker.js process
 import cron from '../cron/index.js';
 import swaggerUi from 'swagger-ui-express';
 import { swaggerSpecs } from '../../swaggerConfig.js';
@@ -24,11 +25,10 @@ import resetHistory from './resetHistory/index.js';
 import checkUtr from './checkutr/index.js';
 import common from './common/index.js';
 import beneficiaryAccounts from './beneficiaryAccounts/index.js';
-import consumeBankResponseRouter from './consume-bank-response.js';
 import dashboardReport from './dashboardReport/index.js';
 import webhooks from './webhooks/index.js';
 import { getVersion } from '../../version.js';
-import superAdmin from './superAdmin/index.js';
+import { globalRateLimitMiddleware } from '../middlewares/rateLimiter.js';
 // import notifications from './notifications/index.js';
 
 const parentRouter = express.Router();
@@ -38,6 +38,7 @@ parentRouter.use('/v1', router);
 // Apply authorization middleware for specific routes
 router.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs));
 router.get('/version', getVersion);
+router.use(globalRateLimitMiddleware);
 router.use('/payIn', payIn);
 router.use('/users', users);
 router.use('/merchants', merchants);
@@ -56,13 +57,11 @@ router.use('/reports', reports);
 router.use('/checkUtr', checkUtr);
 router.use('/resetHistory', resetHistory);
 router.use('/beneficiaryAccounts', beneficiaryAccounts);
-router.use(consumeBankResponseRouter);
-router.use('/superAdmin', superAdmin);
-router.use('/consume-bank-response', consumeBankResponseRouter);
 // Public routes (no authorization required)
 router.use('/ping', ping);
 router.use('/auth', auth);
 router.use('/complaints', complaints);
+// Cron route removed - crons run in dedicated cron-worker.js process
 router.use('/cron', cron);
 router.use('/common', common);
 router.use('/dashboardReport', dashboardReport);

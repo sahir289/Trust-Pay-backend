@@ -4,7 +4,7 @@ import { logger } from '../utils/logger.js';
 import { BadRequestError } from '../utils/appErrors.js';
 const messageQueue = [];
 let isProcessingQueue = false;
-// const RATE_LIMIT_MS = 500;
+const RATE_LIMIT_MS = 500;
 async function processQueue() {
   if (isProcessingQueue) return;
   isProcessingQueue = true;
@@ -64,7 +64,7 @@ async function processQueue() {
           resolve(false);
         }
       }
-      // await new Promise((res) => setTimeout(res, RATE_LIMIT_MS));
+      await new Promise((res) => setTimeout(res, RATE_LIMIT_MS));
     }
   } finally {
     isProcessingQueue = false;

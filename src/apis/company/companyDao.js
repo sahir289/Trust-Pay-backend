@@ -8,7 +8,14 @@ import {
 import { tableName } from '../../constants/index.js';
 import { logger } from '../../utils/logger.js';
 
-const getCompanyDao = async (filters, page, pageSize, sortBy, sortOrder) => {
+const getCompanyDao = async (
+  filters,
+  page,
+  pageSize,
+  sortBy,
+  sortOrder,
+  conn,
+) => {
   try {
     const baseQuery = `SELECT id,first_name,last_name,config FROM "${tableName.COMPANY}" WHERE 1=1`;
     //TODO: columns.Company dynamic search
@@ -20,7 +27,7 @@ const getCompanyDao = async (filters, page, pageSize, sortBy, sortOrder) => {
       sortBy,
       sortOrder,
     );
-    const result = await executeQuery(sql, queryParams);
+    const result = await executeQuery(sql, queryParams, conn);
     return result.rows.length > 0 ? result.rows : result.rows[0];
   } catch (error) {
     logger.error('Error fetching company:', error);
@@ -28,150 +35,11 @@ const getCompanyDao = async (filters, page, pageSize, sortBy, sortOrder) => {
   }
 };
 
-const getCompanyBySearchDao = async (
-  filters,
-  searchTerms,
-  pageNumber = 1,
-  pageSize = 10,
-) => {
+const getCompanyDetailsByIdDao = async (id, conn = null) => {
   try {
-    const conditions = [];
-    const values = [];
-    let paramIndex = 1;
-
-    const validatedPageSize = Math.min(
-      Math.max(parseInt(pageSize) || 10, 1),
-      100,
-    ); // Enforce 1-100 limit
-    const validatedPageNumber = Math.max(parseInt(pageNumber) || 1);
-    const offset = (validatedPageNumber - 1) * validatedPageSize;
-
-    // TODO: Implement role-based query filtering if needed in future
-    let queryText = `
-      SELECT 
-        "Company".id,
-        "Company".first_name,
-        "Company".last_name,
-        "Company".email,
-        "Company".contact_no,
-        (
-          SELECT json_object_agg(key, value)
-          FROM json_each("Company".config) 
-          WHERE key NOT IN ('created_by', 'updated_by', 'authorized', 'is_enabled')
-        ) AS config,
-        "Company".created_at,
-        "Company".updated_at,
-        "Company".first_name || ' ' || "Company".last_name AS company_name,
-        COALESCE("Company".config->>'created_by', '') AS created_by,
-        COALESCE("Company".config->>'updated_by', '') AS updated_by,
-        COALESCE(("Company".config->>'authorized')::boolean, false) AS authorized,
-        COALESCE(("Company".config->>'is_enabled')::boolean, true) AS is_enabled
-      FROM "Company"
-      WHERE 1=1 
-        AND "Company".is_obsolete = false 
-    `;
-
-    // Add id filter
-    if (filters.id) {
-      if (Array.isArray(filters.id)) {
-        const placeholders = filters.id
-          .map((_, i) => `$${paramIndex + i}`)
-          .join(', ');
-        queryText += ` AND "Company"."id" IN (${placeholders})`;
-        values.push(...filters.id);
-        paramIndex += filters.id.length;
-      } else {
-        queryText += ` AND "Company"."id" = $${paramIndex}`;
-        values.push(filters.id);
-        paramIndex++;
-      }
-    }
-
-    if (searchTerms) {
-      searchTerms.forEach((term) => {
-        if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
-          const boolValue = term.toLowerCase() === 'true';
-          conditions.push(`"Company".is_enabled = $${paramIndex}`);
-          values.push(boolValue);
-          paramIndex++;
-        } else {
-          conditions.push(`
-            (
-              LOWER("Company".id::text) LIKE LOWER($${paramIndex})
-              OR LOWER("Company".first_name) LIKE LOWER($${paramIndex})
-              OR LOWER("Company".last_name) LIKE LOWER($${paramIndex})
-              OR LOWER("Company".email) LIKE LOWER($${paramIndex})
-              OR LOWER("Company".contact_no) LIKE LOWER($${paramIndex})
-              OR LOWER("Company".created_by::text) LIKE LOWER($${paramIndex})
-              OR LOWER("Company".updated_by::text) LIKE LOWER($${paramIndex})
-              OR LOWER("Company".first_name || ' ' || "Company".last_name) LIKE LOWER($${paramIndex})
-            )
-          `);
-          values.push(`%${term}%`);
-          paramIndex++;
-        }
-      });
-    }
-
-    if (conditions.length > 0) {
-      queryText += ' AND (' + conditions.join(' OR ') + ')';
-    }
-
-    const countQuery = `SELECT COUNT(*) as total FROM (${queryText}) as count_table`;
-    const countResult = await executeQuery(countQuery, values);
-
-    queryText += `
-      ORDER BY "Company"."updated_at" DESC
-      LIMIT $${paramIndex}
-      OFFSET $${paramIndex + 1}
-    `;
-    values.push(validatedPageSize, offset);
-
-    let searchResult = await executeQuery(queryText, values);
-    const totalItems = parseInt(countResult.rows[0].total);
-    let totalPages = Math.ceil(totalItems / validatedPageSize);
-    if (totalItems > 0 && searchResult.rows.length === 0 && offset > 0) {
-      values[values.length - 1] = 0;
-      searchResult = await executeQuery(queryText, values);
-      totalPages = Math.ceil(totalItems / validatedPageSize);
-    }
-
-    const data = {
-      totalCount: totalItems,
-      totalPages,
-      companies: searchResult.rows,
-    };
-    return data;
-  } catch (error) {
-    logger.error(error.message);
-    throw error;
-  }
-};
-
-const getCompanyNamesDao = async () => {
-  try {
-    const baseQuery = `SELECT id, first_name, last_name FROM "${tableName.COMPANY}" WHERE 1=1`;
-    //TODO: columns.Company dynamic search
-    const [sql, queryParams] = buildSelectQuery(
-      baseQuery,
-      {},
-      null,
-      null,
-      "first_name || ' ' || last_name",
-      'ASC',
-    );
-    const result = await executeQuery(sql, queryParams);
-    return result.rows.length > 0 ? result.rows : result.rows[0];
-  } catch (error) {
-    logger.error('Error fetching company:', error);
-    throw error;
-  }
-};
-const getCompanyDetailsByIdDao = async (id) => {
-  try {
-    const baseQuery = `SELECT CONCAT(first_name, ' ', last_name) AS full_name, config ->> 'allowPayAssist' AS allowPayAssist, config ->> 'allowTataPay' AS allowTataPay FROM "${tableName.COMPANY}" WHERE 1 = 1`;
+    const baseQuery = `SELECT CONCAT(first_name, ' ', last_name) AS full_name, config ->> 'allowPayAssist' AS allowPayAssist, config ->> 'allowTataPay' AS allowTataPay, config ->> 'allow_clickrr' AS allow_clickrr, config ->> 'allowRupeeFlow' AS allowRupeeFlow, config ->> 'allowBSS' AS allowBSS, config ->> 'allowSilkPayOut' AS allowSilkPay, config ->> 'allowBSS02' AS allowBSS02, config ->> 'allowBSS03' AS allowBSS03, config ->> 'allowPayDum' AS allowPayDum FROM "${tableName.COMPANY}" WHERE 1 = 1`;
     const [sql, queryParams] = buildSelectQuery(baseQuery, id);
-    const result = await executeQuery(sql, queryParams);
+    const result = await executeQuery(sql, queryParams, conn);
     return result.rows.length > 0 ? result.rows : result.rows[0];
   } catch (error) {
     logger.error('Error fetching company details by ID:', error);
@@ -179,18 +47,101 @@ const getCompanyDetailsByIdDao = async (id) => {
   }
 };
 
-const getCashfreeAllowByCompanyIdDao = async (id) => {
+const getClickrrDetailsByCompanyIdDao = async (id, conn = null) => {
+  try {
+    const sql = `SELECT config -> 'CLICKRR' ->> 'api_key' AS api_key,
+    config -> 'CLICKRR' ->> 'api_secret' AS api_secret FROM "${tableName.COMPANY}" WHERE id = $1`;
+    const queryParams = [id];
+    const result = await executeQuery(sql, queryParams, conn);
+    return result.rows.length > 0 ? result.rows[0] : result.rows;
+  } catch (error) {
+    logger.error('Error fetching clickrr details by companyId:', error);
+    throw error;
+  }
+};
+
+const getBSSDetailsByCompanyIdDao = async (id) => {
+  try {
+    const sql = `SELECT config -> 'BSS' ->> 'api_key' AS api_key,
+    config -> 'BSS' ->> 'api_secret' AS api_secret FROM "${tableName.COMPANY}" WHERE id = $1`;
+    const queryParams = [id];
+    const result = await executeQuery(sql, queryParams);
+    return result.rows.length > 0 ? result.rows[0] : result.rows;
+  } catch (error) {
+    logger.error('Error fetching BSS details by companyId:', error);
+    throw error;
+  }
+};
+
+const getSilkPayDetailsByCompanyIdDao = async (id) => {
+  try {
+    const sql = `SELECT config -> 'SILKPAY' ->> 'mId' AS mId,
+    config -> 'SILKPAY' ->> 'api_secret' AS api_secret FROM "${tableName.COMPANY}" WHERE id = $1`;
+    const queryParams = [id];
+    const result = await executeQuery(sql, queryParams);
+    return result.rows.length > 0 ? result.rows[0] : result.rows;
+  } catch (error) {
+    logger.error('Error fetching silkpay details by companyId:', error);
+    throw error;
+  }
+};
+
+const getBSS02DetailsByCompanyIdDao = async (id) => {
+  try {
+    const sql = `SELECT config -> 'BSS02' ->> 'api_key' AS api_key,
+    config -> 'BSS02' ->> 'api_secret' AS api_secret FROM "${tableName.COMPANY}" WHERE id = $1`;
+    const queryParams = [id];
+    const result = await executeQuery(sql, queryParams);
+    return result.rows.length > 0 ? result.rows[0] : result.rows;
+  } catch (error) {
+    logger.error('Error fetching BSS02 details by companyId:', error);
+    throw error;
+  }
+};
+
+const getBSS03DetailsByCompanyIdDao = async (id) => {
+  try {
+    const sql = `SELECT config -> 'BSS03' ->> 'api_key' AS api_key,
+    config -> 'BSS03' ->> 'api_secret' AS api_secret FROM "${tableName.COMPANY}" WHERE id = $1`;
+    const queryParams = [id];
+    const result = await executeQuery(sql, queryParams);
+    return result.rows.length > 0 ? result.rows[0] : result.rows;
+  } catch (error) {
+    logger.error('Error fetching BSS03 details by companyId:', error);
+    throw error;
+  }
+};
+
+const getBepayDetailsByCompanyIdDao = async (id, conn = null) => {
+  try {
+    const sql = `SELECT config -> 'Bepay' ->> 'api_key' AS api_key,
+    config -> 'Bepay' ->> 'api_secret' AS api_secret FROM "${tableName.COMPANY}" WHERE id = $1`;
+    const queryParams = [id];
+    const result = await executeQuery(sql, queryParams, conn);
+    return result.rows.length > 0 ? result.rows[0] : result.rows;
+  } catch (error) {
+    logger.error('Error fetching Bepay details by companyId:', error);
+    throw error;
+  }
+};
+
+const getCashfreeAllowByCompanyIdDao = async (id, conn = null) => {
   try {
     const sql = `
       SELECT 
         CONCAT(first_name, ' ', last_name) AS full_name, 
         COALESCE((config ->> 'allow_cashfree')::boolean, false) AS allow_cashfree,
-        COALESCE((config ->> 'allow_zentechind')::boolean, false) AS allow_zentechind
+        COALESCE((config ->> 'allow_zentechind')::boolean, false) AS allow_zentechind,
+        COALESCE((config ->> 'allow_nmplpay')::boolean, false) AS allow_nmplpay,
+        COALESCE((config ->> 'allow_razorpay')::boolean, false) AS allow_razorpay,
+        COALESCE((config ->> 'allow_silkpay')::boolean, false) AS allow_silkpay,
+        COALESCE((config ->> 'allow_orvixpay')::boolean, false) AS allow_orvixpay,
+        COALESCE((config ->> 'allow_orvixpay1')::boolean, false) AS allow_orvixpay1
       FROM "${tableName.COMPANY}"
       WHERE id = $1
-    `
+    `;
     const queryParams = [id];
-    const result = await executeQuery(sql, queryParams);
+    const result = await executeQuery(sql, queryParams, conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error fetching company details by ID:', error);
@@ -198,11 +149,11 @@ const getCashfreeAllowByCompanyIdDao = async (id) => {
   }
 };
 
-const getCompanyByIDDao = async (filters) => {
+const getCompanyByIDDao = async (filters, conn = null) => {
   try {
     const baseQuery = `SELECT id,config FROM "${tableName.COMPANY}" WHERE 1=1`;
     const [sql, queryParams] = buildSelectQuery(baseQuery, filters);
-    const result = await executeQuery(sql, queryParams);
+    const result = await executeQuery(sql, queryParams, conn);
     return result.rows.length > 0 ? result.rows : result.rows[0];
   } catch (error) {
     logger.error('Error fetching company:', error);
@@ -210,25 +161,21 @@ const getCompanyByIDDao = async (filters) => {
   }
 };
 
-const createCompanyDao = async (conn, payload) => {
+const createCompanyDao = async (payload, conn = null) => {
   try {
     const [sql, params] = buildInsertQuery(tableName.COMPANY, payload);
-    if (conn && conn.query) {
-      const result = await conn.query(sql, params);
-      return result.rows[0];
-    }
-    const result = await executeQuery(sql, params);
-    return result.rows;
+    const result = await executeQuery(sql, params, conn);
+    return result.rows[0];
   } catch (error) {
     logger.error('Error fetching company:', error);
     throw error;
   }
 };
 
-const updateCompanyDao = async (id, data) => {
+const updateCompanyDao = async (id, data, conn = null) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.COMPANY, data, id);
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error updating company:', error); // Log the error for debugging
@@ -236,6 +183,8 @@ const updateCompanyDao = async (id, data) => {
   }
 };
 const updateCompanyConfigDao = async (id, data, conn) => {
+  try { 
+
   return await buildAndExecuteUpdateQuery(
     tableName.COMPANY,
     data,
@@ -244,12 +193,27 @@ const updateCompanyConfigDao = async (id, data, conn) => {
     { returnUpdated: true },
     conn,
   );
+  } catch (error) {
+    logger.error('Error updating company config:', error);
+    throw error;
+  }
 };
 
-const deleteCompanyDao = async (id, data) => {
+const getCompanyNamesDao = async (conn = null) => {
+  try {
+    const sql = `SELECT id, CONCAT(first_name, ' ', last_name) AS name FROM "${tableName.COMPANY}" WHERE is_obsolete = false ORDER BY first_name ASC`;
+    const result = await executeQuery(sql, [], conn);
+    return result.rows;
+  } catch (error) {
+    logger.error('Error fetching company names:', error);
+    throw error;
+  }
+};
+
+const deleteCompanyDao = async (id, data, conn = null) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.COMPANY, data, id);
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error deleting company:', error); // Log the error for debugging
@@ -263,9 +227,14 @@ export {
   updateCompanyDao,
   deleteCompanyDao,
   getCompanyByIDDao,
+  getClickrrDetailsByCompanyIdDao,
+  getBepayDetailsByCompanyIdDao,
   getCashfreeAllowByCompanyIdDao,
   updateCompanyConfigDao,
   getCompanyDetailsByIdDao,
+  getBSSDetailsByCompanyIdDao,
+  getSilkPayDetailsByCompanyIdDao,
+  getBSS02DetailsByCompanyIdDao,
+  getBSS03DetailsByCompanyIdDao,
   getCompanyNamesDao,
-  getCompanyBySearchDao,
 };

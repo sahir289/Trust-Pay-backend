@@ -5,33 +5,38 @@ import { getPayoutsDao } from '../../apis/payOut/payOutDao.js';
 // import { merchantPayoutCallback } from '../merchantCallBacks.js';
 import { payAssistErrorCodeMap, Role, Status } from '../../constants/index.js';
 import { logger } from '../../utils/logger.js';
-import axios from 'axios';
+// import axios from 'axios';
 import { getCompanyByIDDao } from '../../apis/company/companyDao.js';
 import { getVendorsDao } from '../../apis/vendors/vendorDao.js';
 import { updatePayoutService } from '../../apis/payOut/payOutService.js';
 import { getUserByCompanyCreatedAtDao } from '../../apis/users/userDao.js';
-import {
-  beginTransaction,
-  commit,
-  getConnection,
-  rollback,
-} from '../../utils/db.js';
+import { sendSuccess } from '../../utils/responseHandlers.js';
 
 // Define the optimized payAssistTransactionStatusCallback function
 export const payAssistTransactionStatusCallback = async (req, res) => {
+  sendSuccess(res, {}, 'Webhook received successfully');
   const payload = req.body;
   const apitxnid = payload?.Response?.apitxnid;
-  let conn;
 
   try {
     if (!apitxnid || apitxnid === '') {
       return res.status(404).send('Payment not found');
     }
-    conn = await getConnection();
-    await beginTransaction(conn);
-    const [singleWithdrawData] = await getPayoutsDao({ id: apitxnid });
+
+    const [singleWithdrawData] = await getPayoutsDao({ merchant_order_id: apitxnid });
     if (!singleWithdrawData) {
       return res.status(404).send('Payment not found');
+    }
+
+    if (
+      singleWithdrawData.status === Status.APPROVED ||
+      singleWithdrawData.status === Status.REJECTED
+    ) {
+      logger.info('Payout already processed', {
+        payoutId: singleWithdrawData.id,
+        status: singleWithdrawData.status,
+      });
+      return
     }
 
     const [company] = await getCompanyByIDDao({
@@ -39,14 +44,14 @@ export const payAssistTransactionStatusCallback = async (req, res) => {
     });
 
     // Cache API configuration to avoid repeated property access
-    const apiConfig = {
-      headers: {
-        APIAGENT: company.config.PAY_ASSIST.walletsPayoutsAgent,
-        APIKEY: company.config.PAY_ASSIST.walletsPayoutsApiKey,
-      },
-      baseUrl: company.config.PAY_ASSIST.walletsPayoutsUrl,
-      agentCode: company.config.PAY_ASSIST.walletsPayoutsAgentCode,
-    };
+    // const apiConfig = {
+    //   headers: {
+    //     APIAGENT: company.config.PAY_ASSIST.walletsPayoutsAgent,
+    //     APIKEY: company.config.PAY_ASSIST.walletsPayoutsApiKey,
+    //   },
+    //   baseUrl: company.config.PAY_ASSIST.walletsPayoutsUrl,
+    //   agentCode: company.config.PAY_ASSIST.walletsPayoutsAgentCode,
+    // };
 
     const handlePayoutUpdate = async (
       responseData,
@@ -90,12 +95,13 @@ export const payAssistTransactionStatusCallback = async (req, res) => {
         });
       } else {
         updatePayload.config.rejected_reason =
-          payAssistErrorCodeMap[responseData.ErrorCode] || 'Server Unreachable';
+          responseData.Response.message ||
+          payAssistErrorCodeMap[responseData.Response.statusCode] ||
+          'Server Unreachable';
         updatePayload.rejected_at = new Date().toISOString();
       }
 
       await updatePayoutService(
-        conn,
         {
           id: singleWithdrawData.id,
           company_id: singleWithdrawData.company_id,
@@ -105,44 +111,18 @@ export const payAssistTransactionStatusCallback = async (req, res) => {
     };
 
     // Handle response based on ErrorCode
-    const errorCode = payload.ErrorCode;
-    let statusResponse = null;
+    let errorCode = payload.ErrorCode;
+    // let statusResponse = null;
 
     if (errorCode) {
-      // Transaction Under Process - check status
-      statusResponse = await axios.post(
-        `${apiConfig.baseUrl}/payoutStatus`,
-        { apitxnid: singleWithdrawData.id }, // Include transaction ID in payload
-        { headers: apiConfig.headers },
-      );
-      logger.info(
-        `PayAssist payoutStatus response for apitxnid ${apitxnid}:`,
-        statusResponse.data,
-      );
-
-      if (statusResponse.data.ErrorCode === '0') {
-        if (
-          statusResponse.data.Response.message ===
-            'Reason-Transaction Failed' ||
-          statusResponse.data.Response.message === 'Transaction Failed' ||
-          statusResponse.data.Response.message === 'Transaction Failed - ' ||
-          statusResponse.data.Response.statuscode === 'TXF' ||
-          statusResponse.data.Response.statuscode === 'ERR'
-        ) {
-          statusResponse.data.ErrorCode = '14';
-          await handlePayoutUpdate(statusResponse.data, false);
-        } else {
-          await handlePayoutUpdate(statusResponse.data, true);
-        }
-      } else if (statusResponse.data.ErrorCode === 'TUP') {
-        await handlePayoutUpdate(statusResponse.data, false, true);
-      } else if (
-        statusResponse.data.ErrorCode !== 'TUP' &&
-        statusResponse.data.ErrorCode !== '4'
-      ) {
-        await handlePayoutUpdate(statusResponse.data, false);
+      if (errorCode === '0') {
+        await handlePayoutUpdate(payload, true);
+      } else if (errorCode === 'TUP') {
+        await handlePayoutUpdate(payload, false, true);
+      } else if (errorCode !== 'TUP' && errorCode !== '0') {
+        await handlePayoutUpdate(payload, false);
       } else {
-        return res.status(400).send(statusResponse.data.ErrorMessage);
+        return res.status(400).send(payload.ErrorMessage);
       }
     }
 
@@ -151,17 +131,9 @@ export const payAssistTransactionStatusCallback = async (req, res) => {
       status: singleWithdrawData.status,
     });
 
-    await commit(conn);
-
     return res.status(200).send('Payout Updated Successfully');
   } catch (err) {
-    await rollback(conn);
     // Log any errors while updating the payout
     logger.error('getting error while updating payout', err);
-  } finally {
-    if (conn) {
-      logger.info('Releasing connection');
-      conn.release(); // Always release connection
-    }
   }
 };

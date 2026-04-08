@@ -7,11 +7,11 @@ import {
 } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
 
-const getDesignationDao = async (filters) => {
+const getDesignationDao = async (filters, conn = null) => {
   try {
     const baseQuery = `SELECT * FROM "${tableName.DESIGNATION}" WHERE 1=1`;
     const [sql, queryParams] = buildSelectQuery(baseQuery, filters);
-    const result = await executeQuery(sql, queryParams);
+    const result = await executeQuery(sql, queryParams, conn);
     return result.rows;
   } catch (error) {
     logger.error('Error in getDesignationDao:', error);
@@ -19,14 +19,10 @@ const getDesignationDao = async (filters) => {
   }
 };
 
-const createDesignationDao = async (conn, payload) => {
+const createDesignationDao = async (payload, conn = null) => {
   try {
     const [sql, params] = buildInsertQuery(tableName.DESIGNATION, payload);
-    if (conn && conn.query) {
-      const result = await conn.query(sql, params);
-      return result.rows[0];
-    }
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in createDesignationDao:', error);
@@ -34,10 +30,10 @@ const createDesignationDao = async (conn, payload) => {
   }
 };
 
-const updateDesignationDao = async (id, data) => {
+const updateDesignationDao = async (id, data, conn = null) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.DESIGNATION, data, id);
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in updateDesignationDao:', error);
@@ -45,10 +41,10 @@ const updateDesignationDao = async (id, data) => {
   }
 };
 
-const deleteDesignationDao = async (id, data) => {
+const deleteDesignationDao = async (id, data, conn = null) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.DESIGNATION, data, id);
-    const result = await executeQuery(sql, params);
+    const result = await executeQuery(sql, params, conn);
     return result.rows[0];
   } catch (error) {
     logger.error('Error in deleteDesignationDao:', error);

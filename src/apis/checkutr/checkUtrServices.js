@@ -1,5 +1,11 @@
 import { BadRequestError, InternalServerError } from '../../utils/appErrors.js';
 import { logger } from '../../utils/logger.js';
+import {
+  getConnection,
+  beginTransaction,
+  commit,
+  rollback,
+} from '../../utils/db.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 import {
   createCheckUtrDao,
@@ -58,9 +64,9 @@ const getCheckUtrBySearchService = async (company_id, search, page, limit) => {
   }
 };
 
-const createCheckUtrService = async (conn, payload) => {
+const _createCheckUtrServiceInternal = async (payload, conn) => {
   try {
-    const result = await createCheckUtrDao(payload);
+    const result = await createCheckUtrDao(payload, conn);
     // await notifyAdminsAndUsers({
     //   conn,
     //   company_id: payload.company_id,
@@ -71,8 +77,29 @@ const createCheckUtrService = async (conn, payload) => {
     // });
     return result;
   } catch (error) {
+    logger.error('error in _createCheckUtrServiceInternal', error);
+    throw error;
+  }
+};
+
+const createCheckUtrService = async (payload) => {
+  let conn; let committed = false; ;
+  try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+    const result = await _createCheckUtrServiceInternal(payload, conn);
+    await commit(conn); committed = true;
+    return result;
+  } catch (error) {
+    if (conn && !committed) {
+      await rollback(conn);
+    }
     logger.error('error getting while check utr', error);
     throw error;
+  } finally {
+    if (conn) {
+      conn.release();
+    }
   }
 };
 
@@ -98,6 +125,7 @@ const deleteCheckUtrService = async (id) => {
 export {
   getCheckUtrService,
   getCheckUtrBySearchService,
+  _createCheckUtrServiceInternal,
   createCheckUtrService,
   updateCheckUtrService,
   deleteCheckUtrService,
