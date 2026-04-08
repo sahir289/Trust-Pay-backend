@@ -1,31 +1,34 @@
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
-import CloudWatchTransport from 'winston-cloudwatch';
 import {
   CloudWatchLogsClient,
   CreateLogGroupCommand,
   CreateLogStreamCommand,
+  PutLogEventsCommand,
 } from '@aws-sdk/client-cloudwatch-logs';
-import {
-  formatLocalTimestamp,
-  getDateStamp,
-  getDailyLogFilePath,
-  safeJsonParse,
-} from './logShared.js';
+import { formatLocalTimestamp, getDateStamp, safeJsonParse } from './logShared.js';
 import config from '../config/config.js';
 
 const LOG_DIR = process.env.LOG_DIR || 'logs';
 const STATE_FILE = process.env.CW_STATE_FILE || path.join(LOG_DIR, '.cw-forwarder-state.json');
 const POLL_INTERVAL_MS = Number.parseInt(process.env.CW_POLL_INTERVAL_MS || '1000', 10);
-const LOG_LEVEL = process.env.CW_LOG_LEVEL || 'info';
-const STREAM_PREFIX = process.env.CW_STREAM_PREFIX || '';
+const LOG_LEVEL = String(process.env.CW_LOG_LEVEL || 'info').toLowerCase();
+const STREAM_NAME =
+  process.env.CW_LOG_STREAM_NAME || process.env.CW_STREAM_PREFIX || 'trust-pay-api-logs';
 const START_POSITION = String(process.env.CW_START_POSITION || 'beginning').toLowerCase();
-// Dead-letter queue: lines that failed transport delivery are stored here for auto-replay.
 const DLQ_PREFIX = process.env.CW_DLQ_PREFIX || 'cw-dlq';
 const ERROR_THROTTLE_MS = Number.parseInt(process.env.CW_ERROR_THROTTLE_MS || '15000', 10);
-// How often to attempt replaying any accumulated DLQ files (default every 60 s).
 const DLQ_REPLAY_INTERVAL_MS = Number.parseInt(process.env.CW_DLQ_REPLAY_INTERVAL_MS || '60000', 10);
+const DISCOVERY_INTERVAL_MS = Number.parseInt(process.env.CW_DISCOVERY_INTERVAL_MS || '10000', 10);
+const MAX_FILES_PER_TICK = Number.parseInt(process.env.CW_MAX_FILES_PER_TICK || '3', 10);
+const MAX_BYTES_PER_TICK = Number.parseInt(process.env.CW_MAX_BYTES_PER_TICK || `${2 * 1024 * 1024}`, 10);
+const PUT_RETRY_ATTEMPTS = Number.parseInt(process.env.CW_PUT_RETRY_ATTEMPTS || '5', 10);
+const PUT_RETRY_BASE_MS = Number.parseInt(process.env.CW_PUT_RETRY_BASE_MS || '1000', 10);
+const MAX_EVENT_MSG_SIZE_BYTES = 256000;
+const MAX_BATCH_SIZE_BYTES = 1000000;
+const BASE_EVENT_SIZE_BYTES = 26;
+const LOG_FILE_PATTERN = /^\d{4}-\d{2}-\d{2}\.log$/u;
 
 const awsRegion = config.aws.region;
 const awsAccessKeyId = config.aws.accessKeyId;
@@ -47,9 +50,6 @@ if (!awsRegion || !awsAccessKeyId || !awsSecretAccessKey || !logGroupName) {
   process.exit(1);
 }
 
-const getCurrentFilePath = (date = new Date()) => getDailyLogFilePath(LOG_DIR, date);
-const getCurrentStreamName = (date = new Date()) => `${STREAM_PREFIX}${getDateStamp(date)}`;
-
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
 const isAlreadyExistsError = (error) => {
@@ -62,93 +62,166 @@ const isAlreadyExistsError = (error) => {
   );
 };
 
-const ensureCloudWatchStream = async (streamName, reportError) => {
-  try {
-    await cloudWatchLogsClient.send(new CreateLogGroupCommand({ logGroupName }));
-  } catch (error) {
-    if (!isAlreadyExistsError(error)) {
-      reportError('CreateLogGroup', error);
-    }
-  }
+const isRetryablePutError = (error) => {
+  const name = error?.name || '';
+  const message = String(error?.message || '').toLowerCase();
+  const code = String(error?.code || '').toLowerCase();
 
-  try {
-    await cloudWatchLogsClient.send(
-      new CreateLogStreamCommand({
-        logGroupName,
-        logStreamName: streamName,
-      }),
-    );
-  } catch (error) {
-    if (!isAlreadyExistsError(error)) {
-      reportError(`CreateLogStream [${streamName}]`, error);
-    }
-  }
+  return (
+    error?.$retryable != null ||
+    [
+      'ServiceUnavailableException',
+      'OperationAbortedException',
+      'ThrottlingException',
+      'LimitExceededException',
+      'InternalFailure',
+      'InternalServerException',
+      'TimeoutError',
+      'NetworkingError',
+      'InvalidSequenceTokenException',
+      'DataAlreadyAcceptedException',
+    ].includes(name) ||
+    ['etimedout', 'econnreset', 'enotfound', 'eai_again'].includes(code) ||
+    message.includes('timeout') ||
+    message.includes('socket hang up') ||
+    message.includes('throttle') ||
+    message.includes('rate exceeded') ||
+    message.includes('network')
+  );
 };
 
-/**
- * Build a winston-cloudwatch transport for a given stream name.
- * Callers that create a temporary transport for DLQ replay must call closeTransport() on it.
- */
-const buildTransport = (streamName, errorHandler) =>
-  new CloudWatchTransport({
-    logGroupName,
-    logStreamName: streamName,
-    awsRegion,
-    awsAccessKeyId,
-    awsSecretAccessKey,
-    jsonMessage: true,
-    createLogGroup: true,
-    createLogStream: true,
-    uploadRate: 2000,
-    level: LOG_LEVEL,
-    retentionInDays: 30,
-    errorHandler,
-  });
+const isResourceMissingError = (error) => {
+  const name = error?.name || '';
+  return name === 'ResourceNotFoundException' || name === 'ResourceNotFound';
+};
 
-/** Gracefully drain all in-flight logs and close transport. */
-const closeTransport = (transport) =>
-  new Promise((resolve) => {
-    if (!transport) {
-      resolve();
-      return;
-    }
-    transport.kthxbye?.(() => resolve());
-    setTimeout(resolve, 8000);
-  });
+const normalizeTimestamp = (value, fallback = Date.now()) => {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value < 1_000_000_000_000 ? value * 1000 : value;
+  }
 
-/**
- * Build the uniform info object that winston-cloudwatch expects.
- * Always preserves the original timestamp so CloudWatch date stream is accurate.
- */
-const buildInfo = (rawLine) => {
+  if (typeof value === 'string' && value.trim()) {
+    const normalized = value.includes('T') ? value : value.replace(' ', 'T');
+    const parsed = Date.parse(normalized);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+
+  return fallback;
+};
+
+const truncateUtf8 = (value, maxBytes) => {
+  const buffer = Buffer.from(value, 'utf8');
+  if (buffer.length <= maxBytes) return value;
+
+  let truncated = buffer.subarray(0, maxBytes).toString('utf8');
+  while (Buffer.byteLength(truncated, 'utf8') > maxBytes && truncated.length > 0) {
+    truncated = truncated.slice(0, -1);
+  }
+  return truncated;
+};
+
+const normalizeLogMessage = (rawLine) => {
+  const line = String(rawLine);
+  const bytes = Buffer.byteLength(line, 'utf8');
+  if (bytes <= MAX_EVENT_MSG_SIZE_BYTES) return line;
+
+  const suffix = ' ... [truncated for CloudWatch size limit]';
+  const truncated = truncateUtf8(line, MAX_EVENT_MSG_SIZE_BYTES - Buffer.byteLength(suffix, 'utf8'));
+  return `${truncated}${suffix}`;
+};
+
+const buildLogEvent = (rawLine, fallbackTimeMs = Date.now()) => {
   const parsed = safeJsonParse(rawLine);
-  if (parsed && typeof parsed === 'object') {
-    return {
-      level: parsed.level || 'info',
-      message: parsed.msg || 'log',
-      timestamp: parsed.time || parsed.timestamp || formatLocalTimestamp(),
-      metadata: parsed,
-    };
-  }
-  return { level: 'info', message: rawLine, timestamp: formatLocalTimestamp() };
+  const timestamp = normalizeTimestamp(parsed?.time || parsed?.timestamp, fallbackTimeMs);
+  return {
+    message: normalizeLogMessage(rawLine),
+    timestamp,
+  };
 };
 
-class CloudWatchDailyForwarder {
-  #transport = null;
-  #activeDate = null;
-  #lastPrecreatedDate = null;
-  #offset = 0;
-  #partialLine = '';
+const buildBatches = (events) => {
+  const batches = [];
+  let currentBatch = [];
+  let currentBytes = 0;
+
+  for (const event of events) {
+    const eventBytes = Buffer.byteLength(event.message, 'utf8') + BASE_EVENT_SIZE_BYTES;
+    if (currentBatch.length > 0 && currentBytes + eventBytes > MAX_BATCH_SIZE_BYTES) {
+      batches.push(currentBatch);
+      currentBatch = [];
+      currentBytes = 0;
+    }
+
+    currentBatch.push(event);
+    currentBytes += eventBytes;
+  }
+
+  if (currentBatch.length > 0) {
+    batches.push(currentBatch);
+  }
+
+  return batches;
+};
+
+const readBufferRange = async (filePath, start, end) => {
+  const chunks = [];
+  const stream = fs.createReadStream(filePath, { start, end });
+
+  for await (const chunk of stream) {
+    chunks.push(chunk);
+  }
+
+  return chunks.length === 1 ? chunks[0] : Buffer.concat(chunks);
+};
+
+const getDlqPath = (date = new Date()) => path.join(LOG_DIR, `${DLQ_PREFIX}-${getDateStamp(date)}.log`);
+const getCurrentLogFileName = (date = new Date()) => `${getDateStamp(date)}.log`;
+
+const normalizeState = (state) => {
+  const normalized = { version: 2, files: {} };
+  if (!state || typeof state !== 'object') return normalized;
+
+  if (state.files && typeof state.files === 'object') {
+    for (const [fileName, fileState] of Object.entries(state.files)) {
+      const offset = fileState?.offset;
+      if (LOG_FILE_PATTERN.test(fileName) && Number.isFinite(offset) && offset >= 0) {
+        normalized.files[fileName] = {
+          offset,
+          updatedAt: fileState?.updatedAt || formatLocalTimestamp(),
+        };
+      }
+    }
+    return normalized;
+  }
+
+  for (const [key, value] of Object.entries(state)) {
+    if (!/^\d{4}-\d{2}-\d{2}$/u.test(key)) continue;
+    const offset = value?.offset;
+    if (Number.isFinite(offset) && offset >= 0) {
+      normalized.files[`${key}.log`] = {
+        offset,
+        updatedAt: value?.updatedAt || formatLocalTimestamp(),
+      };
+    }
+  }
+
+  return normalized;
+};
+
+class CloudWatchStreamForwarder {
   #running = false;
-  #state = {};
+  #state = { version: 2, files: {} };
   #lastErrorSignature = '';
   #lastErrorAt = 0;
+  #ensureStreamPromise = null;
+  #knownFiles = [];
+  #nextDiscoveryAt = 0;
 
   async init() {
     await fsp.mkdir(LOG_DIR, { recursive: true });
     await this.#loadState();
-    await this.#rolloverIfNeeded();
-    // Replay any DLQ files left over from previous crashes / CW outages.
+    await this.#ensureCloudWatchDestination();
+    process.stdout.write(`[CW Forwarder] Active stream: ${STREAM_NAME}\n`);
     await this.#replayDLQ().catch((err) =>
       process.stderr.write(
         `[CW Forwarder] DLQ startup replay failed: ${err?.message || 'unknown'}\n`,
@@ -158,9 +231,13 @@ class CloudWatchDailyForwarder {
 
   async #loadState() {
     const text = await fsp.readFile(STATE_FILE, 'utf8').catch(() => null);
-    if (!text) return;
+    if (!text) {
+      this.#state = { version: 2, files: {} };
+      return;
+    }
+
     const parsed = safeJsonParse(text);
-    if (parsed && typeof parsed === 'object') this.#state = parsed;
+    this.#state = normalizeState(parsed);
   }
 
   async #saveState() {
@@ -178,241 +255,260 @@ class CloudWatchDailyForwarder {
     }
   }
 
-  /**
-   * Append a raw log line that failed CloudWatch delivery into the dead-letter queue file for
-   * its original date. The `date` field ensures replay targets the correct CW stream.
-   */
-  async #writeDLQ(rawLine, reason, dateStr) {
-    const dlqPath = path.join(LOG_DIR, `${DLQ_PREFIX}-${dateStr}.log`);
-    const entry = JSON.stringify({
-      timestamp: formatLocalTimestamp(),
-      reason,
-      date: dateStr,
-      logLine: rawLine,
-    });
-    await fsp.appendFile(dlqPath, `${entry}\n`, 'utf8').catch(() => {});
-  }
-
-  async #rolloverIfNeeded(now = new Date()) {
-    const dateStr = getDateStamp(now);
-    if (this.#activeDate === dateStr && this.#transport) return;
-
-    await closeTransport(this.#transport);
-    this.#transport = null;
-    this.#activeDate = dateStr;
-    this.#transport = buildTransport(
-      `${STREAM_PREFIX}${dateStr}`,
-      (error) => this.#reportError(`Transport [${STREAM_PREFIX}${dateStr}]`, error),
-    );
-    await ensureCloudWatchStream(`${STREAM_PREFIX}${dateStr}`, (context, error) =>
-      this.#reportError(context, error),
-    );
-
-    const stateOffset = this.#state?.[dateStr]?.offset;
-    if (Number.isFinite(stateOffset) && stateOffset >= 0) {
-      this.#offset = stateOffset;
-    } else {
-      const filePath = getCurrentFilePath(now);
-      const stats = await fsp.stat(filePath).catch(() => null);
-      this.#offset = START_POSITION === 'end' ? stats?.size || 0 : 0;
+  async #ensureCloudWatchDestination() {
+    if (this.#ensureStreamPromise) {
+      await this.#ensureStreamPromise;
+      return;
     }
 
-    this.#partialLine = '';
-    process.stdout.write(`[CW Forwarder] Active stream: ${getCurrentStreamName(now)}\n`);
-  }
-
-  async #precreateNextDateStreamIfNeeded(now = new Date()) {
-    if (now.getHours() !== 23 || now.getMinutes() !== 59) return;
-
-    const tomorrow = new Date(now);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const tomorrowDate = getDateStamp(tomorrow);
-
-    if (this.#lastPrecreatedDate === tomorrowDate) return;
-
-    await ensureCloudWatchStream(`${STREAM_PREFIX}${tomorrowDate}`, (context, error) =>
-      this.#reportError(context, error),
-    );
-    this.#lastPrecreatedDate = tomorrowDate;
-    process.stdout.write(`[CW Forwarder] Pre-created upcoming stream: ${STREAM_PREFIX}${tomorrowDate}\n`);
-  }
-
-  /**
-   * Emit a single raw log line to the given transport and await its callback.
-   * Returns true on success, false on transport callback error (also writes DLQ).
-   * This is async so callers can use Promise.all() for parallel batch emit.
-   */
-  async #emitLine(rawLine, dateStr, transport = this.#transport) {
-    if (!rawLine || !transport) return true;
-
-    return new Promise((resolve) => {
-      transport.log(buildInfo(rawLine), (error) => {
-        if (error) {
-          this.#reportError('emit error', error);
-          this.#writeDLQ(rawLine, 'emit-error', dateStr).catch(() => {});
-          resolve(false);
-        } else {
-          resolve(true);
+    this.#ensureStreamPromise = (async () => {
+      try {
+        try {
+          await cloudWatchLogsClient.send(new CreateLogGroupCommand({ logGroupName }));
+        } catch (error) {
+          if (!isAlreadyExistsError(error)) throw error;
         }
-      });
+
+        try {
+          await cloudWatchLogsClient.send(
+            new CreateLogStreamCommand({
+              logGroupName,
+              logStreamName: STREAM_NAME,
+            }),
+          );
+        } catch (error) {
+          if (!isAlreadyExistsError(error)) throw error;
+        }
+      } finally {
+        this.#ensureStreamPromise = null;
+      }
+    })();
+
+    await this.#ensureStreamPromise;
+  }
+
+  async #putEventsBatch(events, attempt = 1) {
+    try {
+      const response = await cloudWatchLogsClient.send(
+        new PutLogEventsCommand({
+          logGroupName,
+          logStreamName: STREAM_NAME,
+          logEvents: events,
+        }),
+      );
+
+      const rejected = response?.rejectedLogEventsInfo;
+      if (rejected && Object.values(rejected).some((value) => value != null)) {
+        throw new Error(`CloudWatch rejected some log events: ${JSON.stringify(rejected)}`);
+      }
+
+      return;
+    } catch (error) {
+      if (isResourceMissingError(error)) {
+        await this.#ensureCloudWatchDestination();
+      }
+
+      if (attempt < PUT_RETRY_ATTEMPTS && (isRetryablePutError(error) || isResourceMissingError(error))) {
+        await sleep(PUT_RETRY_BASE_MS * 2 ** (attempt - 1));
+        return this.#putEventsBatch(events, attempt + 1);
+      }
+
+      throw error;
+    }
+  }
+
+  async #writeDLQBatch(rawLines, reason, meta = {}) {
+    if (!Array.isArray(rawLines) || rawLines.length === 0) return true;
+
+    const entries = rawLines
+      .map((logLine) =>
+        JSON.stringify({
+          timestamp: formatLocalTimestamp(),
+          reason,
+          streamName: STREAM_NAME,
+          ...meta,
+          logLine,
+        }),
+      )
+      .join('\n');
+
+    try {
+      await fsp.appendFile(getDlqPath(), `${entries}\n`, 'utf8');
+      return true;
+    } catch (error) {
+      this.#reportError('DLQ append failed', error);
+      return false;
+    }
+  }
+
+  async #sendLines(rawLines, sourceFile, options = {}) {
+    const { writeToDlq = true } = options;
+    const lines = Array.isArray(rawLines) ? rawLines.filter(Boolean) : [];
+    if (lines.length === 0) return true;
+
+    const events = lines
+      .map((line, index) => buildLogEvent(line, Date.now() + index))
+      .sort((left, right) => left.timestamp - right.timestamp);
+
+    try {
+      await this.#ensureCloudWatchDestination();
+      const batches = buildBatches(events);
+      for (const batch of batches) {
+        await this.#putEventsBatch(batch);
+      }
+      return true;
+    } catch (error) {
+      this.#reportError(`PutLogEvents [${sourceFile}]`, error);
+      const persistedToDlq =
+        !writeToDlq ||
+        (await this.#writeDLQBatch(lines, 'put-log-events-failed', {
+          sourceFile,
+          error: error?.message || 'unknown',
+        }));
+
+      if (!persistedToDlq) {
+        throw error;
+      }
+
+      return false;
+    }
+  }
+
+  async #listLogFiles() {
+    const now = Date.now();
+    if (now >= this.#nextDiscoveryAt || this.#knownFiles.length === 0) {
+      const files = await fsp.readdir(LOG_DIR).catch(() => []);
+      this.#knownFiles = files.filter((fileName) => LOG_FILE_PATTERN.test(fileName)).sort();
+      this.#nextDiscoveryAt = now + DISCOVERY_INTERVAL_MS;
+    }
+
+    const currentFile = getCurrentLogFileName();
+    return [...this.#knownFiles].sort((left, right) => {
+      if (left === currentFile && right !== currentFile) return -1;
+      if (right === currentFile && left !== currentFile) return 1;
+      return left.localeCompare(right);
     });
   }
 
-  async #processDelta(now = new Date()) {
-    await this.#rolloverIfNeeded(now);
+  #getSavedOffset(fileName, currentSize) {
+    const offset = this.#state?.files?.[fileName]?.offset;
+    if (Number.isFinite(offset) && offset >= 0) return offset;
+    return START_POSITION === 'end' ? currentSize : 0;
+  }
 
-    const filePath = getCurrentFilePath(now);
+  async #processFile(fileName) {
+    const filePath = path.join(LOG_DIR, fileName);
     const stats = await fsp.stat(filePath).catch(() => null);
-    if (!stats?.isFile()) return;
+    if (!stats?.isFile()) return 0;
 
-    // Reset if file was truncated (e.g., unexpected rotation).
-    if (stats.size < this.#offset) {
-      this.#offset = 0;
-      this.#partialLine = '';
+    let offset = this.#getSavedOffset(fileName, stats.size);
+    if (stats.size < offset) {
+      offset = 0;
     }
 
-    if (stats.size === this.#offset) return;
+    if (stats.size <= offset) return 0;
 
-    const readStream = fs.createReadStream(filePath, {
-      encoding: 'utf8',
-      start: this.#offset,
-      end: stats.size - 1,
-    });
+    const deltaBuffer = await readBufferRange(filePath, offset, stats.size - 1);
+    if (!deltaBuffer?.length) return 0;
 
-    let chunkText = '';
-    for await (const chunk of readStream) chunkText += chunk;
+    const lastNewlineIndex = deltaBuffer.lastIndexOf(0x0a);
+    if (lastNewlineIndex === -1) return 0;
 
-    // targetOffset is where we WANT to advance to — but we only commit it AFTER
-    // every transport.log() callback fires. This is the core correctness guarantee:
-    // if the process crashes mid-batch, the next restart re-reads from the last
-    // committed offset (at-least-once delivery, no permanent skips).
-    const targetOffset = stats.size;
-    const merged = this.#partialLine + chunkText;
-    const lines = merged.split('\n');
-    this.#partialLine = lines.pop() || '';
-
-    const today = getDateStamp(now);
-    const trimmedLines = lines.map((l) => l.trim()).filter(Boolean);
-
-    if (trimmedLines.length > 0) {
-      // Emit all lines in parallel; await ALL callbacks before touching offset.
-      await Promise.all(trimmedLines.map((line) => this.#emitLine(line, today)));
-    }
-
-    // Only here — after every callback fired (success or DLQ) — do we advance the cursor.
-    this.#offset = targetOffset;
-    this.#state[this.#activeDate] = { offset: this.#offset, updatedAt: formatLocalTimestamp() };
-    await this.#saveState();
-  }
-
-  /** Parse a DLQ file into valid entries, grouped by original log date. */
-  async #parseDLQFile(filePath) {
-    const content = await fsp.readFile(filePath, 'utf8').catch(() => null);
-    if (!content?.trim()) return null;
-
-    const entries = content
+    const completeBuffer = deltaBuffer.subarray(0, lastNewlineIndex + 1);
+    const targetOffset = offset + completeBuffer.length;
+    const lines = completeBuffer
+      .toString('utf8')
       .split('\n')
-      .map((l) => l.trim())
-      .filter(Boolean)
-      .map((l) => safeJsonParse(l))
-      .filter((e) => e?.logLine);
+      .map((line) => (line.endsWith('\r') ? line.slice(0, -1) : line))
+      .filter((line) => line.length > 0);
 
-    if (entries.length === 0) return null;
-
-    const byDate = new Map();
-    for (const entry of entries) {
-      const d = entry.date || this.#activeDate;
-      if (!byDate.has(d)) byDate.set(d, []);
-      byDate.get(d).push(entry.logLine);
+    if (lines.length === 0) {
+      this.#state.files[fileName] = { offset: targetOffset, updatedAt: formatLocalTimestamp() };
+      await this.#saveState();
+      return completeBuffer.length;
     }
-    return byDate;
+
+    await this.#sendLines(lines, fileName);
+    this.#state.files[fileName] = { offset: targetOffset, updatedAt: formatLocalTimestamp() };
+    await this.#saveState();
+    return completeBuffer.length;
   }
 
-  /** Emit all lines for a single date to the correct CW stream, return true if all succeeded. */
-  async #replayDateBatch(dateStr, logLines) {
-    const isToday = dateStr === this.#activeDate;
-    const transport = isToday
-      ? this.#transport
-      : buildTransport(
-          `${STREAM_PREFIX}${dateStr}`,
-          (error) => this.#reportError(`DLQ replay transport [${dateStr}]`, error),
-        );
-
-    const results = await Promise.all(
-      logLines.map(
-        (line) =>
-          new Promise((resolve) => {
-            transport.log(buildInfo(line), (err) => {
-              if (err) this.#reportError(`DLQ replay emit [${dateStr}]`, err);
-              resolve(!err);
-            });
-          }),
-      ),
-    );
-
-    if (!isToday) await closeTransport(transport);
-    return results.every(Boolean);
-  }
-
-  /**
-   * Scan for DLQ files, re-emit their lines to the correct date-specific CloudWatch stream,
-   * and delete the file once all lines are confirmed. Called on startup and periodically.
-   *
-   * Each DLQ entry carries the original `date` field so logs are always routed to the
-   * correct stream (e.g. yesterday's failures go to yesterday's CW stream, not today's).
-   */
   async #replayDLQ() {
     const files = await fsp.readdir(LOG_DIR).catch(() => []);
     const dlqFiles = files
-      .filter((f) => f.startsWith(`${DLQ_PREFIX}-`) && f.endsWith('.log'))
-      .sort(); // oldest first
+      .filter((fileName) => fileName.startsWith(`${DLQ_PREFIX}-`) && fileName.endsWith('.log'))
+      .sort();
 
     if (dlqFiles.length === 0) return;
     process.stdout.write(`[CW Forwarder] Replaying ${dlqFiles.length} DLQ file(s)...\n`);
 
-    for (const filename of dlqFiles) {
-      const filePath = path.join(LOG_DIR, filename);
-      const byDate = await this.#parseDLQFile(filePath);
-
-      if (!byDate) {
+    for (const fileName of dlqFiles) {
+      const filePath = path.join(LOG_DIR, fileName);
+      const content = await fsp.readFile(filePath, 'utf8').catch(() => null);
+      if (!content?.trim()) {
         await fsp.unlink(filePath).catch(() => {});
         continue;
       }
 
-      let allSucceeded = true;
-      for (const [dateStr, logLines] of byDate) {
-        const ok = await this.#replayDateBatch(dateStr, logLines);
-        if (!ok) allSucceeded = false;
+      const entries = content
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line) => safeJsonParse(line))
+        .filter((entry) => entry?.logLine);
+
+      if (entries.length === 0) {
+        await fsp.unlink(filePath).catch(() => {});
+        continue;
       }
 
-      if (allSucceeded) {
-        await fsp.unlink(filePath).catch(() => {});
-        process.stdout.write(`[CW Forwarder] DLQ replayed and removed: ${filename}\n`);
+      const logLines = entries.map((entry) => entry.logLine);
+
+      try {
+        const delivered = await this.#sendLines(logLines, `DLQ:${fileName}`, { writeToDlq: false });
+        if (delivered) {
+          await fsp.unlink(filePath).catch(() => {});
+          process.stdout.write(`[CW Forwarder] DLQ replayed and removed: ${fileName}\n`);
+        }
+      } catch (error) {
+        this.#reportError(`DLQ replay [${fileName}]`, error);
       }
     }
   }
 
   async start() {
     this.#running = true;
-    process.stdout.write('[CW Forwarder] Starting...\n');
+    process.stdout.write(`[CW Forwarder] Starting at level ${LOG_LEVEL}\n`);
 
     let nextDLQReplay = Date.now() + DLQ_REPLAY_INTERVAL_MS;
 
     while (this.#running) {
-      const now = new Date();
       try {
-        await this.#processDelta(now);
-        await this.#precreateNextDateStreamIfNeeded(now);
+        const files = await this.#listLogFiles();
+        let processedFiles = 0;
+        let processedBytes = 0;
+
+        for (const fileName of files) {
+          if (processedFiles >= MAX_FILES_PER_TICK || processedBytes >= MAX_BYTES_PER_TICK) {
+            break;
+          }
+
+          const bytesRead = await this.#processFile(fileName);
+          if (bytesRead > 0) {
+            processedFiles += 1;
+            processedBytes += bytesRead;
+          }
+        }
       } catch (error) {
         process.stderr.write(`[CW Forwarder] Loop error: ${error?.message || 'unknown'}\n`);
       }
 
-      // Periodic DLQ replay — non-blocking, errors are logged but don't stop the loop.
       if (Date.now() >= nextDLQReplay) {
         nextDLQReplay = Date.now() + DLQ_REPLAY_INTERVAL_MS;
-        this.#replayDLQ().catch((err) =>
+        this.#replayDLQ().catch((error) =>
           process.stderr.write(
-            `[CW Forwarder] Periodic DLQ replay error: ${err?.message || 'unknown'}\n`,
+            `[CW Forwarder] Periodic DLQ replay error: ${error?.message || 'unknown'}\n`,
           ),
         );
       }
@@ -424,14 +520,11 @@ class CloudWatchDailyForwarder {
   async stop() {
     this.#running = false;
     await this.#saveState();
-    // kthxbye drains all in-flight logs to CloudWatch before the transport closes.
-    await closeTransport(this.#transport);
-    this.#transport = null;
     process.stdout.write('[CW Forwarder] Stopped\n');
   }
 }
 
-const forwarder = new CloudWatchDailyForwarder();
+const forwarder = new CloudWatchStreamForwarder();
 await forwarder.init();
 
 let shuttingDown = false;
