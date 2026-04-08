@@ -78,14 +78,13 @@ const validateClientMessagePayload = (payload) => {
 
 const bindSocketToUser = (socket, userId, sessionId, color = 'green') => {
   const loginTime = Date.now();
-
-  const palette = {
-    blue: chalk.bgBlue.white,
-    cyan: chalk.bgCyan.white,
-    green: chalk.bgGreen.white,
-    magenta: chalk.bgMagenta.white,
-  };
-  console.log(palette, "palettee", color, palette[color] || chalk.bgGreen.white);   
+  console.log(color, "console color");
+  // const palette = {
+  //   blue: chalk.bgBlue.white,
+  //   cyan: chalk.bgCyan.white,
+  //   green: chalk.bgGreen.white,
+  //   magenta: chalk.bgMagenta.white,
+  // }; 
 
   logger.info(
     // (palette[color] || palette.green)(
