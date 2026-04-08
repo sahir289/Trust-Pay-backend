@@ -17,7 +17,6 @@ import {
   getAllPayoutsDao,
   getPayoutByMerchantOrderIdDao,
   getPayoutByUtrIdDao,
-  getPayoutByIdDao,
 } from './payOutDao.js';
 import {
   getMerchantsDao,
@@ -858,9 +857,11 @@ const _updatePayoutServiceInternal = async (
       throw new NotFoundError('Payout not found!');
     }
 
+    const previousStatus = singleWithdrawData.status;
+
     // Status validation logic - consolidated
-    if (payload.status && singleWithdrawData.status !== payload.status) {
-      const currentStatus = singleWithdrawData.status;
+    if (payload.status) {
+      const currentStatus = previousStatus;
       const newStatus = payload.status;
 
       const invalidTransitions = [
@@ -878,10 +879,15 @@ const _updatePayoutServiceInternal = async (
         );
       }
 
-      if (currentStatus === newStatus) {
-        throw new BadRequestError(
-          'Payout status cannot be updated to the same value',
-        );
+      const isDuplicateTerminalUpdate =
+        currentStatus === newStatus &&
+        [Status.APPROVED, Status.REJECTED].includes(currentStatus) &&
+        !payload.utr_id &&
+        !payload.config &&
+        !payload.bank_acc_id;
+
+      if (isDuplicateTerminalUpdate) {
+        throw new BadRequestError(`Payout is already ${currentStatus}`);
       }
     }
 
@@ -1149,6 +1155,17 @@ const _updatePayoutServiceInternal = async (
       earlyReturnResult = data;
     }
 
+    const transitionedToApproved =
+      !isOnlyUtrUpdate &&
+      previousStatus !== Status.APPROVED &&
+      data.status === Status.APPROVED;
+
+    const transitionedToReversed =
+      !isOnlyUtrUpdate &&
+      previousStatus === Status.APPROVED &&
+      data.status === Status.REVERSED &&
+      data.approved_at !== null;
+
     const notifyUrl = data.config?.urls?.notify || merchant?.payout_notify;
 
     // Early return if not approved
@@ -1204,22 +1221,6 @@ const _updatePayoutServiceInternal = async (
       vendor.payout_commission,
     );
 
-    const payoutExists = await getPayoutByIdDao(ids.id, ids.company_id, conn);
-
-    // Only block update if status is the same AND it's a terminal status without additional updates
-    // Allow updates for: status changes, UTR updates, config updates, etc.
-    if (
-      payoutExists &&
-      payoutExists?.status === data?.status &&
-      (payoutExists.status === Status.APPROVED ||
-        payoutExists.status === Status.REJECTED) &&
-      !data.utr_id && // No new UTR being added
-      !data.config && // No config updates
-      !data.bank_acc_id // No bank account updates
-    ) {
-      throw new BadRequestError(`Payout is already ${payoutExists.status}`);
-    }
-
     // Handle sub-vendor and parent commission logic
     // let totalVendorCommission = vendorCommission;
     // let brokerageCommission = 0;
@@ -1230,8 +1231,8 @@ const _updatePayoutServiceInternal = async (
       subVendorParentInfo = await getSubVendorParentInfo(vendor, conn);
     }
 
-    // Handle status-specific updates
-    if (!isOnlyUtrUpdate && data.status === Status.APPROVED) {
+    // Handle status-specific updates only on real status transitions
+    if (transitionedToApproved) {
       // Prepare calculation updates including parent vendor if needed
       const calculationUpdates = [
         updateCalculationTable(
@@ -1289,11 +1290,7 @@ const _updatePayoutServiceInternal = async (
           conn,
         ),
       ]);
-    } else if (
-      !isOnlyUtrUpdate &&
-      data.status === Status.REVERSED &&
-      data.approved_at !== null
-    ) {
+    } else if (transitionedToReversed) {
       // Prepare calculation updates including parent vendor if needed
       const calculationUpdates = [
         updateCalculationTable(
