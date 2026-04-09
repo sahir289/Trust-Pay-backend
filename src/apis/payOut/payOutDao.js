@@ -605,47 +605,6 @@ export const getPayoutsBySearchDao = async (
 ) => {
   try {
     const conditions = [`p.is_obsolete = false`, `p.company_id = $1`];
-    // if (filters.search) {
-    //   const filterPayoutByRole = (payout, role) => {
-    //     let allowedKeys;
-    //     switch (role) {
-    //       case Role.VENDOR:
-    //         allowedKeys = PayoutResponses.VENDOR;
-    //         break;
-    //       case Role.MERCHANT:
-    //         allowedKeys = PayoutResponses.MERCHANT;
-    //         break;
-    //       case Role.ADMIN:
-    //       default:
-    //         allowedKeys = PayoutResponses.ADMIN;
-    //         break;
-    //     }
-    //     return Object.fromEntries(
-    //       Object.entries(payout).filter(([key]) => allowedKeys.includes(key)),
-    //     );
-    //   };
-    //   delete filters.page;
-    //   delete filters.limit;
-
-    //   const { results, totalCount, totalPages } = await getPayoutByESSearch(
-    //     filters.search,
-    //     filters,
-    //     offset,
-    //     limitNum,
-    //   );
-
-    //   const filteredPayouts = results.map((payout) =>
-    //     filterPayoutByRole(payout, role),
-    //   );
-
-    //   const data = {
-    //     totalCount,
-    //     totalPages,
-    //     payout: filteredPayouts, 
-    //   };
-
-    //   return data;
-    // }
     
     // Parameters for main query
     const queryParams = [filters.company_id];
@@ -700,8 +659,6 @@ export const getPayoutsBySearchDao = async (
     } else if (role === 'VENDOR') {
       commissionSelect = `
         p.payout_vendor_commission, 
-        COALESCE((p.config->>'actual_vendor_commission')::numeric, 0) AS actual_vendor_commission,
-        COALESCE((p.config->>'brokerage_commission')::numeric, 0) AS brokerage_commission,
         v.code AS vendor_code,
         p.config->>'method' AS payout_method,
         b.nick_name
@@ -711,8 +668,6 @@ export const getPayoutsBySearchDao = async (
         p.merchant_id, 
         p.payout_merchant_commission, 
         p.payout_vendor_commission, 
-        COALESCE((p.config->>'actual_vendor_commission')::numeric, 0) AS actual_vendor_commission,
-        COALESCE((p.config->>'brokerage_commission')::numeric, 0) AS brokerage_commission,
         p.merchant_order_id,
         p.bank_acc_id,
         p.approved_at, 
@@ -750,8 +705,6 @@ export const getPayoutsBySearchDao = async (
         p.utr_id, 
         p.rejected_reason,
         ${commissionSelect},
-        COALESCE((p.config->>'actual_vendor_commission')::numeric, 0) AS actual_vendor_commission,
-        COALESCE((p.config->>'brokerage_commission')::numeric, 0) AS brokerage_commission,
         json_build_object(
           'account_holder_name', p.acc_holder_name,
           'account_no', p.acc_no,
@@ -818,37 +771,6 @@ export const getPayoutsBySearchDao = async (
       delete filters.txnid;
     }
     // Handle search terms
-    if (searchTerms.length > 0) {
-      searchTerms.forEach((term) => {
-        if (term.toLowerCase() !== 'true' && term.toLowerCase() !== 'false') {
-          conditions.push(`
-            (
-              LOWER(p.id::text) LIKE LOWER($${paramIndex})
-              OR LOWER(p.user) LIKE LOWER($${paramIndex})
-              OR LOWER(p.merchant_order_id) LIKE LOWER($${paramIndex})
-              OR LOWER(p.failed_reason) LIKE LOWER($${paramIndex})
-              OR LOWER(p.currency) LIKE LOWER($${paramIndex})
-              OR LOWER(p.upi_id) LIKE LOWER($${paramIndex})
-              OR LOWER(p.utr_id) LIKE LOWER($${paramIndex})
-              OR LOWER(p.status) LIKE LOWER($${paramIndex})
-              OR LOWER(p.rejected_reason) LIKE LOWER($${paramIndex})
-              OR LOWER(b.nick_name) LIKE LOWER($${paramIndex})
-              OR LOWER(m.code) LIKE LOWER($${paramIndex})
-              OR LOWER(v.code) LIKE LOWER($${paramIndex})
-              OR p.amount::text LIKE $${paramIndex}
-              OR LOWER(p.config->>'method') LIKE LOWER($${paramIndex})
-              OR LOWER(p.config->>'rejected_reason') LIKE LOWER($${paramIndex})
-              OR LOWER(p.acc_holder_name) LIKE LOWER($${paramIndex})
-              OR LOWER(p.acc_no) LIKE LOWER($${paramIndex})
-              OR LOWER(p.ifsc_code) LIKE LOWER($${paramIndex})
-              OR LOWER(p.bank_name) LIKE LOWER($${paramIndex})
-            )
-          `);
-          queryParams.push(`%${term}%`);
-          paramIndex++;
-        }
-      });
-    }
 
     // Handle updated_at filter
     if (filters.updated_at) {
@@ -985,40 +907,6 @@ export const getPayoutsBySearchDao = async (
           amountParamIndex += statusArray.length;
         }
       }
-
-      // Reapply search terms
-      if (searchTerms.length > 0) {
-        searchTerms.forEach((term) => {
-          if (term.toLowerCase() !== 'true' && term.toLowerCase() !== 'false') {
-            amountConditions.push(`
-              (
-                LOWER(p.id::text) LIKE LOWER($${amountParamIndex})
-                OR LOWER(p.user) LIKE LOWER($${amountParamIndex})
-                OR LOWER(p.merchant_order_id) LIKE LOWER($${amountParamIndex})
-                OR LOWER(p.failed_reason) LIKE LOWER($${amountParamIndex})
-                OR LOWER(p.currency) LIKE LOWER($${amountParamIndex})
-                OR LOWER(p.upi_id) LIKE LOWER($${amountParamIndex})
-                OR LOWER(p.utr_id) LIKE LOWER($${amountParamIndex})
-                OR LOWER(p.status) LIKE LOWER($${amountParamIndex})
-                OR LOWER(p.rejected_reason) LIKE LOWER($${amountParamIndex})
-                OR LOWER(b.nick_name) LIKE LOWER($${amountParamIndex})
-                OR LOWER(m.code) LIKE LOWER($${amountParamIndex})
-                OR LOWER(v.code) LIKE LOWER($${amountParamIndex})
-                OR p.amount::text LIKE $${amountParamIndex}
-                OR LOWER(p.config->>'method') LIKE LOWER($${amountParamIndex})
-                OR LOWER(p.config->>'rejected_reason') LIKE LOWER($${amountParamIndex})
-                OR LOWER(p.acc_holder_name) LIKE LOWER($${amountParamIndex})
-                OR LOWER(p.acc_no) LIKE LOWER($${amountParamIndex})
-                OR LOWER(p.ifsc_code) LIKE LOWER($${amountParamIndex})
-                OR LOWER(p.bank_name) LIKE LOWER($${amountParamIndex})
-              )
-            `);
-            amountParams.push(`%${term}%`);
-            amountParamIndex++;
-          }
-        });
-      }
-
       // Reapply other filters
       Object.entries(filters).forEach(([key, value]) => {
         if (handledKeys.has(key) || value == null || !validColumns.has(key)) {
@@ -1047,7 +935,6 @@ export const getPayoutsBySearchDao = async (
           amountParams.push(...valueArray);
         }
       });
-
       // Build amount query
       const amountQuery = `
         SELECT COALESCE(SUM(p.amount), 0) as total_amount
