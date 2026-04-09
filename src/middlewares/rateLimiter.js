@@ -1,10 +1,12 @@
 // middlewares/rateLimiter.js
 import { RateLimiterRedis, RateLimiterMemory } from 'rate-limiter-flexible';
+import { createHash } from 'node:crypto';
 import redisClient from '../utils/redisClient.js';
 import config from '../config/config.js';
 import { logger } from '../utils/logger.js';
 import { publishBankResponse } from '../rabbitmq/producer.js';
 import { Role } from '../constants/index.js';
+import { AUTH_HEADER_KEY } from '../utils/constants.js';
 
 const fallbackProfile = {
   points: 300,
@@ -47,8 +49,40 @@ const globalRateLimiters = {
   default: createLimiter('rl_global_default', config.rateLimiter),
 };
 
+const resolveClientIp = (req) => {
+  const xForwardedFor = req?.headers?.['x-forwarded-for'];
+  if (xForwardedFor) {
+    const forwarded = String(xForwardedFor).split(',')[0]?.trim();
+    if (forwarded) return forwarded;
+  }
+
+  return req?.ip || req?.connection?.remoteAddress || 'unknown';
+};
+
+const hashToken = (token) =>
+  createHash('sha256').update(String(token)).digest('hex').slice(0, 24);
+
+const getRateLimitKey = (req) => {
+  if (req.user?.user_id) {
+    return `user:${String(req.user.user_id)}`;
+  }
+
+  const xAuthToken = req.header(AUTH_HEADER_KEY);
+  if (xAuthToken) {
+    return `token:${hashToken(xAuthToken)}`;
+  }
+
+  const authHeader = req.header('authorization');
+  const bearerToken = authHeader?.match(/^Bearer\s+(.+)$/i)?.[1];
+  if (bearerToken) {
+    return `token:${hashToken(bearerToken)}`;
+  }
+
+  return `ip:${resolveClientIp(req)}`;
+};
+
 export const rateLimitMiddleware = async (req, res, next) => {
-  const key = req.user?.user_id ? String(req.user.user_id) : req.ip;
+  const key = getRateLimitKey(req);
 
   try {
     await rateLimiter.consume(key);
@@ -74,6 +108,7 @@ export const rateLimitMiddleware = async (req, res, next) => {
     await publishBankResponse(bankResponseObject);
 
     return res.status(429).json({
+      statusCode: 429,
       success: false,
       message: 'Too many requests. Please try again later.',
     });
@@ -81,7 +116,7 @@ export const rateLimitMiddleware = async (req, res, next) => {
 };
 
 export const rateLimitMiddlewareBot = async (req, res, next) => {
-  const key = req.user?.user_id ? String(req.user.user_id) : req.ip;
+  const key = getRateLimitKey(req);
   const x_auth_token = req.headers['x-auth-token'];
 
   try {
@@ -105,6 +140,7 @@ export const rateLimitMiddlewareBot = async (req, res, next) => {
     await publishBankResponse(bankResponseObject);
 
     return res.status(429).json({
+      statusCode: 429,
       success: false,
       message: 'Too many requests. Please try again later.',
     });
@@ -167,7 +203,7 @@ export const globalRateLimitMiddleware = async (req, res, next) => {
     return next();
   }
 
-  const key = req.user?.user_id ? String(req.user.user_id) : req.ip;
+  const key = getRateLimitKey(req);
   const profile = pickGlobalLimiterProfile(req);
   const limiter = globalRateLimiters[profile] || globalRateLimiters.default;
   const appliedProfile = limiterProfiles[profile] || config.rateLimiter;
@@ -209,6 +245,7 @@ export const globalRateLimitMiddleware = async (req, res, next) => {
     res.setHeader('Retry-After', String(retryAfterSeconds));
 
     return res.status(429).json({
+      statusCode: 429,
       success: false,
       message: 'Too many requests. Please try again later.',
     });
