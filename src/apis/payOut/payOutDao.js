@@ -907,7 +907,34 @@ export const getPayoutsBySearchDao = async (
           amountParamIndex += statusArray.length;
         }
       }
-
+      // Reapply other filters
+      Object.entries(filters).forEach(([key, value]) => {
+        if (handledKeys.has(key) || value == null || !validColumns.has(key)) {
+          return;
+        }
+        const nextParamIdx = amountParams.length + 1;
+        if (Array.isArray(value)) {
+          const placeholders = value
+            .map((_, idx) => `$${nextParamIdx + idx}`)
+            .join(', ');
+          amountConditions.push(`p.${key} IN (${placeholders})`);
+          amountParams.push(...value);
+        } else {
+          const isMultiValue = typeof value === 'string' && value.includes(',');
+          const valueArray = isMultiValue
+            ? value.split(',').map((v) => v.trim())
+            : [value];
+          const placeholders = valueArray
+            .map((_, idx) => `$${nextParamIdx + idx}`)
+            .join(', ');
+          amountConditions.push(
+            isMultiValue
+              ? `p.${key} IN (${placeholders})`
+              : `p.${key} = $${nextParamIdx}`,
+          );
+          amountParams.push(...valueArray);
+        }
+      });
       // Build amount query
       const amountQuery = `
         SELECT COALESCE(SUM(p.amount), 0) as total_amount
