@@ -997,6 +997,7 @@ const deleteBankaccountByUserIdDao = async (id, payload, conn = null) => {
        {}, 
        { returnUpdated: true }, 
        conn,
+       true, 
      );
     return result;
   } catch (error) {

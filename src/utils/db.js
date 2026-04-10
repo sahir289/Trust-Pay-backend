@@ -828,6 +828,7 @@ export const buildAndExecuteUpdateQuery = async (
   specialFields = {},
   options = { returnUpdated: true }, // Option to control RETURNING clause
   conn = null, // Optional database connection
+  isdelete
 ) => {
   try {
     const values = [];
@@ -900,9 +901,11 @@ export const buildAndExecuteUpdateQuery = async (
       logger.warn(
         'No rows updated. Please check the provided IDs and conditions.',
       );
-      throw new Error(
-        'No rows updated. Please check the provided IDs and conditions.',
-      );
+      if (!isdelete) {
+        throw new Error(
+          'No rows updated. Please check the provided IDs and conditions.',
+        );
+      }
     }
 
     return result.rows[0]; // Return the updated row
