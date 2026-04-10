@@ -5,6 +5,12 @@ import { getCompanyByIDDao } from '../apis/company/companyDao.js';
 import { payAssistErrorCodeMap, Status } from '../constants/index.js';
 import { BadRequestError } from '../utils/appErrors.js';
 
+const isPayDumDuplicateRetryResponse = (response = {}) =>
+  response?.ErrorCode === '11' ||
+  /same transaction not allowed in 5 minutes/i.test(
+    response?.ErrorMessage || '',
+  );
+
 /**
  * Initiate a single PayDum payout request (simplified like Clickrr)
  * @param {object} payload - Contains amount, user_bank_details, merchant_order_id, etc.
@@ -150,13 +156,27 @@ export const createPayDumPayout = async (
     }
 
     if (payload.txnStatus) {
-      checkPayDum = {...payload};
+      checkPayDum = { ...payload };
       delete payload.txnStatus;
     } else {
       checkPayDum = await initiatePayDumPayout(
         singleWithdrawData,
         ids.company_id,
       );
+    }
+
+    if (isPayDumDuplicateRetryResponse(checkPayDum)) {
+      logger.warn(
+        'PayDum duplicate transaction retry response received; skipping payout update',
+        {
+          merchant_order_id: singleWithdrawData?.merchant_order_id,
+          data: checkPayDum,
+        },
+      );
+      return {
+        ...payload,
+        skipPayoutUpdate: true,
+      };
     }
 
     payload.bank_acc_id = bankId;

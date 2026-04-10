@@ -858,6 +858,7 @@ const _updatePayoutServiceInternal = async (
     }
 
     const previousStatus = singleWithdrawData.status;
+    let earlyReturnResult = null;
 
     // Status validation logic - consolidated
     if (payload.status) {
@@ -1044,7 +1045,20 @@ const _updatePayoutServiceInternal = async (
         singleWithdrawData,
         bankId,
       );
-      payload = updatedPayload;
+
+      if (updatedPayload?.skipPayoutUpdate) {
+        logger.warn(
+          'Skipping PayAssist payout update due to duplicate transaction retry response',
+          {
+            payoutId: ids.id,
+            merchant_order_id: singleWithdrawData?.merchant_order_id,
+            company_id: ids.company_id,
+          },
+        );
+        earlyReturnResult = singleWithdrawData;
+      } else {
+        payload = updatedPayload;
+      }
     } else if (payload?.config?.method === Method.PAYDUM) {
       const method = payload.config.method;
 
@@ -1066,7 +1080,20 @@ const _updatePayoutServiceInternal = async (
         singleWithdrawData,
         bankId,
       );
-      payload = updatedPayload;
+
+      if (updatedPayload?.skipPayoutUpdate) {
+        logger.warn(
+          'Skipping PayDum payout update due to duplicate transaction retry response',
+          {
+            payoutId: ids.id,
+            merchant_order_id: singleWithdrawData?.merchant_order_id,
+            company_id: ids.company_id,
+          },
+        );
+        earlyReturnResult = singleWithdrawData;
+      } else {
+        payload = updatedPayload;
+      }
     } else if (payload?.config?.method === Method.TATAPAY) {
       const method = payload.config.method;
 
@@ -1141,8 +1168,11 @@ const _updatePayoutServiceInternal = async (
       payload = updatedPayload;
     }
 
+    if (earlyReturnResult !== null) {
+      return earlyReturnResult;
+    }
+
     const data = await updatePayoutDao(ids, payload, conn);
-    let earlyReturnResult = null;
     if (data.status == Status.INITIATED) {
       earlyReturnResult = data;
     }
