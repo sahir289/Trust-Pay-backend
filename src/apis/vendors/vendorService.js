@@ -1,5 +1,5 @@
 import { Role } from '../../constants/index.js';
-
+import { forceLogoutUser } from '../../utils/sockets.js';
 import {
   beginTransaction,
   commit,
@@ -38,6 +38,7 @@ import { updateUserDao, getUsersNameDao } from '../users/userDao.js';
 import { deleteBeneficiaryDao } from '../beneficiaryAccounts/beneficiaryAccountDao.js';
 import { notifyBankResponseAccessUpdate } from '../../utils/sockets.js';
 import { BadRequestError, NotFoundError } from '../../utils/appErrors.js';
+import {getSessionByIdDao} from '../auth/authDao.js';
 const _createVendorServiceInternal = async (payload, conn) => {
   try {
     const parentId = payload.parent_id;
@@ -496,10 +497,19 @@ const _deleteVendorServiceInternal = async (ids, updated_by, conn) => {
         null,
         conn,
       );
+      const session = await getSessionByIdDao(ids, conn);
+      if (session?.session_id) {
+        await forceLogoutUser(ids.user_id || ids.id, session?.session_id);
+      }
       if (UserHierarchy[0]?.config?.child?.operations) {
         const userIds = UserHierarchy[0].config.child.operations;
         for (const userId of userIds) {
           await updateUserDao({ id: userId }, payload, conn);
+          ids.user_id = userId;
+          const session = await getSessionByIdDao(ids, conn);
+          if (session?.session_id) {
+            await forceLogoutUser(userId, session?.session_id);
+          }
         }
       }
       if (UserHierarchy[0]?.config?.siblings?.sub_vendors) {
