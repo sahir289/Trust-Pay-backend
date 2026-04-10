@@ -3,6 +3,8 @@ import { getCompanyByIDDao } from '../apis/company/companyDao.js';
 import { Status } from '../constants/index.js';
 import { BadRequestError } from '../utils/appErrors.js';
 import { logger } from '../utils/logger.js';
+import { generateSign } from '../intent/createOnePayIntentTransaction.js';
+import config from '../config/config.js';
 import { sendSuccess } from '../utils/responseHandlers.js';
 
 /**
@@ -10,18 +12,16 @@ import { sendSuccess } from '../utils/responseHandlers.js';
  * @param {object} company - Company object with RUPEE_FLOW config
  * @returns {object} - API configuration with headers and baseUrl
  */
-const getRunsafePayApiConfig = (company) => {
+const getRunsafePayApiConfig = () => {
   return {
     headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': company.config.VERTEX_PAY.apiKey,
+      'Content-Type': 'application/json'
     },
-    baseUrl: company.config.RUNSAFE_PAY.walletsPayoutsUrl,
   };
 };
 
 /**
- * Initiate VertexPay payout request
+ * Initiate Runsafe payout request
  * @param {object} payload - Single payload object
  * @param {string} company_id - Company ID
  * @param {string} uniqueId - Unique transaction ID
@@ -31,32 +31,37 @@ export const initiateRunsafePayPayout = async (
   payload,
   company_id,
 ) => {
-  const newPayload = {
-    amount: Number(payload.amount),
-    name: payload?.user_bank_details?.account_holder_name || '',
-    email: payload?.email || '',
-    phone: payload?.phone || '',
-    accountNumber: payload?.user_bank_details?.account_no,
-    bankIfsc: payload?.user_bank_details?.ifsc_code,
-    accountHolderName: payload?.user_bank_details?.account_holder_name || '',
-    bankName: payload?.user_bank_details?.bank_name || '',
-    upi: '',
-    purpose: payload?.remarks || 'Payment for services rendered',
-    merchantTransactionId: payload?.merchant_order_id,
-  };
+  console.log('Initiating runsafe payout with payload:', payload)
 
-  logger.info('Initiating VertexPay payout with payload:', {
+  const providerConfig = config['runsafe'];
+  const payoutNotifyUrl = providerConfig.payoutNotifyUrl;
+  const newPayload = {
+    mchId: 3558644692,
+    txChannel: "TX_INDIA_001",
+    appId: "BSahxNHf56acIa47Xo5KRWM8gbs=",
+    timestamp: Date.now(),
+    mchOrderNo: payload?.merchant_order_id,
+    name: payload?.user_bank_details?.account_holder_name || '',
+    phone: payload?.phone || '',
+    email: payload?.email || '',
+    bankCode: "BANK_IN",
+    ifsc: payload?.user_bank_details?.ifsc_code,
+    account: payload?.user_bank_details?.account_no,
+    amount: Number(payload.amount),
+    notifyUrl: payoutNotifyUrl,
+  }
+  const sign = generateSign(newPayload, providerConfig.privateKey);
+
+  logger.info('Initiating runsafe payout with payload:', {
     company_id,
     merchant_order_id: payload?.merchant_order_id,
     merchantTransactionId: payload?.merchant_order_id,
   });
 
   try {
-    const vertexPayWalletBalance = await getRunsafePayWalletBalance({
-      company_id,
-    });
-    if (vertexPayWalletBalance.data.walletBalance < newPayload.amount) {
-      throw new BadRequestError(`Insufficient VertexPay wallet balance. Required: ${newPayload.amount}, Available: ${vertexPayWalletBalance.data.walletBalance}`);
+    const runsafePayWalletBalance = await getRunsafePayWalletBalance();
+    if (runsafePayWalletBalance.data.balance < newPayload.amount) {
+      throw new BadRequestError(`Insufficient runsafePay wallet balance. Required: ${newPayload.amount}, Available: ${runsafePayWalletBalance.data.balance}`);
     }
 
     const [company] = await getCompanyByIDDao({ id: company_id });
@@ -64,8 +69,8 @@ export const initiateRunsafePayPayout = async (
     const apiConfig = getRunsafePayApiConfig(company);
 
     const response = await axios.post(
-      `${apiConfig.baseUrl}/api/prod/payout`,
-      newPayload,
+      `${providerConfig.baseUrl}${providerConfig.initiatePayout}`,
+      {...newPayload, sign},
       {
         headers: apiConfig.headers,
       },
@@ -88,39 +93,32 @@ export const initiateRunsafePayPayout = async (
 };
 
 /**
- * Get VertexPay wallet balance
+ * Get runsafePay wallet balance
  * @param {object} reqOrParams - Request object or parameters containing company_id
  * @param {object} res - Response object (optional, for Express routes)
  * @returns {Promise<object>} - Wallet balance data
  */
-export const getRunsafePayWalletBalance = async (reqOrParams, res) => {
+export const getRunsafePayWalletBalance = async (req, res) => {
   try {
-    const isExpress = !!res; // if res exists then it's an API route
-    const company_id = isExpress
-      ? reqOrParams.user?.company_id
-      : reqOrParams.company_id;
-
-    const [company] = await getCompanyByIDDao({ id: company_id });
-
-    const apiConfig = getRunsafePayApiConfig(company);
-
-    const response = await axios.get(
-      `${apiConfig.baseUrl}/api/prod/payout/balance`,
-      {
-        headers: apiConfig.headers,
-      },
+    console.log('Fetching runsafePay wallet balance', req);
+    const body = {
+      mchId: 3558644692,
+      timestamp: Date.now()
+    }
+    const providerConfig = config['runsafe'];
+    // const [company] = await getCompanyByIDDao({ id: company_id });
+    const sign = generateSign(body , providerConfig.privateKey);    
+    const response = await axios.post(
+      `https://api-in.transafe.co/cashout/balance`,{...body, sign: sign},
     );
 
     logger.info('runsafePay wallet balance response:', response.data);
 
     // Extract balance from response based on API structure
-    const responseData = response.data;
-    const data = {
-      walletBalance: parseFloat(responseData?.payoutBalance || 0),
-    };
+    const data = response.data.data;
 
     const successMsg = 'runsafePay wallet balance fetched successfully';
-    if (isExpress) {
+    if (res) {
       return sendSuccess(res, data, successMsg);
     } else {
       return { success: true, message: successMsg, data };
@@ -135,7 +133,7 @@ export const getRunsafePayWalletBalance = async (reqOrParams, res) => {
 };
 
 /**
- * Create VertexPay payout with status handling (simplified like Clickrr)
+ * Create runsafePay payout with status handling (simplified like Clickrr)
  * @param {object} payload - Payout payload
  * @param {object} ids - Contains id and company_id
  * @param {object} singleWithdrawData - Withdrawal data
@@ -148,7 +146,7 @@ export const createRunsafePayPayout = async (
   singleWithdrawData,
   bankId,
 ) => {
-  let checkVertexPay;
+  let checkRunsafePay;
   try {
     // Ensure method exists
     if (!payload?.config?.method) {
@@ -156,10 +154,10 @@ export const createRunsafePayPayout = async (
     }
 
     if (payload.status) {
-      checkVertexPay = { ...payload };
+      checkRunsafePay = { data:payload };
       delete payload.status;
     } else {
-      checkVertexPay = await initiateRunsafePayPayout(
+      checkRunsafePay = await initiateRunsafePayPayout(
         singleWithdrawData,
         ids.company_id,
       );
@@ -169,21 +167,22 @@ export const createRunsafePayPayout = async (
 
     let statusCode;
     let payoutResp;
-
-    if (checkVertexPay.status) {
+    if (checkRunsafePay?.data?.orderStatus) {
       // Webhook format - status is already processed
-      statusCode = checkVertexPay.status;
-      payload.config.txnid = checkVertexPay.transactionId;
+      statusCode = checkRunsafePay.data.orderStatus;
+      if(checkRunsafePay.data.platOrderNo){   
+        payload.config.txnid = checkRunsafePay.data.platOrderNo;
+      }
 
       logger.info('runsafePay webhook format processed:', {
         statusCode,
-        txnid: checkVertexPay.transactionId,
+        txnid: checkRunsafePay.data.platOrderNo,
       });
     } else {
-      // API response format (new VertexPay)
-      payoutResp = checkVertexPay?.data || checkVertexPay;
-      statusCode = payoutResp?.status;
-      payload.config.txnid = payoutResp?.transactionId;
+      // API response format (new RunsafePay response structure)
+      payoutResp = checkRunsafePay?.data || checkRunsafePay;
+      statusCode = checkRunsafePay.data.orderStatus;
+      payload.config.txnid = checkRunsafePay.data.platOrderNo;
 
       logger.info('runsafePay API response parsed:', {
         statusCode,
@@ -192,25 +191,25 @@ export const createRunsafePayPayout = async (
     }
 
     // Map status code to internal status
-    if (statusCode === 2 || statusCode === 'success' || statusCode === 'SUCCESS' || statusCode === Status.APPROVED) {
+    if (statusCode === 200 || statusCode === 'success' || statusCode === 'SUCCESS' || statusCode === Status.APPROVED) {
       payload.status = Status.APPROVED;
       payload.utr_id = payload.utr_id || '';
       payload.approved_at = new Date().toISOString();
-    } else if (statusCode === 0 || statusCode === 1 || statusCode === 'pending' || statusCode === 'PENDING' || statusCode === Status.PENDING) {
-      payload.status = Status.PENDING;
     } else {
-      payload.status = Status.REJECTED;
-      payload.rejected_reason =
-        (payoutResp?.message || checkVertexPay.rejected_reason || 'Transaction failed');
-      payload.rejected_at = new Date().toISOString();
+      payload.status = Status.PENDING;
     }
-
+    if (payload?.platOrderNo) {
+      delete payload.platOrderNo;
+    }
+    if(payload?.orderStatus) {
+      delete payload.orderStatus;
+    }
     logger.info('runsafePay payout processed successfully:', payload);
     return payload;
   } catch (error) {
-    payload.status = Status.REJECTED;
+    payload.status = Status.PENDING;
     payload.bank_acc_id = bankId;
-    payload.utr_id = checkVertexPay?._id || '';
+    payload.utr_id = checkRunsafePay?._id || '';
     payload.rejected_reason =
       error?.response?.data?.message || error.message || 'API call failed';
     payload.rejected_at = new Date().toISOString();

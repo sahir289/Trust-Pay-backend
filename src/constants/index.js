@@ -40,7 +40,7 @@ export const Method = {
   BSS03: 'BSS03',
   VERTEXPAY: 'VERTEXPAY',
   CPS: 'CPS',
-  RUNSAFE_PAY: 'RUNSAFE_PAY',
+  RUNSAFE_PAY: 'runsafe',
 };
 
 export const Type = {

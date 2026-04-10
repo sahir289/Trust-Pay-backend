@@ -804,7 +804,8 @@ const _updatePayoutServiceInternal = async (
       !payload?.config?.method === Method.BSS02 &&
       !payload?.config?.method === Method.BSS03 &&
       !payload?.config?.method === Method.SILKPAY &&
-      !payload?.config?.method === Method.VERTEXPAY
+      !payload?.config?.method === Method.VERTEXPAY &&
+      !payload?.config?.method === Method.RUNSAFE_PAY
     )
       await checkLockEdit(ids.id, false, conn);
 
@@ -1144,7 +1145,7 @@ const _updatePayoutServiceInternal = async (
       const [company] = await getCompanyByIDDao({ id: ids.company_id }, conn);
       if (!company) throw new NotFoundError('Company not found');
 
-      const bankId = company.config.RUNSAFE_PAY.defaultBankId;
+      const bankId = company.config.runsafe.defaultBankId;
       if (!bankId)
         throw new NotFoundError(`Default bank ID not found for ${method}`);
 

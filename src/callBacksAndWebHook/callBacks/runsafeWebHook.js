@@ -14,13 +14,14 @@ import {
   rollback,
 } from '../../utils/db.js';
 
-// Define the optimized vertexPayTransactionStatusCallback function
+// Define the optimized runsafePayTransactionStatusCallback function
 export const runsafeTransactionStatusCallback = async (req, res) => {
   const payload = req.body;
-  const apitxnid = payload?.transaction_id;
+  console.log('Received runsafe callback payload:', payload);
+  const apitxnid = payload?.platOrderNo;
   let conn;
   let committed = false;
-  logger.info('Received CPSPAY callback payload:', payload);
+  logger.info('Received runsafe callback payload:', payload);
   try {
     if (!apitxnid || apitxnid === '') {
       return res.status(404).send('Payment not found');
@@ -55,15 +56,16 @@ export const runsafeTransactionStatusCallback = async (req, res) => {
     );
 
     // Prepare update payload based on callback response
-    const bankId = company.config.VERTEX_PAY.defaultBankId;
+    const bankId = company.config.runsafe.defaultBankId;
     const [bankVendor] = await getBankByIdDao({ id: bankId });
     const [vendor] = await getVendorsDao({ user_id: bankVendor.user_id });
     const updatePayload = {
       bank_acc_id: bankId,
       vendor_id: vendor.id,
+      platOrderNo: payload?.platOrderNo,
       config: {
-        method: 'CPSPAY',
-        description: 'Payout processing via CPSPAY',
+        method: 'runsafe',
+        description: 'Payout processing via runsafe',
       },
     };
     const adminUser = await getUserByCompanyCreatedAtDao(
@@ -73,11 +75,11 @@ export const runsafeTransactionStatusCallback = async (req, res) => {
     if (adminUser) updatePayload.updated_by = adminUser.id;
 
     // Status mapping: 'success' => APPROVED, 'failed' => REJECTED, else PENDING
-    const statusStr = (payload.status || '').toString().toLowerCase();
+    const statusStr = (payload.orderStatus || '').toString().toLowerCase();
     if (statusStr === 'success' || statusStr === 'SUCCESS') {
       Object.assign(updatePayload, {
-        status: Status.APPROVED,
-        utr_id: payload.rrn || '',
+        orderStatus: Status.APPROVED,
+        utr_id: payload.utr || '',
         approved_at: new Date().toISOString(),
       });
     } else if (statusStr === 'failed' || statusStr === 'FAILED') {
@@ -100,8 +102,8 @@ export const runsafeTransactionStatusCallback = async (req, res) => {
       conn,
     );
 
-    logger.info('Payout Updated by CPSPAY callback', {
-      status: updatePayload.status,
+    logger.info('Payout Updated by runsafe callback', {
+      status: updatePayload.orderStatus,
     });
 
     await commit(conn);
