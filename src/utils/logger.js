@@ -74,6 +74,7 @@ class DailyFileSink {
   #nextRetryAt = 0;
   #lastReportedErrorAt = 0;
   #lastReportedErrorSignature = '';
+  #rotationPromise = null;
 
   constructor({ logDir, retentionDays }) {
     this.#logDir = logDir;
@@ -155,6 +156,20 @@ class DailyFileSink {
       this.#scheduleRetry();
       this.#reportError('rotate failed', error);
     }
+  }
+
+  #ensureRotation() {
+    if (this.#rotationPromise) return this.#rotationPromise;
+
+    this.#rotationPromise = this.#rotateIfNeeded()
+      .catch((error) => {
+        this.#reportError('rotation failed', error);
+      })
+      .finally(() => {
+        this.#rotationPromise = null;
+      });
+
+    return this.#rotationPromise;
   }
 
   #scheduleRetry() {
@@ -257,8 +272,15 @@ class DailyFileSink {
 
     const line = Buffer.isBuffer(chunk) ? chunk.toString('utf8') : String(chunk);
 
+    // Rotate on date boundary without requiring process restart.
+    if (this.#stream && this.#activeDate !== getDateStamp()) {
+      this.#enqueue(line);
+      this.#ensureRotation();
+      return this.#queuedBytes < MAX_QUEUE_BYTES;
+    }
+
     if (!this.#stream && Date.now() >= this.#nextRetryAt) {
-      this.#rotateIfNeeded().catch((error) => {
+      this.#ensureRotation().catch((error) => {
         this.#reportError('write-triggered rotate failed', error);
       });
     }

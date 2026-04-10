@@ -20,6 +20,10 @@ const STATE_FILE = process.env.CW_STATE_FILE || path.join(LOG_DIR, '.cw-forwarde
 const POLL_INTERVAL_MS = Number.parseInt(process.env.CW_POLL_INTERVAL_MS || '1000', 10);
 const LOG_LEVEL = process.env.CW_LOG_LEVEL || 'info';
 const STREAM_PREFIX = process.env.CW_STREAM_PREFIX || '';
+const STREAM_NAME =
+  process.env.CW_LOG_STREAM_NAME ||
+  process.env.CW_STREAM_NAME ||
+  `${STREAM_PREFIX}app-stream`;
 const START_POSITION = String(process.env.CW_START_POSITION || 'beginning').toLowerCase();
 // Dead-letter queue: lines that failed transport delivery are stored here for auto-replay.
 const DLQ_PREFIX = process.env.CW_DLQ_PREFIX || 'cw-dlq';
@@ -48,7 +52,6 @@ if (!awsRegion || !awsAccessKeyId || !awsSecretAccessKey || !logGroupName) {
 }
 
 const getCurrentFilePath = (date = new Date()) => getDailyLogFilePath(LOG_DIR, date);
-const getCurrentStreamName = (date = new Date()) => `${STREAM_PREFIX}${getDateStamp(date)}`;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -136,7 +139,6 @@ const buildInfo = (rawLine) => {
 class CloudWatchDailyForwarder {
   #transport = null;
   #activeDate = null;
-  #lastPrecreatedDate = null;
   #offset = 0;
   #partialLine = '';
   #running = false;
@@ -195,18 +197,19 @@ class CloudWatchDailyForwarder {
 
   async #rolloverIfNeeded(now = new Date()) {
     const dateStr = getDateStamp(now);
-    if (this.#activeDate === dateStr && this.#transport) return;
+    const isFirstRun = !this.#transport;
+    const didDateChange = this.#activeDate !== dateStr;
+    if (!isFirstRun && !didDateChange) return;
 
-    await closeTransport(this.#transport);
-    this.#transport = null;
+    if (isFirstRun) {
+      this.#transport = buildTransport(STREAM_NAME, (error) =>
+        this.#reportError(`Transport [${STREAM_NAME}]`, error),
+      );
+      await ensureCloudWatchStream(STREAM_NAME, (context, error) => this.#reportError(context, error));
+      process.stdout.write(`[CW Forwarder] Active stream: ${STREAM_NAME}\n`);
+    }
+
     this.#activeDate = dateStr;
-    this.#transport = buildTransport(
-      `${STREAM_PREFIX}${dateStr}`,
-      (error) => this.#reportError(`Transport [${STREAM_PREFIX}${dateStr}]`, error),
-    );
-    await ensureCloudWatchStream(`${STREAM_PREFIX}${dateStr}`, (context, error) =>
-      this.#reportError(context, error),
-    );
 
     const stateOffset = this.#state?.[dateStr]?.offset;
     if (Number.isFinite(stateOffset) && stateOffset >= 0) {
@@ -218,23 +221,6 @@ class CloudWatchDailyForwarder {
     }
 
     this.#partialLine = '';
-    process.stdout.write(`[CW Forwarder] Active stream: ${getCurrentStreamName(now)}\n`);
-  }
-
-  async #precreateNextDateStreamIfNeeded(now = new Date()) {
-    if (now.getHours() !== 23 || now.getMinutes() !== 59) return;
-
-    const tomorrow = new Date(now);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    const tomorrowDate = getDateStamp(tomorrow);
-
-    if (this.#lastPrecreatedDate === tomorrowDate) return;
-
-    await ensureCloudWatchStream(`${STREAM_PREFIX}${tomorrowDate}`, (context, error) =>
-      this.#reportError(context, error),
-    );
-    this.#lastPrecreatedDate = tomorrowDate;
-    process.stdout.write(`[CW Forwarder] Pre-created upcoming stream: ${STREAM_PREFIX}${tomorrowDate}\n`);
   }
 
   /**
@@ -328,15 +314,10 @@ class CloudWatchDailyForwarder {
     return byDate;
   }
 
-  /** Emit all lines for a single date to the correct CW stream, return true if all succeeded. */
+  /** Emit all lines to the single configured CW stream, return true if all succeeded. */
   async #replayDateBatch(dateStr, logLines) {
-    const isToday = dateStr === this.#activeDate;
-    const transport = isToday
-      ? this.#transport
-      : buildTransport(
-          `${STREAM_PREFIX}${dateStr}`,
-          (error) => this.#reportError(`DLQ replay transport [${dateStr}]`, error),
-        );
+    const transport = this.#transport;
+    if (!transport) return false;
 
     const results = await Promise.all(
       logLines.map(
@@ -350,16 +331,14 @@ class CloudWatchDailyForwarder {
       ),
     );
 
-    if (!isToday) await closeTransport(transport);
     return results.every(Boolean);
   }
 
   /**
-   * Scan for DLQ files, re-emit their lines to the correct date-specific CloudWatch stream,
+   * Scan for DLQ files and re-emit their lines to the single configured CloudWatch stream,
    * and delete the file once all lines are confirmed. Called on startup and periodically.
    *
-   * Each DLQ entry carries the original `date` field so logs are always routed to the
-   * correct stream (e.g. yesterday's failures go to yesterday's CW stream, not today's).
+   * Each DLQ entry still carries the original `date` field for traceability/debugging.
    */
   async #replayDLQ() {
     const files = await fsp.readdir(LOG_DIR).catch(() => []);
@@ -402,7 +381,6 @@ class CloudWatchDailyForwarder {
       const now = new Date();
       try {
         await this.#processDelta(now);
-        await this.#precreateNextDateStreamIfNeeded(now);
       } catch (error) {
         process.stderr.write(`[CW Forwarder] Loop error: ${error?.message || 'unknown'}\n`);
       }
