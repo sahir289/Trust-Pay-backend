@@ -39,6 +39,8 @@ export const Method = {
   BSS02: 'BSS02',
   BSS03: 'BSS03',
   VERTEXPAY: 'VERTEXPAY',
+  CPS: 'CPS',
+  RUNSAFE_PAY: 'runsafe',
 };
 
 export const Type = {

@@ -79,6 +79,7 @@ import { createSilkPayPayout } from '../../silkpay/silkpay.js';
 import { createBSS02Payout } from '../../bss/bss02.js';
 import { createBSS03Payout } from '../../bss/bss03.js';
 import { createVertexPayPayout } from '../../vertexpay/vertexpay.js';
+import { createRunsafePayPayout } from '../../runsafe/runsafepay.js';
 // import { notifyNewCalculationTableEntry } from '../../utils/sockets.js';
 
 // Helper function to check if vendor is sub-vendor and get parent info
@@ -802,7 +803,8 @@ const _updatePayoutServiceInternal = async (
       !payload?.config?.method === Method.BSS02 &&
       !payload?.config?.method === Method.BSS03 &&
       !payload?.config?.method === Method.SILKPAY &&
-      !payload?.config?.method === Method.VERTEXPAY
+      !payload?.config?.method === Method.VERTEXPAY &&
+      !payload?.config?.method === Method.RUNSAFE_PAY
     )
       await checkLockEdit(ids.id, false, conn);
 
@@ -1160,6 +1162,32 @@ const _updatePayoutServiceInternal = async (
         throw new NotFoundError(`Bank not found for ${method} payout`);
 
       const updatedPayload = await createVertexPayPayout(
+        payload,
+        ids,
+        singleWithdrawData,
+        bankId,
+      );
+      payload = updatedPayload;
+    }
+    else if (payload?.config?.method === Method.RUNSAFE_PAY) {
+      if (!Number.isInteger(singleWithdrawData.amount)) {
+        throw new BadRequestError('Amount must be in positive values');
+      }
+      const method = payload.config.method;
+
+      const [company] = await getCompanyByIDDao({ id: ids.company_id }, conn);
+      if (!company) throw new NotFoundError('Company not found');
+
+      const bankId = company.config.runsafe.defaultBankId;
+      if (!bankId)
+        throw new NotFoundError(`Default bank ID not found for ${method}`);
+
+      bankDataArr = await getBankByIdDao({ id: bankId }, conn);
+
+      if (!bankDataArr[0])
+        throw new NotFoundError(`Bank not found for ${method} payout`);
+
+      const updatedPayload = await createRunsafePayPayout(
         payload,
         ids,
         singleWithdrawData,

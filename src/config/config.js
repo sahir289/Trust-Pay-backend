@@ -146,7 +146,11 @@ function config(Env) {
     },
     runsafe: {
       url: Env?.RUNSAFE_API_URL,
+      baseUrl: Env?.RUNSAFE_BASE_API_URL,
+      initiatePayout: Env?.RUNSAFE_INITIATE_API_URL,
+      walletBalance: Env?.RUNSAFE_WALLET_BALANCE_API_URL,
       NotifyUrl: Env?.RUNSAFE_NOTIFY_URL,
+      payoutNotifyUrl: Env?.RUNSAFE_PAYOUT_NOTIFY_URL,
       privateKey: Env?.RUNSAFE_PRIVATE_KEY,
       publicKey: Env?.RUNSAFE_PUBLIC_KEY,
     },
