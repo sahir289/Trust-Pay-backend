@@ -62,7 +62,7 @@ const createGeoGuard = (options = {}) => {
       let location = req.body?.user_location;
       let prefetchedProxyInfo = null;
 
-      if (!location || typeof location !== 'object') {
+      if ((!location && vpnRolesSet.has('VENDOR')) || typeof location !== 'object') {
         logger.warn('Location not provided, attempting to fetch from Proxy/VPN service', { ip: clientIp });
         prefetchedProxyInfo = await withTimeout(
           checkProxyAndVpn(clientIp),
