@@ -26,13 +26,7 @@ export const runsafeTransactionStatusCallback = async (req, res) => {
     if (!apitxnid || apitxnid === '') {
       return res.status(404).send('Payment not found');
     }
-    conn = await getConnection();
-    await beginTransaction(conn);
     const singleWithdrawData = await getPayoutByTxnId(apitxnid);
-    if (!singleWithdrawData) {
-      await rollback(conn);
-      return res.status(404).send('Payment not found');
-    }
 
     if (
       ![Status.INITIATED, Status.PENDING].includes(singleWithdrawData.status)
@@ -41,8 +35,6 @@ export const runsafeTransactionStatusCallback = async (req, res) => {
         payoutId: singleWithdrawData.id,
         status: singleWithdrawData.status,
       });
-      await rollback(conn);
-      return res.status(200).send('Payout already processed');
     }
 
     logger.info('Fetched payout data for OrderID:', apitxnid);
@@ -90,7 +82,8 @@ export const runsafeTransactionStatusCallback = async (req, res) => {
     } else {
       updatePayload.status = Status.PENDING;
     }
-
+    conn = await getConnection();
+    await beginTransaction(conn);
     logger.info('Final update payload for payout:', updatePayload);
     await _updatePayoutServiceInternal(
       {
