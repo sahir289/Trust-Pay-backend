@@ -368,6 +368,7 @@ const getMerchantsServiceCode = async (
 
     if (role === Role.ADMIN) {
       delete filters.user_id;
+      excludeDisabledMerchant = true;
     }
 
     const codes = await getMerchantsCodeDao(
