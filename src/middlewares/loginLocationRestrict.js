@@ -119,9 +119,20 @@ const createGeoGuard = (options = {}) => {
        .toLowerCase()
        .trim();
      let blockedOrigins = config?.LOGIN_BLOCK_ORIGIN;
+
      if (typeof blockedOrigins === 'string') {
-       blockedOrigins = JSON.parse(blockedOrigins);
+       try {
+         const cleaned = blockedOrigins.replace(/[“”]/g, '"'); // fix smart quotes
+         blockedOrigins = JSON.parse(cleaned);
+       } catch (err) {
+         logger.error('Invalid LOGIN_BLOCK_ORIGIN JSON', {
+           value: blockedOrigins,
+           error: err.message,
+         });
+         blockedOrigins = [];
+       }
      }
+
      if (!Array.isArray(blockedOrigins)) {
        blockedOrigins = [];
      }
