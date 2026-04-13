@@ -290,6 +290,7 @@ const getVendorsCodeService = async (
 
     if (role === Role.ADMIN) {
       delete filters.user_id;
+      excludeDisabledVendor = true;
     }
 
     const codes = await getVendorsCodeDao(
