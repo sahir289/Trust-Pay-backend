@@ -28,7 +28,7 @@ export const runsafeTransactionStatusCallback = async (req, res) => {
     }
     conn = await getConnection();
     await beginTransaction(conn);
-    const singleWithdrawData = await getPayoutByTxnId(apitxnid, conn);
+    const singleWithdrawData = await getPayoutByTxnId(apitxnid);
     if (!singleWithdrawData) {
       await rollback(conn);
       return res.status(404).send('Payment not found');
