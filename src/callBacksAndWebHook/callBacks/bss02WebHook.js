@@ -47,7 +47,7 @@ export const bss02TransactionStatusCallback = async (req, res) => {
 
     if (
       ![Status.INITIATED, Status.PENDING, Status.APPROVED].includes(singleWithdrawData.status) &&
-      singleWithdrawData.utr_id !== payload.CallBack.RRN
+      singleWithdrawData.utr_id === payload.CallBack.RRN
     ) {
       logger.info('Payout already processed', {
         payoutId: singleWithdrawData.id,

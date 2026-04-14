@@ -35,7 +35,7 @@ export const vertexPayTransactionStatusCallback = async (req, res) => {
 
     if (
       ![Status.INITIATED, Status.PENDING, Status.APPROVED].includes(singleWithdrawData.status) &&
-      singleWithdrawData.utr_id !== payload.rrn
+      singleWithdrawData.utr_id === payload.rrn
     ) {
       logger.info('Payout already processed', {
         payoutId: singleWithdrawData.id,

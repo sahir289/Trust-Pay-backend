@@ -28,7 +28,7 @@ export const payDumTransactionStatusCallback = async (req, res) => {
       ![Status.INITIATED, Status.PENDING, Status.APPROVED].includes(
         singleWithdrawData.status,
       ) &&
-      singleWithdrawData.utr_id !== payload.Response?.utr
+      singleWithdrawData.utr_id === payload.Response?.utr
     ) {
       logger.info('Payout already processed', {
         payoutId: singleWithdrawData.id,

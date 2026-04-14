@@ -39,7 +39,7 @@ export const silkPayTransactionStatusCallback = async (req, res) => {
       ![Status.INITIATED, Status.PENDING, Status.APPROVED].includes(
         singleWithdrawData.status,
       ) &&
-      singleWithdrawData.utr_id !== payload?.utr
+      singleWithdrawData.utr_id === payload?.utr
     ) {
       logger.info('Payout already processed', {
         payoutId: singleWithdrawData.id,
