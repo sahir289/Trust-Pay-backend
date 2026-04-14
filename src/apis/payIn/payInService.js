@@ -1652,7 +1652,7 @@ export const getPayinsBySearchService = async (
     return data;
   } catch (error) {
     logger.error('Error while fetching Payin by search', error);
-    throw new InternalServerError(error.message);
+    throw error;
   }
 };
 
@@ -1662,7 +1662,7 @@ export const getPayinsSummaryService = async (filters) => {
     return data;
   } catch (error) {
     logger.error('Error while fetching Payin SUM', error);
-    throw new InternalServerError(error.message);
+    throw error;
   }
 };
 
@@ -1764,7 +1764,7 @@ export const _processPayInServiceInternal = async (
   const vendor = vendors[0];
 
   const duration = calculateDuration(payIn.created_at);
-  const otherPayIns = await getPayInForDuplicate(
+  let otherPayIns = await getPayInForDuplicate(
     {
       merchant_order_id: merchantOrderId,
       user_submitted_utr: userSubmittedUtr,
@@ -1772,6 +1772,15 @@ export const _processPayInServiceInternal = async (
     },
     conn,
   );
+  if ((!otherPayIns || otherPayIns.length === 0) && tele_check) {
+    otherPayIns = await getPayInForDuplicate(
+      {
+        user_submitted_utr: userSubmittedUtr,
+        company_id: payIn.company_id,
+      },
+      conn,
+    );
+  }
   const updatePayInData = {
     amount,
     //img_utr only for updating utr directly when image uploaded

@@ -5,6 +5,12 @@ import { getCompanyByIDDao } from '../apis/company/companyDao.js';
 import { payAssistErrorCodeMap, Status } from '../constants/index.js';
 import { BadRequestError } from '../utils/appErrors.js';
 
+const isPayAssistDuplicateRetryResponse = (response = {}) =>
+  response?.ErrorCode === '11' ||
+  /same transaction not allowed in 5 minutes/i.test(
+    response?.ErrorMessage || '',
+  );
+
 /**
  * Initiate a single PayAssist payout request (simplified like Clickrr)
  * @param {object} payload - Contains amount, user_bank_details, merchant_order_id, etc.
@@ -161,6 +167,20 @@ export const createPayAssistPayout = async (
         singleWithdrawData,
         ids.company_id,
       );
+    }
+
+    if (isPayAssistDuplicateRetryResponse(checkPayAssist)) {
+      logger.warn(
+        'PayAssist duplicate transaction retry response received; skipping payout update',
+        {
+          merchant_order_id: singleWithdrawData?.merchant_order_id,
+          data: checkPayAssist,
+        },
+      );
+      return {
+        ...payload,
+        skipPayoutUpdate: true,
+      };
     }
 
     payload.bank_acc_id = bankId;

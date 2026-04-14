@@ -79,6 +79,7 @@ import { createSilkPayPayout } from '../../silkpay/silkpay.js';
 import { createBSS02Payout } from '../../bss/bss02.js';
 import { createBSS03Payout } from '../../bss/bss03.js';
 import { createVertexPayPayout } from '../../vertexpay/vertexpay.js';
+import { createRunsafePayPayout } from '../../runsafe/runsafepay.js';
 // import { notifyNewCalculationTableEntry } from '../../utils/sockets.js';
 
 // Helper function to check if vendor is sub-vendor and get parent info
@@ -802,7 +803,8 @@ const _updatePayoutServiceInternal = async (
       !payload?.config?.method === Method.BSS02 &&
       !payload?.config?.method === Method.BSS03 &&
       !payload?.config?.method === Method.SILKPAY &&
-      !payload?.config?.method === Method.VERTEXPAY
+      !payload?.config?.method === Method.VERTEXPAY &&
+      !payload?.config?.method === Method.RUNSAFE_PAY
     )
       await checkLockEdit(ids.id, false, conn);
 
@@ -858,6 +860,7 @@ const _updatePayoutServiceInternal = async (
     }
 
     const previousStatus = singleWithdrawData.status;
+    let earlyReturnResult = null;
 
     // Status validation logic - consolidated
     if (payload.status) {
@@ -1044,7 +1047,20 @@ const _updatePayoutServiceInternal = async (
         singleWithdrawData,
         bankId,
       );
-      payload = updatedPayload;
+
+      if (updatedPayload?.skipPayoutUpdate) {
+        logger.warn(
+          'Skipping PayAssist payout update due to duplicate transaction retry response',
+          {
+            payoutId: ids.id,
+            merchant_order_id: singleWithdrawData?.merchant_order_id,
+            company_id: ids.company_id,
+          },
+        );
+        earlyReturnResult = singleWithdrawData;
+      } else {
+        payload = updatedPayload;
+      }
     } else if (payload?.config?.method === Method.PAYDUM) {
       const method = payload.config.method;
 
@@ -1066,7 +1082,20 @@ const _updatePayoutServiceInternal = async (
         singleWithdrawData,
         bankId,
       );
-      payload = updatedPayload;
+
+      if (updatedPayload?.skipPayoutUpdate) {
+        logger.warn(
+          'Skipping PayDum payout update due to duplicate transaction retry response',
+          {
+            payoutId: ids.id,
+            merchant_order_id: singleWithdrawData?.merchant_order_id,
+            company_id: ids.company_id,
+          },
+        );
+        earlyReturnResult = singleWithdrawData;
+      } else {
+        payload = updatedPayload;
+      }
     } else if (payload?.config?.method === Method.TATAPAY) {
       const method = payload.config.method;
 
@@ -1140,9 +1169,38 @@ const _updatePayoutServiceInternal = async (
       );
       payload = updatedPayload;
     }
+    else if (payload?.config?.method === Method.RUNSAFE_PAY) {
+      if (!Number.isInteger(singleWithdrawData.amount)) {
+        throw new BadRequestError('Amount must be in positive values');
+      }
+      const method = payload.config.method;
+
+      const [company] = await getCompanyByIDDao({ id: ids.company_id }, conn);
+      if (!company) throw new NotFoundError('Company not found');
+
+      const bankId = company.config.runsafe.defaultBankId;
+      if (!bankId)
+        throw new NotFoundError(`Default bank ID not found for ${method}`);
+
+      bankDataArr = await getBankByIdDao({ id: bankId }, conn);
+
+      if (!bankDataArr[0])
+        throw new NotFoundError(`Bank not found for ${method} payout`);
+
+      const updatedPayload = await createRunsafePayPayout(
+        payload,
+        ids,
+        singleWithdrawData,
+        bankId,
+      );
+      payload = updatedPayload;
+    }
+
+    if (earlyReturnResult !== null) {
+      return earlyReturnResult;
+    }
 
     const data = await updatePayoutDao(ids, payload, conn);
-    let earlyReturnResult = null;
     if (data.status == Status.INITIATED) {
       earlyReturnResult = data;
     }
