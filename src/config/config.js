@@ -308,7 +308,8 @@ function config(Env) {
     databaseReaderUrl: Env?.DATABASE_READER_URL,
     accessTokenSecretKey: Env?.ACCESS_TOKEN_SECRET_KEY,
     accessTokenExpireTime: 24 * 60 * 60, // in seconds
-    reactFrontOrigin: Env?.REACT_FRONT_ORIGIN,
+    reactFrontOrigin1: Env?.REACT_FRONT_ORIGIN_1,
+    reactFrontOrigin2: Env?.REACT_FRONT_ORIGIN_2,
     LOGIN_BLOCK_ORIGIN: Env?.LOGIN_BLOCK_ORIGIN,
     reactPaymentOrigin: Env?.REACT_PAYMENT_ORIGIN,
     ocrPrivateKey: Env?.OCR_PRIVATE_KEY,

@@ -24,7 +24,8 @@ app.use('/static', express.static('public'));
 app.use(helmet());
 // took Set here instead array as it will fast lookup 
 const corsWhitelist = new Set([
-  config.reactFrontOrigin,
+  config.reactFrontOrigin1,
+  config.reactFrontOrigin2,
   config.reactPaymentOrigin,
 ].filter(Boolean));
 

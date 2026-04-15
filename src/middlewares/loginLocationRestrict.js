@@ -115,36 +115,45 @@ const createGeoGuard = (options = {}) => {
           });
         }
       }
-      // origin block for specific country
       const origin = (req.headers.origin || req.headers.referer || '')
-        .toLowerCase()
-        .trim();
-      let blockedOrigins = config?.LOGIN_BLOCK_ORIGIN;
-      if (typeof blockedOrigins === 'string') {
-        blockedOrigins = JSON.parse(blockedOrigins);
-      }
-      if (!Array.isArray(blockedOrigins)) {
-        blockedOrigins = [];
-      }
-      const isBlockedOrigin = blockedOrigins.some((blocked) => {
-        if (typeof blocked !== 'string') return false;
-        return origin.includes(blocked.toLowerCase().trim());
-      });
-      const isIndia =
-        proxyInfo?.country?.toLowerCase() === 'in' ||
-        proxyInfo?.country?.toLowerCase() === 'india';
-      if (isBlockedOrigin && isIndia) {
-        logger.warn('Login blocked: Blocked origin from India', {
-          origin,
-          country: proxyInfo?.country,
-          ip: clientIp,
-          username: req.body?.username,
-          role: userRole,
-        });
-        return next(
-          new BadRequestError('Access denied from your current location.'),
-        );
-      }
+            .toLowerCase()
+            .trim();
+          let blockedOrigins = config?.LOGIN_BLOCK_ORIGIN;
+
+          if (typeof blockedOrigins === 'string') {
+            try {
+              const cleaned = blockedOrigins.replace(/[“”]/g, '"'); // fix smart quotes
+              blockedOrigins = JSON.parse(cleaned);
+            } catch (err) {
+              logger.error('Invalid LOGIN_BLOCK_ORIGIN JSON', {
+                value: blockedOrigins,
+                error: err.message,
+              });
+              blockedOrigins = [];
+            }
+          }
+          if (!Array.isArray(blockedOrigins)) {
+            blockedOrigins = [];
+          }
+          const isBlockedOrigin = blockedOrigins.some((blocked) => {
+            if (typeof blocked !== 'string') return false;
+            return origin.includes(blocked.toLowerCase().trim());
+          });
+          const isIndia =
+            proxyInfo?.country?.toLowerCase() === 'in' ||
+            proxyInfo?.country?.toLowerCase() === 'india';
+          if (isBlockedOrigin && isIndia) {
+            logger.warn('Login blocked: Blocked origin from India', {
+              origin,
+              country: proxyInfo?.country,
+              ip: clientIp,
+              username: req.body?.username,
+              role: userRole,
+            });
+            return next(
+              new BadRequestError('Access denied from your current location.'),
+            );
+          }
       if (proxyInfo) {
         const { isVpn, country, region } = proxyInfo;
 

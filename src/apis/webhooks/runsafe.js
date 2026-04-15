@@ -6,6 +6,7 @@ import { processPayInWebHookService } from '../payIn/payInService.js';
 import { getBankResponseByUTR } from '../bankResponse/bankResponseDao.js';
 import { beginTransaction, commit, getConnection, rollback } from '../../utils/db.js';
 import { checkLockEdit } from '../../utils/advisoryLock.js';
+import { Status } from '../../constants/index.js';
 
 const processingSet = new Set();
 
@@ -101,7 +102,7 @@ export const runsafeWebhook = async (req, res) => {
           return;
         }
 
-        if (body?.orderStatus === 'SUCCESS') {
+        if (body?.orderStatus === 'SUCCESS' || body?.orderStatus === "PART_SUC") {
           const bankResponse = await createBankResponseWebHookService(
             bankResponsePayload,
             payIn.company_id,
@@ -112,6 +113,9 @@ export const runsafeWebhook = async (req, res) => {
           logger.info('Bank response created:', bankResponse);
         }
         logger.info('Calling processPayInWebHookService for payload', payload);
+        if (body?.orderStatus === "PART_SUC" || payIn.amount !== body?.amount) {
+          payload.status = Status.DISPUTE
+        }
         const payin = await processPayInWebHookService(
           payload,
           '',
