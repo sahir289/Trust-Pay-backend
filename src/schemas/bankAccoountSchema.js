@@ -19,7 +19,7 @@ export const BANK_ACCOUNT_SCHEMA = Joi.object({
   is_enabled: Joi.boolean().label('is_enabled').optional(),
   is_phonepay: Joi.boolean().label('is_phonepay').optional(),
   is_staticQR: Joi.boolean().label('is_staticQR').optional(),
-  is_intent: Joi.boolean().label('is_intent').optional(),
+  is_intent: Joi.string().label('is_intent').optional(),
   is_qr: Joi.boolean().label('is_qr').optional(),
   payin_count: Joi.number().integer().min(0).label('payin_count').optional(),
   balance: Joi.number().label('balance').optional(),
@@ -29,7 +29,7 @@ export const BANK_ACCOUNT_SCHEMA = Joi.object({
 });
 
 export const UPDATE_BANK_ACCOUNT_SCHEMA = Joi.object({
-  is_intent: Joi.boolean().label('is_intent').optional(),
+  is_intent: Joi.string().label('is_intent').optional(),
   is_phonepay: Joi.boolean().label('is_phonepay').optional(),
   upi_id: Joi.string().label('upi_id').allow(null, '').optional(),
   upi_params: Joi.string().label('upi_params').optional().allow(''),
