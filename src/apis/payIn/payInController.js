@@ -263,7 +263,7 @@ export const checkPayInStatus = async (req, res) => {
 export const payInIntentGenerateOrder = async (req, res) => {
   const { merchantOrderId } = req.params;
   // const { company_id } = req.user;
-  const { amount, Razorpay, cashfree, zentechind, nmplPay, silkPay, orvixPay, orvixPay1, runsafe } = req.body;
+  const { amount, Razorpay, cashfree, zentechind, nmplPay, silkPay, orvixPay, orvixPay1, runsafe, payeasy } = req.body;
   const payload = { merchantOrderId, amount, Razorpay, cashfree, zentechind };
   const joiValidation = VALIDATE_PAY_IN_INTENT_GENERATE_ORDER.validate(payload);
   if (joiValidation.error) {
@@ -279,6 +279,7 @@ export const payInIntentGenerateOrder = async (req, res) => {
   if (silkPay) provider.push('silkPay');
   if (orvixPay) provider.push('orvixPay');
   if (orvixPay1) provider.push('orvixPay1');
+  if (payeasy) provider.push('Payeasy');
 
   const data = await payInIntentGenerateOrderService(
     merchantOrderId,
