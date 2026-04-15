@@ -1674,6 +1674,7 @@ export const _processPayInServiceInternal = async (
   designation,
   h2h,
   conn = null,
+  img_utr_fileKey = null,
 ) => {
   const {
     userSubmittedUtr,
@@ -1772,7 +1773,10 @@ export const _processPayInServiceInternal = async (
     },
     conn,
   );
-  if ((!otherPayIns || otherPayIns.length === 0) && tele_check) {
+  if (
+    (!otherPayIns || otherPayIns.length === 0) &&
+    (tele_check || img_utr_fileKey)
+  ) {
     otherPayIns = await getPayInForDuplicate(
       {
         user_submitted_utr: userSubmittedUtr,
@@ -2260,6 +2264,7 @@ export const processPayInService = async (
   img_utr = false,
   designation,
   h2h,
+  img_utr_fileKey,
 ) => {
   let conn;
   let committed = false;
@@ -2274,6 +2279,7 @@ export const processPayInService = async (
       designation,
       h2h,
       conn,
+      img_utr_fileKey,
     );
     await commit(conn);
     committed = true;
@@ -2799,7 +2805,7 @@ export const processPayInByImageService = async (payload) => {
         user_submitted_image: payload.fileKey,
       },
       undefined,
-      false,
+      true,
       true,
       undefined,
       undefined,

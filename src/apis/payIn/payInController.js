@@ -503,7 +503,7 @@ export const processPayInIMGUTR = async (req, res) => {
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
-  const data = await processPayInService(payload, payload.code, false, true);
+  const data = await processPayInService(payload, payload.code, false, true , null , null, true);
   await invalidatePayinCache(req.user?.company_id);
   sendSuccess(res, data, 'PayIn updated successfully');
 };
