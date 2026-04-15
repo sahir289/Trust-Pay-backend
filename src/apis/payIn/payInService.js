@@ -2800,7 +2800,7 @@ export const processPayInByImageService = async (payload) => {
       },
       undefined,
       false,
-      false,
+      true,
       undefined,
       undefined,
       conn,
@@ -3798,11 +3798,20 @@ const _verifyPayinsServiceInternal = async (
     const banks = await getMerchantLinkBankDao({
       config_merchants_contains: merchant[0].id,
     });
-    let bankIntent;
+const VALID_INTENTS = new Set([
+  'allow_cashfree',
+  'allow_zentechind',
+  'allow_nmplpay',
+  'allow_runsafe',
+  'allow_silkpay',
+  'allow_razorpay',
+  'allow_orvixpay',
+  'allow_orvixpay1',
+  'allow_vertexpay',
+]);
     const enabledBanks = banks.filter((bank) => {
       const isPayInBank = ['PayIn', 'payIn'].includes(bank.bank_used_for);
       const isActive = bank.is_enabled && isPayInBank;
-      bankIntent = bank.config?.is_intent;
       const hasAnyMethod =
         bank.is_qr ||
         bank.is_bank ||
@@ -3810,25 +3819,53 @@ const _verifyPayinsServiceInternal = async (
         bank.config?.is_intent;
       return isActive && hasAnyMethod;
     });
+const bankIntents = enabledBanks
+  .map((b) => b.config?.is_intent)
+  .filter((i) => VALID_INTENTS.has(String(i)));
+let selectedIntent = null;
+if (bankIntents.length > 0) {
+  selectedIntent = bankIntents[Math.floor(Math.random() * bankIntents.length)];
+}
 
     const merchantIntent = merchant[0]?.config?.allow_intent;
-    let cashfreeDetails;
-    if (merchantIntent && bankIntent) {
+    let cashfreeDetails = null;
+  if (merchantIntent && selectedIntent) {
       cashfreeDetails = await getCashfreeAllowByCompanyIdDao(payIn.company_id);
     }
     const result = {
       expiryTime: payIn.expiration_date,
       amount: payIn.amount,
       one_time_used: payIn.one_time_used,
-      allowCashfree: cashfreeDetails?.allow_cashfree || false,
-      allowZenTechInd: cashfreeDetails?.allow_zentechind || false,
-      allowNmplPay: cashfreeDetails?.allow_nmplpay || false,
-      allowRunsafePay: cashfreeDetails?.allow_runsafe || false,
-      allowSilkPay: cashfreeDetails?.allow_silkpay || false,
-      allowRazorPay: cashfreeDetails?.allow_razorpay || false,
-      allowOrvixPay: cashfreeDetails?.allow_orvixpay || false,
-      allowOrvixPay1: cashfreeDetails?.allow_orvixpay1 || false,
-      allowrunsafe: cashfreeDetails?.allow_runsafe || false,
+      allowCashfree:
+    (selectedIntent === 'allow_cashfree' && cashfreeDetails?.allow_cashfree) ||
+    false,
+  allowZenTechInd:
+    (selectedIntent === 'allow_zentechind' &&
+      cashfreeDetails?.allow_zentechind) ||
+    false,
+  allowNmplPay:
+    (selectedIntent === 'allow_nmplpay' && cashfreeDetails?.allow_nmplpay) ||
+    false,
+  allowrunsafe:
+    (selectedIntent === 'allow_runsafe' && cashfreeDetails?.allow_runsafe) ||
+    false,
+  allowSilkPay:
+    (selectedIntent === 'allow_silkpay' && cashfreeDetails?.allow_silkpay) ||
+    false,
+  allowRazorPay:
+    (selectedIntent === 'allow_razorpay' && cashfreeDetails?.allow_razorpay) ||
+    false,
+  allowOrvixPay:
+    (selectedIntent === 'allow_orvixpay' && cashfreeDetails?.allow_orvixpay) ||
+    false,
+  allowOrvixPay1:
+    (selectedIntent === 'allow_orvixpay1' &&
+      cashfreeDetails?.allow_orvixpay1) ||
+    false,
+  allowVertexPay:
+    (selectedIntent === 'allow_vertexpay' &&
+      cashfreeDetails?.allow_vertexpay) ||
+    false,
       status: payIn.status,
       min_amount: merchant[0].min_payin,
       max_amount: merchant[0].max_payin,
