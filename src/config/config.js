@@ -302,6 +302,11 @@ function config(Env) {
     proxyCheck: {
       proxyCheckUrl: Env?.PROXY_CHECK_URL,
     },
+    payeasy: {
+      url: Env?.PAYEASY_API_URL,
+      payeasyClientId: Env?.PAYEASY_CLIENT_ID,
+      encryptionKey: Env?.PAYEASY_ENCRYPTION_KEY
+    },
     // reactAppBaseUrl: Env?.REACT_APP_BASE_URL,
     databaseUrl: Env?.DATABASE_URL,
     databaseWriterUrl: Env?.DATABASE_WRITER_URL,
