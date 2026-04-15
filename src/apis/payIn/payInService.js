@@ -2800,7 +2800,7 @@ export const processPayInByImageService = async (payload) => {
       },
       undefined,
       false,
-      false,
+      true,
       undefined,
       undefined,
       conn,
