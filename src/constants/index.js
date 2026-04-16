@@ -41,6 +41,7 @@ export const Method = {
   VERTEXPAY: 'VERTEXPAY',
   CPS: 'CPS',
   RUNSAFE_PAY: 'runsafe',
+  PAYEASY: 'PAYEASY',
 };
 
 export const Type = {
