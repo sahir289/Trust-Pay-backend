@@ -643,6 +643,25 @@ export const getPayInDaoByCode = async (filters, conn = null) => {
   }
 };
 
+export const getPendingTyltPayInsDao = async (conn = null) => {
+  try {
+    const sql = `
+      SELECT 
+        id, merchant_order_id, status, created_at, config
+      FROM "${tableName.PAYIN}"
+      WHERE is_obsolete = false
+        AND status = 'PENDING'
+        AND config->>'tyltInstanceId' IS NOT NULL
+        AND created_at <= NOW() - INTERVAL '5 minutes'
+    `;
+    const result = await executeQuery(sql, [], conn);
+    return result.rows || [];
+  } catch (error) {
+    logger.error('Error getting pending Tylt PayIns:', error);
+    throw error;
+  }
+};
+
 // export const getPayInsDao = async (filters, company_id, page, limit, role) => {
 //   try {
 //     const { PAYIN } = tableName;

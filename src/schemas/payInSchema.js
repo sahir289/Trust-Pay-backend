@@ -97,6 +97,10 @@ export const VALIDATE_PROCESS_PAYIN = Joi.object({
   user_submitted_image: Joi.string(),
   amount: Joi.number().label('amount').min(1).required(),
   code: Joi.string().label('code').optional(),
+  // Tylt-specific fields
+  tyltInstanceId: Joi.string().label('tyltInstanceId').optional(),
+  cryptoAmount: Joi.number().label('cryptoAmount').optional(),
+  conversionRate: Joi.number().label('conversionRate').optional(),
 });
 
 export const VALIDATE_PROCESS_PAYIN_BY_IMAGE = Joi.object({

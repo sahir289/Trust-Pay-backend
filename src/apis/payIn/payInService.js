@@ -137,6 +137,7 @@ import {
 import { trackVendorsNetBalance } from '../../utils/trackVendorsNetBalance.js';
 import { createCashfreeOrder } from '../../cashfree/cashfree.js';
 import { createRazorPayOrder } from '../../razorpay/razorpay.js';
+import { createTyltPayIn } from '../../tylt/tylt.js';
 // import { createZenTechIndTransaction } from '../../zentechind/zentechInd.js';
 import { createPaymentTransaction } from '../../intent/createIntentTransaction.js';
 // Transaction management imports
@@ -958,6 +959,24 @@ export const payInIntentGenerateOrderService = async (
       Razorpay: async () => {
         const order = await createRazorPayOrder(payIn, amount);
         return order?.id;
+      },
+      Tylt: async () => {
+        const result = await createTyltPayIn({
+          orderId: payIn.merchant_order_id,
+          amount,
+          email: payIn.config?.email || 'customer@example.com',
+          redirectUrl: payIn.config?.urls?.return || '',
+          userId: payIn.user,
+        });
+        // Persist tyltInstanceId on the payin record for webhook correlation
+        await updatePayInUrlDao(payIn.id, {
+          config: {
+            ...payIn.config,
+            tyltInstanceId: result.instanceId,
+            paymentUrl: result.paymentUrl,
+          },
+        });
+        return result.paymentUrl;
       },
     };
     console.log('provider', provider);

@@ -4,6 +4,9 @@ import { processPayInService } from '../../apis/payIn/payInService.js';
 import { VALIDATE_PROCESS_PAYIN } from '../../schemas/payInSchema.js';
 import { rabbitMQConnectionManager } from '../connection.js';
 import { assertQueueTopology, TOPOLOGY } from '../topology.js';
+import { updatePayInUrlDao, getPayinsForServiccDao } from '../../apis/payIn/payInDao.js';
+import { Status } from '../../constants/index.js';
+import redisClient from '../../utils/redisClient.js';
 
 const PREFETCH_COUNT = Number(process.env.PAYIN_PROCESS_PREFETCH || 20);
 const MAX_RETRIES = Number(process.env.PAYIN_PROCESS_MAX_RETRIES || 3);
@@ -36,6 +39,107 @@ async function processPayInJob(messagePayload) {
   );
 }
 
+/**
+ * Map Tylt eventId to internal Status values.
+ * 4 → SUCCESS
+ * 5, 9 → FAILED
+ * others → PENDING
+ */
+export function mapTyltStatus(eventId) {
+  switch (Number(eventId)) {
+    case 4:
+      return Status.SUCCESS;
+    case 5:
+    case 9:
+      return Status.FAILED;
+    default:
+      return Status.PENDING;
+  }
+}
+
+async function processTyltPayInJob(messagePayload) {
+  const body = messagePayload?.payload;
+
+  // Tylt webhook payload shape:
+  // { data: { trade: { event: { id } }, transaction: { merchantOrderId }, accounts: { amountPaidInCryptoCurrency, conversionRate } } }
+  const data = body?.data || {};
+  const transaction = data.transaction || {};
+  const accounts = data.accounts || {};
+  const trade = data.trade || {};
+  const event = trade.event || {};
+
+  const merchantOrderId = transaction.merchantOrderId;
+  if (!merchantOrderId) {
+    logger.warn('[Tylt] Dropping payload with no merchantOrderId in data.transaction', { data });
+    return;
+  }
+
+  const eventId = event.id;
+  const internalStatus = mapTyltStatus(eventId);
+
+  logger.info('[Tylt][Consumer] Status mapped', {
+    merchantOrderId,
+    eventId,
+    internalStatus,
+  });
+
+  const cryptoAmount = accounts.amountPaidInCryptoCurrency
+    ? Number(accounts.amountPaidInCryptoCurrency)
+    : undefined;
+  const conversionRate = accounts.conversionRate
+    ? Number(accounts.conversionRate)
+    : undefined;
+
+  const payIn = await getPayinsForServiccDao({ merchant_order_id: merchantOrderId });
+  if (!payIn) {
+    throw new Error(`[Tylt] PayIn not found for merchantOrderId: ${merchantOrderId}`);
+  }
+
+  // --- STEP 1: Idempotency guard ---
+  if (payIn.status === Status.SUCCESS) {
+    logger.warn('[Tylt][Consumer] TYLT_DUPLICATE_BLOCKED — already SUCCESS, skipping', {
+      merchantOrderId,
+    });
+    return;
+  }
+
+  const updateData = {
+    status: internalStatus,
+    is_url_expires: true,
+    one_time_used: true,
+    updated_by: 'tylt_webhook',
+    ...(internalStatus === Status.SUCCESS && {
+      approved_at: new Date().toISOString(),
+      is_notified: true,
+    }),
+    config: {
+      ...payIn.config,
+      ...(cryptoAmount !== undefined && { cryptoAmount }),
+      ...(conversionRate !== undefined && { conversionRate }),
+      tyltStatus,
+      // --- STEP 7: Store raw payload for audit ---
+      tyltRawPayload: body,
+    },
+  };
+
+  await updatePayInUrlDao(payIn.id, updateData);
+
+  // --- STEP 5: Provider metrics ---
+  try {
+    await redisClient.hincrby('metrics:TYLT', internalStatus, 1);
+  } catch (metricsErr) {
+    // Non-fatal — never let metrics failures break payment processing
+    logger.warn('[Tylt][Consumer] Metrics update failed', { error: metricsErr.message });
+  }
+
+  logger.info('[Tylt][Consumer] PayIn updated successfully', {
+    merchantOrderId,
+    internalStatus,
+    cryptoAmount,
+    conversionRate,
+  });
+}
+
 async function handleMessage(msg) {
   if (!msg || stopping) {
     return;
@@ -45,6 +149,29 @@ async function handleMessage(msg) {
 
   try {
     const payload = JSON.parse(msg.content.toString());
+
+    // Route Tylt messages separately — they carry crypto metadata
+    // and do not follow the standard UTR/bank-response payin flow.
+    if (payload?.provider === 'tylt') {
+      const tyltMerchantOrderId = payload?.payload?.data?.transaction?.merchantOrderId;
+      try {
+        await processTyltPayInJob(payload);
+        channel.ack(msg);
+        logger.info('[Tylt][Consumer] TYLT_PROCESS_SUCCESS', {
+          retryCount,
+          merchantOrderId: tyltMerchantOrderId,
+        });
+      } catch (err) {
+        // --- STEP 3: Labelled error — re-throw so outer catch retries / DLQs ---
+        logger.error('[Tylt][Consumer] TYLT_PROCESS_FAILED', {
+          retryCount,
+          merchantOrderId: tyltMerchantOrderId,
+          error: err.message,
+        });
+        throw err;
+      }
+      return;
+    }
 
     if (!payload?.payload?.merchantOrderId) {
       throw new Error('Invalid payin process message');

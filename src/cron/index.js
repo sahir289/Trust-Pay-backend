@@ -8,6 +8,7 @@ import gatherAllDataForAllCompanies from './gatherAllData.js';
 import gatherAllNetbalanceForAllCompanies from './gatherAllNetBalance.js';
 import collectPayoutData from './pendingPayout.js';
 import runDailyCalculation from './checkNetbalance.js';
+import checkPendingTyltStatus from './pendingTyltCron.js';
 // import  checkPendingStatus  from './pendingPayinCron.js';
 const router = express.Router();
 
@@ -97,6 +98,13 @@ router.get(
 //   checkPendingStatus,
 // );
 // ;
+
+router.get('/pending-tylt-cronjob', (req, res) => {
+  checkPendingTyltStatus();
+  logger.info('Calling checkPendingTyltStatus CRONJOB');
+  res.json({ message: 'Cron job is running for Pending Tylt Payins' });
+});
+
 /**
  * @swagger
  * /notifyPayinDroppedCron:
