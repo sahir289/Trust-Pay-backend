@@ -37,8 +37,8 @@ export const cpsWebhook = async (req, res) => {
   logger.info('Webhook received ++++', data);
   const body = typeof data === 'string' ? JSON.parse(data) : data;
   try {
-    sendSuccess(res, 200, 'runsafe webhook received successfully');
-    const merchantOrderId = body?.mchOrderNo;
+    sendSuccess(res, 200, 'cps webhook received successfully');
+    const merchantOrderId = body?.txn_id;
     const utr = body?.utr;
     if (processingSet.has(utr)) {
       logger.warn(`Duplicate concurrent webhook skipped for ${utr} and merchantOrderId ${merchantOrderId}`);
@@ -48,10 +48,10 @@ export const cpsWebhook = async (req, res) => {
     processingSet.add(utr);
 
     const payload = {
-      merchantOrderId: body?.mchOrderNo,
-      userSubmittedUtr: body?.utr || body?.mchOrderNo,
+      merchantOrderId: body?.txn_id,
+      userSubmittedUtr: body?.utr,
       amount: Number(body?.amount),
-      status: body?.orderStatus,
+      status: body?.status,
     };
 
     for (let attempt = 1; attempt <= RUNSAFE_LOCK_RETRIES; attempt++) {
@@ -73,11 +73,11 @@ export const cpsWebhook = async (req, res) => {
           conn,
         );
 
-        const payIn = await getPayInIntentDao(body?.mchOrderNo, conn);
+        const payIn = await getPayInIntentDao(body?.txn_id, conn);
 
         if (!payIn?.id) {
           logger.warn(
-            `PayIn not found for merchantOrderId ${merchantOrderId}, skipping runsafe webhook processing`,
+            `PayIn not found for merchantOrderId ${merchantOrderId}, skipping cps webhook processing`,
           );
           await commit(conn);
           committed = true;
@@ -93,7 +93,7 @@ export const cpsWebhook = async (req, res) => {
 
         if (utrAlreadyExist) {
           logger.warn(
-            'Duplicate UTR received in runsafe webhook:',
+            'Duplicate UTR received in cps webhook:',
             payload.userSubmittedUtr,
           );
           await commit(conn);
@@ -101,12 +101,12 @@ export const cpsWebhook = async (req, res) => {
           return;
         }
 
-        if (body?.orderStatus === 'SUCCESS') {
+        if (body?.status === 'SUCCESS') {
           const bankResponse = await createBankResponseWebHookService(
             bankResponsePayload,
             payIn.company_id,
             'BOT',
-            'runsafe',
+            'cps',
             conn,
           );
           logger.info('Bank response created:', bankResponse);
@@ -130,7 +130,7 @@ export const cpsWebhook = async (req, res) => {
         const retryable = isRetryableTxError(error);
         const isLastAttempt = attempt === RUNSAFE_LOCK_RETRIES;
 
-        logger.error('runsafe webhook error:', error);
+        logger.error('cps webhook error:', error);
 
         if (!retryable || isLastAttempt) {
           return;
@@ -138,7 +138,7 @@ export const cpsWebhook = async (req, res) => {
 
         const retryDelayMs = attempt * 500;
         logger.warn(
-          `Retrying runsafe webhook transaction after transient DB lock error (attempt ${attempt}/${RUNSAFE_LOCK_RETRIES}) in ${retryDelayMs}ms`,
+          `Retrying cps webhook transaction after transient DB lock error (attempt ${attempt}/${RUNSAFE_LOCK_RETRIES}) in ${retryDelayMs}ms`,
         );
         await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
       } finally {

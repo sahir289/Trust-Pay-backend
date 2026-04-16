@@ -24,7 +24,7 @@ export const createCpsPaymentTransaction = async (
   deposit,
   amount
 ) => {
-  console.log(deposit, "ssssssd=====");
+
   try {
     const providerConfig = config[providerKey];
     if (!providerConfig) {
@@ -36,7 +36,7 @@ export const createCpsPaymentTransaction = async (
       customerMobile: "9876543210",
       customerEmail: "ajaysingh1898@gmail.com",
       amount: deposit.amount || amount,
-      registrationID: "CPS-0004"
+      registrationID: "CPS-0007"
     };
 
     if ( !body.amount || !body.registrationID) {
