@@ -18,7 +18,7 @@
 
 import amqp from 'amqplib';
 import dotenv from 'dotenv';
-import logger from '../src/utils/logger';
+import {logger} from '../src/utils/logger.js';
 dotenv.config();
 
 const RABBITMQ_URL = process.env.RABBITMQ_URL || 'amqp://localhost:5672';
