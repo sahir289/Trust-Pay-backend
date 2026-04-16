@@ -76,6 +76,7 @@ async function processTyltPayInJob(messagePayload) {
 
   const eventId = event.id;
   const internalStatus = mapTyltStatus(eventId);
+  const tyltStatus = mapTyltStatus(eventId);
 
   logger.info('[Tylt][Consumer] Status mapped', {
     merchantOrderId,

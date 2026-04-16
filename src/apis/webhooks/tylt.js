@@ -1,6 +1,5 @@
 import crypto from 'crypto';
 import { logger } from '../../utils/logger.js';
-import { sendSuccess } from '../../utils/responseHandlers.js';
 import { publishPayInProcess } from '../../rabbitmq/producer.js';
 import redisClient from '../../utils/redisClient.js';
 
