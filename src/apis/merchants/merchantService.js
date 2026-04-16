@@ -37,7 +37,7 @@ import {
   getBankaccountDao,
   updateBankaccountDao,
 } from '../bankAccounts/bankaccountDao.js';
-import { updateUserDao } from '../users/userDao.js';
+import { deleteUserDao } from '../users/userDao.js';
 import { getSessionByUserIdDao } from '../auth/authDao.js';
 import { forceLogoutUser } from '../../utils/sockets.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
@@ -438,15 +438,8 @@ const _deleteMerchantServiceInternal = async (
   try {
     const id = ids.id;
     const merchantDetails = await getMerchantsDao(
-      { id },
-      1,
-      10,
-      'updated_at',
-      null,
-      roleIs,
-      conn,
+      { id }
     );
-
     //------delete merchant and submerchant--------------------
 
     const user_id = merchantDetails[0].user_id;
@@ -489,7 +482,6 @@ const _deleteMerchantServiceInternal = async (
     }
 
     //------remove from bank assigned to merchant which are deleted--------------------
-
     ids.id = allMerchantIds;
     const merchant_id = [merchantDetails[0].id, ...subMerchantIds];
     const bankDetails = await getBankaccountDao(
@@ -537,9 +529,9 @@ const _deleteMerchantServiceInternal = async (
       ...operationIds,
       ...suboperationIds,
     ];
-    await updateUserDao(
+    await deleteUserDao(
       { id: userIds },
-      { is_obsolete: true, is_enabled: false },
+      { is_obsolete: true, is_enabled: false, updated_by },
       conn,
     );
     let sessionData = {};

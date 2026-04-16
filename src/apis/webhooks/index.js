@@ -11,6 +11,7 @@ import { handleRazorpayWebhook } from './razorPay.js';
 import { rupeeFlowWebhook } from './rupeeflow.js';
 import { orvixPayWebhook } from './orvixPay.js';
 import { runsafeWebhook } from './runsafe.js';
+import { payEasyWebhook } from './payeasy.js';
 
 
 const router = express.Router();
@@ -24,5 +25,6 @@ router.post('/clickrr', tryCatchHandler(clickrrWebhook));
 router.post('/razorpay', tryCatchHandler(handleRazorpayWebhook));
 router.post('/rupeeflow', tryCatchHandler(rupeeFlowWebhook));
 router.post('/orvixPay', tryCatchHandler(orvixPayWebhook));
+router.post('/payeasy', tryCatchHandler(payEasyWebhook));
 
 export default router;

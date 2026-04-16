@@ -470,6 +470,7 @@ const getBankAccountsBySearchDao = async (
           OR LOWER(updater.user_name) LIKE LOWER($${paramIndex})
           OR LOWER(v.code) LIKE LOWER($${paramIndex})
           OR LOWER(ba.config->>'max_limit') LIKE LOWER($${paramIndex})
+          OR LOWER(ba.config->>'is_intent') LIKE LOWER($${paramIndex})
       `;
           // Add merchant code search only for ADMIN role
           if (role === 'ADMIN') {
