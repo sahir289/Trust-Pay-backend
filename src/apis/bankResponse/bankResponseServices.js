@@ -736,12 +736,30 @@ const createBankResponseService = async (
           ),
         ]);
 
+        if (!merchantData?.[0]) {
+          throw new NotFoundError(
+            `Merchant not found for payin merchant_id: ${payInUtr.merchant_id}`,
+          );
+        }
+
+        if (!bankAccountDetails?.[0]?.user_id) {
+          throw new NotFoundError(
+            `Bank account not found for payin bank_acc_id: ${payInUtr.bank_acc_id}`,
+          );
+        }
+
         const vendorData = await getVendorsBankReponseDao(
           {
             user_id: bankAccountDetails[0].user_id,
           },
           conn,
         );
+
+        if (!vendorData?.[0]) {
+          throw new NotFoundError(
+            `Vendor not found for bank account user_id: ${bankAccountDetails[0].user_id}`,
+          );
+        }
 
         const payinMerchantCommission = calculateCommission(
           botRes.amount,

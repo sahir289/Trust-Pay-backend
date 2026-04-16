@@ -51,6 +51,8 @@ export const cashfreeWebHook = async (req, res) => {
 
     const bankResponsePayload = `${eventData?.data?.order?.order_amount} nil ${eventData?.data?.payment?.bank_reference} ${payIn.bank_acc_id}`;
 
+    await processPayInService(payload);
+
     if (eventData?.data?.payment?.payment_status === 'SUCCESS') {
       const bankResponseObject = {
         payload: bankResponsePayload,
@@ -60,7 +62,6 @@ export const cashfreeWebHook = async (req, res) => {
       };
       await publishBankResponse(bankResponseObject);
     }
-    await processPayInService(payload);
   } catch (error) {
     logger.error('Cashfree webhook error:', error.message || error);
   }
