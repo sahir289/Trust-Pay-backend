@@ -149,6 +149,7 @@ import {
 import { createSilkPaymentTransaction } from '../../intent/createSilkIntentTransaction.js';
 import { getCachedData, setCachedData } from '../../utils/redishashkey.js';
 import { createOnePayPaymentTransaction } from '../../intent/createOnePayIntentTransaction.js';
+import { createtytlPaymentTransaction } from '../../intent/createtytlPayIntentTransaction.js';
 
 export const generatePayInUrlByHashService = async (req) => {
   try {
@@ -934,6 +935,14 @@ export const payInIntentGenerateOrderService = async (
       runsafe: async () => {
         const order = await createOnePayPaymentTransaction(
           'runsafe',
+          payIn,
+          amount,
+        );
+        return order?.link;
+      },
+      tytl: async () => {
+        const order = await createtytlPaymentTransaction(
+          'tytl',
           payIn,
           amount,
         );
@@ -3829,6 +3838,7 @@ const _verifyPayinsServiceInternal = async (
       allowOrvixPay: cashfreeDetails?.allow_orvixpay || false,
       allowOrvixPay1: cashfreeDetails?.allow_orvixpay1 || false,
       allowrunsafe: cashfreeDetails?.allow_runsafe || false,
+      allowTytl: cashfreeDetails?.allow_payin_tytl || false,
       status: payIn.status,
       min_amount: merchant[0].min_payin,
       max_amount: merchant[0].max_payin,
