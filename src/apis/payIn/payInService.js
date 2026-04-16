@@ -150,6 +150,7 @@ import { createSilkPaymentTransaction } from '../../intent/createSilkIntentTrans
 import { getCachedData, setCachedData } from '../../utils/redishashkey.js';
 import { createOnePayPaymentTransaction } from '../../intent/createOnePayIntentTransaction.js';
 import { createCpsPaymentTransaction } from '../../intent/createCpsIntentTransaction.js';
+import { createPayeasyTransaction } from '../../intent/createPayeasyIntentTransaction.js';
 
 export const generatePayInUrlByHashService = async (req) => {
   try {
@@ -495,13 +496,7 @@ export const getPayInUrlService = async (
 ) => {
   try {
     const currentTime = Date.now();
-    logger.info(
-      `Fetching PayIn for merchantOrderId: ${id} in getPayInUrlService with tele_check: ${tele_check}`,
-    );
     const payIn = await getPayinsForServiccDao({ merchant_order_id: id }, conn);
-    logger.info(
-      `PayIn: ${JSON.stringify(payIn)} found for merchantOrderId: ${id} in getPayInUrlService`,
-    );
 
     if (!payIn) {
       throw new NotFoundError('Payment Url is incorrect');
@@ -664,10 +659,10 @@ export const assignedBankToPayInUrlService = async (
     if (banksWithValidAmount.length === 0) {
       await updatePayInUrlDao(payIn.id, {
         is_url_expires: true,
-        status: Status.DROPPED,
+        status: Status.FAILED,
       });
       merchantPayinCallback(payInConfig.urls?.notify, {
-        status: Status.DROPPED,
+        status: Status.FAILED,
         merchantOrderId: payIn.merchant_order_id,
         payinId: payIn.id,
         amount: null,
@@ -969,8 +964,11 @@ export const payInIntentGenerateOrderService = async (
         const order = await createRazorPayOrder(payIn, amount);
         return order?.id;
       },
+      Payeasy: async () => {
+        const order = await createPayeasyTransaction('payeasy', payIn, amount);
+        return order?.url;
+      },
     };
-    console.log('provider', provider);
     const handler = providerHandlers[provider];
     if (!handler) {
       throw new NotFoundError(`No handler found for provider: ${provider}`);
@@ -1631,7 +1629,10 @@ export const getPayinsBySearchService = async (
     const offset = (pageNum - 1) * limitNum;
 
     if (
-      (designation === Role.VENDOR || designation === Role.VENDOR_OPERATIONS) &&
+      (designation === Role.VENDOR ||
+        designation === Role.VENDOR_OPERATIONS ||
+        designation === Role.SUB_VENDOR ||
+        designation === Role.VENDOR_ADMIN) &&
       Array.isArray(filters.bank_acc_id) &&
       filters.bank_acc_id.length === 0
     ) {
@@ -1662,7 +1663,7 @@ export const getPayinsBySearchService = async (
     return data;
   } catch (error) {
     logger.error('Error while fetching Payin by search', error);
-    throw new InternalServerError(error.message);
+    throw error;
   }
 };
 
@@ -1672,7 +1673,7 @@ export const getPayinsSummaryService = async (filters) => {
     return data;
   } catch (error) {
     logger.error('Error while fetching Payin SUM', error);
-    throw new InternalServerError(error.message);
+    throw error;
   }
 };
 
@@ -1684,6 +1685,7 @@ export const _processPayInServiceInternal = async (
   designation,
   h2h,
   conn = null,
+  img_utr_fileKey = null,
 ) => {
   const {
     userSubmittedUtr,
@@ -1774,7 +1776,7 @@ export const _processPayInServiceInternal = async (
   const vendor = vendors[0];
 
   const duration = calculateDuration(payIn.created_at);
-  const otherPayIns = await getPayInForDuplicate(
+  let otherPayIns = await getPayInForDuplicate(
     {
       merchant_order_id: merchantOrderId,
       user_submitted_utr: userSubmittedUtr,
@@ -1782,6 +1784,18 @@ export const _processPayInServiceInternal = async (
     },
     conn,
   );
+  if (
+    (!otherPayIns || otherPayIns.length === 0) &&
+    (tele_check || img_utr_fileKey)
+  ) {
+    otherPayIns = await getPayInForDuplicate(
+      {
+        user_submitted_utr: userSubmittedUtr,
+        company_id: payIn.company_id,
+      },
+      conn,
+    );
+  }
   const updatePayInData = {
     amount,
     //img_utr only for updating utr directly when image uploaded
@@ -2261,6 +2275,7 @@ export const processPayInService = async (
   img_utr = false,
   designation,
   h2h,
+  img_utr_fileKey,
 ) => {
   let conn;
   let committed = false;
@@ -2275,6 +2290,7 @@ export const processPayInService = async (
       designation,
       h2h,
       conn,
+      img_utr_fileKey,
     );
     await commit(conn);
     committed = true;
@@ -2800,8 +2816,8 @@ export const processPayInByImageService = async (payload) => {
         user_submitted_image: payload.fileKey,
       },
       undefined,
-      false,
-      false,
+      true,
+      true,
       undefined,
       undefined,
       conn,
@@ -3799,11 +3815,21 @@ const _verifyPayinsServiceInternal = async (
     const banks = await getMerchantLinkBankDao({
       config_merchants_contains: merchant[0].id,
     });
-    let bankIntent;
+    const VALID_INTENTS = new Set([
+      'allow_cashfree',
+      'allow_zentechind',
+      'allow_nmplpay',
+      'allow_runsafe',
+      'allow_silkpay',
+      'allow_razorpay',
+      'allow_orvixpay',
+      'allow_orvixpay1',
+      'allow_vertexpay',
+      'allow_payeasy',
+    ]);
     const enabledBanks = banks.filter((bank) => {
       const isPayInBank = ['PayIn', 'payIn'].includes(bank.bank_used_for);
       const isActive = bank.is_enabled && isPayInBank;
-      bankIntent = bank.config?.is_intent;
       const hasAnyMethod =
         bank.is_qr ||
         bank.is_bank ||
@@ -3811,26 +3837,64 @@ const _verifyPayinsServiceInternal = async (
         bank.config?.is_intent;
       return isActive && hasAnyMethod;
     });
+    const bankIntents = enabledBanks
+      .map((b) => b.config?.is_intent)
+      .filter((i) => VALID_INTENTS.has(String(i)));
+    let selectedIntent = null;
+    if (bankIntents.length > 0) {
+      selectedIntent =
+        bankIntents[Math.floor(Math.random() * bankIntents.length)];
+    }
 
     const merchantIntent = merchant[0]?.config?.allow_intent;
-    let cashfreeDetails;
-    if (merchantIntent && bankIntent) {
+    let cashfreeDetails = null;
+    if (merchantIntent && selectedIntent) {
       cashfreeDetails = await getCashfreeAllowByCompanyIdDao(payIn.company_id);
     }
     const result = {
       expiryTime: payIn.expiration_date,
       amount: payIn.amount,
       one_time_used: payIn.one_time_used,
-      allowCashfree: cashfreeDetails?.allow_cashfree || false,
-      allowZenTechInd: cashfreeDetails?.allow_zentechind || false,
-      allowNmplPay: cashfreeDetails?.allow_nmplpay || false,
-      allowRunsafePay: cashfreeDetails?.allow_runsafe || false,
-      allowCpsPay: cashfreeDetails?.allow_cps || false,
-      allowSilkPay: cashfreeDetails?.allow_silkpay || false,
-      allowRazorPay: cashfreeDetails?.allow_razorpay || false,
-      allowOrvixPay: cashfreeDetails?.allow_orvixpay || false,
-      allowOrvixPay1: cashfreeDetails?.allow_orvixpay1 || false,
-      allowrunsafe: cashfreeDetails?.allow_runsafe || false,
+      allowCashfree:
+        (selectedIntent === 'allow_cashfree' &&
+          cashfreeDetails?.allow_cashfree) ||
+        false,
+      allowZenTechInd:
+        (selectedIntent === 'allow_zentechind' &&
+          cashfreeDetails?.allow_zentechind) ||
+        false,
+      allowNmplPay:
+        (selectedIntent === 'allow_nmplpay' &&
+          cashfreeDetails?.allow_nmplpay) ||
+        false,
+      allowrunsafe:
+        (selectedIntent === 'allow_runsafe' &&
+          cashfreeDetails?.allow_runsafe) ||
+        false,
+      allowSilkPay:
+        (selectedIntent === 'allow_silkpay' &&
+          cashfreeDetails?.allow_silkpay) ||
+        false,
+      allowRazorPay:
+        (selectedIntent === 'allow_razorpay' &&
+          cashfreeDetails?.allow_razorpay) ||
+        false,
+      allowOrvixPay:
+        (selectedIntent === 'allow_orvixpay' &&
+          cashfreeDetails?.allow_orvixpay) ||
+        false,
+      allowOrvixPay1:
+        (selectedIntent === 'allow_orvixpay1' &&
+          cashfreeDetails?.allow_orvixpay1) ||
+        false,
+      allowVertexPay:
+        (selectedIntent === 'allow_vertexpay' &&
+          cashfreeDetails?.allow_vertexpay) ||
+        false,
+      allowPayeasy:
+        (selectedIntent === 'allow_payeasy' &&
+          cashfreeDetails?.allow_payeasy) ||
+        false,
       status: payIn.status,
       min_amount: merchant[0].min_payin,
       max_amount: merchant[0].max_payin,
@@ -4022,12 +4086,12 @@ export const generateUpiUrlService = async (payload = {}) => {
     throw new BadRequestError('Missing required fields: amount, name');
   }
   const orderId = payload.orderId || generateTxnId();
-  const PaytmbankName =  'AKASH TOURS AND TRAVELS';
+  const PaytmbankName = 'AKASH TOURS AND TRAVELS';
   // const GPAYbankName = 'Pratik Hire';
   const PAYTM_MERCHANT_UPI = 'akashtravels6326@iob';
   const MERCHANT_UPI = '7208647020@ptaxis';
   const GPAY_MERCHANT_UPI = 'akashtravels6326@iob';
-  
+
   try {
     const encodedName = encodeURIComponent(PaytmbankName);
     const upiLink = `upi://pay?pa=${GPAY_MERCHANT_UPI}&pn=${encodedName}&am=${payload.amount}&cu=INR&tr=${orderId}`;

@@ -43,7 +43,7 @@ function getSignString(params) {
   return array.join("&");
 }
 
-  function generateSign(params, privateKey, algorithm = "RSA-SHA256") {
+export function generateSign(params, privateKey, algorithm = "RSA-SHA256") {
     // Step 1: create sign string (you need same logic as PHP getSignString)
     const signString = getSignString(params);
 

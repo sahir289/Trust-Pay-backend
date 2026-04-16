@@ -1,5 +1,5 @@
 import { Role } from '../../constants/index.js';
-
+import { forceLogoutUser } from '../../utils/sockets.js';
 import {
   beginTransaction,
   commit,
@@ -30,7 +30,7 @@ import {
 } from './vendorDao.js';
 import { createCalculationDao } from '../calculation/calculationDao.js';
 import {
-  updateBankaccountDao,
+  deleteBankaccountByUserIdDao,
   getBankaccountCheckDao,
 } from '../bankAccounts/bankaccountDao.js';
 import { updateUserDao, getUsersNameDao } from '../users/userDao.js';
@@ -38,6 +38,7 @@ import { updateUserDao, getUsersNameDao } from '../users/userDao.js';
 import { deleteBeneficiaryDao } from '../beneficiaryAccounts/beneficiaryAccountDao.js';
 import { notifyBankResponseAccessUpdate } from '../../utils/sockets.js';
 import { BadRequestError, NotFoundError } from '../../utils/appErrors.js';
+import {getSessionByIdDao} from '../auth/authDao.js';
 const _createVendorServiceInternal = async (payload, conn) => {
   try {
     const parentId = payload.parent_id;
@@ -289,6 +290,7 @@ const getVendorsCodeService = async (
 
     if (role === Role.ADMIN) {
       delete filters.user_id;
+      excludeDisabledVendor = true;
     }
 
     const codes = await getVendorsCodeDao(
@@ -459,10 +461,17 @@ const _deleteVendorServiceInternal = async (ids, updated_by, conn) => {
     //delete banks and childs for particular user
     if (data) {
       const payloadBank = {
-        config: { is_freeze: true, isFromDeletedParent: true },
+        config: {
+          is_freeze: false,
+          is_intent: false,
+          is_phonepay: false,
+          is_staticQR: false,
+          isFromDeletedParent: true,
+        },
         is_qr: false,
         is_bank: false,
         is_enabled: false,
+        is_obsolete: true,
         updated_by,
       };
       await updateUserDao({ id: ids.user_id || ids.id }, payload, conn);
@@ -471,11 +480,10 @@ const _deleteVendorServiceInternal = async (ids, updated_by, conn) => {
         { is_obsolete: true },
         conn,
       );
-      await updateBankaccountDao(
-        // here is a bug in below line, here need to remove user_id 
-        { id: ids.bank_id, company_id: ids.company_id, user_id: ids.user_id || ids.id },
+      await deleteBankaccountByUserIdDao(
+        // here is a bug in below line, here need to remove user_id
+        { company_id: ids.company_id, user_id: ids.user_id || ids.id },
         payloadBank,
-        true,
         conn,
       );
       //for childs user hierachys
@@ -490,10 +498,19 @@ const _deleteVendorServiceInternal = async (ids, updated_by, conn) => {
         null,
         conn,
       );
+      const session = await getSessionByIdDao(ids, conn);
+      if (session?.session_id) {
+        await forceLogoutUser(ids.user_id || ids.id, session?.session_id);
+      }
       if (UserHierarchy[0]?.config?.child?.operations) {
         const userIds = UserHierarchy[0].config.child.operations;
         for (const userId of userIds) {
           await updateUserDao({ id: userId }, payload, conn);
+          ids.user_id = userId;
+          const session = await getSessionByIdDao(ids, conn);
+          if (session?.session_id) {
+            await forceLogoutUser(userId, session?.session_id);
+          }
         }
       }
       if (UserHierarchy[0]?.config?.siblings?.sub_vendors) {
