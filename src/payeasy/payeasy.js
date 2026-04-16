@@ -254,7 +254,7 @@ export const createPayEasyPayout = async (
 };
 
 /**
- * Create VertexPay bulk payout from entries/IDs using initiateVertexPayPayout
+ * Create PayEasy bulk payout from entries/IDs using initiatePayEasyPayout
  * @param {Array} payoutEntries - Array of payout entries or IDs
  * @param {string} company_id - Company ID
  * @param {function} getPayoutData - Function to get payout data if IDs are provided
@@ -262,7 +262,7 @@ export const createPayEasyPayout = async (
  * @param {object} rabbitMQ - RabbitMQ instance for async status updates
  * @returns {Promise<object>} - API response
  */
-// export const createVertexPayBulkPayout = async (
+// export const createPayEasyBulkPayout = async (
 //   payoutEntries,
 //   company_id,
 //   getPayoutData = null,
