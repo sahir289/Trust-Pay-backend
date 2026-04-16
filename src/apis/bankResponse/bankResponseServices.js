@@ -265,7 +265,7 @@ const createBankResponseService = async (
   const postCommitTasks = [];
 
   const splitData = payload.split(' ');
-  const amount = parseFloat(splitData[0]);
+  const amount = Number.parseFloat(splitData[0]);
   const upi_short_code = splitData.length > 1 ? splitData[1] : '';
   const utr = splitData[2];
   const bank_id = splitData[3];
@@ -638,8 +638,9 @@ const createBankResponseService = async (
             },
             conn,
           );
+          let obj = {};
           if (updatePayInDataRes) {
-            const obj = {
+            obj = {
               id: updatePayInDataRes.id,
               status: updatePayInDataRes.status,
               company_id: updatePayInDataRes.company_id,
@@ -672,7 +673,6 @@ const createBankResponseService = async (
                 amount: botRes.amount || 0,
               },
             };
-            emitTableEntryAsync(tableName.PAYIN, obj);
             // This is async function but it's just the callback sending function there fore we are not using await
             merchantPayinCallback(updatePayInDataRes.config.urls?.notify, {
               status: updatePayInDataRes.status,
@@ -694,6 +694,8 @@ const createBankResponseService = async (
           processingSet.delete(utr);
           conn.release();
           conn = null; // Prevent double release in finally block
+
+          emitTableEntryAsync(tableName.PAYIN, obj);
           return {
             message: `Bank Mismatch with ${updatePayInDataRes?.merchant_order_id}`,
           };
@@ -869,7 +871,6 @@ const createBankResponseService = async (
             },
           };
 
-          emitTableEntryAsync(tableName.PAYIN, obj);
           // This is async function but it's just the callback sending function there fore we are not using await
           merchantPayinCallback(updatePayin.config.urls?.notify, {
             status: updatePayin.status,
@@ -897,6 +898,8 @@ const createBankResponseService = async (
           processingSet.delete(utr);
           conn.release();
           conn = null; // Prevent double release
+
+          emitTableEntryAsync(tableName.PAYIN, obj);
           return {
             message: `UTR ${utr} matches the User Submitted UTR: ${payInUtr.user_submitted_utr} and the payment was successful.`,
           };
@@ -944,8 +947,9 @@ const createBankResponseService = async (
             ),
             updateBotResponseDao(botRes.id, { is_used: true }, conn),
           ]);
+          let obj = {};
           if (updatePayInDataRes) {
-            const obj = {
+            obj = {
               id: updatePayInDataRes.id,
               status: updatePayInDataRes.status,
               company_id: updatePayInDataRes.company_id,
@@ -978,7 +982,6 @@ const createBankResponseService = async (
                 amount: botRes.amount || 0,
               },
             };
-            emitTableEntryAsync(tableName.PAYIN, obj);
             // This is async function but it's just the callback sending function there fore we are not using await
             merchantPayinCallback(updatePayInDataRes.config.urls?.notify, {
               status: updatePayInDataRes.status,
@@ -1001,6 +1004,8 @@ const createBankResponseService = async (
           processingSet.delete(utr);
           conn.release();
           conn = null; // Prevent double release
+
+          emitTableEntryAsync(tableName.PAYIN, obj);
           return {
             message: `Entry is in Dispute with ${updatePayInDataRes?.merchant_order_id}`,
           };
