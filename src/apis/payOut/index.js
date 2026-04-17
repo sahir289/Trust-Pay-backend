@@ -231,6 +231,7 @@ router.put(
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(updatePayout),
 );
+
 router.put(
   '/assign-vendor-payout/:id',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
