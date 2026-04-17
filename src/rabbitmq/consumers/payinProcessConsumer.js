@@ -4,6 +4,7 @@ import { processPayInService } from '../../apis/payIn/payInService.js';
 import { VALIDATE_PROCESS_PAYIN } from '../../schemas/payInSchema.js';
 import { rabbitMQConnectionManager } from '../connection.js';
 import { assertQueueTopology, TOPOLOGY } from '../topology.js';
+import { withRedisKeyLock } from '../utils/redisKeyedLock.js';
 
 const PREFETCH_COUNT = Number(process.env.PAYIN_PROCESS_PREFETCH || 20);
 const MAX_RETRIES = Number(process.env.PAYIN_PROCESS_MAX_RETRIES || 3);
@@ -36,6 +37,10 @@ async function processPayInJob(messagePayload) {
   );
 }
 
+function getPayInLockKey(messagePayload) {
+  return messagePayload?.payload?.merchantOrderId || null;
+}
+
 async function handleMessage(msg) {
   if (!msg || stopping) {
     return;
@@ -45,12 +50,13 @@ async function handleMessage(msg) {
 
   try {
     const payload = JSON.parse(msg.content.toString());
+    const lockKey = getPayInLockKey(payload);
 
     if (!payload?.payload?.merchantOrderId) {
       throw new Error('Invalid payin process message');
     }
 
-    await processPayInJob(payload);
+    await withRedisKeyLock('payin-process', lockKey, () => processPayInJob(payload));
     channel.ack(msg);
 
     logger.info('[RabbitMQ][PayInProcess] Message processed', {
