@@ -33,20 +33,28 @@ export const createTyltPayIn = async ({
   amount,
   email,
   redirectUrl,
-  userId,
 }) => {
   try {
     const requestBody = {
+      isBuyTrade: 1,
+      userDetails: {},
       merchantOrderId: orderId,
-      amount,
-      email,
-      redirectUrl,
       callBackUrl: process.env.TYLT_CALLBACK_URL,
-      userId,
+      redirectUrl: redirectUrl,
+      isUTRNeeded: 1,
+      currencySymbol: 'USDT',
+      amount: String(amount),
+      isKYCNeeded: 1,
+      ...(email && { userEmail: email }),
     };
 
     const rawBody = JSON.stringify(requestBody);
     const signature = generateTyltSignature(rawBody);
+
+    logger.info(`[Tylt] Creating instance for orderId: ${orderId}`, {
+      amount: requestBody.amount,
+      hasEmail: !!email,
+    });
 
     const response = await axios.post(
       `${TYLT_BASE_URL}/p2pRampsMerchant/createInstance`,
@@ -61,16 +69,19 @@ export const createTyltPayIn = async ({
       },
     );
 
-    const data = response.data;
+    const { instanceId, url } = response.data.data;
 
-    if (!data?.paymentUrl || !data?.instanceId) {
-      logger.error('Tylt createInstance missing paymentUrl or instanceId', data);
+    if (!instanceId || !url) {
+      logger.error('Tylt createInstance missing instanceId or url', {
+        instanceId,
+        url,
+      });
       throw new Error('Tylt createInstance returned incomplete response');
     }
 
     return {
-      paymentUrl: data.paymentUrl,
-      instanceId: data.instanceId,
+      instanceId,
+      paymentUrl: url,
     };
   } catch (error) {
     logger.error(

@@ -908,8 +908,17 @@ export const payInIntentGenerateOrderService = async (
   provider,
 ) => {
   try {
-    const payIn = await getPayInIntentDao(merchantOrderId);
-    checkIsPayInExpired(payIn);
+    let payIn = await getPayInIntentDao(merchantOrderId);
+    if (!payIn || (Array.isArray(payIn) && payIn.length === 0)) {
+      throw new NotFoundError(`PayIn not found for merchantOrderId: ${merchantOrderId}`);
+    }
+    // If it's an array with one element (standard query result), normalize it to an object
+    if (Array.isArray(payIn)) payIn = payIn[0];
+
+    const expiryCheck = checkIsPayInExpired(payIn);
+    if (expiryCheck) {
+      throw new BadRequestError(expiryCheck.message);
+    }
 
     const providerHandlers = {
       ZenTechInd: async () => {
