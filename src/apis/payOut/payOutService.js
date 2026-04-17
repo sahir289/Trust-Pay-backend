@@ -1200,6 +1200,10 @@ const _updatePayoutServiceInternal = async (
       return earlyReturnResult;
     }
 
+    if (payload?.status === Status.REVERSED) {
+      payload.config = {...(payload.config || {}), reversed_at: new Date().toISOString()};
+    }
+
     const data = await updatePayoutDao(ids, payload, conn);
     if (data.status == Status.INITIATED) {
       earlyReturnResult = data;
