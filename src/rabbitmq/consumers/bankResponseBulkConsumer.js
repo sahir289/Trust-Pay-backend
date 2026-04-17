@@ -2,6 +2,11 @@ import { logger } from '../../utils/logger.js';
 import { createBankResponseService } from '../../apis/bankResponse/bankResponseServices.js';
 import { rabbitMQConnectionManager } from '../connection.js';
 import { assertQueueTopology, TOPOLOGY } from '../topology.js';
+import {
+  extractBankId,
+  normalizeBankResponsePayload,
+  withBankLock,
+} from '../utils/bankResponseConsumerUtils.js';
 
 const PREFETCH_COUNT = Number(
   process.env.BANK_RESPONSE_BOT_BULK_PREFETCH || 6,
@@ -14,49 +19,20 @@ let channel = null;
 let consumerTag = null;
 let unsubscribeReconnect = null;
 let stopping = false;
-const bankLocks = new Map();
 
 function getRetryCount(msg) {
   return Number(msg?.properties?.headers?.['x-retry-count'] || 0);
 }
 
 async function processBankResponse(payload) {
+  const normalizedPayload = normalizeBankResponsePayload(payload);
+
   await createBankResponseService(
-    payload.payload,
-    payload.x_auth_token,
-    payload.role,
-    payload.name,
+    normalizedPayload.payload,
+    normalizedPayload.x_auth_token,
+    normalizedPayload.role,
+    normalizedPayload.name,
   );
-}
-
-function extractBankId(payloadString = '') {
-  const splitData = String(payloadString).split(' ');
-  return splitData[3] || null;
-}
-
-async function withBankLock(bankId, work) {
-  if (!bankId) {
-    return work();
-  }
-
-  const previous = bankLocks.get(bankId) || Promise.resolve();
-  let release;
-  const current = new Promise((resolve) => {
-    release = resolve;
-  });
-
-  bankLocks.set(bankId, previous.then(() => current));
-
-  await previous;
-
-  try {
-    return await work();
-  } finally {
-    release();
-    if (bankLocks.get(bankId) === current) {
-      bankLocks.delete(bankId);
-    }
-  }
 }
 
 async function handleMessage(msg) {
@@ -68,9 +44,10 @@ async function handleMessage(msg) {
 
   try {
     const payload = JSON.parse(msg.content.toString());
+    const companyId = payload?.x_auth_token ?? payload?.company_id;
     const bankId = extractBankId(payload?.payload);
 
-    if (!payload?.payload || !payload?.x_auth_token) {
+    if (!payload?.payload || !companyId) {
       throw new Error('Invalid bank response bulk message');
     }
 
