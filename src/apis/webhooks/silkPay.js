@@ -6,8 +6,7 @@ import { processPayInWebHookService } from '../payIn/payInService.js';
 import { generateHash } from '../../intent/createIntentTransaction.js';
 import { getBankResponseByUTR } from '../bankResponse/bankResponseDao.js';
 import { Status } from '../../constants/index.js';
-
-const processingSet = new Set();
+import { acquireLock, releaseLock } from '../../utils/distributedLock.js';
 
 export const silkPayWebhook = async (req, res) => {
   logger.info('silkPayWebhook called', req.body);
@@ -17,12 +16,11 @@ export const silkPayWebhook = async (req, res) => {
     const merchantOrderId = body?.mOrderId;
     const utr = body?.utr;
     
-    if (processingSet.has(utr)) {
+    const lockAcquired = await acquireLock(utr, 'silkPay');
+    if (!lockAcquired) {
       logger.warn(`Duplicate concurrent webhook skipped for ${utr} and merchantOrderId ${merchantOrderId}`);
       return;
     }
-
-    processingSet.add(utr);
 
     const hash = generateHash(body, 'silkPay');
     if (hash !== body.sign) {
@@ -79,6 +77,6 @@ export const silkPayWebhook = async (req, res) => {
   } catch (error) {
     logger.error('silkPay webhook error:', error);
   } finally {
-    processingSet.delete(req.body?.utr);
+    await releaseLock(req.body?.utr, 'silkPay');
   }
 };

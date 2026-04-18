@@ -7,8 +7,7 @@ import { getBankResponseByUTR } from '../bankResponse/bankResponseDao.js';
 import { beginTransaction, commit, getConnection, rollback } from '../../utils/db.js';
 import { checkLockEdit } from '../../utils/advisoryLock.js';
 import { Status } from '../../constants/index.js';
-
-const processingSet = new Set();
+import { acquireLock, releaseLock } from '../../utils/distributedLock.js';
 
 const parsePositiveInt = (value, fallback) => {
   const parsed = Number.parseInt(value, 10);
@@ -41,12 +40,11 @@ export const runsafeWebhook = async (req, res) => {
     sendSuccess(res, 200, 'runsafe webhook received successfully');
     const merchantOrderId = body?.mchOrderNo;
     const utr = body?.utr;
-    if (processingSet.has(utr)) {
+    const lockAcquired = await acquireLock(utr, 'runsafe');
+    if (!lockAcquired) {
       logger.warn(`Duplicate concurrent webhook skipped for ${utr} and merchantOrderId ${merchantOrderId}`);
       return;
     }
-
-    processingSet.add(utr);
 
     const payload = {
       merchantOrderId: body?.mchOrderNo,
@@ -156,6 +154,6 @@ export const runsafeWebhook = async (req, res) => {
       }
     }
   } finally {
-    processingSet.delete(body?.utr);
+    await releaseLock(body?.utr, 'runsafe');
   }
 };
