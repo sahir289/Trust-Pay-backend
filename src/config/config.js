@@ -154,6 +154,10 @@ function config(Env) {
       privateKey: Env?.RUNSAFE_PRIVATE_KEY,
       publicKey: Env?.RUNSAFE_PUBLIC_KEY,
     },
+    tytl : {
+      apiKey: Env.TYTL_API_KEY,
+      secretKey: Env.TTYL_SECRET_KEY,
+    },
     clickrr : {
       baseUrl: Env?.CLICKRR_BASE_API_URL,
       initiatePayout: Env?.CLICKRR_INITIATE_API_URL,

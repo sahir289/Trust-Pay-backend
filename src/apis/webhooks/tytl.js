@@ -6,6 +6,8 @@ import { processPayInWebHookService } from '../payIn/payInService.js';
 import { getBankResponseByUTR } from '../bankResponse/bankResponseDao.js';
 import { beginTransaction, commit, getConnection, rollback } from '../../utils/db.js';
 import { checkLockEdit } from '../../utils/advisoryLock.js';
+import config from '../../config/config.js';
+import crypto from 'crypto';
 import { Status } from '../../constants/index.js';
 
 const processingSet = new Set();
@@ -34,13 +36,25 @@ const isRetryableTxError = (error) =>
 
 
 export const tytlWebhook = async (req, res) => {
-  const data = req.body;
-  logger.info('Webhook tytl received ++++', data);
-  const body = typeof data === 'string' ? JSON.parse(data) : data;
+  const data = req.body.data;
+
+  // Calculate HMAC signature
+  const tlpSignature = req.headers['x-tlp-signature'];
+  const calculatedHmac = crypto
+      .createHmac('sha256', config.tytl.secretKey)
+      .update(JSON.stringify(data)) // Use raw body string for HMAC calculation
+      .digest('hex');
+
+  if (calculatedHmac !== tlpSignature) {
+      // Signature is valid
+      if (data.accounts.transactionType === 'pay-in') {
+          console.log('Received pay-in callback:', data);
+          // Process pay-in data here
   try {
+    let responseData = data?.transaction
     sendSuccess(res, 200, 'tytl webhook received successfully');
-    const merchantOrderId = body?.mchOrderNo;
-    const utr = body?.utr;
+    const merchantOrderId = responseData?.merchantOrderId;
+    const utr = data?.trade?.utr;
     if (processingSet.has(utr)) {
       logger.warn(`Duplicate concurrent webhook skipped for ${utr} and merchantOrderId ${merchantOrderId}`);
       return;
@@ -49,11 +63,12 @@ export const tytlWebhook = async (req, res) => {
     processingSet.add(utr);
 
     const payload = {
-      merchantOrderId: body?.mchOrderNo,
-      userSubmittedUtr: body?.utr || body?.mchOrderNo,
-      amount: Number(body?.amount),
-      status: body?.orderStatus,
+      merchantOrderId: responseData?.merchantOrderId,
+      userSubmittedUtr: data?.trade?.utr || 123,
+      amount: Number(data?.accounts?.amountPaidInLocalCurrency),
+      status: responseData?.status === 'Completed' ? Status.SUCCESS : responseData?.status,
     };
+
 
     for (let attempt = 1; attempt <= RUNSAFE_LOCK_RETRIES; attempt++) {
       let conn;
@@ -74,7 +89,7 @@ export const tytlWebhook = async (req, res) => {
           conn,
         );
 
-        const payIn = await getPayInIntentDao(body?.mchOrderNo, conn);
+        const payIn = await getPayInIntentDao(responseData?.merchantOrderId, conn);
 
         if (!payIn?.id) {
           logger.warn(
@@ -85,7 +100,7 @@ export const tytlWebhook = async (req, res) => {
           return;
         }
 
-        const bankResponsePayload = `${body?.amount} nil ${payload.userSubmittedUtr} ${payIn.bank_acc_id}`;
+        const bankResponsePayload = `${payload.amount} nil ${payload.userSubmittedUtr} ${payIn.bank_acc_id}`;
 
         const utrAlreadyExist = await getBankResponseByUTR(
           payload.userSubmittedUtr,
@@ -102,7 +117,7 @@ export const tytlWebhook = async (req, res) => {
           return;
         }
 
-        if (body?.orderStatus === 'SUCCESS' || body?.orderStatus === "PART_SUC") {
+        if (responseData?.status === 'Completed') {
           const bankResponse = await createBankResponseWebHookService(
             bankResponsePayload,
             payIn.company_id,
@@ -113,9 +128,6 @@ export const tytlWebhook = async (req, res) => {
           logger.info('Bank response created:', bankResponse);
         }
         logger.info('Calling processPayInWebHookService for payload', payload);
-        if (body?.orderStatus === "PART_SUC" || payIn.amount !== body?.amount) {
-          payload.status = Status.DISPUTE
-        }
         const payin = await processPayInWebHookService(
           payload,
           '',
@@ -156,6 +168,13 @@ export const tytlWebhook = async (req, res) => {
       }
     }
   } finally {
-    processingSet.delete(body?.utr);
+    processingSet.delete(data?.utr);
   }
+} 
+// Return HTTP Response 200 with content "ok"
+res.status(200).send('ok');
+} else {
+// Invalid HMAC signature
+res.status(400).send('Invalid HMAC signature');
+}
 };

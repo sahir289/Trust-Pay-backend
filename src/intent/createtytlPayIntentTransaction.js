@@ -80,27 +80,9 @@ export const createtytlPaymentTransaction = async (
       throw new Error(`Invalid provider: ${providerKey}`);
     }
 
-
-
-
-    // const sign = generateSign(body , providerConfig.privateKey);
-    // console.log("Generated sign:", sign);
-    // const requestBody = { ...body, sign };
-
-    // const response = await axios.post(`${providerConfig.url}`, requestBody, {
-    //   headers: { 
-    //           'Content-Type': 'application/json',
-    //           'lang': 'en',
-    //         },
-    // });
-
-
-
-
-
     // Replace with your API Key and Secret
-const apiKey = 'your-api-key';
-const apiSecret = 'your-api-secret';
+const apiKey = providerConfig.apiKey;
+const apiSecret = providerConfig.secretKey;
 
 // Request body
 const requestBody = {
@@ -112,8 +94,9 @@ const requestBody = {
     isUTRNeeded: 1,
     currencySymbol: "INR",
     amount: deposit.amount || amount,
-    isKYCNeeded: 1,
-    //userEmail: abc@email.com (required if isKYCNeeded is 0)
+    isKYCNeeded: 0,
+    userEmail: "test@test.com"
+    // (required if isKYCNeeded is 0)
 };
 
 // Print request body for reference
@@ -140,13 +123,11 @@ const headers = {
 };
 
 // Send the request
-const response = axios.post('https://api.tylt.money/p2pRampsMerchant/createInstance', raw, { headers })
-    .then(response => console.log("Success:", response.data))
-    .catch(error => console.error("Error:", error));
-
+const response = await axios.post('https://api.tylt.money/p2pRampsMerchant/createInstance', raw, { headers })
+    console.log(response.data, "ssssswdedfedfedwd")
     logger.info(`${providerKey} transaction created:`, {
       requestBody,
-      response: response.data,
+      response: response?.data,
     });
 
     return response.data.data;

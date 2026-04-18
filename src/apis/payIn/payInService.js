@@ -941,7 +941,7 @@ export const payInIntentGenerateOrderService = async (
           payIn,
           amount,
         );
-        return order?.link;
+        return order?.url;
       },
       orvixPay: async () => {
         const order = await createPaymentTransaction('orvixPay', payIn, amount);
@@ -3825,6 +3825,8 @@ const _verifyPayinsServiceInternal = async (
       'allow_orvixpay1',
       'allow_vertexpay',
       'allow_payeasy',
+      'allow_payin_tytl',
+      'allow_tytl'
     ]);
     const enabledBanks = banks.filter((bank) => {
       const isPayInBank = ['PayIn', 'payIn'].includes(bank.bank_used_for);
@@ -3850,6 +3852,8 @@ const _verifyPayinsServiceInternal = async (
     if (merchantIntent && selectedIntent) {
       cashfreeDetails = await getCashfreeAllowByCompanyIdDao(payIn.company_id);
     }
+    console.log(cashfreeDetails, "dadwedewdwdwdwd", selectedIntent)
+    
     const result = {
       expiryTime: payIn.expiration_date,
       amount: payIn.amount,
@@ -3894,7 +3898,9 @@ const _verifyPayinsServiceInternal = async (
         (selectedIntent === 'allow_payeasy' &&
           cashfreeDetails?.allow_payeasy) ||
         false,
-        allowTytl: cashfreeDetails?.allow_payin_tytl || false,
+      allowTytl: (selectedIntent === 'allow_tytl' && 
+          cashfreeDetails?.allow_payin_tytl) || cashfreeDetails?.allow_tytl ||
+        false,
       status: payIn.status,
       min_amount: merchant[0].min_payin,
       max_amount: merchant[0].max_payin,
