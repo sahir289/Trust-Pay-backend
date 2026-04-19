@@ -7,6 +7,7 @@ import { assertQueueTopology, TOPOLOGY } from '../topology.js';
 import { updatePayInUrlDao, getPayinsForServiccDao } from '../../apis/payIn/payInDao.js';
 import { Status } from '../../constants/index.js';
 import redisClient from '../../utils/redisClient.js';
+import { withRedisKeyLock } from '../utils/redisKeyedLock.js';
 
 const PREFETCH_COUNT = Number(process.env.PAYIN_PROCESS_PREFETCH || 20);
 const MAX_RETRIES = Number(process.env.PAYIN_PROCESS_MAX_RETRIES || 3);
@@ -141,6 +142,10 @@ async function processTyltPayInJob(messagePayload) {
   });
 }
 
+function getPayInLockKey(messagePayload) {
+  return messagePayload?.payload?.merchantOrderId || null;
+}
+
 async function handleMessage(msg) {
   if (!msg || stopping) {
     return;
@@ -150,6 +155,7 @@ async function handleMessage(msg) {
 
   try {
     const payload = JSON.parse(msg.content.toString());
+    const lockKey = getPayInLockKey(payload);
 
     // Route Tylt messages separately — they carry crypto metadata
     // and do not follow the standard UTR/bank-response payin flow.
@@ -178,7 +184,7 @@ async function handleMessage(msg) {
       throw new Error('Invalid payin process message');
     }
 
-    await processPayInJob(payload);
+    await withRedisKeyLock('payin-process', lockKey, () => processPayInJob(payload));
     channel.ack(msg);
 
     logger.info('[RabbitMQ][PayInProcess] Message processed', {

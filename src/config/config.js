@@ -154,6 +154,12 @@ function config(Env) {
       privateKey: Env?.RUNSAFE_PRIVATE_KEY,
       publicKey: Env?.RUNSAFE_PUBLIC_KEY,
     },
+    cps: {
+      url: Env?.CPS_API_URL,
+      NotifyUrl: Env?.CPS_NOTIFY_URL,
+      privateKey: Env?.CPS_PRIVATE_KEY,
+      publicKey: Env?.CPS_PUBLIC_KEY,
+    },
     clickrr : {
       baseUrl: Env?.CLICKRR_BASE_API_URL,
       initiatePayout: Env?.CLICKRR_INITIATE_API_URL,
@@ -302,13 +308,20 @@ function config(Env) {
     proxyCheck: {
       proxyCheckUrl: Env?.PROXY_CHECK_URL,
     },
+    payeasy: {
+      url: Env?.PAYEASY_API_URL,
+      payeasyClientId: Env?.PAYEASY_CLIENT_ID,
+      encryptionKey: Env?.PAYEASY_ENCRYPTION_KEY
+    },
     // reactAppBaseUrl: Env?.REACT_APP_BASE_URL,
     databaseUrl: Env?.DATABASE_URL,
     databaseWriterUrl: Env?.DATABASE_WRITER_URL,
     databaseReaderUrl: Env?.DATABASE_READER_URL,
     accessTokenSecretKey: Env?.ACCESS_TOKEN_SECRET_KEY,
     accessTokenExpireTime: 24 * 60 * 60, // in seconds
-    reactFrontOrigin: Env?.REACT_FRONT_ORIGIN,
+    reactFrontOrigin1: Env?.REACT_FRONT_ORIGIN_1,
+    reactFrontOrigin2: Env?.REACT_FRONT_ORIGIN_2,
+    LOGIN_BLOCK_ORIGIN: Env?.LOGIN_BLOCK_ORIGIN,
     reactPaymentOrigin: Env?.REACT_PAYMENT_ORIGIN,
     ocrPrivateKey: Env?.OCR_PRIVATE_KEY,
     clientEmail: Env?.CLIENT_EMAIL,

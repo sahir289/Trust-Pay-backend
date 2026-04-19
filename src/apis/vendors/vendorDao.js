@@ -173,7 +173,7 @@ export const getVendorsCodeDao = async (
     `;
 
     if (excludeDisabledVendor) {
-      sql += ` AND v.is_enabled = TRUE `;
+      sql += ` AND (v.config->>'is_enabled')::boolean = true`;
     }
 
     const queryParams = [];

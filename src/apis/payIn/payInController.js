@@ -263,7 +263,7 @@ export const checkPayInStatus = async (req, res) => {
 export const payInIntentGenerateOrder = async (req, res) => {
   const { merchantOrderId } = req.params;
   // const { company_id } = req.user;
-  const { amount, Razorpay, cashfree, zentechind, nmplPay, silkPay, orvixPay, orvixPay1, runsafe, tylt } = req.body;
+  const { amount, Razorpay, cashfree, zentechind, nmplPay, silkPay, orvixPay, orvixPay1, runsafe, tylt, cpsPay, payeasy } = req.body;
   const payload = { merchantOrderId, amount, Razorpay, cashfree, zentechind };
   const joiValidation = VALIDATE_PAY_IN_INTENT_GENERATE_ORDER.validate(payload);
   if (joiValidation.error) {
@@ -276,10 +276,12 @@ export const payInIntentGenerateOrder = async (req, res) => {
   if (zentechind) provider.push('ZenTechInd');
   if (nmplPay) provider.push('NMPLPay');
   if (runsafe) provider.push('runsafe');
+  if (cpsPay) provider.push('cpsPay');
   if (silkPay) provider.push('silkPay');
   if (orvixPay) provider.push('orvixPay');
   if (orvixPay1) provider.push('orvixPay1');
   if (tylt) provider.push('Tylt');
+  if (payeasy) provider.push('Payeasy');
 
   const data = await payInIntentGenerateOrderService(
     merchantOrderId,
@@ -504,7 +506,7 @@ export const processPayInIMGUTR = async (req, res) => {
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
-  const data = await processPayInService(payload, payload.code, false, true);
+  const data = await processPayInService(payload, payload.code, false, true , null , null, true);
   await invalidatePayinCache(req.user?.company_id);
   sendSuccess(res, data, 'PayIn updated successfully');
 };

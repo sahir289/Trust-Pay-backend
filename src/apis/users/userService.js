@@ -18,6 +18,7 @@ import {
   updateUserDao,
   getUsersBySearchDao,
   getAllUsersDao,
+  updateUserByIDDao,
 } from './userDao.js';
 import { getDesignationDao } from '../designation/designationDao.js';
 import { getRoleDao } from '../roles/rolesDao.js';
@@ -36,11 +37,14 @@ import {
   createUserHierarchyDao,
   getUserHierarchysDao,
   updateUserHierarchyDao,
+  getAllHierarchyUserIds,
 } from '../userHierarchy/userHierarchyDao.js';
 import { getMerchantByUserIdDao } from '../merchants/merchantDao.js';
 import { getVendorByUserDao } from '../vendors/vendorDao.js';
 import { getCompanyByIDDao } from '../company/companyDao.js';
 import { getBankaccountCheckDao } from '../bankAccounts/bankaccountDao.js';
+import { getSessionByUserIdDao } from '../auth/authDao.js';
+import { forceLogoutUser } from '../../utils/sockets.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 
 const getUsersService = async (
@@ -661,6 +665,25 @@ const _userUpdateServiceInternal = async (ids, payload, conn) => {
     //     throw new BadRequestError('Email already Registered');
     //   }
     // }
+    if (payload.is_enabled === false || payload.is_enabled === true) {
+      const user = await getAllHierarchyUserIds(ids.id, conn);
+      const userPayload = {
+        is_obsolete: false,
+        is_enabled : payload.is_enabled,
+        updated_by : payload.updated_by
+      };
+      const User = await updateUserByIDDao({ id: user }, userPayload, conn);
+      const sessions = await getSessionByUserIdDao({ user_id: user }, conn);
+       if (sessions && sessions.length > 0) {
+         for (const session of sessions) {
+           if (session?.session_id) {
+             console.log(session.session_id);
+             await forceLogoutUser(session.user_id, session.session_id);
+           }
+         }
+       }
+      return User;
+}
     const User = await updateUserDao(ids, payload, conn);
     // await notifyAdminsAndUsers({
     //   conn,

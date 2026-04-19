@@ -584,7 +584,54 @@ const getUserByRoleDao = async (company_id, role, conn = null) => {
     throw error;
   }
 };
-
+ const deleteUserDao = async (
+  ids,
+  data,
+  conn = null,
+) => {
+  try {
+    const {id} = ids;
+    const idArray = Array.isArray(id) ? id : [id];
+    const is_obsolete = true;
+    const is_enabled = false;
+    const updated_by = data.updated_by;
+    const values = [is_obsolete, is_enabled, updated_by, idArray];
+    const sql = `
+      UPDATE "User"
+      SET "is_obsolete" = $1,
+          "is_enabled" = $2,
+          "updated_by" = $3
+      WHERE "id" = ANY($4)
+    `;
+    const result = await executeQuery(sql, values, conn);
+    return result.rows;
+  } catch (error) {
+    logger.error('Error in deleteUserDao:', error.message);
+    throw error;
+  }
+};
+const updateUserByIDDao = async (ids, data, conn = null) => {
+   try {
+     const { id } = ids;
+     const idArray = Array.isArray(id) ? id : [id];
+     const is_obsolete = data.is_obsolete;
+     const is_enabled = data.is_enabled;
+     const updated_by = data.updated_by;
+     const values = [is_obsolete, is_enabled, updated_by, idArray];
+     const sql = `
+      UPDATE "User"
+      SET "is_obsolete" = $1,
+          "is_enabled" = $2,
+          "updated_by" = $3
+      WHERE "id" = ANY($4)
+    `;
+     const result = await executeQuery(sql, values, conn);
+     return result.rows;
+   } catch (error) {
+     logger.error('Error in updateUserDao:', error.message);
+     throw error;
+   }
+};
 export {
   getUsersDao,
   getAllUsersDao,
@@ -597,4 +644,6 @@ export {
   createUserDao,
   updateUserDao,
   getUserDao,
+  deleteUserDao,
+  updateUserByIDDao,
 };

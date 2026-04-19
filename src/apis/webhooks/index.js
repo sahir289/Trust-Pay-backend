@@ -12,6 +12,8 @@ import { rupeeFlowWebhook } from './rupeeflow.js';
 import { orvixPayWebhook } from './orvixPay.js';
 import { runsafeWebhook } from './runsafe.js';
 import { tyltWebhook } from './tylt.js';
+import { cpsWebhook } from './cps.js';
+import { payEasyWebhook } from './payeasy.js';
 
 
 const router = express.Router();
@@ -20,11 +22,13 @@ router.post('/cashfree', tryCatchHandler(cashfreeWebHook));
 router.post('/zenTechInd', tryCatchHandler(zenTechIndWebhook));
 router.post('/nmplPay', tryCatchHandler(nmplPayWebhook));
 router.post('/runsafe', tryCatchHandler(runsafeWebhook));
+router.post('/cps', tryCatchHandler(cpsWebhook));
 router.post('/silkPay', tryCatchHandler(silkPayWebhook));
 router.post('/clickrr', tryCatchHandler(clickrrWebhook)); 
 router.post('/razorpay', tryCatchHandler(handleRazorpayWebhook));
 router.post('/rupeeflow', tryCatchHandler(rupeeFlowWebhook));
 router.post('/orvixPay', tryCatchHandler(orvixPayWebhook));
 router.post('/tylt', tryCatchHandler(tyltWebhook));
+router.post('/payeasy', tryCatchHandler(payEasyWebhook));
 
 export default router;
