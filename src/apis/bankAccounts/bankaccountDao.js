@@ -9,7 +9,7 @@ import {
 } from '../../utils/db.js';
 
 import { logger } from '../../utils/logger.js';
-import { checkLockEdit } from '../../utils/advisoryLock.js';
+import { acquireBankBalanceLock } from '../../utils/advisoryLock.js';
 
 const PRIVILEGED_BANK_DESIGNATIONS = new Set([
   Role.ADMIN,
@@ -915,7 +915,7 @@ const getPostgresErrorCode = (error) => error?.code || error?.err?.code;
 const updateBankaccountDao = async (id, payload, isParentDeleted, conn = null) => {
   try {
     if (conn && id?.id && shouldAcquireBankBalanceLock(payload)) {
-      await checkLockEdit(`bank-balance:${id.id}`, true, conn);
+      await acquireBankBalanceLock(id.id, true, conn);
     }
 
     // Fetch existing bank config to merge with added_at
@@ -1032,7 +1032,7 @@ const updateBanktBalanceDao = async (
     );
 
     if (conn && filters?.id) {
-      await checkLockEdit(`bank-balance:${filters.id}`, true, conn);
+      await acquireBankBalanceLock(filters.id, true, conn);
     }
 
     const result = await executeQuery(sql, params, conn);
@@ -1067,7 +1067,7 @@ const atomicUpdateBankBalanceDao = async (
   );
 
   if (conn && filters?.id) {
-    await checkLockEdit(`bank-balance:${filters.id}`, true, conn);
+    await acquireBankBalanceLock(filters.id, true, conn);
   }
 
   // IMPORTANT: when an external transaction connection is supplied,
@@ -1118,7 +1118,7 @@ const atomicDecrementBankBalanceDao = async (
   );
 
   if (conn && filters?.id) {
-    await checkLockEdit(`bank-balance:${filters.id}`, true, conn);
+    await acquireBankBalanceLock(filters.id, true, conn);
   }
 
   // IMPORTANT: when an external transaction connection is supplied,

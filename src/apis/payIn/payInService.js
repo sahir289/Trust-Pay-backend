@@ -149,6 +149,7 @@ import {
 import { createSilkPaymentTransaction } from '../../intent/createSilkIntentTransaction.js';
 import { getCachedData, setCachedData } from '../../utils/redishashkey.js';
 import { createOnePayPaymentTransaction } from '../../intent/createOnePayIntentTransaction.js';
+import { createCpsPaymentTransaction } from '../../intent/createCpsIntentTransaction.js';
 import { createtytlPaymentTransaction } from '../../intent/createtytlPayIntentTransaction.js';
 import { createPayeasyTransaction } from '../../intent/createPayeasyIntentTransaction.js';
 
@@ -178,6 +179,23 @@ export const generatePayInUrlByHashService = async (req) => {
     const [company] = await getCompanyByIDDao({
       id: merchantArr[0].company_id,
     });
+    if (merchantArr[0]?.config?.allow_intent) {
+        const validIntentBanks = bankAssigned.filter((bank) => {
+          const intent = bank?.config?.is_intent;
+          return intent && intent !== 'off' && intent !== false;
+        });
+    if (validIntentBanks.length === 0) {
+        await sendBankNotAssignedAlertTelegram(
+         company.config?.telegramBankAlertChatId,
+         code,
+         company.config?.telegramBotToken,
+          );
+          return {
+            status: 404,
+            message: 'Intent Bank account not found for the given merchant',
+          };
+        }
+    }
     if (bankAssigned.length <= 0) {
       await sendBankNotAssignedAlertTelegram(
         company.config?.telegramBankAlertChatId,
@@ -213,8 +231,9 @@ export const generatePayInUrlByHashService = async (req) => {
       if (!bank.is_enabled) return true;
       const config = bank.config || {};
       const isPhonepay = config.is_phonepay || false;
+      const isIntent = config.is_intent !== undefined && config.is_intent !== 'off' && config.is_intent !== false || false;
       return (
-        isPhonepay === false && bank.is_qr === false && bank.is_bank === false
+        isPhonepay === false && bank.is_qr === false && bank.is_bank === false && isIntent === false
       );
     });
 
@@ -456,17 +475,27 @@ export const generatePayInUrlService = async (payload, role, userIp) => {
         logger.error('Socket emit failed:', err),
       );
     });
-
-    if (merchant?.config?.allow_intent) {
-      const duration = calculateDuration(result.created_at);
-      await updatePayInUrlDao(result.id, {
-        amount: parseFloat(amount || 0),
-        status: Status.ASSIGNED,
-        bank_acc_id: bankAssigned[0].id,
-        duration: duration,
-      });
-    }
-
+   if (merchant?.config?.allow_intent) {
+     const validIntentBanks = bankAssigned.filter((bank) => {
+       const intent = bank?.config?.is_intent;
+       return intent && intent !== 'off' && intent !== false;
+     });
+     if (validIntentBanks.length === 0) {
+      await triggerBankAlert(company, code);
+      return {
+        status: 404,
+        message: 'Bank account not found for the given merchant',
+      };
+     }
+    const randomBank = validIntentBanks[Math.floor(Math.random() * validIntentBanks.length)];
+     const duration = calculateDuration(result.created_at);
+     await updatePayInUrlDao(result.id, {
+       amount: parseFloat(amount || 0),
+       status: Status.ASSIGNED,
+       bank_acc_id: randomBank.id,
+       duration: duration,
+     });
+   }
     // Assign bank if H2H
     if (merchant.config?.is_h2h) {
       const assign = await assignedBankToPayInUrlService(
@@ -934,6 +963,15 @@ export const payInIntentGenerateOrderService = async (
           amount,
         );
         return order?.link;
+      },
+      cpsPay: async () => {
+        const order = await createCpsPaymentTransaction(
+          'cps',
+          payIn,
+          amount,
+        );
+        console.log('cps order', order);
+        return order?.upiIntend;
       },
       tytl: async () => {
         const order = await createtytlPaymentTransaction(
@@ -3811,9 +3849,17 @@ const _verifyPayinsServiceInternal = async (
     const merchant = await getMerchantsForValidatePayinDao({
       id: payIn.merchant_id,
     });
-    const banks = await getMerchantLinkBankDao({
-      config_merchants_contains: merchant[0].id,
-    });
+    let banks =[];
+    if (payIn.bank_acc_id) {
+     banks = await getMerchantLinkBankDao({
+     id: payIn.bank_acc_id,
+     });
+    }
+    else {
+       banks= await getMerchantLinkBankDao({
+        config_merchants_contains: merchant[0].id,
+      });
+    }
     const VALID_INTENTS = new Set([
       'allow_cashfree',
       'allow_zentechind',
@@ -3825,6 +3871,7 @@ const _verifyPayinsServiceInternal = async (
       'allow_orvixpay1',
       'allow_vertexpay',
       'allow_payeasy',
+      'allow_cps',
       'allow_payin_tytl',
       'allow_tytl'
     ]);
@@ -3841,16 +3888,19 @@ const _verifyPayinsServiceInternal = async (
     const bankIntents = enabledBanks
       .map((b) => b.config?.is_intent)
       .filter((i) => VALID_INTENTS.has(String(i)));
-    let selectedIntent = null;
-    if (bankIntents.length > 0) {
-      selectedIntent =
-        bankIntents[Math.floor(Math.random() * bankIntents.length)];
-    }
 
     const merchantIntent = merchant[0]?.config?.allow_intent;
     let cashfreeDetails = null;
-    if (merchantIntent && selectedIntent) {
+    let selectedIntent = null;
+    if (merchantIntent && bankIntents.length > 0) {
       cashfreeDetails = await getCashfreeAllowByCompanyIdDao(payIn.company_id);
+      const allowedIntents = bankIntents.filter(
+        (intent) => cashfreeDetails?.[intent] === true,
+      );
+      if (allowedIntents.length > 0) {
+        selectedIntent =
+          allowedIntents[Math.floor(Math.random() * allowedIntents.length)];
+      }
     }
     console.log(cashfreeDetails, "dadwedewdwdwdwd", selectedIntent)
     
@@ -3898,6 +3948,9 @@ const _verifyPayinsServiceInternal = async (
         (selectedIntent === 'allow_payeasy' &&
           cashfreeDetails?.allow_payeasy) ||
         false,
+      allowCpsPay: 
+      (selectedIntent === 'allow_cps' &&
+      cashfreeDetails?.allow_cps) || false,
       allowTytl: (selectedIntent === 'allow_tytl' && 
           cashfreeDetails?.allow_payin_tytl) || cashfreeDetails?.allow_tytl ||
         false,

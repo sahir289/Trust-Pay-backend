@@ -154,6 +154,12 @@ function config(Env) {
       privateKey: Env?.RUNSAFE_PRIVATE_KEY,
       publicKey: Env?.RUNSAFE_PUBLIC_KEY,
     },
+    cps: {
+      url: Env?.CPS_API_URL,
+      NotifyUrl: Env?.CPS_NOTIFY_URL,
+      privateKey: Env?.CPS_PRIVATE_KEY,
+      publicKey: Env?.CPS_PUBLIC_KEY,
+    },
     tytl : {
       apiKey: Env.TYTL_API_KEY,
       secretKey: Env.TTYL_SECRET_KEY,
