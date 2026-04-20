@@ -3902,7 +3902,6 @@ const _verifyPayinsServiceInternal = async (
           allowedIntents[Math.floor(Math.random() * allowedIntents.length)];
       }
     }
-    console.log(cashfreeDetails, "dadwedewdwdwdwd", selectedIntent)
     
     const result = {
       expiryTime: payIn.expiration_date,
