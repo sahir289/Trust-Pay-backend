@@ -3008,7 +3008,7 @@ export const disputeDuplicateTransactionService = async (
     let newEntryResponse = {};
     if (!makeItSuccess) {
       const newStatus =
-        payInData.bank_acc_id != payIn.bank_acc_id
+        payInData.bank_acc_id != bankResponse.bank_id
           ? Status.BANK_MISMATCH
           : parseFloat(payInData.amount) != parseFloat(toAmount)
             ? Status.DISPUTE
@@ -3169,6 +3169,7 @@ export const disputeDuplicateTransactionService = async (
       updatePayload.amount = toAmount;
       updatePayload.payin_merchant_commission = payinCommission;
       updatePayload.payin_vendor_commission = vendorPayinCommission;
+      updatePayload.bank_acc_id = bankResponse.bank_id;
       updatePayload.approved_at = new Date(); //add this for approved at
       // updatePayload.config = payinConfig;
     } else {
