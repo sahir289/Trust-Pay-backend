@@ -35,7 +35,7 @@ const isRetryableTxError = (error) =>
 
 
 export const tytlWebhook = async (req, res) => {
-  const data = req.body;
+  const data = req.body.data;
   logger.info('tytl Webhook received ++++', data);
   console.log('Received pay-in callback dataa:', data);
   // Calculate HMAC signature
