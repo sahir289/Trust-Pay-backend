@@ -35,7 +35,7 @@ const isRetryableTxError = (error) =>
 
 
 export const tytlWebhook = async (req, res) => {
-  const data = req.body.data;
+  const data = req.body;
   logger.info('tytl Webhook received ++++', data);
   console.log('Received pay-in callback dataa:', data);
   // Calculate HMAC signature
@@ -48,14 +48,14 @@ export const tytlWebhook = async (req, res) => {
       logger.info(calculatedHmac,"calculatedHmac===", tlpSignature, "tlpSignature=====")
   // if (calculatedHmac === tlpSignature) {
       // Signature is valid
-      if (data?.accounts?.transactionType === 'pay-in') {
+      const utr = data?.trade?.utr;
+      if (data?.accounts?.transactionType === 'pay-in' && utr) {
           console.log('Received pay-in callback:', data);
           // Process pay-in data here
   try {
     let responseData = data?.transaction
     sendSuccess(res, 200, 'tytl webhook received successfully');
     const merchantOrderId = responseData?.merchantOrderId;
-    const utr = data?.trade?.utr;
 
     const lockAcquired = await acquireLock(utr, 'tytl');
     if (!lockAcquired) {
