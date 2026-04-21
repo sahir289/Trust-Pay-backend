@@ -163,6 +163,7 @@ function config(Env) {
     tytl : {
       apiKey: Env.TYTL_API_KEY,
       secretKey: Env.TTYL_SECRET_KEY,
+      NotifyUrl: Env?.TYTL_NOTIFY_URL,
     },
     clickrr : {
       baseUrl: Env?.CLICKRR_BASE_API_URL,
