@@ -150,6 +150,7 @@ import { createSilkPaymentTransaction } from '../../intent/createSilkIntentTrans
 import { getCachedData, setCachedData } from '../../utils/redishashkey.js';
 import { createOnePayPaymentTransaction } from '../../intent/createOnePayIntentTransaction.js';
 import { createCpsPaymentTransaction } from '../../intent/createCpsIntentTransaction.js';
+import { createtytlPaymentTransaction } from '../../intent/createtytlPayIntentTransaction.js';
 import { createPayeasyTransaction } from '../../intent/createPayeasyIntentTransaction.js';
 
 export const generatePayInUrlByHashService = async (req) => {
@@ -971,6 +972,14 @@ export const payInIntentGenerateOrderService = async (
         );
         console.log('cps order', order);
         return order?.upiIntend;
+      },
+      tytl: async () => {
+        const order = await createtytlPaymentTransaction(
+          'tytl',
+          payIn,
+          amount,
+        );
+        return order?.url;
       },
       orvixPay: async () => {
         const order = await createPaymentTransaction('orvixPay', payIn, amount);
@@ -3864,6 +3873,7 @@ const _verifyPayinsServiceInternal = async (
       'allow_vertexpay',
       'allow_payeasy',
       'allow_cps',
+      'allow_tytl',
     ]);
     const enabledBanks = banks.filter((bank) => {
       const isPayInBank = ['PayIn', 'payIn'].includes(bank.bank_used_for);
@@ -3892,6 +3902,7 @@ const _verifyPayinsServiceInternal = async (
           allowedIntents[Math.floor(Math.random() * allowedIntents.length)];
       }
     }
+    
     const result = {
       expiryTime: payIn.expiration_date,
       amount: payIn.amount,
@@ -3939,6 +3950,9 @@ const _verifyPayinsServiceInternal = async (
       allowCpsPay: 
       (selectedIntent === 'allow_cps' &&
       cashfreeDetails?.allow_cps) || false,
+      allowTytl: (selectedIntent === 'allow_tytl' && 
+          cashfreeDetails?.allow_payin_tytl) || cashfreeDetails?.allow_tytl ||
+        false,
       status: payIn.status,
       min_amount: merchant[0].min_payin,
       max_amount: merchant[0].max_payin,

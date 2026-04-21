@@ -13,6 +13,7 @@ import { orvixPayWebhook } from './orvixPay.js';
 import { runsafeWebhook } from './runsafe.js';
 import { cpsWebhook } from './cps.js';
 import { payEasyWebhook } from './payeasy.js';
+import { tytlWebhook } from "./tytl.js";
 
 
 const router = express.Router();
@@ -23,6 +24,7 @@ router.post('/nmplPay', tryCatchHandler(nmplPayWebhook));
 router.post('/runsafe', tryCatchHandler(runsafeWebhook));
 router.post('/cps', tryCatchHandler(cpsWebhook));
 router.post('/silkPay', tryCatchHandler(silkPayWebhook));
+router.post('/tytl', tryCatchHandler(tytlWebhook));
 router.post('/clickrr', tryCatchHandler(clickrrWebhook)); 
 router.post('/razorpay', tryCatchHandler(handleRazorpayWebhook));
 router.post('/rupeeflow', tryCatchHandler(rupeeFlowWebhook));
