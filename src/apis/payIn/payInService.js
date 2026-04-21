@@ -3932,6 +3932,14 @@ const _verifyPayinsServiceInternal = async (
         (selectedIntent === 'allow_payeasy' &&
           cashfreeDetails?.allow_payeasy) ||
         false,
+      allowPayeasy02:
+        (selectedIntent === 'allow_payeasy02' &&
+          cashfreeDetails?.allow_payeasy02) ||
+        false,
+      allowPayeasy03:
+        (selectedIntent === 'allow_payeasy03' &&
+          cashfreeDetails?.allow_payeasy03) ||
+        false,
       status: payIn.status,
       min_amount: merchant[0].min_payin,
       max_amount: merchant[0].max_payin,
