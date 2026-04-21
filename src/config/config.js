@@ -319,6 +319,16 @@ function config(Env) {
       payeasyClientId: Env?.PAYEASY_CLIENT_ID,
       encryptionKey: Env?.PAYEASY_ENCRYPTION_KEY
     },
+    payeasy02: {
+      url: Env?.PAYEASY02_API_URL,
+      payeasyClientId: Env?.PAYEASY02_CLIENT_ID,
+      encryptionKey: Env?.PAYEASY02_ENCRYPTION_KEY
+    },
+    payeasy03: {
+      url: Env?.PAYEASY03_API_URL,
+      payeasyClientId: Env?.PAYEASY03_CLIENT_ID,
+      encryptionKey: Env?.PAYEASY03_ENCRYPTION_KEY
+    },
     // reactAppBaseUrl: Env?.REACT_APP_BASE_URL,
     databaseUrl: Env?.DATABASE_URL,
     databaseWriterUrl: Env?.DATABASE_WRITER_URL,
