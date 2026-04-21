@@ -35,16 +35,17 @@ const isRetryableTxError = (error) =>
 
 
 export const tytlWebhook = async (req, res) => {
-  const data = req.body.data;
+  const data = req.body;
   logger.info('tytl Webhook received ++++', data);
   // Calculate HMAC signature
   const tlpSignature = req.headers['x-tlp-signature'];
+  
   const calculatedHmac = crypto
       .createHmac('sha256', config.tytl.secretKey)
       .update(JSON.stringify(data)) // Use raw body string for HMAC calculation
       .digest('hex');
 
-  if (calculatedHmac !== tlpSignature) {
+  if (calculatedHmac === tlpSignature) {
       // Signature is valid
       if (data.accounts.transactionType === 'pay-in') {
           console.log('Received pay-in callback:', data);
