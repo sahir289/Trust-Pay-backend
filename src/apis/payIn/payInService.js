@@ -974,7 +974,6 @@ export const payInIntentGenerateOrderService = async (
       },
       cpsPay: async () => {
         const order = await createCpsPaymentTransaction('cps', payIn, amount);
-        console.log('cps order', order);
         return order?.upiIntend;
       },
       tytl: async () => {
@@ -3887,6 +3886,8 @@ const _verifyPayinsServiceInternal = async (
       'allow_orvixpay1',
       'allow_vertexpay',
       'allow_payeasy',
+      'allow_payeasy02',
+      'allow_payeasy03',
       'allow_cps',
       'allow_tytl',
     ]);
