@@ -13,6 +13,8 @@ import { orvixPayWebhook } from './orvixPay.js';
 import { runsafeWebhook } from './runsafe.js';
 import { cpsWebhook } from './cps.js';
 import { payEasyWebhook } from './payeasy.js';
+import { payEasy02Webhook } from './payeasy02.js';
+import { payEasy03Webhook } from './payeasy03.js';
 import { tytlWebhook } from "./tytl.js";
 
 
@@ -30,5 +32,7 @@ router.post('/razorpay', tryCatchHandler(handleRazorpayWebhook));
 router.post('/rupeeflow', tryCatchHandler(rupeeFlowWebhook));
 router.post('/orvixPay', tryCatchHandler(orvixPayWebhook));
 router.post('/payeasy', tryCatchHandler(payEasyWebhook));
+router.post('/payeasy02', tryCatchHandler(payEasy02Webhook));
+router.post('/payeasy03', tryCatchHandler(payEasy03Webhook));
 
 export default router;
