@@ -38,6 +38,7 @@ import {
 } from '../bankResponse/bankResponseDao.js';
 import { getVendorsDao } from '../vendors/vendorDao.js';
 import { calculateCommission } from '../../utils/calculation.js';
+import { getISTDateString } from '../../helpers/index.js';
 import { checkLockEdit } from '../../utils/advisoryLock.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 // import { getUsersDao } from '../users/userDao.js';
@@ -1292,7 +1293,7 @@ const _updateSettlementServiceInternal = async (ids, payload, conn) => {
 
     payload.status = Status.REVERSED;
     payload.rejected_at = new Date();
-    payload.config = {...(payload.config || {}), reversed_at: new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })};
+    payload.config = {...(payload.config || {}), reversed_at: getISTDateString()};
 
     let updatedCalculation;
 
