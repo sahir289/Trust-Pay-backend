@@ -3872,8 +3872,7 @@ const _verifyPayinsServiceInternal = async (
       'allow_vertexpay',
       'allow_payeasy',
       'allow_cps',
-      'allow_payin_tytl',
-      'allow_tytl'
+      'allow_tytl',
     ]);
     const enabledBanks = banks.filter((bank) => {
       const isPayInBank = ['PayIn', 'payIn'].includes(bank.bank_used_for);

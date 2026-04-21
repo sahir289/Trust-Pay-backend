@@ -157,7 +157,7 @@ const getCashfreeAllowByCompanyIdDao = async (id, conn = null) => {
         COALESCE((config ->> 'allow_razorpay')::boolean, false) AS allow_razorpay,
         COALESCE((config ->> 'allow_silkpay')::boolean, false) AS allow_silkpay,
         COALESCE((config ->> 'allow_orvixpay')::boolean, false) AS allow_orvixpay,
-        COALESCE((config ->> 'allow_payin_tytl')::boolean, false) AS allow_payin_tytl,
+        COALESCE((config ->> 'allow_payin_tytl')::boolean, false) AS allow_tytl,
         COALESCE((config ->> 'allow_orvixpay1')::boolean, false) AS allow_orvixpay1,
         COALESCE((config ->> 'allow_payeasy')::boolean, false) AS allow_payeasy
       FROM "${tableName.COMPANY}"

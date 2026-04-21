@@ -57,7 +57,7 @@ const headers = {
 };
 
 // Send the request
-const response = await axios.post('https://api.tylt.money/p2pRampsMerchant/createInstance', raw, { headers })
+const response = await axios.post(`${providerConfig.payinUrl}`, raw, { headers })
     logger.info(`${providerKey} transaction created:`, {
       requestBody,
       response: response?.data,
