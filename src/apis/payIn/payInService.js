@@ -149,6 +149,7 @@ import {
 import { createSilkPaymentTransaction } from '../../intent/createSilkIntentTransaction.js';
 import { getCachedData, setCachedData } from '../../utils/redishashkey.js';
 import { createOnePayPaymentTransaction } from '../../intent/createOnePayIntentTransaction.js';
+import { createCpsPaymentTransaction } from '../../intent/createCpsIntentTransaction.js';
 import { createPayeasyTransaction } from '../../intent/createPayeasyIntentTransaction.js';
 
 export const generatePayInUrlByHashService = async (req) => {
@@ -961,6 +962,15 @@ export const payInIntentGenerateOrderService = async (
           amount,
         );
         return order?.link;
+      },
+      cpsPay: async () => {
+        const order = await createCpsPaymentTransaction(
+          'cps',
+          payIn,
+          amount,
+        );
+        console.log('cps order', order);
+        return order?.upiIntend;
       },
       orvixPay: async () => {
         const order = await createPaymentTransaction('orvixPay', payIn, amount);
@@ -3852,6 +3862,7 @@ const _verifyPayinsServiceInternal = async (
       'allow_orvixpay1',
       'allow_vertexpay',
       'allow_payeasy',
+      'allow_cps',
     ]);
     const enabledBanks = banks.filter((bank) => {
       const isPayInBank = ['PayIn', 'payIn'].includes(bank.bank_used_for);
@@ -3924,6 +3935,9 @@ const _verifyPayinsServiceInternal = async (
         (selectedIntent === 'allow_payeasy' &&
           cashfreeDetails?.allow_payeasy) ||
         false,
+      allowCpsPay: 
+      (selectedIntent === 'allow_cps' &&
+      cashfreeDetails?.allow_cps) || false,
       status: payIn.status,
       min_amount: merchant[0].min_payin,
       max_amount: merchant[0].max_payin,
