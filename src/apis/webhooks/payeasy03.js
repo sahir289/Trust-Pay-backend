@@ -1,4 +1,4 @@
-import crypto from 'crypto';
+import crypto from 'node:crypto';
 import { logger } from '../../utils/logger.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import { createBankResponseWebHookService } from '../bankResponse/bankResponseServices.js';
@@ -49,7 +49,7 @@ export const payEasy03Webhook = async (req, res) => {
     const merchantOrderId = body?.orderId;
     utr = body?.utr;
     
-    const lockAcquired = await acquireLock(utr, 'payEasy');
+    const lockAcquired = await acquireLock(utr, 'payEasy03');
     if (!lockAcquired) {
       logger.warn(`Duplicate concurrent webhook skipped for ${utr} and merchantOrderId ${merchantOrderId}`);
       return;
