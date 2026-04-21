@@ -49,6 +49,8 @@ export const tytlWebhook = async (req, res) => {
   // if (calculatedHmac === tlpSignature) {
       // Signature is valid
       const utr = data?.trade?.utr;
+      console.log(utr, "asadsdsdsdsds")
+      console.log(data?.accounts?.transactionType, "data?.accounts?.transactionType")
       if (data?.accounts?.transactionType === 'pay-in' && utr) {
           console.log('Received pay-in callback:', data);
           // Process pay-in data here
