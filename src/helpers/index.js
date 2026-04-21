@@ -243,6 +243,16 @@ export const filterResponse = (data, keys) => {
   }
 };
 
+export const getISTDateString = () => {
+  const now = new Date();
+  const d = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  const timePart = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true });
+  return `${dd}-${mm}-${yyyy} ${timePart}`;
+};
+
 export const decodeAuthToken = (token) => {
   if (!token) {
     return {};

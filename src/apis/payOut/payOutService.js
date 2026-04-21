@@ -40,7 +40,7 @@ import {
 import config from '../../config/config.js';
 import { merchantPayoutCallback } from '../../callBacksAndWebHook/merchantCallBacks.js';
 import { Status, Method, tableName } from '../../constants/index.js';
-import { calculateCommission } from '../../helpers/index.js';
+import { calculateCommission, getISTDateString } from '../../helpers/index.js';
 import { createTataPayBulkPayout } from '../../tatapay/tatapay.js';
 import {
   columns,
@@ -1201,7 +1201,7 @@ const _updatePayoutServiceInternal = async (
     }
 
     if (payload?.status === Status.REVERSED) {
-      payload.config = {...(payload.config || {}), reversed_at: new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })};
+      payload.config = {...(payload.config || {}), reversed_at: getISTDateString()};
     }
 
     const data = await updatePayoutDao(ids, payload, conn);
