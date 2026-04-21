@@ -356,6 +356,28 @@ export const getVendorsDao = async (
       paramIndex++;
     }
 
+    // Handle active filter (is_enabled in config)
+    if (filters.active !== undefined) {
+      const activeValue = filters.active === 'true' || filters.active === true;
+      baseQuery += `
+      AND COALESCE(NULLIF("Vendor".config->>'is_enabled', ''), 'false')::boolean = $${paramIndex}
+    `;
+      value.push(activeValue);
+      paramIndex++;
+      delete filters.active; // Remove from filters so buildSelectQuery doesn't try to add it
+    }
+
+    // Handle deleted filter (is_obsolete)
+    if (filters.deleted !== undefined) {
+      const deletedValue = filters.deleted === 'true' || filters.deleted === true;
+      baseQuery += `
+      AND "Vendor".is_obsolete = $${paramIndex}
+    `;
+      value.push(deletedValue);
+      paramIndex++;
+      delete filters.deleted; // Remove from filters so buildSelectQuery doesn't try to add it
+    }
+
     const [query, values] = buildSelectQuery(
       baseQuery,
       filters,
@@ -508,6 +530,28 @@ export const getAllVendorsDao = async (
       paramIndex++;
     }
 
+    // Handle active filter (is_enabled in config)
+    if (filters.active !== undefined) {
+      const activeValue = filters.active === 'true' || filters.active === true;
+      baseQuery += `
+      AND COALESCE(NULLIF("Vendor".config->>'is_enabled', ''), 'false')::boolean = $${paramIndex}
+    `;
+      value.push(activeValue);
+      paramIndex++;
+      delete filters.active; // Remove from filters so buildSelectQuery doesn't try to add it
+    }
+
+    // Handle deleted filter (is_obsolete)
+    if (filters.deleted !== undefined) {
+      const deletedValue = filters.deleted === 'true' || filters.deleted === true;
+      baseQuery += `
+      AND "Vendor".is_obsolete = $${paramIndex}
+    `;
+      value.push(deletedValue);
+      paramIndex++;
+      delete filters.deleted; // Remove from filters so buildSelectQuery doesn't try to add it
+    }
+
     const [query, values] = buildSelectQuery(
       baseQuery,
       filters,
@@ -604,6 +648,23 @@ export const getVendorsBySearchDao = async (
         paramIndex += 1;
       }
     }
+
+    // Handle active filter (is_enabled in config)
+    if (filters.active !== undefined) {
+      const activeValue = filters.active === 'true' || filters.active === true;
+      queryText += ` AND COALESCE(NULLIF("Vendor".config->>'is_enabled', ''), 'false')::boolean = $${paramIndex}`;
+      values.push(activeValue);
+      paramIndex += 1;
+    }
+
+    // Handle deleted filter (is_obsolete)
+    if (filters.deleted !== undefined) {
+      const deletedValue = filters.deleted === 'true' || filters.deleted === true;
+      queryText += ` AND "Vendor".is_obsolete = $${paramIndex}`;
+      values.push(deletedValue);
+      paramIndex += 1;
+    }
+
     if (searchTerms) {
       searchTerms.forEach((term) => {
         if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
