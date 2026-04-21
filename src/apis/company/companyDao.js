@@ -37,7 +37,7 @@ const getCompanyDao = async (
 
 const getCompanyDetailsByIdDao = async (id, conn = null) => {
   try {
-    const baseQuery = `SELECT CONCAT(first_name, ' ', last_name) AS full_name, config ->> 'allowPayAssist' AS allowPayAssist, config ->> 'allowTataPay' AS allowTataPay, config ->> 'allow_clickrr' AS allow_clickrr, config ->> 'allowRupeeFlow' AS allowRupeeFlow, config ->> 'allowBSS' AS allowBSS, config ->> 'allowSilkPayOut' AS allowSilkPay, config ->> 'allowBSS02' AS allowBSS02, config ->> 'allowBSS03' AS allowBSS03,  config ->> 'allowVertexPay' AS allowVertexPay, config ->> 'allowcps' AS allowcps, config ->> 'allow_payout_runsafe' AS allowrunsafe, config ->> 'allowPayDum' AS allowPayDum, config ->> 'allow_silkpay' AS silkpay_intent, config ->> 'allow_vertexpay' AS vertexpay_intent, config ->> 'allow_runsafe' AS runsafe_intent, config ->> 'allow_payeasy' AS payeasy_intent FROM "${tableName.COMPANY}" WHERE 1 = 1`;
+    const baseQuery = `SELECT CONCAT(first_name, ' ', last_name) AS full_name, config ->> 'allowPayAssist' AS allowPayAssist, config ->> 'allowTataPay' AS allowTataPay, config ->> 'allow_clickrr' AS allow_clickrr, config ->> 'allowRupeeFlow' AS allowRupeeFlow, config ->> 'allowBSS' AS allowBSS, config ->> 'allowSilkPayOut' AS allowSilkPay, config ->> 'allowBSS02' AS allowBSS02, config ->> 'allowBSS03' AS allowBSS03,  config ->> 'allowVertexPay' AS allowVertexPay, config ->> 'allowcps' AS allowcps, config ->> 'allow_payout_runsafe' AS allowrunsafe, config ->> 'allowPayDum' AS allowPayDum, config ->> 'allow_silkpay' AS silkpay_intent, config ->> 'allow_vertexpay' AS vertexpay_intent, config ->> 'allow_runsafe' AS runsafe_intent, config ->> 'allow_payeasy' AS payeasy_intent, config ->> 'allow_payeasy02' AS payeasy02_intent, config ->> 'allow_payeasy03' AS payeasy03_intent FROM "${tableName.COMPANY}" WHERE 1 = 1`;
     const [sql, queryParams] = buildSelectQuery(baseQuery, id);
     const result = await executeQuery(sql, queryParams, conn);
     return result.rows.length > 0 ? result.rows : result.rows[0];
@@ -138,7 +138,9 @@ const getCashfreeAllowByCompanyIdDao = async (id, conn = null) => {
         COALESCE((config ->> 'allow_silkpay')::boolean, false) AS allow_silkpay,
         COALESCE((config ->> 'allow_orvixpay')::boolean, false) AS allow_orvixpay,
         COALESCE((config ->> 'allow_orvixpay1')::boolean, false) AS allow_orvixpay1,
-        COALESCE((config ->> 'allow_payeasy')::boolean, false) AS allow_payeasy
+        COALESCE((config ->> 'allow_payeasy')::boolean, false) AS allow_payeasy,
+        COALESCE((config ->> 'allow_payeasy02')::boolean, false) AS allow_payeasy02,
+        COALESCE((config ->> 'allow_payeasy03')::boolean, false) AS allow_payeasy03
       FROM "${tableName.COMPANY}"
       WHERE id = $1
     `;

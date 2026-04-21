@@ -986,6 +986,14 @@ export const payInIntentGenerateOrderService = async (
         const order = await createPayeasyTransaction('payeasy', payIn, amount);
         return order?.url;
       },
+      Payeasy02: async () => {
+        const order = await createPayeasyTransaction('payeasy02', payIn, amount);
+        return order?.url;
+      },
+      Payeasy03: async () => {
+        const order = await createPayeasyTransaction('payeasy03', payIn, amount);
+        return order?.url;
+      },
     };
     const handler = providerHandlers[provider];
     if (!handler) {
@@ -3852,6 +3860,8 @@ const _verifyPayinsServiceInternal = async (
       'allow_orvixpay1',
       'allow_vertexpay',
       'allow_payeasy',
+      'allow_payeasy02',
+      'allow_payeasy03',
     ]);
     const enabledBanks = banks.filter((bank) => {
       const isPayInBank = ['PayIn', 'payIn'].includes(bank.bank_used_for);
@@ -3923,6 +3933,14 @@ const _verifyPayinsServiceInternal = async (
       allowPayeasy:
         (selectedIntent === 'allow_payeasy' &&
           cashfreeDetails?.allow_payeasy) ||
+        false,
+      allowPayeasy02:
+        (selectedIntent === 'allow_payeasy02' &&
+          cashfreeDetails?.allow_payeasy02) ||
+        false,
+      allowPayeasy03:
+        (selectedIntent === 'allow_payeasy03' &&
+          cashfreeDetails?.allow_payeasy03) ||
         false,
       status: payIn.status,
       min_amount: merchant[0].min_payin,
