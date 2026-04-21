@@ -44,7 +44,7 @@ export const tytlWebhook = async (req, res) => {
       .createHmac('sha256', config.tytl.secretKey)
       .update(JSON.stringify(data)) // Use raw body string for HMAC calculation
       .digest('hex');
-
+      logger.info(calculatedHmac,"calculatedHmac===", tlpSignature, "tlpSignature=====")
   if (calculatedHmac === tlpSignature) {
       // Signature is valid
       if (data.accounts.transactionType === 'pay-in') {
@@ -175,6 +175,7 @@ export const tytlWebhook = async (req, res) => {
 res.status(200).send('ok');
 } else {
 // Invalid HMAC signature
+logger.error('Invalid HMAC signature');
 res.status(400).send('Invalid HMAC signature');
 }
 };
