@@ -9,8 +9,7 @@ import { checkLockEdit } from '../../utils/advisoryLock.js';
 import config from '../../config/config.js';
 import crypto from 'crypto';
 import { Status } from '../../constants/index.js';
-
-const processingSet = new Set();
+import { acquireLock, releaseLock } from '../../utils/distributedLock.js';
 
 const parsePositiveInt = (value, fallback) => {
   const parsed = Number.parseInt(value, 10);
@@ -37,7 +36,7 @@ const isRetryableTxError = (error) =>
 
 export const tytlWebhook = async (req, res) => {
   const data = req.body.data;
-
+  logger.info('tytl Webhook received ++++', data);
   // Calculate HMAC signature
   const tlpSignature = req.headers['x-tlp-signature'];
   const calculatedHmac = crypto
@@ -55,12 +54,12 @@ export const tytlWebhook = async (req, res) => {
     sendSuccess(res, 200, 'tytl webhook received successfully');
     const merchantOrderId = responseData?.merchantOrderId;
     const utr = data?.trade?.utr;
-    if (processingSet.has(utr)) {
+
+    const lockAcquired = await acquireLock(utr, 'tytl');
+    if (!lockAcquired) {
       logger.warn(`Duplicate concurrent webhook skipped for ${utr} and merchantOrderId ${merchantOrderId}`);
       return;
     }
-
-    processingSet.add(utr);
 
     const payload = {
       merchantOrderId: responseData?.merchantOrderId,
@@ -168,7 +167,7 @@ export const tytlWebhook = async (req, res) => {
       }
     }
   } finally {
-    processingSet.delete(data?.utr);
+    await releaseLock(req.body?.utr, 'tytl');
   }
 } 
 // Return HTTP Response 200 with content "ok"
