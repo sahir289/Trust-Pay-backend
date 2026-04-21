@@ -986,6 +986,14 @@ export const payInIntentGenerateOrderService = async (
         const order = await createPayeasyTransaction('payeasy', payIn, amount);
         return order?.url;
       },
+      Payeasy02: async () => {
+        const order = await createPayeasyTransaction('payeasy02', payIn, amount);
+        return order?.url;
+      },
+      Payeasy03: async () => {
+        const order = await createPayeasyTransaction('payeasy03', payIn, amount);
+        return order?.url;
+      },
     };
     const handler = providerHandlers[provider];
     if (!handler) {
