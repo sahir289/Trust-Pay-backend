@@ -1292,7 +1292,7 @@ const _updateSettlementServiceInternal = async (ids, payload, conn) => {
 
     payload.status = Status.REVERSED;
     payload.rejected_at = new Date();
-    payload.config = {...(payload.config || {}), reversed_at: new Date().toISOString()};
+    payload.config = {...(payload.config || {}), reversed_at: new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })};
 
     let updatedCalculation;
 
