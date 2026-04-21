@@ -39,6 +39,7 @@ export const tytlWebhook = async (req, res) => {
   logger.info('tytl Webhook received ++++', data);
   // Calculate HMAC signature
   const tlpSignature = req.headers['x-tlp-signature'];
+  
   const calculatedHmac = crypto
       .createHmac('sha256', config.tytl.secretKey)
       .update(JSON.stringify(data)) // Use raw body string for HMAC calculation
