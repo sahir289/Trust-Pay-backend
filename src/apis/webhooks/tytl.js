@@ -53,11 +53,6 @@ export const tytlWebhook = async (req, res) => {
   // Signature is valid
   const utr = data?.trade?.utr;
   let responseData = data?.transaction;
-  console.log(utr, 'asadsdsdsdsds');
-  console.log(
-    data?.accounts?.transactionType,
-    'data?.accounts?.transactionType',
-  );
   if (data?.accounts?.transactionType === 'pay-in' && utr && responseData?.status) {
     console.log('Received pay-in callback:', data);
     // Process pay-in data here
