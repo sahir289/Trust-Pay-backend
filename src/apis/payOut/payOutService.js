@@ -79,7 +79,7 @@ import { createSilkPayPayout } from '../../silkpay/silkpay.js';
 import { createBSS02Payout } from '../../bss/bss02.js';
 import { createBSS03Payout } from '../../bss/bss03.js';
 import { createVertexPayPayout } from '../../vertexpay/vertexpay.js';
-import { createRunsafePayPayout } from '../../runsafe/runsafepay.js';
+import { createRunsafePayPayout, getRunsafePayWalletBalance } from '../../runsafe/runsafepay.js';
 // import { notifyNewCalculationTableEntry } from '../../utils/sockets.js';
 
 // Helper function to check if vendor is sub-vendor and get parent info
@@ -299,6 +299,8 @@ const _createPayoutServiceInternal = async (
       clickrr_auto_approval_limit,
       allow_payassist,
       payassist_auto_approval_limit,
+      allow_runsafe,
+      runsafe_auto_approval_limit,
     } = details[0]?.config || {};
 
     if (allow_payassist) {
@@ -351,6 +353,37 @@ const _createPayoutServiceInternal = async (
         }
         // specific to clickrr max payout limit
         const updatedPayload = { config: { method: 'CLICKRR' } };
+        // Use the DAO directly since we're already in a transaction
+        updatedData = await _updatePayoutServiceInternal(
+          ids,
+          updatedPayload,
+          role,
+          conn,
+        );
+        data = updatedData;
+      }
+    }
+
+    if (allow_runsafe) {
+      const ids = { id: data.id, company_id: payload.company_id };
+      const getRunsafeWalletBalance = await getRunsafePayWalletBalance({
+        company_id: payload.company_id,
+      });
+      console.log(getRunsafeWalletBalance, "getRunsafeWalletBalance")
+      let updatedData;
+      if (Number(payoutAmount) < Number(runsafe_auto_approval_limit)) {
+        if (
+          Number(getRunsafeWalletBalance?.data?.balance) <
+          Number(payoutAmount)
+        ) {
+          data = {
+            status: 201,
+            message: 'Insufficient Balance in Wallet',
+          };
+          return data;
+        }
+        // specific to clickrr max payout limit
+        const updatedPayload = { config: { method: 'runsafe' } };
         // Use the DAO directly since we're already in a transaction
         updatedData = await _updatePayoutServiceInternal(
           ids,
