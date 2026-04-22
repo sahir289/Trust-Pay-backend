@@ -40,24 +40,16 @@ const isRetryableTxError = (error) =>
 
 export const tytlWebhook = async (req, res) => {
   const data = req.body?.data;
+  const signaturedata = req.body
   logger.info('tytl Webhook received ++++', data);
-  console.log('Received pay-in callback dataa:', data);
-  console.log(data?.trade, 'data?.trade');
-  console.log(data?.accounts, 'data?.accounts?');
   // Calculate HMAC signature
   const tlpSignature = req.headers['x-tlp-signature'];
 
   const calculatedHmac = crypto
     .createHmac('sha256', config.tytl.secretKey)
-    .update(JSON.stringify(data)) // Use raw body string for HMAC calculation
+    .update(JSON.stringify(signaturedata)) // Use raw body string for HMAC calculation
     .digest('hex');
-  logger.info(
-    calculatedHmac,
-    'calculatedHmac===',
-    tlpSignature,
-    'tlpSignature=====',
-  );
-  // if (calculatedHmac === tlpSignature) {
+  if (calculatedHmac === tlpSignature) {
   // Signature is valid
   const utr = data?.trade?.utr;
   let responseData = data?.transaction;
@@ -196,9 +188,9 @@ export const tytlWebhook = async (req, res) => {
   }
   // Return HTTP Response 200 with content "ok"
   res.status(200).send('ok');
-  // } else {
-  // // Invalid HMAC signature
-  // logger.error('Invalid HMAC signature');
-  // res.status(400).send('Invalid HMAC signature');
-  // }
+  } else {
+  // Invalid HMAC signature
+  logger.error('Invalid HMAC signature');
+  res.status(400).send('Invalid HMAC signature');
+  }
 };
