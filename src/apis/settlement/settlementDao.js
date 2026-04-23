@@ -134,7 +134,7 @@ const getSettlementDao = async (
             );
           } else if (filters.status === Status.REVERSED) {
             conditions.push(
-              `(s.config->>'reversed_at' BETWEEN $${nextParamIdx} AND $${nextParamIdx + 1} AND s.approved_at IS NOT NULL)`,
+              `(to_timestamp(s.config->>'reversed_at', 'DD-MM-YYYY HH12:MI:SS AM') BETWEEN $${nextParamIdx} AND $${nextParamIdx + 1}) AND s.approved_at IS NOT NULL`,
             );
           } else {
             conditions.push(
