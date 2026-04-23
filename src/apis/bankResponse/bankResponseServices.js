@@ -1273,7 +1273,7 @@ const createBankResponseWebHookService = async (
         vendor = await getVendorsBankReponseDao({
           user_id: bankDetails[0].user_id,
         }, conn);
-        if (isNaN(vendor[0].balance)) {
+        if (isNaN(vendor[0]?.balance)) {
           throw new BadRequestError('Invalid amount or commission');
         }
         await updateVendorDao(
