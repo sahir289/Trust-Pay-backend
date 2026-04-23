@@ -51,9 +51,9 @@ export const tytlWebhook = async (req, res) => {
     .digest('hex');
   if (calculatedHmac === tlpSignature) {
   // Signature is valid
-  const utr = data?.trade?.utr;
+  const utr = data?.trade?.utr || data?.trade?.cashierUTR || '';
   let responseData = data?.transaction;
-  if (data?.accounts?.transactionType === 'pay-in' && utr && responseData?.status) {
+  if (data?.accounts?.transactionType === 'pay-in' && utr && data?.trade?.event?.id === 4) {
     console.log('Received pay-in callback:', data);
     // Process pay-in data here
     try {
@@ -70,12 +70,9 @@ export const tytlWebhook = async (req, res) => {
 
       const payload = {
         merchantOrderId: responseData?.merchantOrderId,
-        userSubmittedUtr: data?.trade?.utr || 123,
+        userSubmittedUtr: utr,
         amount: Number(data?.accounts?.amountPaidInLocalCurrency),
-        status:
-          responseData?.status === 'Completed'
-            ? Status.SUCCESS
-            : responseData?.status,
+        status: Status.SUCCESS
       };
 
       for (let attempt = 1; attempt <= RUNSAFE_LOCK_RETRIES; attempt++) {
@@ -128,7 +125,7 @@ export const tytlWebhook = async (req, res) => {
             return;
           }
 
-          if (responseData?.status === 'Completed') {
+          if (responseData?.status === 'Completed' || data?.trade?.event?.id === 4 ) {
             const bankResponse = await createBankResponseWebHookService(
               bankResponsePayload,
               payIn.company_id,
