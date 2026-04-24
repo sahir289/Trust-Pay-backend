@@ -90,7 +90,9 @@ export const generatePayInUrl = async (req, res) => {
   userIp = userIp === '::1' ? TestingIp : userIp;
   const { code, key, roleToken = null } = payload;
   let message;
-
+  if (payload.merchant_order_id?.includes('/')) {
+    throw new BadRequestError("Invalid order ID: '/' is not allowed.");
+  }
   const joiValidation = ASSIGN_PAYIN_SCHEMA.validate(payload);
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
