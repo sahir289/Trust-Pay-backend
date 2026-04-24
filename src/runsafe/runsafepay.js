@@ -195,6 +195,10 @@ export const createRunsafePayPayout = async (
       payload.status = Status.APPROVED;
       payload.utr_id = payload.utr_id || '';
       payload.approved_at = new Date().toISOString();
+    } else if (statusCode === 'FAILED' || statusCode === 'REJECTED' || statusCode === Status.REJECTED) {
+      payload.status = Status.REJECTED;
+      payload.utr_id = payload.utr_id || '';
+      payload.approved_at = new Date().toISOString();
     } else {
       payload.status = Status.PENDING;
     }

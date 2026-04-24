@@ -75,7 +75,7 @@ export const runsafeTransactionStatusCallback = async (req, res) => {
         approved_at: new Date().toISOString(),
       });
     } else if (statusStr === 'failed' || statusStr === 'FAILED') {
-      updatePayload.status = Status.REJECTED;
+      updatePayload.orderStatus = Status.REJECTED;
       updatePayload.config.rejected_reason =
         payload.description || 'Transaction failed';
       updatePayload.rejected_at = new Date().toISOString();

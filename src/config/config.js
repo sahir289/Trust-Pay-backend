@@ -160,6 +160,12 @@ function config(Env) {
       privateKey: Env?.CPS_PRIVATE_KEY,
       publicKey: Env?.CPS_PUBLIC_KEY,
     },
+    tytl : {
+      apiKey: Env.TYTL_API_KEY,
+      secretKey: Env.TTYL_SECRET_KEY,
+      NotifyUrl: Env?.TYTL_NOTIFY_URL,
+      payinUrl : Env?.TYTL_PAYIN_URL,
+    },
     clickrr : {
       baseUrl: Env?.CLICKRR_BASE_API_URL,
       initiatePayout: Env?.CLICKRR_INITIATE_API_URL,
@@ -312,6 +318,16 @@ function config(Env) {
       url: Env?.PAYEASY_API_URL,
       payeasyClientId: Env?.PAYEASY_CLIENT_ID,
       encryptionKey: Env?.PAYEASY_ENCRYPTION_KEY
+    },
+    payeasy02: {
+      url: Env?.PAYEASY02_API_URL,
+      payeasyClientId: Env?.PAYEASY02_CLIENT_ID,
+      encryptionKey: Env?.PAYEASY02_ENCRYPTION_KEY
+    },
+    payeasy03: {
+      url: Env?.PAYEASY03_API_URL,
+      payeasyClientId: Env?.PAYEASY03_CLIENT_ID,
+      encryptionKey: Env?.PAYEASY03_ENCRYPTION_KEY
     },
     // reactAppBaseUrl: Env?.REACT_APP_BASE_URL,
     databaseUrl: Env?.DATABASE_URL,

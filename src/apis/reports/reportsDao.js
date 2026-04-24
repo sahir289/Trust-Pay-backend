@@ -292,7 +292,7 @@ const getPayOutMerchantReportDao = async (
           status.includes(Status.REVERSED)
         ) {
           conditions.push(
-            `(po.status = '${Status.REVERSED}' AND ((po.config->>'reversed_at')::TIMESTAMPTZ BETWEEN $${paramIndex} AND $${paramIndex + 1}) AND po.approved_at IS NOT NULL)`,
+            `(po.status = '${Status.REVERSED}' AND (to_timestamp(po.config->>'reversed_at', 'DD-MM-YYYY HH12:MI:SS AM') BETWEEN $${paramIndex} AND $${paramIndex + 1}) AND po.approved_at IS NOT NULL)`,
           );
         }
         if (status.includes(Status.REJECTED)) {
@@ -317,7 +317,7 @@ const getPayOutMerchantReportDao = async (
         query += ` AND (
           (po.status IN ('${Status.APPROVED}', '${Status.REVERSED}') AND po.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1})
           OR
-          (po.status = '${Status.REVERSED}' AND ((po.config->>'reversed_at')::TIMESTAMPTZ BETWEEN $${paramIndex} AND $${paramIndex + 1}) AND po.approved_at IS NOT NULL)
+          (po.status = '${Status.REVERSED}' AND (to_timestamp(po.config->>'reversed_at', 'DD-MM-YYYY HH12:MI:SS AM') BETWEEN $${paramIndex} AND $${paramIndex + 1}) AND po.approved_at IS NOT NULL)
           OR
           (po.status = '${Status.REJECTED}' AND po.rejected_at BETWEEN $${paramIndex} AND $${paramIndex + 1})
           OR
@@ -441,7 +441,7 @@ const getPayOutVendorReportDao = async (
           status.some((s) => [Status.REVERSED].includes(s))
         ) {
           conditions.push(
-            `(po.status = '${Status.REVERSED}' AND ((po.config->>'reversed_at')::TIMESTAMPTZ BETWEEN $${paramIndex} AND $${paramIndex + 1}) AND po.approved_at IS NOT NULL)`,
+            `(po.status = '${Status.REVERSED}' AND (to_timestamp(po.config->>'reversed_at', 'DD-MM-YYYY HH12:MI:SS AM') BETWEEN $${paramIndex} AND $${paramIndex + 1}) AND po.approved_at IS NOT NULL)`,
           );
         }
         if (status.includes(Status.REJECTED)) {
@@ -465,7 +465,7 @@ const getPayOutVendorReportDao = async (
         query += ` AND (
           (po.status IN ('${Status.APPROVED}', '${Status.REVERSED}') AND po.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1})
           OR
-          (po.status = '${Status.REVERSED}' AND ((po.config->>'reversed_at')::TIMESTAMPTZ BETWEEN $${paramIndex} AND $${paramIndex + 1}) AND po.approved_at IS NOT NULL)
+          (po.status = '${Status.REVERSED}' AND (to_timestamp(po.config->>'reversed_at', 'DD-MM-YYYY HH12:MI:SS AM') BETWEEN $${paramIndex} AND $${paramIndex + 1}) AND po.approved_at IS NOT NULL)
           OR
           (po.status = '${Status.REJECTED}' AND po.rejected_at BETWEEN $${paramIndex} AND $${paramIndex + 1})
           OR
