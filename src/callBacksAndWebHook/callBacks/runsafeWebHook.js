@@ -13,6 +13,7 @@ import {
   getConnection,
   rollback,
 } from '../../utils/db.js';
+import { getISTDateString } from '../../helpers/index.js';
 
 // Define the optimized runsafePayTransactionStatusCallback function
 export const runsafeTransactionStatusCallback = async (req, res) => {
@@ -29,7 +30,7 @@ export const runsafeTransactionStatusCallback = async (req, res) => {
     const singleWithdrawData = await getPayoutByTxnId(apitxnid);
 
     if (
-      ![Status.INITIATED, Status.PENDING].includes(singleWithdrawData.status)
+      ![Status.INITIATED, Status.PENDING, Status.APPROVED].includes(singleWithdrawData.status)
     ) {
       logger.info('Payout already processed', {
         payoutId: singleWithdrawData.id,
@@ -67,7 +68,7 @@ export const runsafeTransactionStatusCallback = async (req, res) => {
     if (adminUser) updatePayload.updated_by = adminUser.id;
 
     // Status mapping: 'success' => APPROVED, 'failed' => REJECTED, else PENDING
-    const statusStr = (payload.orderStatus || '').toString().toLowerCase();
+    const statusStr = (payload?.orderStatus || '').toString().toLowerCase();
     if (statusStr === 'success' || statusStr === 'SUCCESS') {
       Object.assign(updatePayload, {
         orderStatus: Status.APPROVED,
@@ -79,6 +80,10 @@ export const runsafeTransactionStatusCallback = async (req, res) => {
       updatePayload.config.rejected_reason =
         payload.description || 'Transaction failed';
       updatePayload.rejected_at = new Date().toISOString();
+    } else if (statusStr === "refund" || statusStr === 'REFUND' || statusStr === Status.REFUND) {
+      updatePayload.orderStatus = Status.REVERSED;
+      updatePayload.status = Status.REVERSED;
+      updatePayload.config.reversed_at = getISTDateString()
     } else {
       updatePayload.status = Status.PENDING;
     }
