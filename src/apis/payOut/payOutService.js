@@ -1264,7 +1264,7 @@ const _updatePayoutServiceInternal = async (
     const notifyUrl = data.config?.urls?.notify || merchant?.payout_notify;
 
     // Early return if not approved
-    if (!data.approved_at && data.status !== Status.PENDING) {
+    if (!data.approved_at && data.status !== Status.PENDING && !data.rejected_at) {
       merchantPayoutCallback(notifyUrl, {
         code: merchant.code,
         merchantOrderId: data.merchant_order_id,
