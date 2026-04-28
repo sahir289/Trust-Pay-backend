@@ -37,31 +37,26 @@ const getCompanyDao = async (
 
 const getCompanyDetailsByIdDao = async (id, conn = null) => {
   try {
-    const baseQuery = `SELECT CONCAT(first_name, ' ', last_name) AS full_name,
-      config ->> 'allowPayAssist' AS allowPayAssist,
-      config ->> 'allowTataPay' AS allowTataPay,
-      config ->> 'allow_clickrr' AS allow_clickrr,
-      config ->> 'allowRupeeFlow' AS allowRupeeFlow,
-      config ->> 'allowBSS' AS allowBSS,
-      config ->> 'allowSilkPayOut' AS allowSilkPay,
-      config ->> 'allowBSS02' AS allowBSS02,
-      config ->> 'allowBSS03' AS allowBSS03,
-      config ->> 'allowVertexPay' AS allowVertexPay,
-      config ->> 'allowcps' AS allowcps,
-      config ->> 'allow_payout_runsafe' AS allowrunsafe,
-      config ->> 'allowPayDum' AS allowPayDum,
-      config ->> 'allow_silkpay' AS silkpay_intent,
-      config ->> 'allow_payin_tytl' AS tytl_intent, 
-      config ->> 'allow_vertexpay' AS vertexpay_intent,
-      config ->> 'allowCpsPay' AS cps_intent,
-      config ->> 'allow_runsafe' AS runsafe_intent,
-      config ->> 'allow_payeasy' AS payeasy_intent, 
-      config ->> 'allow_payeasy02' AS payeasy02_intent, 
-      config ->> 'allow_payeasy03' AS payeasy03_intent 
-      FROM "${tableName.COMPANY}" WHERE 1 = 1`;
+    const baseQuery = `SELECT CONCAT(first_name, ' ', last_name) AS full_name, config FROM "${tableName.COMPANY}" WHERE 1 = 1`;
     const [sql, queryParams] = buildSelectQuery(baseQuery, id);
     const result = await executeQuery(sql, queryParams, conn);
-    return result.rows.length > 0 ? result.rows : result.rows[0];
+    if (!result.rows.length) return null;
+    const { full_name, config } = result.rows[0];
+    // Include all keys that start with allow_payin_ or allow_payout_, as camelCase
+    const toCamelCase = (str) =>
+      str
+        .replace(/_([a-zA-Z0-9])/g, (_, c) => (c ? c.toUpperCase() : ''))
+        .replace(/^([A-Z])/, (m) => m.toLowerCase());
+    const filteredConfig = {};
+    for (const key in config) {
+      if (
+        Object.prototype.hasOwnProperty.call(config, key) &&
+        (key.startsWith('allow_payin_') || key.startsWith('allow_payout_'))
+      ) {
+        filteredConfig[toCamelCase(key)] = config[key];
+      }
+    }
+    return { full_name, ...filteredConfig };
   } catch (error) {
     logger.error('Error fetching company details by ID:', error);
     throw error;
@@ -150,26 +145,33 @@ const getCashfreeAllowByCompanyIdDao = async (id, conn = null) => {
   try {
     const sql = `
       SELECT 
-        CONCAT(first_name, ' ', last_name) AS full_name, 
-        COALESCE((config ->> 'allow_cashfree')::boolean, false) AS allow_cashfree,
-        COALESCE((config ->> 'allow_zentechind')::boolean, false) AS allow_zentechind,
-        COALESCE((config ->> 'allow_nmplpay')::boolean, false) AS allow_nmplpay,
-        COALESCE((config ->> 'allow_runsafe')::boolean, false) AS allow_runsafe,
-        COALESCE((config ->> 'allowCpsPay')::boolean, false) AS allow_cps,
-        COALESCE((config ->> 'allow_razorpay')::boolean, false) AS allow_razorpay,
-        COALESCE((config ->> 'allow_silkpay')::boolean, false) AS allow_silkpay,
-        COALESCE((config ->> 'allow_orvixpay')::boolean, false) AS allow_orvixpay,
-        COALESCE((config ->> 'allow_payin_tytl')::boolean, false) AS allow_tytl,
-        COALESCE((config ->> 'allow_orvixpay1')::boolean, false) AS allow_orvixpay1,
-        COALESCE((config ->> 'allow_payeasy')::boolean, false) AS allow_payeasy,
-        COALESCE((config ->> 'allow_payeasy02')::boolean, false) AS allow_payeasy02,
-        COALESCE((config ->> 'allow_payeasy03')::boolean, false) AS allow_payeasy03
+        CONCAT(first_name, ' ', last_name) AS full_name,
+        config
       FROM "${tableName.COMPANY}"
       WHERE id = $1
     `;
     const queryParams = [id];
     const result = await executeQuery(sql, queryParams, conn);
-    return result.rows[0];
+    const row = result.rows[0];
+    if (!row) {
+      return row;
+    }
+
+    // Convert allow_payin_* and allow_payout_* keys to camelCase and include in result
+    const toCamelCase = (str) =>
+      str
+        .replace(/_([a-zA-Z0-9])/g, (_, c) => (c ? c.toUpperCase() : ''))
+        .replace(/^([A-Z])/, (m) => m.toLowerCase());
+    const filteredConfig = {};
+    for (const key in row.config) {
+      if (
+        Object.prototype.hasOwnProperty.call(row.config, key) &&
+        key.startsWith('allow_payin_')
+      ) {
+        filteredConfig[toCamelCase(key)] = row.config[key];
+      }
+    }
+    return { full_name: row.full_name, ...filteredConfig };
   } catch (error) {
     logger.error('Error fetching company details by ID:', error);
     throw error;

@@ -40,9 +40,9 @@ export function generateSignature(
  * @returns {Promise<object>} - API response.
  */
 
-const baseUrl = config.silkPay.url;
-const initiatePayoutUrl = config.silkPay.initiatePayout;
-const walletBalanceUrl = config.silkPay.walletBalance;
+const baseUrl = config.silkpay.url;
+const initiatePayoutUrl = config.silkpay.initiatePayout;
+const walletBalanceUrl = config.silkpay.walletBalance;
 
 export const initiateSilkPayPayout = async (payload, company_id) => {
   logger.info('Initiating SilkPay payout with payload:', {
@@ -61,7 +61,7 @@ export const initiateSilkPayPayout = async (payload, company_id) => {
 
     const mId = silkPayDetails.mid;
     const apiSecret = silkPayDetails.api_secret;
-    const callbackurl = config.silkPay.silkPayPayoutCallbackUrl;
+    const callbackurl = config.silkpay.silkPayPayoutCallbackUrl;
 
     function generateSign({ mId, mOrderId, amount, timestamp, secret }) {
       const raw = `${mId}${mOrderId}${amount}${timestamp}${secret}`;

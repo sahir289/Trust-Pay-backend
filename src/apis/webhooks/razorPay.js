@@ -1,3 +1,4 @@
+// This file has been removed as it is now handled by the generic handler.
 import Razorpay from 'razorpay';
 import crypto from 'crypto';
 import { logger } from '../../utils/logger.js';

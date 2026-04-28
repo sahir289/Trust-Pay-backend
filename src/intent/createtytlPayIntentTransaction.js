@@ -6,7 +6,7 @@ import config from '../config/config.js';
 export const createtytlPaymentTransaction = async (
   providerKey,
   deposit,
-  amount
+  amount,
 ) => {
   try {
     const providerConfig = config[providerKey];
@@ -15,49 +15,46 @@ export const createtytlPaymentTransaction = async (
     }
 
     // Replace with your API Key and Secret
-const apiKey = providerConfig.apiKey;
-const apiSecret = providerConfig.secretKey;
+    const apiKey = providerConfig.apiKey;
+    const apiSecret = providerConfig.secretKey;
 
-// Request body
-const requestBody = {
-    isBuyTrade: 1,
-    userDetails: {},
-    merchantOrderId: deposit.merchant_order_id,
-    callBackUrl: providerConfig.NotifyUrl,
-    redirectUrl: deposit?.config?.urls?.return,
-    isUTRNeeded: 1,
-    currencySymbol: "INR",
-    amount: deposit.amount || amount,
-    isKYCNeeded: 0,
-    userEmail: "test@test.com"
-    // (required if isKYCNeeded is 0)
-};
+    // Request body
+    const requestBody = {
+      isBuyTrade: 1,
+      userDetails: {},
+      merchantOrderId: deposit.merchant_order_id,
+      callBackUrl: providerConfig.NotifyUrl,
+      redirectUrl: deposit?.config?.urls?.return,
+      isUTRNeeded: 1,
+      currencySymbol: 'INR',
+      amount: deposit.amount || amount,
+      isKYCNeeded: 0,
+      userEmail: 'test@test.com',
+      // (required if isKYCNeeded is 0)
+    };
 
-// Print request body for reference
-console.log("requestBody", requestBody);
+    // Convert request body to JSON
+    const raw = JSON.stringify(requestBody);
 
-// Convert request body to JSON
-const raw = JSON.stringify(requestBody);
+    // Function to create HMAC SHA-256 signature
+    const createSignature = (secret, data) => {
+      return crypto.createHmac('sha256', secret).update(data).digest('hex');
+    };
 
-// Function to create HMAC SHA-256 signature
-const createSignature = (secret, data) => {
-    return crypto.createHmac('sha256', secret)
-                 .update(data)
-                 .digest('hex');
-};
+    // Generate signature
+    const signature = createSignature(apiSecret, raw);
 
-// Generate signature
-const signature = createSignature(apiSecret, raw);
+    // Define headers
+    const headers = {
+      'Content-Type': 'application/json',
+      'X-TLP-APIKEY': apiKey,
+      'X-TLP-SIGNATURE': signature,
+    };
 
-// Define headers
-const headers = {
-    "Content-Type": "application/json",
-    "X-TLP-APIKEY": apiKey,
-    "X-TLP-SIGNATURE": signature
-};
-
-// Send the request
-const response = await axios.post(`${providerConfig.payinUrl}`, raw, { headers })
+    // Send the request
+    const response = await axios.post(`${providerConfig.payinUrl}`, raw, {
+      headers,
+    });
     logger.info(`${providerKey} transaction created:`, {
       requestBody,
       response: response?.data,

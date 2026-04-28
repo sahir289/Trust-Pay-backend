@@ -125,7 +125,7 @@ function config(Env) {
       salt: Env?.ZENTECHIND_SALT,
       collectionId: Env?.ZENTECHIND_COLLECTION_ID,
     },
-    silkPay: {
+    silkpay: {
       url: Env?.SILK_PAY_API_URL,
       initiatePayout: Env?.SILK_PAY_INITIATE_API_URL,
       walletBalance: Env?.SILK_PAY_WALLET_BALANCE_API_URL,
@@ -135,7 +135,7 @@ function config(Env) {
       silkPayCallbackUrl: Env?.SILK_PAY_CALLBACK_URL,
       silkPayPayoutCallbackUrl: Env?.SILK_PAY_PAYOUT_CALLBACK_URL
     },
-    nmplPay: {
+    nmplpay: {
       url: Env?.NMPL_PAY_API_URL,
       salt: Env?.NMPL_PAY_SALT,
       collectionId: Env?.NMPL_PAY_COLLECTION_ID,

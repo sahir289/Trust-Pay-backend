@@ -1,3 +1,4 @@
+// This file has been removed as it is now handled by the generic handler.
 import { logger } from '../../utils/logger.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import { createBankResponseWebHookService } from '../bankResponse/bankResponseServices.js';

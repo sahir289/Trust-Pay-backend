@@ -1,9 +1,7 @@
 import dayjs from 'dayjs';
 import { nanoid } from 'nanoid';
 import { v4 as uuidv4 } from 'uuid';
-// import querystring from 'querystring';
 import config from '../../config/config.js';
-// import { razorpay } from '../webhooks/razorPay.js';
 import { getPayoutsNotifyDao } from '../payOut/payOutDao.js';
 import { checkLockEdit } from '../../utils/advisoryLock.js';
 import {
@@ -24,10 +22,7 @@ import {
   getPayInForCheckStatusDao,
   getPayInForDuplicate,
   getPayinsForServiccDao,
-  // getPayInUrlDao,
-  // getPayInUrlsDao,
   getPayinsWithHistoryDao,
-  // getAllPayInsDao,
   getPayInPendingDao,
   getPayinsSumAndCountByStatusDao,
   getPayInForUpdateServiceDao,
@@ -39,10 +34,8 @@ import {
   getPayInForTelegramResponseDao,
   getPayinsWithoutHistoryDao,
   getPayInForTelegramResponseArrayDao,
-  getPayInIntentDao,
   getPayInsForCronDao,
   getPayInWithMerchantOrderIdDao,
-  // atomicClaimPayInUrlDao,
 } from './payInDao.js';
 import {
   BadRequestError,
@@ -113,32 +106,20 @@ import {
 } from '../../utils/sendTelegramMessages.js';
 import { tableName } from '../../constants/index.js';
 import { newTableEntry } from '../../utils/sockets.js';
-// import { getConnection } from '../../utils/db.js';
 import { _createCheckUtrServiceInternal } from '../checkutr/checkUtrServices.js';
 import { _createResetHistoryServiceInternal } from '../resetHistory/resetServices.js';
-// import { updateBankaccountService } from '../bankAccounts/bankaccountServices.js';
 import { stringifyJSON } from '../../utils/index.js';
 import { createHash } from '../../utils/hashUtils.js';
 import { logger } from '../../utils/logger.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
-// import { generateUUID } from '../../utils/generateUUID.js';
-// import { randomUUID } from 'crypto';
 import { usedTokens } from '../../app.js';
-import {
-  getCashfreeAllowByCompanyIdDao,
-  getCompanyByIDDao,
-  // getCompanyDetailsByIdDao,
-} from '../company/companyDao.js';
+import { getCompanyByIDDao } from '../company/companyDao.js';
 import {
   getUserByCompanyCreatedAtDao,
   getAllUsersDao,
   getUserDao,
 } from '../users/userDao.js';
 import { trackVendorsNetBalance } from '../../utils/trackVendorsNetBalance.js';
-import { createCashfreeOrder } from '../../cashfree/cashfree.js';
-import { createRazorPayOrder } from '../../razorpay/razorpay.js';
-// import { createZenTechIndTransaction } from '../../zentechind/zentechInd.js';
-import { createPaymentTransaction } from '../../intent/createIntentTransaction.js';
 // Transaction management imports
 import {
   getConnection,
@@ -146,12 +127,7 @@ import {
   commit,
   rollback,
 } from '../../utils/db.js';
-import { createSilkPaymentTransaction } from '../../intent/createSilkIntentTransaction.js';
 import { getCachedData, setCachedData } from '../../utils/redishashkey.js';
-import { createOnePayPaymentTransaction } from '../../intent/createOnePayIntentTransaction.js';
-import { createCpsPaymentTransaction } from '../../intent/createCpsIntentTransaction.js';
-import { createtytlPaymentTransaction } from '../../intent/createtytlPayIntentTransaction.js';
-import { createPayeasyTransaction } from '../../intent/createPayeasyIntentTransaction.js';
 
 export const generatePayInUrlByHashService = async (req) => {
   try {
@@ -935,112 +911,142 @@ export const checkPayInStatusService = async (
 
 export const payInIntentGenerateOrderService = async (
   merchantOrderId,
-  // company_id,
   amount,
-  provider,
+  body,
 ) => {
-  try {
-    const payIn = await getPayInIntentDao(merchantOrderId);
-    checkIsPayInExpired(payIn);
-
-    const providerHandlers = {
-      ZenTechInd: async () => {
-        const order = await createPaymentTransaction(
-          'zentechind',
-          payIn,
-          amount,
-        );
-        return order?.payment_url;
-      },
-      silkPay: async () => {
-        const order = await createSilkPaymentTransaction(
-          'silkPay',
-          payIn,
-          amount,
-        );
-        return order?.paymentUrl;
-      },
-      NMPLPay: async () => {
-        const order = await createPaymentTransaction('nmplPay', payIn, amount);
-        return order?.payment_url;
-      },
-      runsafe: async () => {
-        const order = await createOnePayPaymentTransaction(
-          'runsafe',
-          payIn,
-          amount,
-        );
-        return order?.link;
-      },
-      cpsPay: async () => {
-        const order = await createCpsPaymentTransaction('cps', payIn, amount);
-        return order?.upiIntend;
-      },
-      tytl: async () => {
-        const order = await createtytlPaymentTransaction('tytl', payIn, amount);
-        return order?.url;
-      },
-      orvixPay: async () => {
-        const order = await createPaymentTransaction('orvixPay', payIn, amount);
-        return order?.payment_url;
-      },
-      orvixPay1: async () => {
-        const order = await createPaymentTransaction(
-          'orvixPay1',
-          payIn,
-          amount,
-        );
-        return order?.payment_url;
-      },
-      Cashfree: async () => {
-        const order = await createCashfreeOrder(payIn, amount);
-        return order?.payment_session_id;
-      },
-      Razorpay: async () => {
-        const order = await createRazorPayOrder(payIn, amount);
-        return order?.id;
-      },
-      Payeasy: async () => {
-        const order = await createPayeasyTransaction('payeasy', payIn, amount);
-        return order?.url;
-      },
-      Payeasy02: async () => {
-        const order = await createPayeasyTransaction(
-          'payeasy02',
-          payIn,
-          amount,
-        );
-        return order?.url;
-      },
-      Payeasy03: async () => {
-        const order = await createPayeasyTransaction(
-          'payeasy03',
-          payIn,
-          amount,
-        );
-        return order?.url;
-      },
-    };
-    const handler = providerHandlers[provider];
-    if (!handler) {
-      throw new NotFoundError(`No handler found for provider: ${provider}`);
-    }
-
-    const session_id = await handler();
-
-    if (!session_id) {
-      throw new NotFoundError(`No session_id found for provider: ${provider}`);
-    }
-
-    return {
-      id: payIn.id,
-      session_id,
-      return: payIn.config?.urls?.return || '',
-    };
-  } catch (error) {
-    logger.error('Error generate intent payin:', error.message);
-    throw error;
+  // Step 1: Fetch payin by merchantOrderId
+  const payIn = await getPayInUrlService(merchantOrderId);
+  if (!payIn) {
+    return { status: 400, message: 'PayIn not found' };
   }
+  // Step 2: Get company details
+  const companyId = payIn.company_id;
+  const companyDetails = await import('../company/companyServices.js').then(
+    (m) => m.getCompanyByIdService({ id: companyId }),
+  );
+  // Step 3: Extract enabled providers
+  const payinProviders = Object.keys(companyDetails)
+    .filter(
+      (key) =>
+        /^allowPayin/i.test(key) &&
+        (companyDetails[key] === true || companyDetails[key] === 'true'),
+    )
+    .map((key) => key.replace(/^allowPayin/, ''));
+  // Step 4: Match providers with body
+  // Match providers: case-insensitive, compare all keys in lower case
+  const bodyKeysLower = Object.keys(body).reduce((acc, k) => {
+    acc[k.toLowerCase()] = true;
+    return acc;
+  }, {});
+  const selectedProviders = payinProviders.filter(
+    (p) => bodyKeysLower[p.toLowerCase()],
+  );
+  if (!selectedProviders.length) {
+    return { status: 400, message: 'No provider selected' };
+  }
+  const provider = selectedProviders[0];
+  // Step 5: Dynamic handler as before (case-insensitive)
+  // Normalize provider: remove trailing digits and underscores (e.g., payeasy02, payeasy_03 => payeasy)
+  const normalized = provider.replace(/[_-]?\d+$/, '').toLowerCase();
+  const providerMap = {
+    payeasy: {
+      file: 'createPayeasyIntentTransaction',
+      fn: 'createPayeasyTransaction',
+    },
+    razorpay: {
+      file: 'razorpay',
+      fn: 'createRazorPayOrder',
+    },
+    cashfree: {
+      file: 'cashfree',
+      fn: 'createCashfreeOrder',
+    },
+    silkpay: {
+      file: 'createSilkIntentTransaction',
+      fn: 'createSilkPaymentTransaction',
+    },
+    cpspay: {
+      file: 'createCpsIntentTransaction',
+      fn: 'createCpsPaymentTransaction',
+    },
+    tytl: {
+      file: 'createtytlPayIntentTransaction',
+      fn: 'createtytlPaymentTransaction',
+    },
+    nmplpay: {
+      file: 'createIntentTransaction',
+      fn: 'createPaymentTransaction',
+    },
+    runsafe: {
+      file: 'createOnePayIntentTransaction',
+      fn: 'createOnePayPaymentTransaction',
+    },
+    orvixpay: {
+      file: 'createIntentTransaction',
+      fn: 'createPaymentTransaction',
+    },
+    zentechind: {
+      file: 'createIntentTransaction',
+      fn: 'createPaymentTransaction',
+    },
+    // Add more as needed
+  };
+  const mapEntry = providerMap[normalized];
+  if (!mapEntry) {
+    return { status: 400, message: `No handler for provider: ${provider}` };
+  }
+
+  let handlerModule = null;
+  try {
+    if (providerMap[normalized] === 'razorpay') {
+      handlerModule = await import(`../../razorpay/${mapEntry.file}.js`);
+    }
+    else if (providerMap[normalized] === 'cashfree') {
+      handlerModule = await import(`../../cashfree/${mapEntry.file}.js`);
+    }
+    else {
+      handlerModule = await import(`../../intent/${mapEntry.file}.js`);
+    }
+
+    if (!handlerModule || typeof handlerModule[mapEntry.fn] !== 'function') {
+      return {
+        status: 400,
+        message: `Handler not found for provider: ${provider}`,
+      };
+    }
+  } catch {
+    return {
+      status: 500,
+      message: `Error invoking handler for provider: ${provider}`,
+    };
+  }
+  const result = await handlerModule[mapEntry.fn](
+    provider.toLowerCase(),
+    payIn,
+    amount,
+  );
+
+  // Map session_id from various possible keys
+  let session_id =
+    result.session_id ||
+    result.payment_session_id ||
+    result.paymentUrl ||
+    result.payment_url ||
+    result.url ||
+    result.id ||
+    result.upiIntend ||
+    result.link ||
+    null;
+
+  if (!session_id) {
+    throw new NotFoundError(`No session_id found for provider: ${provider}`);
+  }
+
+  return {
+    id: payIn.id,
+    session_id,
+    return: payIn.config?.urls?.return || '',
+  };
 };
 
 export const updatePaymentNotificationStatusService = async (
@@ -3875,22 +3881,19 @@ const _verifyPayinsServiceInternal = async (
         config_merchants_contains: merchant[0].id,
       });
     }
-    const VALID_INTENTS = new Set([
-      'allow_cashfree',
-      'allow_zentechind',
-      'allow_nmplpay',
-      'allow_runsafe',
-      'allow_silkpay',
-      'allow_razorpay',
-      'allow_orvixpay',
-      'allow_orvixpay1',
-      'allow_vertexpay',
-      'allow_payeasy',
-      'allow_payeasy02',
-      'allow_payeasy03',
-      'allow_cps',
-      'allow_tytl',
-    ]);
+    // Restore: Only set intent flags for intents supported by assigned bank and allowed by company config
+    const companyDetails = await import('../company/companyServices.js').then(
+      (m) => m.getCompanyByIdService({ id: payIn.company_id }),
+    );
+    // Get all allowPayin* keys from companyDetails
+    const payinIntents = {};
+    Object.keys(companyDetails || {}).forEach((key) => {
+      if (/^allowPayin/i.test(key)) {
+        payinIntents[key] = companyDetails[key];
+      }
+    });
+
+    // Find enabled banks for this payin
     const enabledBanks = banks.filter((bank) => {
       const isPayInBank = ['PayIn', 'payIn'].includes(bank.bank_used_for);
       const isActive = bank.is_enabled && isPayInBank;
@@ -3901,89 +3904,41 @@ const _verifyPayinsServiceInternal = async (
         bank.config?.is_intent;
       return isActive && hasAnyMethod;
     });
-    const bankIntents = enabledBanks
-      .map((b) => b.config?.is_intent)
-      .filter((i) => VALID_INTENTS.has(String(i)));
 
-    const merchantIntent = merchant[0]?.config?.allow_intent;
-    let cashfreeDetails = null;
+    // Collect supported intents from enabled banks
+    const bankIntents = enabledBanks.map((b) => b.config?.is_intent);
+
+    // Pick a random allowed intent if any
     let selectedIntent = null;
-    if (merchantIntent && bankIntents.length > 0) {
-      cashfreeDetails = await getCashfreeAllowByCompanyIdDao(payIn.company_id);
-      const allowedIntents = bankIntents.filter(
-        (intent) => cashfreeDetails?.[intent] === true,
-      );
-      if (allowedIntents.length > 0) {
-        selectedIntent =
-          allowedIntents[Math.floor(Math.random() * allowedIntents.length)];
-      }
+    if (bankIntents.length > 0) {
+      selectedIntent =
+        bankIntents[Math.floor(Math.random() * bankIntents.length)];
     }
 
+    // Build dynamic intent flags for response
+    const toUiKey = (intent) => {
+      let name = String(intent);
+      name = name.replace(/^allow_/i, '').replace(/^payin_/i, '');
+      return 'allowPayin' + name.charAt(0).toUpperCase() + name.slice(1);
+    };
+    const dynamicIntentFlags = {};
+    bankIntents.forEach((intent) => {
+      const key = toUiKey(intent);
+      dynamicIntentFlags[key] =
+        selectedIntent &&
+        String(selectedIntent).toLowerCase() === String(intent).toLowerCase();
+    });
     const result = {
       expiryTime: payIn.expiration_date,
       amount: payIn.amount,
       one_time_used: payIn.one_time_used,
-      allowCashfree:
-        (selectedIntent === 'allow_cashfree' &&
-          cashfreeDetails?.allow_cashfree) ||
-        false,
-      allowZenTechInd:
-        (selectedIntent === 'allow_zentechind' &&
-          cashfreeDetails?.allow_zentechind) ||
-        false,
-      allowNmplPay:
-        (selectedIntent === 'allow_nmplpay' &&
-          cashfreeDetails?.allow_nmplpay) ||
-        false,
-      allowrunsafe:
-        (selectedIntent === 'allow_runsafe' &&
-          cashfreeDetails?.allow_runsafe) ||
-        false,
-      allowSilkPay:
-        (selectedIntent === 'allow_silkpay' &&
-          cashfreeDetails?.allow_silkpay) ||
-        false,
-      allowRazorPay:
-        (selectedIntent === 'allow_razorpay' &&
-          cashfreeDetails?.allow_razorpay) ||
-        false,
-      allowOrvixPay:
-        (selectedIntent === 'allow_orvixpay' &&
-          cashfreeDetails?.allow_orvixpay) ||
-        false,
-      allowOrvixPay1:
-        (selectedIntent === 'allow_orvixpay1' &&
-          cashfreeDetails?.allow_orvixpay1) ||
-        false,
-      allowVertexPay:
-        (selectedIntent === 'allow_vertexpay' &&
-          cashfreeDetails?.allow_vertexpay) ||
-        false,
-      allowPayeasy:
-        (selectedIntent === 'allow_payeasy' &&
-          cashfreeDetails?.allow_payeasy) ||
-        false,
-      allowPayeasy02:
-        (selectedIntent === 'allow_payeasy02' &&
-          cashfreeDetails?.allow_payeasy02) ||
-        false,
-      allowPayeasy03:
-        (selectedIntent === 'allow_payeasy03' &&
-          cashfreeDetails?.allow_payeasy03) ||
-        false,
-      allowCpsPay:
-        (selectedIntent === 'allow_cps' && cashfreeDetails?.allow_cps) || false,
-      allowTytl:
-        (selectedIntent === 'allow_tytl' &&
-          cashfreeDetails?.allow_payin_tytl) ||
-        cashfreeDetails?.allow_tytl ||
-        false,
+      ...dynamicIntentFlags,
       status: payIn.status,
       min_amount: merchant[0].min_payin,
       max_amount: merchant[0].max_payin,
-      is_qr: enabledBanks.some((bank) => bank.is_qr),
-      is_phonepay: enabledBanks.some((bank) => bank.config?.is_phonepay),
-      is_bank: enabledBanks.some((bank) => bank.is_bank),
+      is_qr: banks.some((bank) => bank.is_qr),
+      is_phonepay: banks.some((bank) => bank.config?.is_phonepay),
+      is_bank: banks.some((bank) => bank.is_bank),
       redirect_url: payIn.config?.urls?.return,
       isAdmin: role === Role.ADMIN ? true : false,
     };

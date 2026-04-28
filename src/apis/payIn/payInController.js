@@ -13,7 +13,7 @@ import {
   VALIDATE_CHECK_UTR,
   VALIDATE_DISPUTE_DUPLICATE_TRANSACTION,
   VALIDATE_EXPIRE_PAY_IN_URL,
-  VALIDATE_PAY_IN_INTENT_GENERATE_ORDER,
+  // VALIDATE_PAY_IN_INTENT_GENERATE_ORDER,
   VALIDATE_PAYIN_SCHEMA,
   VALIDATE_PROCESS_PAYIN,
   VALIDATE_RESET_DEPOSIT,
@@ -264,43 +264,13 @@ export const checkPayInStatus = async (req, res) => {
 
 export const payInIntentGenerateOrder = async (req, res) => {
   const { merchantOrderId } = req.params;
-  // const { company_id } = req.user;
-  const { amount, Razorpay, cashfree, zentechind, nmplPay, silkPay, orvixPay, orvixPay1, runsafe, cpsPay, tytl, payeasy, payeasy02, payeasy03 } = req.body;
-  const payload = { merchantOrderId, amount, Razorpay, cashfree, zentechind };
-  const joiValidation = VALIDATE_PAY_IN_INTENT_GENERATE_ORDER.validate(payload);
-  if (joiValidation.error) {
-    throw new ValidationError(joiValidation.error);
+  const { amount } = req.body;
+  // Delegate provider extraction and company lookup to service
+  const data = await payInIntentGenerateOrderService(merchantOrderId, amount, req.body);
+  if (data.status === 400 && data.message === 'No provider selected') {
+    return sendSuccess(res, {}, 'No provider selected');
   }
-  let provider = [];
-
-  if (Razorpay) provider.push('Razorpay');
-  if (cashfree) provider.push('Cashfree');
-  if (zentechind) provider.push('ZenTechInd');
-  if (nmplPay) provider.push('NMPLPay');
-  if (runsafe) provider.push('runsafe');
-  if (cpsPay) provider.push('cpsPay');
-  if(tytl) provider.push('tytl');
-  if (silkPay) provider.push('silkPay');
-  if (orvixPay) provider.push('orvixPay');
-  if (orvixPay1) provider.push('orvixPay1');
-  if (payeasy) provider.push('Payeasy');
-  if (payeasy02) provider.push('Payeasy02');
-  if (payeasy03) provider.push('Payeasy03');
-
-  const data = await payInIntentGenerateOrderService(
-    merchantOrderId,
-    // company_id,
-    amount,
-    provider[0],
-  );
-  let message;
-
-  if (provider.length > 0) {
-    message = `${provider} order generated successfully`;
-  } else {
-    message = 'No provider selected';
-  }
-
+  const message = data.provider ? `${data.provider} order generated successfully` : 'Order generated successfully';
   return sendSuccess(res, data, message);
 };
 
