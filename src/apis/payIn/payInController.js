@@ -52,22 +52,11 @@ import { logger } from '../../utils/logger.js';
 import { getRolesById } from '../roles/rolesDao.js';
 import { Role, Status } from '../../constants/index.js';
 import { verifyRazorPaySignature } from '../../razorpay/razorpay.js';
-// import { generateCacheKey } from '../../utils/redishashkey.js';
-import {
-  // normalizeQueryForCache,
-  // readJsonCache,
-  // shouldServeCachedResponse,
-  // writeJsonCache,
-  invalidateCompanyCacheByPrefix,
-} from '../../utils/controllerCache.js';
 import { publishPayInProcess } from '../../rabbitmq/producer.js';
-// import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
+import { extractClientIp, createCacheInvalidator } from '../../helpers/index.js';
 
-const TestingIp = process.env.LOCAL_IP;
-// const { controllerCacheTtls } = config;
-
-const invalidatePayinCache = async (companyId) =>
-  invalidateCompanyCacheByPrefix(companyId, 'payin:read:', 'PayIn cache');
+// Use reusable cache invalidator
+const invalidatePayinCache = createCacheInvalidator('payin:read:', 'PayIn');
 
 //  To Generate Url
 export const generateHashForPayIn = async (req, res) => {
@@ -83,11 +72,10 @@ export const generateHashForPayIn = async (req, res) => {
 export const generatePayInUrl = async (req, res) => {
   const payload = req.query;
   const x_api_key = req.headers['x-api-key'];
-  let userIp =
-    req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.ip;
-
-  // Handle localhost IP for testing
-  userIp = userIp === '::1' ? TestingIp : userIp;
+  
+  // Use reusable IP extraction helper
+  const userIp = extractClientIp(req);
+  
   const { code, key, roleToken = null } = payload;
   let message;
 

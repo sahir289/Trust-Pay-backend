@@ -5,6 +5,59 @@ import { AuthenticationError } from '../utils/appErrors.js';
 import { verifyToken } from '../utils/auth.js';
 import { logger } from '../utils/logger.js';
 import { BadRequestError } from '../utils/appErrors.js';
+import { invalidateCompanyCacheByPrefix } from '../utils/controllerCache.js';
+
+// ============================================
+// REUSABLE UTILITIES - Extracted from PayIn/PayOut
+// ============================================
+
+/**
+ * Extract client IP address from request
+ * Handles x-forwarded-for header, localhost fallback, and IPv6 loopback
+ * @param {Object} req - Express request object
+ * @param {string} fallbackIp - Optional fallback IP for localhost testing
+ * @returns {string} Client IP address
+ */
+export const extractClientIp = (req, fallbackIp = null) => {
+  const TestingIp = fallbackIp || process.env.LOCAL_IP;
+  
+  // Handle x-forwarded-for header (may contain multiple IPs)
+  let ip = req.headers?.['x-forwarded-for'];
+  if (ip) {
+    // Take first IP if multiple IPs are present
+    ip = ip.split(',')[0]?.trim();
+  }
+  
+  // Fallback to connection remoteAddress or req.ip
+  if (!ip) {
+    ip = req.connection?.remoteAddress || req.ip;
+  }
+  
+  // Handle IPv6 localhost loopback
+  if (ip === '::1' || ip === '::ffff:127.0.0.1') {
+    return TestingIp;
+  }
+  
+  return ip;
+};
+
+/**
+ * Create a cache invalidator function for a specific prefix
+ * @param {string} prefix - Cache key prefix (e.g., 'payin:read:', 'payout:read:')
+ * @param {string} label - Optional label for logging
+ * @returns {Function} Cache invalidation function
+ */
+export const createCacheInvalidator = (prefix, label = 'cache') => {
+  return async (companyId) => {
+    if (!companyId) return;
+    await invalidateCompanyCacheByPrefix(companyId, prefix, `${label} cache`);
+  };
+};
+
+// ============================================
+// EXISTING HELPER FUNCTIONS
+// ============================================
+
 // Function to calculate balances based on role
 export const calculateBalances = (
   calc,

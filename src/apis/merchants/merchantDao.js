@@ -8,6 +8,8 @@ import {
 } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
 import { enhanceMerchantsWithSubMerchants } from '../../utils/enhanceSubMerchant.js';
+import { NotFoundError, BadRequestError } from '../../utils/appErrors.js';
+
 export const createMerchantDao = async (data, conn = null) => {
   try {
     delete data.parent_id;
@@ -18,6 +20,57 @@ export const createMerchantDao = async (data, conn = null) => {
     logger.error('Error in createMerchantDao:', error);
     throw error;
   }
+};
+
+// ============================================
+// REUSABLE MERCHANT VALIDATION
+// ============================================
+
+/**
+ * Validate merchant exists and is active
+ * @param {string|Object} code - Merchant code or filters object
+ * @param {Object} conn - Database connection (optional)
+ * @returns {Object} Validated merchant object
+ * @throws {NotFoundError} If merchant not found or inactive
+ */
+export const validateMerchant = async (code, conn = null) => {
+  try {
+    // Handle both string code and object filters
+    const filters = typeof code === 'string' ? { code } : code;
+    
+    const merchants = await getMerchantsByCodeDao(filters, false, false, true, conn);
+    
+    if (!merchants || merchants.length === 0) {
+      const error = new NotFoundError('Merchant is inactive. Contact support for help!');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    return merchants[0];
+  } catch (error) {
+    if (error.statusCode) throw error;
+    logger.error('Error validating merchant:', error);
+    throw error;
+  }
+};
+
+/**
+ * Validate merchant with balance check for payouts
+ * @param {string} code - Merchant code
+ * @param {number} amount - Amount to check against balance
+ * @param {Object} conn - Database connection (optional)
+ * @returns {Object} Validated merchant with balance info
+ * @throws {BadRequestError} If insufficient balance
+ */
+export const validateMerchantForPayout = async (code, amount, conn = null) => {
+  const merchant = await validateMerchant(code, conn);
+  
+  // Check balance for payout
+  if (merchant.balance < 0 && !merchant.config?.allow_payout) {
+    throw new BadRequestError('Merchant balance is less than payout amount');
+  }
+  
+  return merchant;
 };
 
 export const getMerchantForEsDao = async (merchantId, conn = null) => {

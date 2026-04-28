@@ -24,30 +24,17 @@ import {
   RUPEEFLOW_BULK_PAYOUT_SCHEMA,
 } from '../../schemas/payoutSchema.js';
 import { ValidationError } from '../../utils/appErrors.js';
-// import { generateCacheKey } from '../../utils/redishashkey.js';
-import {
-  // normalizeQueryForCache,
-  // readJsonCache,
-  // shouldServeCachedResponse,
-  // writeJsonCache,
-  invalidateCompanyCacheByPrefix,
-} from '../../utils/controllerCache.js';
-// import config from '../../config/config.js';
-// import { BadRequestError } from '../../utils/appErrors.js';
+import { extractClientIp, createCacheInvalidator } from '../../helpers/index.js';
 
-const TestingIp = process.env.LOCAL_IP;
-// const { controllerCacheTtls } = config;
-
-const invalidatePayoutCache = async (companyId) =>
-  invalidateCompanyCacheByPrefix(companyId, 'payout:read:', 'PayOut cache');
+// Use reusable cache invalidator
+const invalidatePayoutCache = createCacheInvalidator('payout:read:', 'PayOut');
 
 const createPayout = async (req, res) => {
   let payload = req.body;
-  let userIp =
-    req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.ip;
-  if (userIp == '::1') {
-    userIp = TestingIp;
-  }
+  
+  // Use reusable IP extraction helper
+  const userIp = extractClientIp(req);
+  
   const fromUI = payload.fromUi || false;
   delete payload.fromUi;
   const joiValidation = PAYOUT_DETAILS_SCHEMA.validate(req.body);

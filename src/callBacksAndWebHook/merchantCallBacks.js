@@ -2,6 +2,29 @@ import axios from 'axios';
 import { logger } from '../utils/logger.js';
 import { BadRequestError } from '../utils/appErrors.js';
 
+// ============================================
+// UNIFIED MERCHANT CALLBACK HANDLER
+// ============================================
+
+/**
+ * Send callback notification to merchant
+ * @param {string} type - Callback type ('payin' or 'payout')
+ * @param {string|Object} urlOrMerchant - Merchant URL or merchant object with config
+ * @param {Object} data - Data to send in callback
+ * @returns {Promise<Object>} Callback response
+ */
+export const sendMerchantCallback = async (type, urlOrMerchant, data) => {
+  // Extract URL from merchant object or use directly
+  const url = typeof urlOrMerchant === 'object' 
+    ? urlOrMerchant.config?.urls?.[`${type}_notify`] 
+    : urlOrMerchant;
+  
+  if (type === 'payin') {
+    return merchantPayinCallback(url, data);
+  }
+  return merchantPayoutCallback(url, data);
+};
+
 const sendMerchantNotification = async (url, data, type) => {
   try {
     if (!url) {
