@@ -533,6 +533,7 @@ export const getMerchantByCodeDao = async (code, conn = null) => {
         "Merchant".payout_commission,
         "Merchant".min_payin,
         "Merchant".max_payin,
+        ("Merchant".config->'keys'->>'public') AS public_key
       FROM "Merchant" 
     `;
 
@@ -663,9 +664,9 @@ export const getMerchantsBySearchDao = async (
     const values = [filters.company_id];
     let paramIndex = 2;
 
-    values.push(role);
-    const roleParamIndex = paramIndex;
-    paramIndex++;
+    // values.push(role);
+    // const roleParamIndex = paramIndex;
+    // paramIndex++;
 
     const limitNum =
       parseInt(filters.limit, 10) || parseInt(pageSize, 10) || 10;
@@ -693,12 +694,7 @@ export const getMerchantsBySearchDao = async (
         "Merchant".is_enabled, 
         "Merchant".dispute_enabled, 
         "Merchant".is_demo, 
-        CASE 
-          WHEN $${roleParamIndex} = 'ADMIN' THEN "Merchant".config 
-          ELSE json_build_object(
-            'urls', "Merchant".config->'urls'
-          ) 
-        END AS config,
+        json_build_object('urls', "Merchant".config->'urls') AS config,
         "Merchant".company_id, 
         creator.user_name AS created_by, 
         updater.user_name AS updated_by, 
