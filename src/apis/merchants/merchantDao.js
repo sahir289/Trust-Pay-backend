@@ -209,12 +209,7 @@ export const getMerchantByUserDao = async (userId, role, conn = null) => {
         "Merchant".dispute_enabled, 
         "Merchant".is_demo, 
         "Merchant".balance, 
-        CASE 
-          WHEN UPPER($2::TEXT) = 'ADMIN' THEN "Merchant".config 
-          ELSE json_build_object(
-            'urls', COALESCE("Merchant".config->'urls', '{}')
-          ) 
-        END AS config,
+        json_build_object('urls', "Merchant".config->'urls') AS config,
         creator.user_name AS created_by, 
         updater.user_name AS updated_by, 
         "Merchant".created_at, 
@@ -233,10 +228,10 @@ export const getMerchantByUserDao = async (userId, role, conn = null) => {
     `;
 
     // Ensure role is a string or null
-    const sanitizedRole = typeof role === 'undefined' ? null : role;
+    // const sanitizedRole = typeof role === 'undefined' ? null : role;
 
     // Query parameters
-    const queryParams = [userId, sanitizedRole];
+    const queryParams = [userId];
 
     // Execute query
     const result = await executeQuery(sql, queryParams, conn);
