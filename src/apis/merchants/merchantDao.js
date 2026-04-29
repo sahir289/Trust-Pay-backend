@@ -209,13 +209,7 @@ export const getMerchantByUserDao = async (userId, role, conn = null) => {
         "Merchant".dispute_enabled, 
         "Merchant".is_demo, 
         "Merchant".balance, 
-        CASE 
-          WHEN UPPER($2::TEXT) = 'ADMIN' THEN "Merchant".config 
-          ELSE json_build_object(
-            'keys', COALESCE("Merchant".config->'keys', '{}'),
-            'urls', COALESCE("Merchant".config->'urls', '{}')
-          ) 
-        END AS config,
+        json_build_object('urls', "Merchant".config->'urls') AS config,
         creator.user_name AS created_by, 
         updater.user_name AS updated_by, 
         "Merchant".created_at, 
@@ -234,10 +228,10 @@ export const getMerchantByUserDao = async (userId, role, conn = null) => {
     `;
 
     // Ensure role is a string or null
-    const sanitizedRole = typeof role === 'undefined' ? null : role;
+    // const sanitizedRole = typeof role === 'undefined' ? null : role;
 
     // Query parameters
-    const queryParams = [userId, sanitizedRole];
+    const queryParams = [userId];
 
     // Execute query
     const result = await executeQuery(sql, queryParams, conn);
@@ -461,10 +455,10 @@ export const getMerchantsByCodeDao = async (code, api_key, conn = null) => {
       baseQuery += ` AND "Merchant".code = $1`;
       queryParams = [code.trim()];
     }
-    if (api_key) {
-      queryParams.push(api_key);
-      baseQuery += ` AND ("Merchant".config->'keys'->>'public' = $${queryParams.length} OR "Merchant".config->'keys'->>'private' = $${queryParams.length})`;
-    }
+    // if (api_key) {
+    //   queryParams.push(api_key);
+    //   baseQuery += ` AND ("Merchant".config->'keys'->>'public' = $${queryParams.length} OR "Merchant".config->'keys'->>'private' = $${queryParams.length})`;
+    // }
 
     const result = await executeQuery(baseQuery, queryParams, conn);
     return result.rows;
@@ -665,9 +659,9 @@ export const getMerchantsBySearchDao = async (
     const values = [filters.company_id];
     let paramIndex = 2;
 
-    values.push(role);
-    const roleParamIndex = paramIndex;
-    paramIndex++;
+    // values.push(role);
+    // const roleParamIndex = paramIndex;
+    // paramIndex++;
 
     const limitNum =
       parseInt(filters.limit, 10) || parseInt(pageSize, 10) || 10;
@@ -695,13 +689,7 @@ export const getMerchantsBySearchDao = async (
         "Merchant".is_enabled, 
         "Merchant".dispute_enabled, 
         "Merchant".is_demo, 
-        CASE 
-          WHEN $${roleParamIndex} = 'ADMIN' THEN "Merchant".config 
-          ELSE json_build_object(
-            'keys', "Merchant".config->'keys',
-            'urls', "Merchant".config->'urls'
-          ) 
-        END AS config,
+        json_build_object('urls', "Merchant".config->'urls') AS config,
         "Merchant".company_id, 
         creator.user_name AS created_by, 
         updater.user_name AS updated_by, 
@@ -787,8 +775,6 @@ export const getMerchantsBySearchDao = async (
         OR LOWER(updater.user_name) LIKE LOWER($${paramIndex})
         OR LOWER("User".first_name || ' ' || "User".last_name) LIKE LOWER($${paramIndex})
         OR LOWER("Designation".designation) LIKE LOWER($${paramIndex})
-        OR LOWER("Merchant".config->'keys'->>'public') LIKE LOWER($${paramIndex})
-        OR LOWER("Merchant".config->'keys'->>'private') LIKE LOWER($${paramIndex})
         OR LOWER("Merchant".config->'urls'->>'site') LIKE LOWER($${paramIndex})
         OR LOWER("Merchant".config->'urls'->>'return') LIKE LOWER($${paramIndex})
         OR LOWER("Merchant".config->'urls'->>'payin_notify') LIKE LOWER($${paramIndex})
