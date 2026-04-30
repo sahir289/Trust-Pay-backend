@@ -2,6 +2,7 @@ import {
   buildInsertQuery,
   buildUpdateQuery,
   executeQuery,
+  buildStandardFilters,
 } from '../../utils/db.js';
 import { Role, Status, tableName } from '../../constants/index.js';
 import { logger } from '../../utils/logger.js';
@@ -162,32 +163,14 @@ const getSettlementDao = async (
     conditionBuilders.date_range(filters, conditions, queryParams);
     conditionBuilders.pagination(page, pageSize, queryParams, limitcondition);
 
-    Object.entries(filters).forEach(([key, value]) => {
-      if (handledKeys.has(key) || value == null) return;
-      const nextParamIdx = queryParams.length + 1;
-
-      if (Array.isArray(value)) {
-        const placeholders = value
-          .map((_, idx) => `$${nextParamIdx + idx}`)
-          .join(', ');
-        conditions.push(`s.${key} IN (${placeholders})`);
-        queryParams.push(...value);
-      } else {
-        const isMultiValue = typeof value === 'string' && value.includes(',');
-        const valueArray = isMultiValue
-          ? value.split(',').map((v) => v.trim())
-          : [value];
-        const placeholders = valueArray
-          .map((_, idx) => `$${nextParamIdx + idx}`)
-          .join(', ');
-        conditions.push(
-          isMultiValue
-            ? `s.${key} IN (${placeholders})`
-            : `s.${key} = $${nextParamIdx}`,
-        );
-        queryParams.push(...valueArray);
-      }
-    });
+    const { conditions: standardConditions } = buildStandardFilters(
+      filters,
+      handledKeys,
+      queryParams,
+      queryParams.length + 1,
+      { tableAlias: 's' },
+    );
+    conditions.push(...standardConditions);
     const columnSelection =
       columns.length > 0 ? columns.map((col) => `s.${col}`).join(', ') : `s.*`;
     //fetching bank name

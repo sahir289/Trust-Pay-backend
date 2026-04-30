@@ -663,6 +663,110 @@ export const executeQuery = async (query, queryParams = [], conn = null) => {
   }
 };
 
+/**
+ * Shared utility to build standard SQL filter conditions.
+ * Used to extract repeated filter logic across DAOs.
+ * 
+ * @param {Object} filters - Filter object from request
+ * @param {Set|Array} handledKeys - Keys to skip (already handled manually)
+ * @param {Array} queryParams - Array of parameter values (mutated)
+ * @param {number} paramIndex - Starting parameter index ($1, $2, etc.)
+ * @param {Object} options - Customization options (tableAlias, quoteKeys, useAny)
+ * @returns {Object} { conditions: string[], paramIndex: number }
+ */
+export const buildStandardFilters = (
+  filters,
+  handledKeys,
+  queryParams,
+  paramIndex,
+  options = {},
+) => {
+  const conditions = [];
+  const handled = handledKeys instanceof Set ? handledKeys : new Set(handledKeys);
+  const { tableAlias = '', quoteKeys = false, useAny = false } = options;
+  const prefix = tableAlias ? `${tableAlias}.` : '';
+
+  Object.entries(filters).forEach(([key, value]) => {
+    if (
+      handled.has(key) ||
+      value === null ||
+      value === undefined ||
+      value === ''
+    ) {
+      return;
+    }
+
+    const field = quoteKeys ? `"${key}"` : key;
+
+    // Handle config_..._contains pattern
+    if (key.startsWith('config_') && key.endsWith('_contains')) {
+      const variablePart = key.replace('config_', '').replace('_contains', '');
+      if (!/^[a-zA-Z0-9_]+$/.test(variablePart)) {
+        throw new Error(`Invalid config field name: ${variablePart}`);
+      }
+      const jsonColumn = `
+        COALESCE(
+          CASE 
+            WHEN json_typeof(${prefix}"config"->'${variablePart}') = 'array' 
+            THEN ARRAY(SELECT json_array_elements_text(${prefix}"config"->'${variablePart}'))
+            ELSE ARRAY[(${prefix}"config"->>'${variablePart}')::text]
+          END,
+          ARRAY[]::text[]
+        )`;
+      conditions.push(`$${paramIndex} = ANY(${jsonColumn})`);
+      queryParams.push(value);
+      paramIndex++;
+      return;
+    }
+
+    // Handle JSONB extraction if key contains ->>
+    if (key.includes('->>')) {
+      const [jsonField, jsonKey] = key.split('->>');
+      conditions.push(`${prefix}${jsonField}->>'${jsonKey}' = $${paramIndex}`);
+      queryParams.push(value);
+      paramIndex++;
+      return;
+    }
+
+    if (Array.isArray(value)) {
+      if (useAny) {
+        conditions.push(`${prefix}${field} = ANY($${paramIndex})`);
+        queryParams.push(value);
+        paramIndex++;
+      } else {
+        const placeholders = value
+          .map((_, i) => `$${paramIndex + i}`)
+          .join(', ');
+        conditions.push(`${prefix}${field} IN (${placeholders})`);
+        queryParams.push(...value);
+        paramIndex += value.length;
+      }
+    } else if (typeof value === 'string' && value.includes(',') && !useAny) {
+      // Handle comma-separated strings as IN clause
+      const values = value
+        .split(',')
+        .map((v) => v.trim())
+        .filter((v) => v !== '');
+      
+      if (values.length === 0) return;
+
+      const placeholders = values
+        .map((_, i) => `$${paramIndex + i}`)
+        .join(', ');
+      conditions.push(`${prefix}${field} IN (${placeholders})`);
+      queryParams.push(...values);
+      paramIndex += values.length;
+    } else {
+      // Standard equality
+      conditions.push(`${prefix}${field} = $${paramIndex}`);
+      queryParams.push(value);
+      paramIndex++;
+    }
+  });
+
+  return { conditions, paramIndex };
+};
+
 export const buildSelectQuery = (
   baseQuery,
   filters,
@@ -677,41 +781,14 @@ export const buildSelectQuery = (
   let values = [];
   let conditions = [`${prefix}is_obsolete = false`];
 
-  for (const key in filters) {
-    const value = filters[key];
-    if (key === 'or' || key === 'page' || key === 'limit') {
-      continue;
-    }
-
-    if (['startDate', 'endDate'].includes(key)) {
-      continue;
-    }
-
-    if (key.startsWith('config_') && key.endsWith('_contains')) {
-      const variablePart = key.replace('config_', '').replace('_contains', '');
-      // Validate variablePart to prevent SQL injection (only allow alphanumeric and underscore)
-      if (!/^[a-zA-Z0-9_]+$/.test(variablePart)) {
-        throw new Error(`Invalid config field name: ${variablePart}`);
-      }
-      const jsonColumn = `
-        COALESCE(
-          CASE 
-            WHEN json_typeof(${prefix}"config"->'${variablePart}') = 'array' 
-            THEN ARRAY(SELECT json_array_elements_text(${prefix}"config"->'${variablePart}'))
-            ELSE ARRAY[(${prefix}"config"->>'${variablePart}')::text]
-          END,
-          ARRAY[]::text[]
-        )`;
-      conditions.push(`$${values.length + 1} = ANY(${jsonColumn})`);
-      values.push(value);
-    } else if (Array.isArray(value)) {
-      conditions.push(`${prefix}"${key}" = ANY($${values.length + 1})`);
-      values.push(value);
-    } else {
-      conditions.push(`${prefix}"${key}" = $${values.length + 1}`);
-      values.push(value);
-    }
-  }
+  const { conditions: standardConditions } = buildStandardFilters(
+    filters,
+    ['or', 'page', 'limit', 'startDate', 'endDate'],
+    values,
+    values.length + 1,
+    { tableAlias: tableName ? `"${tableName}"` : '', quoteKeys: true, useAny: true },
+  );
+  conditions.push(...standardConditions);
 
   // Handle startDate and endDate
   if (filters?.startDate && filters?.endDate) {

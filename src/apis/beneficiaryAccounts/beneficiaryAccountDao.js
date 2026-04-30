@@ -5,6 +5,7 @@ import {
   buildUpdateQuery,
   buildAndExecuteUpdateQuery,
   executeQuery,
+  buildStandardFilters,
 } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
 
@@ -19,26 +20,14 @@ const getBeneficiaryAccountDao = async (filters, page, limit, role, conn = null)
       queryParams.push(limit, (page - 1) * limit);
     }
     if (filters && Object.keys(filters).length > 0) {
-      Object.keys(filters).forEach((key) => {
-        delete filters?.page;
-        delete filters?.limit;
-        const value = filters[key];
-        if (value !== null && value !== undefined && value !== '') {
-          if (key.includes('->>')) {
-            const [jsonField, jsonKey] = key.split('->>');
-            conditions.push(
-              `bea.${jsonField}->>'${jsonKey}' = $${queryParams.length + 1}`,
-            );
-            queryParams.push(value);
-          } else if (Array.isArray(value)) {
-            conditions.push(`bea."${key}" = ANY($${queryParams.length + 1})`);
-            queryParams.push(value);
-          } else {
-            conditions.push(`bea."${key}" = $${queryParams.length + 1}`);
-            queryParams.push(value);
-          }
-        }
-      });
+      const { conditions: standardConditions } = buildStandardFilters(
+        filters,
+        ['page', 'limit'],
+        queryParams,
+        queryParams.length + 1,
+        { tableAlias: 'bea', quoteKeys: true, useAny: true },
+      );
+      conditions.push(...standardConditions);
     }
     let commissionSelect = '';
     if (role === Role.MERCHANT) {
@@ -126,34 +115,14 @@ const getBeneficiaryAccountDaoAll = async (filters, page, limit, role, conn = nu
       queryParams.push(limit, (page - 1) * limit);
     }
     if (filters && Object.keys(filters).length > 0) {
-      Object.keys(filters).forEach((key) => {
-        delete filters?.page;
-        delete filters?.limit;
-        const value = filters[key];
-        if (value !== null && value !== undefined && value !== '') {
-          if (key.includes('->>')) {
-            const [jsonField, jsonKey] = key.split('->>');
-            conditions.push(
-              `bea.${jsonField}->>'${jsonKey}' = $${queryParams.length + 1}`,
-            );
-            queryParams.push(value);
-          } else if (Array.isArray(value)) {
-            // Ensure array is not empty, is flat, and is a proper Postgres array
-            const flatArray = value
-              .flat()
-              .filter(
-                (v) => v !== null && v !== undefined && !Array.isArray(v),
-              );
-            if (flatArray.length > 0) {
-              conditions.push(`bea."${key}" = ANY($${queryParams.length + 1})`);
-              queryParams.push(flatArray);
-            }
-          } else {
-            conditions.push(`bea."${key}" = $${queryParams.length + 1}`);
-            queryParams.push(value);
-          }
-        }
-      });
+      const { conditions: standardConditions } = buildStandardFilters(
+        filters,
+        ['page', 'limit'],
+        queryParams,
+        queryParams.length + 1,
+        { tableAlias: 'bea', quoteKeys: true, useAny: true },
+      );
+      conditions.push(...standardConditions);
     }
     let commissionSelect = '';
 
@@ -222,22 +191,14 @@ const getBeneficiaryAccountBySearchDao = async (
       typeof filters === 'object' &&
       Object.keys(filters).length > 0
     ) {
-      Object.entries(filters).forEach(([key, value]) => {
-        if (value !== null && value !== undefined && value !== '') {
-          if (key.includes('->>')) {
-            const [jsonField, jsonKey] = key.split('->>');
-            conditions.push(`bea.${jsonField}->>'${jsonKey}' = $${paramIndex}`);
-            queryParams.push(value);
-          } else if (Array.isArray(value)) {
-            conditions.push(`bea."${key}" = ANY($${paramIndex})`);
-            queryParams.push(value);
-          } else {
-            conditions.push(`bea."${key}" = $${paramIndex}`);
-            queryParams.push(value);
-          }
-          paramIndex++;
-        }
-      });
+      const { conditions: standardConditions, paramIndex: updatedIdx } =
+        buildStandardFilters(filters, [], queryParams, paramIndex, {
+          tableAlias: 'bea',
+          quoteKeys: true,
+          useAny: true,
+        });
+      conditions.push(...standardConditions);
+      paramIndex = updatedIdx;
     }
 
     let commissionSelect = '';
@@ -385,18 +346,14 @@ const getBeneficiaryAccountDaoByBankName = async (
 
     // Handle filters
     if (Object.keys(filters).length > 0) {
-      Object.entries(filters).forEach(([key, value]) => {
-        let paramValue = value;
-        // If value is an array, take the first element (adjust based on requirements)
-        if (Array.isArray(value) && value.length > 0) {
-          paramValue = value[0]; // Extract first element
-          if (paramValue == null) {
-            return; // Skip if first element is null/undefined
-          }
-        }
-        whereConditions.push(`"${key}" = $${queryParams.length + 1}`);
-        queryParams.push(paramValue);
-      });
+      const { conditions: standardConditions } = buildStandardFilters(
+        filters,
+        [],
+        queryParams,
+        queryParams.length + 1,
+        { quoteKeys: true },
+      );
+      whereConditions.push(...standardConditions);
     }
 
     // Construct base query with dynamic WHERE clause

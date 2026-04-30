@@ -6,6 +6,7 @@ import {
   executeQuery,
   buildJoinQuery,
   buildInsertQuery,
+  buildStandardFilters,
 } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
 // import esClient from '../../utils/elasticClient.js';
@@ -261,17 +262,14 @@ export const getUsersBySearchDao = async (
     }
 
     if (filters.id) {
-      if (Array.isArray(filters.id)) {
-        const placeholders = filters.id
-          .map((_, i) => `$${paramIndex + i}`)
-          .join(', ');
-        queryText += ` AND "User"."id" IN (${placeholders})`;
-        values.push(...filters.id);
-        paramIndex += filters.id.length;
-      } else {
-        queryText += ` AND "User"."id" = $${paramIndex}`;
-        values.push(filters.id);
-        paramIndex++;
+      const { conditions: idConditions, paramIndex: updatedIdx } =
+        buildStandardFilters({ id: filters.id }, [], values, paramIndex, {
+          tableAlias: '"User"',
+          quoteKeys: true,
+        });
+      if (idConditions) {
+        queryText += ` AND ${idConditions}`;
+        paramIndex = updatedIdx;
       }
     }
 
@@ -370,29 +368,17 @@ const getUserByIdDao = async (ids, conn = null) => {
 
     let queryParams = [];
 
-    if (ids.id) {
-      if (Array.isArray(ids.id)) {
-        const placeholders = ids.id
-          .map((_, idx) => `$${queryParams.length + idx + 1}`)
-          .join(', ');
-        baseQuery += ` AND u.id IN (${placeholders})`;
-        queryParams.push(...ids.id);
-      } else {
-        baseQuery += ` AND u.id = $${queryParams.length + 1}`;
-        queryParams.push(ids.id);
+    if (ids) {
+      const { conditions: standardConditions } = buildStandardFilters(
+        ids,
+        [],
+        queryParams,
+        queryParams.length + 1,
+        { tableAlias: 'u' },
+      );
+      if (standardConditions) {
+        baseQuery += ` AND ${standardConditions}`;
       }
-    }
-    if (ids.role_id) {
-      baseQuery += ` AND u.role_id = $${queryParams.length + 1}`;
-      queryParams.push(ids.role_id);
-    }
-    if (ids.designation_id) {
-      baseQuery += ` AND u.designation_id = $${queryParams.length + 1}`;
-      queryParams.push(ids.designation_id);
-    }
-    if (ids.company_id) {
-      baseQuery += ` AND u.company_id = $${queryParams.length + 1}`;
-      queryParams.push(ids.company_id);
     }
     const result = await executeQuery(baseQuery, queryParams, conn);
     if (result.rowCount === 0) {
@@ -456,17 +442,17 @@ const getUsersByUserNameDao = async (ids, username, conn = null) => {
     `;
 
     const queryParams = [username];
-    if (ids.role_id) {
-      baseQuery += ` AND u.role_id = $${queryParams.length + 1}`;
-      queryParams.push(ids.role_id);
-    }
-    if (ids.designation_id) {
-      baseQuery += ` AND u.designation_id = $${queryParams.length + 1}`;
-      queryParams.push(ids.designation_id);
-    }
-    if (ids.company_id) {
-      baseQuery += ` AND u.company_id = $${queryParams.length + 1}`;
-      queryParams.push(ids.company_id);
+    if (ids) {
+      const { conditions: standardConditions } = buildStandardFilters(
+        ids,
+        ['user_name'], // Handled in baseQuery
+        queryParams,
+        queryParams.length + 1,
+        { tableAlias: 'u' },
+      );
+      if (standardConditions) {
+        baseQuery += ` AND ${standardConditions}`;
+      }
     }
 
     const result = await executeQuery(baseQuery, queryParams, conn);
