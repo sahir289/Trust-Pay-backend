@@ -209,7 +209,14 @@ export const getMerchantByUserDao = async (userId, role, conn = null) => {
         "Merchant".dispute_enabled, 
         "Merchant".is_demo, 
         "Merchant".balance, 
-        json_build_object('urls', "Merchant".config->'urls') AS config,
+        CASE 
+          WHEN $2 = 'ADMIN' 
+            THEN (("Merchant".config::jsonb - 'keys')::json)
+          ELSE 
+            json_build_object(
+            'urls', COALESCE("Merchant".config->'urls', '{}')
+          )
+        END AS config,
         creator.user_name AS created_by, 
         updater.user_name AS updated_by, 
         "Merchant".created_at, 
@@ -228,10 +235,10 @@ export const getMerchantByUserDao = async (userId, role, conn = null) => {
     `;
 
     // Ensure role is a string or null
-    // const sanitizedRole = typeof role === 'undefined' ? null : role;
+    const sanitizedRole = typeof role === 'undefined' ? null : role;
 
     // Query parameters
-    const queryParams = [userId];
+    const queryParams = [userId, sanitizedRole];
 
     // Execute query
     const result = await executeQuery(sql, queryParams, conn);
@@ -659,9 +666,9 @@ export const getMerchantsBySearchDao = async (
     const values = [filters.company_id];
     let paramIndex = 2;
 
-    // values.push(role);
-    // const roleParamIndex = paramIndex;
-    // paramIndex++;
+    values.push(role);
+    const roleParamIndex = paramIndex;
+    paramIndex++;
 
     const limitNum =
       parseInt(filters.limit, 10) || parseInt(pageSize, 10) || 10;
@@ -689,7 +696,14 @@ export const getMerchantsBySearchDao = async (
         "Merchant".is_enabled, 
         "Merchant".dispute_enabled, 
         "Merchant".is_demo, 
-        json_build_object('urls', "Merchant".config->'urls') AS config,
+        CASE 
+          WHEN $${roleParamIndex} = 'ADMIN' 
+        THEN (("Merchant".config::jsonb - 'keys')::json)
+          ELSE 
+        json_build_object(
+          'urls', COALESCE("Merchant".config->'urls', '{}')
+        )
+        END AS config,
         "Merchant".company_id, 
         creator.user_name AS created_by, 
         updater.user_name AS updated_by, 
