@@ -214,7 +214,8 @@ export const getMerchantByUserDao = async (userId, role, conn = null) => {
             THEN (("Merchant".config::jsonb - ARRAY['keys', 'SUCCESSRATIOCHATID'])::json)
           ELSE 
             json_build_object(
-            'urls', COALESCE("Merchant".config->'urls', '{}')
+            'urls', COALESCE("Merchant".config->'urls', '{}'),
+            'unblocked_countries', COALESCE("Merchant".config->'unblocked_countries', '{}')
           )
         END AS config,
         creator.user_name AS created_by, 
@@ -701,7 +702,8 @@ export const getMerchantsBySearchDao = async (
         THEN (("Merchant".config::jsonb - ARRAY['keys', 'SUCCESSRATIOCHATID'])::json)
           ELSE 
         json_build_object(
-          'urls', COALESCE("Merchant".config->'urls', '{}')
+          'urls', COALESCE("Merchant".config->'urls', '{}'),
+          'unblocked_countries', COALESCE("Merchant".config->'unblocked_countries', '{}')
         )
         END AS config,
         "Merchant".company_id, 
