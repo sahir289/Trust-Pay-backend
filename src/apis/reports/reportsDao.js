@@ -585,7 +585,7 @@ const getMerchantReportDao = async (
         c.total_reverse_payout_amount,
         c.total_reverse_payout_commission, 
         c.total_adjustment_amount,  
-        c.company_id,
+        ${role === Role.ADMIN ? 'c.company_id,' : ''}
         m.code
         ${role === Role.ADMIN ? ", m.config->>'gm_code' AS gm_code, m.user_id AS merchant_user_id" : ''}
         ${role === Role.ADMIN ? ", m.config->>'gm_code' AS gm_code, m.user_id AS merchant_user_id" : ''}
