@@ -211,7 +211,7 @@ export const getMerchantByUserDao = async (userId, role, conn = null) => {
         "Merchant".balance, 
         CASE 
           WHEN $2 = 'ADMIN' 
-            THEN (("Merchant".config::jsonb - 'keys')::json)
+            THEN (("Merchant".config::jsonb - ARRAY['keys', 'SUCCESSRATIOCHATID'])::json)
           ELSE 
             json_build_object(
             'urls', COALESCE("Merchant".config->'urls', '{}')
@@ -698,7 +698,7 @@ export const getMerchantsBySearchDao = async (
         "Merchant".is_demo, 
         CASE 
           WHEN $${roleParamIndex} = 'ADMIN' 
-        THEN (("Merchant".config::jsonb - 'keys')::json)
+        THEN (("Merchant".config::jsonb - ARRAY['keys', 'SUCCESSRATIOCHATID'])::json)
           ELSE 
         json_build_object(
           'urls', COALESCE("Merchant".config->'urls', '{}')
