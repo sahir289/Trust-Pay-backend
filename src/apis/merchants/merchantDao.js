@@ -222,7 +222,8 @@ export const getMerchantByUserDao = async (userId, role, conn = null) => {
         updater.user_name AS updated_by, 
         "Merchant".created_at, 
         "Merchant".updated_at, 
-        "User".designation_id, 
+        CASE WHEN $2 = 'ADMIN' THEN "Merchant".company_id ELSE NULL END AS company_id, 
+        CASE WHEN $2 = 'ADMIN' THEN "User".designation_id ELSE NULL END AS designation_id,
         "User".first_name || ' ' || "User".last_name AS full_name, 
         "Designation".designation AS designation_name 
       FROM "Merchant" 
@@ -706,12 +707,12 @@ export const getMerchantsBySearchDao = async (
           'unblocked_countries', COALESCE("Merchant".config->'unblocked_countries', '{}')
         )
         END AS config,
-        "Merchant".company_id, 
+        CASE WHEN $2 = 'ADMIN' THEN "Merchant".company_id ELSE NULL END AS company_id, 
         creator.user_name AS created_by, 
         updater.user_name AS updated_by, 
         "Merchant".created_at, 
         "Merchant".updated_at, 
-        "User".designation_id, 
+        CASE WHEN $2 = 'ADMIN' THEN "User".designation_id ELSE NULL END AS designation_id,
         "User".first_name || ' ' || "User".last_name AS full_name, 
         "Designation".designation AS designation_name,
         (SELECT net_balance 
