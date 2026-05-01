@@ -678,7 +678,7 @@ export const getPayoutsBySearchDao = async (
         v.code AS vendor_code, 
         v.id AS vendor_id, 
         v.user_id AS vendor_user_id,
-        p.config AS payout_details,
+        (p.config::jsonb - 'slip') AS payout_details,
         p.updated_at,
         b.user_id,
         b.nick_name,
@@ -704,6 +704,7 @@ export const getPayoutsBySearchDao = async (
         p.upi_id, 
         p.utr_id, 
         p.rejected_reason,
+        p.config ->> 'slip' AS slip,
         ${commissionSelect},
         json_build_object(
           'account_holder_name', p.acc_holder_name,
