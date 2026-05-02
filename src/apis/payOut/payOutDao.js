@@ -685,9 +685,7 @@ export const getPayoutsBySearchDao = async (
         json_build_object(
           'merchant_code', COALESCE(m.config->>'sub_code', m.code),
           'return_url', m.config->>'return_url',
-          'notify_url', m.config->>'notify_url',
-          'public_key', m.config->'keys'->>'public',
-          'private_key', m.config->'keys'->>'private'
+          'notify_url', m.config->>'notify_url'
         ) AS merchant_details
       `;
     }
