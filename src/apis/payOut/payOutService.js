@@ -1476,6 +1476,7 @@ const _updatePayoutServiceInternal = async (
       vendor_id: data.vendor_id || null,
       vendor_user_id: vendor?.user_id || null,
       payout_details: data.config || {},
+      slip : data.config?.slip || null,
       updated_at: data.updated_at,
       user_id: vendor?.user_id || null,
       nick_name: bankDataArr?.[0]?.nick_name || null,
