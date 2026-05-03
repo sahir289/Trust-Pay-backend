@@ -63,7 +63,7 @@ import {
 import { publishPayInProcess } from '../../rabbitmq/producer.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 
-const TestingIp = process.env.LOCAL_IP;
+// const TestingIp = process.env.LOCAL_IP;
 // const { controllerCacheTtls } = config;
 
 const invalidatePayinCache = async (companyId) =>
@@ -83,11 +83,7 @@ export const generateHashForPayIn = async (req, res) => {
 export const generatePayInUrl = async (req, res) => {
   const payload = req.query;
   const x_api_key = req.headers['x-api-key'];
-  let userIp =
-    req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.ip;
 
-  // Handle localhost IP for testing
-  userIp = userIp === '::1' ? TestingIp : userIp;
   const { code, key, roleToken = null } = payload;
   let message;
   if (payload.merchant_order_id?.includes('/')) {
@@ -136,7 +132,6 @@ export const generatePayInUrl = async (req, res) => {
       api_key: apiKey,
     },
     role,
-    userIp,
   );
 
   // Build query string for the URL
