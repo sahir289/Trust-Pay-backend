@@ -32,6 +32,7 @@ import {
 import { multerUpload } from '../../utils/index.js';
 import getUserLocationMiddleware from '../../middlewares/locationRestrict.js';
 import dbConnScope from '../../middlewares/dbConnScope.js';
+import { checkApiKey } from '../../middlewares/checkApiKey.js';
 
 const router = express.Router();
 
@@ -71,7 +72,7 @@ router.get(
  *       500:
  *         description: Internal server error
  */
-router.get('/generate-payin', tryCatchHandler(generatePayInUrl));
+router.get('/generate-payin', checkApiKey, tryCatchHandler(generatePayInUrl));
 
 /**
  * @swagger
