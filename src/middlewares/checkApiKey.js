@@ -1,4 +1,4 @@
-import { getMerchantsByCodeDao } from '../apis/merchants/merchantDao.js';
+import { getMerchantsByCodeAndApiKeyDao, getMerchantsByCodeDao } from '../apis/merchants/merchantDao.js';
 
 export const checkApiKey = async (req, res, next) => {
   const payload = req.query;
@@ -76,13 +76,13 @@ export const checkPayoutApiKey = async (req, res, next) => {
     const { code } = payload;
   
     if (x_api_key) {
-      const merchantArr = await getMerchantsByCodeDao(code);
+      const merchantArr = await getMerchantsByCodeAndApiKeyDao(code, x_api_key);
       const merchant = merchantArr[0];
       if (!merchant) {
-        return {
-          status: 400,
-          message: 'Invalid merchant code or API key',
-        };
+        return res.status(400).json({
+            success: false,
+            message: 'Invalid merchant code or API key',
+          });
       }
   
       if (merchant?.config?.whitelist_ips) {
