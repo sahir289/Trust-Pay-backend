@@ -139,9 +139,8 @@ export const getVendorsCodeDao = async (
         v.code AS label, 
         v.user_id AS value, 
         v.id AS vendor_id,
-        ${
-          includeSubVendors
-            ? `
+        ${includeSubVendors
+        ? `
               COALESCE(
                 json_agg(
                   json_build_object(
@@ -153,8 +152,8 @@ export const getVendorsCodeDao = async (
                 '[]'::json
               ) AS subvendors
             `
-            : `'[]'::json AS subvendors`
-        }
+        : `'[]'::json AS subvendors`
+      }
       FROM 
         "${tableName.VENDOR}" v
       LEFT JOIN "${tableName.USER_HIERARCHY}" uh 
@@ -356,6 +355,28 @@ export const getVendorsDao = async (
       paramIndex++;
     }
 
+    // Handle active filter (is_enabled in config)
+    if (filters.active !== undefined) {
+      const activeValue = filters.active === 'true' || filters.active === true;
+      baseQuery += `
+      AND COALESCE(NULLIF("Vendor".config->>'is_enabled', ''), 'false')::boolean = $${paramIndex}
+    `;
+      value.push(activeValue);
+      paramIndex++;
+      delete filters.active; // Remove from filters so buildSelectQuery doesn't try to add it
+    }
+
+    // Handle deleted filter (is_obsolete)
+    if (filters.deleted !== undefined) {
+      const deletedValue = filters.deleted === 'true' || filters.deleted === true;
+      baseQuery += `
+      AND "Vendor".is_obsolete = $${paramIndex}
+    `;
+      value.push(deletedValue);
+      paramIndex++;
+      delete filters.deleted; // Remove from filters so buildSelectQuery doesn't try to add it
+    }
+
     const [query, values] = buildSelectQuery(
       baseQuery,
       filters,
@@ -507,6 +528,27 @@ export const getAllVendorsDao = async (
       value.push(filters.id);
       paramIndex++;
     }
+    // Handle active filter (is_enabled in config)
+    if (filters.active !== undefined) {
+      const activeValue = filters.active === 'true' || filters.active === true;
+      baseQuery += `
+      AND COALESCE(NULLIF("Vendor".config->>'is_enabled', ''), 'false')::boolean = $${paramIndex}
+    `;
+      value.push(activeValue);
+      paramIndex++;
+      delete filters.active; // Remove from filters so buildSelectQuery doesn't try to add it
+    }
+
+    // Handle deleted filter (is_obsolete)
+    if (filters.deleted !== undefined) {
+      const deletedValue = filters.deleted === 'true' || filters.deleted === true;
+      baseQuery += `
+      AND "Vendor".is_obsolete = $${paramIndex}
+    `;
+      value.push(deletedValue);
+      paramIndex++;
+      delete filters.deleted; // Remove from filters so buildSelectQuery doesn't try to add it
+    }
 
     const [query, values] = buildSelectQuery(
       baseQuery,
@@ -585,11 +627,10 @@ export const getVendorsBySearchDao = async (
       FROM "Vendor"
       JOIN "User" AS user_main ON "Vendor".user_id = user_main.id
       LEFT JOIN "Designation" AS d ON user_main.designation_id = d.id
-      ${
-        filters.role === Role.ADMIN
-          ? `LEFT JOIN "User" AS u ON "Vendor".created_by = u.id
+      ${filters.role === Role.ADMIN
+        ? `LEFT JOIN "User" AS u ON "Vendor".created_by = u.id
          LEFT JOIN "User" AS uu ON "Vendor".updated_by = uu.id`
-          : ''
+        : ''
       }
       WHERE "Vendor".is_obsolete = false
       AND "Vendor"."company_id" = $1
@@ -604,6 +645,23 @@ export const getVendorsBySearchDao = async (
         paramIndex += 1;
       }
     }
+
+    // Handle active filter (is_enabled in config)
+    if (filters.active !== undefined) {
+      const activeValue = filters.active === 'true' || filters.active === true;
+      queryText += ` AND COALESCE(NULLIF("Vendor".config->>'is_enabled', ''), 'false')::boolean = $${paramIndex}`;
+      values.push(activeValue);
+      paramIndex += 1;
+    }
+
+    // Handle deleted filter (is_obsolete)
+    if (filters.deleted !== undefined) {
+      const deletedValue = filters.deleted === 'true' || filters.deleted === true;
+      queryText += ` AND "Vendor".is_obsolete = $${paramIndex}`;
+      values.push(deletedValue);
+      paramIndex += 1;
+    }
+
     if (searchTerms) {
       searchTerms.forEach((term) => {
         if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
@@ -865,10 +923,10 @@ export const getVendorByUserDao = async (userId, conn = null) => {
  * Get designation id by designation name
  */
 export const getDesignationIdDao = async (designation, conn = null) => {
-  try  {
-  const sql = `SELECT id FROM "${tableName.DESIGNATION}" WHERE designation = $1 LIMIT 1;`;
-  const result = await executeQuery(sql, [designation], conn);
-  return result.rows[0]?.id || null;
+  try {
+    const sql = `SELECT id FROM "${tableName.DESIGNATION}" WHERE designation = $1 LIMIT 1;`;
+    const result = await executeQuery(sql, [designation], conn);
+    return result.rows[0]?.id || null;
   } catch (error) {
     logger.error('Error in getDesignationIdDao:', error);
     throw error;
