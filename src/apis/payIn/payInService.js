@@ -252,7 +252,7 @@ export const generatePayInUrlByHashService = async (req) => {
       return data;
     }
 
-    let query = `user_id=${user_id}&code=${code}&ot=${ot}&key=${key}`;
+    let query = `user_id=${user_id}&code=${code}&ot=${ot}`;
     if (amount) {
       query += `&amount=${amount}`;
     }

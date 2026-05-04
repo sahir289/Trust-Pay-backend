@@ -79,6 +79,45 @@ const createTemporaryToken = (data) => {
   };
 };
 
+/**
+ * Generates a short-lived pre-auth token used exclusively during the 2FA
+ * login handshake. It carries stage: 'PRE_2FA' so the verify endpoint
+ * can assert the token was issued for this purpose.
+ *
+ * @param {{ user_id: string, user_name: string }} payload
+ * @returns {string} signed JWT, expires in 5 minutes
+ */
+const generatePreAuthToken = (payload) => {
+  return jwt.sign(
+    { user_id: payload.user_id, user_name: payload.user_name, stage: 'PRE_2FA' },
+    config.jwt.jwt_secret,
+    { expiresIn: '5m' },
+  );
+};
+
+/**
+ * Verifies a pre-auth token and asserts it has the correct stage.
+ * Throws BadRequestError on any failure so callers don't need extra guards.
+ *
+ * @param {string} token
+ * @returns {{ user_id: string, user_name: string, stage: string }}
+ */
+const verifyPreAuthToken = (token) => {
+  try {
+    const decoded = jwt.verify(token, config.jwt.jwt_secret);
+    if (decoded?.stage !== 'PRE_2FA') {
+      throw new BadRequestError('Invalid pre-auth token stage');
+    }
+    return decoded;
+  } catch (err) {
+    if (err instanceof BadRequestError) throw err;
+    if (err.name === 'TokenExpiredError') {
+      throw new BadRequestError('Pre-auth token expired. Please login again.');
+    }
+    throw new BadRequestError('Invalid pre-auth token');
+  }
+};
+
 export {
   createNewToken,
   refreshAccessToken,
@@ -86,4 +125,6 @@ export {
   verifyToken,
   hashValue,
   createTemporaryToken,
+  generatePreAuthToken,
+  verifyPreAuthToken,
 };

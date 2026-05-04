@@ -536,8 +536,7 @@ export const getMerchantByCodeDao = async (code, conn = null) => {
         "Merchant".payin_commission, 
         "Merchant".payout_commission,
         "Merchant".min_payin,
-        "Merchant".max_payin,
-        ("Merchant".config->'keys'->>'public') AS public_key
+        "Merchant".max_payin
       FROM "Merchant" 
     `;
 

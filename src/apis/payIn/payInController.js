@@ -1,5 +1,5 @@
 import config from '../../config/config.js';
-import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
+import { BadRequestError, NotFoundError, ValidationError } from '../../utils/appErrors.js';
 import {
   sendSuccess,
   sendNewSuccess,
@@ -61,6 +61,7 @@ import {
   invalidateCompanyCacheByPrefix,
 } from '../../utils/controllerCache.js';
 import { publishPayInProcess } from '../../rabbitmq/producer.js';
+import { getMerchantsByCodeDao } from '../merchants/merchantDao.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 
 // const TestingIp = process.env.LOCAL_IP;
@@ -93,10 +94,7 @@ export const generatePayInUrl = async (req, res) => {
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
-  const apiKey = key ? key : x_api_key;
-  if (!apiKey) {
-    return sendError(res, 'Enter valid Api key', 404);
-  }
+  let apiKey = key ? key : x_api_key;
 
   const generatedHash = createHash(`${code}`);
   // // Decode the provided hash before comparison
@@ -124,6 +122,18 @@ export const generatePayInUrl = async (req, res) => {
   if (roleToken && roleToken !== null) {
     const roleData = await getRolesById(roleToken);
     role = roleData.role;
+  }
+
+  if(role === "ADMIN" || !apiKey){
+    const data = await getMerchantsByCodeDao(code);
+    if (data.length === 0) {
+      throw new NotFoundError('Merchant not found');
+    }
+    apiKey = data[0]?.config?.keys?.public
+  }
+
+  if (!apiKey) {
+    return sendError(res, 'Enter valid Api key', 404);
   }
 
   const result = await generatePayInUrlService(
