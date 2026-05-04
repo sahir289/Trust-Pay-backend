@@ -193,7 +193,7 @@ const _createPayoutServiceInternal = async (
     //     : role === Role.VENDOR
     //       ? vendorColumns.PAYOUT
     //       : columns.PAYOUT;
-    const { code, amount, x_api_key, returnUrl, notifyUrl } = payload;
+    const { code, amount, returnUrl, notifyUrl } = payload;
     const details = await getMerchantsByCodeDao(code);
 
     if (!details[0] || details[0].length === 0) {
@@ -204,34 +204,34 @@ const _createPayoutServiceInternal = async (
       throw error;
     }
 
-    if (details[0]?.config?.whitelist_ips && role !== Role.ADMIN) {
-      let whitelist = details[0].config.whitelist_ips;
-      // Normalize whitelist to array of trimmed strings
-      if (typeof whitelist === 'string') {
-        whitelist = whitelist
-          .split(',')
-          .map((ip) => ip.trim())
-          .filter(Boolean);
-      } else if (Array.isArray(whitelist)) {
-        whitelist = whitelist.map((ip) => String(ip).trim()).filter(Boolean);
-      } else {
-        whitelist = [];
-      }
-      if (
-        whitelist.length &&
-        !whitelist.includes(userIp) &&
-        role !== Role.ADMIN
-      ) {
-        throw new BadRequestError('IP not whitelisted');
-      }
-    }
+    // if (details[0]?.config?.whitelist_ips && role !== Role.ADMIN) {
+    //   let whitelist = details[0].config.whitelist_ips;
+    //   // Normalize whitelist to array of trimmed strings
+    //   if (typeof whitelist === 'string') {
+    //     whitelist = whitelist
+    //       .split(',')
+    //       .map((ip) => ip.trim())
+    //       .filter(Boolean);
+    //   } else if (Array.isArray(whitelist)) {
+    //     whitelist = whitelist.map((ip) => String(ip).trim()).filter(Boolean);
+    //   } else {
+    //     whitelist = [];
+    //   }
+    //   if (
+    //     whitelist.length &&
+    //     !whitelist.includes(userIp) &&
+    //     role !== Role.ADMIN
+    //   ) {
+    //     throw new BadRequestError('IP not whitelisted');
+    //   }
+    // }
 
     if (details[0]?.balance < 0 && !details[0]?.config?.allow_payout) {
       throw new BadRequestError('Merchant balance is less than payout amount');
     }
 
     const { config, user_id } = details[0];
-    const merchantAPIKey = config?.keys;
+    // const merchantAPIKey = config?.keys;
     const payoutAmount = Number(amount);
     const balanceRestriction = config.balanceRestriction;
     const merchant_order_id = payload.merchant_order_id ?? uuidv4();
@@ -260,16 +260,16 @@ const _createPayoutServiceInternal = async (
       throw new BadRequestError('Merchant Order ID already exists');
     }
 
-    if (!x_api_key || !merchantAPIKey) {
-      throw new NotFoundError('Enter valid Api key');
-    }
+    // if (!x_api_key || !merchantAPIKey) {
+    //   throw new NotFoundError('Enter valid Api key');
+    // }
 
-    if (
-      x_api_key !== merchantAPIKey?.private &&
-      x_api_key !== merchantAPIKey?.public
-    ) {
-      throw new NotFoundError('Enter valid Api key');
-    }
+    // if (
+    //   x_api_key !== merchantAPIKey?.private &&
+    //   x_api_key !== merchantAPIKey?.public
+    // ) {
+    //   throw new NotFoundError('Enter valid Api key');
+    // }
     if (
       (amount < details[0].min_payout || amount > details[0].max_payout) &&
       role !== Role.ADMIN
@@ -457,7 +457,7 @@ const _createPayoutServiceInternal = async (
   }
 };
 
-const createPayoutService = async (headers, payload, role, userIp, fromUI) => {
+const createPayoutService = async (headers, payload, role, fromUI) => {
   let conn;
   let committed = false;
   try {
@@ -467,7 +467,7 @@ const createPayoutService = async (headers, payload, role, userIp, fromUI) => {
       headers,
       payload,
       role,
-      userIp,
+      null,
       fromUI,
       conn,
     );

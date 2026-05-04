@@ -39,6 +39,7 @@ import { vertexPayTransactionStatusCallback } from '../../callBacksAndWebHook/ca
 import {runsafeTransactionStatusCallback} from "../../callBacksAndWebHook/callBacks/runsafeWebHook.js"
 import { getRunsafePayWalletBalance } from '../../runsafe/runsafepay.js';
 import { multerUpload } from '../../utils/index.js';
+import { checkPayoutApiKey } from '../../middlewares/checkApiKey.js';
 const router = express.Router();
 
 /**
@@ -157,6 +158,7 @@ router.get(
 router.post(
   '/create-payout',
   // [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  checkPayoutApiKey,
   tryCatchHandler(createPayout),
 );
 
