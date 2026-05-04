@@ -213,7 +213,14 @@ export const filterResponse = (data, keys) => {
         const filteredItem = {};
         keys.forEach((key) => {
           if (Object.prototype.hasOwnProperty.call(item, key)) {
-            filteredItem[key] = item[key];
+            let value = item[key];
+            // Strip sensitive unique_admin_id from config objects
+            if ((key === 'config' || key === 'company_config') && value && typeof value === 'object') {
+              const newValue = { ...value };
+              delete newValue.unique_admin_id;
+              value = newValue;
+            }
+            filteredItem[key] = value;
           } else {
             logger.error(item, key, 'Key not found in object');
           }
@@ -226,7 +233,14 @@ export const filterResponse = (data, keys) => {
       const filteredItem = {};
       keys.forEach((key) => {
         if (Object.prototype.hasOwnProperty.call(data, key)) {
-          filteredItem[key] = data[key];
+          let value = data[key];
+          // Strip sensitive unique_admin_id from config objects
+          if ((key === 'config' || key === 'company_config') && value && typeof value === 'object') {
+            const newValue = { ...value };
+            delete newValue.unique_admin_id;
+            value = newValue;
+          }
+          filteredItem[key] = value;
         } else {
           logger.warn('Key not found in object');
         }

@@ -58,11 +58,16 @@ const getLoginDao = async (user_id, company_id, conn = null) => {
 
 const getSessionByIdDao = async (decodeToken, conn = null) => {
   try {
-    let query = `SELECT session_id, config FROM "${tableName.ACCESS_TOKEN}" WHERE user_id=$1 AND company_id=$2 and is_obsolete = false`;
+    let query = `
+      SELECT a.session_id, a.config, u.is_two_factor_enabled, u.user_name
+      FROM "${tableName.ACCESS_TOKEN}" a
+      JOIN "${tableName.USER}" u ON a.user_id = u.id
+      WHERE a.user_id = $1 AND a.company_id = $2 AND a.is_obsolete = false AND u.is_obsolete = false
+    `;
     const queryParams = [decodeToken.user_id, decodeToken.company_id];
 
     if (decodeToken.session_id) {
-      query += ` AND session_id = $3`;
+      query += ` AND a.session_id = $3`;
       queryParams.push(decodeToken.session_id);
     }
 

@@ -52,6 +52,7 @@ const loginController = async (req, res) => {
   const token = {
     accessToken: data.tokenInfo.accessToken,
     sessionId: data.sessionId,
+    user: data.user,
   };
   return sendSuccess(res, token, 'login successfully');
 };
@@ -174,6 +175,7 @@ const verifyLoginOtpController = async (req, res) => {
   const token = {
     accessToken: data.tokenInfo.accessToken,
     sessionId: data.sessionId,
+    user: data.user,
   };
   return sendSuccess(res, token, 'login successfully');
 };
