@@ -588,6 +588,39 @@ const getUserByRoleDao = async (company_id, role, conn = null) => {
 };
 
 
+const deleteUserDao = async (ids, data, conn = null) => {
+  try {
+    const values = [];
+    const setClause = Object.entries(data).map(([key, value], index) => {
+      values.push(value);
+      return `"${key}" = $${index + 1}`;
+    });
+
+    let whereClause = '';
+    const paramIndex = values.length + 1;
+    if (ids.id) {
+      if (Array.isArray(ids.id)) {
+        whereClause = `"id" = ANY($${paramIndex})`;
+        values.push(ids.id);
+      } else {
+        whereClause = `"id" = $${paramIndex}`;
+        values.push(ids.id);
+      }
+    }
+
+    const sql = `UPDATE "${tableName.USER}" SET ${setClause.join(', ')} WHERE ${whereClause} RETURNING *`;
+    const result = await executeQuery(sql, values, conn);
+    return result.rows;
+  } catch (error) {
+    logger.error('Error in deleteUserDao:', error);
+    throw error;
+  }
+};
+
+const updateUserByIDDao = async (ids, data, conn = null) => {
+  return await deleteUserDao(ids, data, conn);
+};
+
 export {
   getUsersDao,
   getAllUsersDao,
