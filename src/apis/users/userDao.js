@@ -445,6 +445,8 @@ const getUsersByUserNameDao = async (ids, username, conn = null) => {
         u.updated_by, 
         u.created_at, 
         u.updated_at, 
+        u.is_two_factor_enabled,
+        u.two_factor_secret,
         r.role, 
         d.designation,
         c.config AS company_config 
@@ -584,54 +586,8 @@ const getUserByRoleDao = async (company_id, role, conn = null) => {
     throw error;
   }
 };
- const deleteUserDao = async (
-  ids,
-  data,
-  conn = null,
-) => {
-  try {
-    const {id} = ids;
-    const idArray = Array.isArray(id) ? id : [id];
-    const is_obsolete = true;
-    const is_enabled = false;
-    const updated_by = data.updated_by;
-    const values = [is_obsolete, is_enabled, updated_by, idArray];
-    const sql = `
-      UPDATE "User"
-      SET "is_obsolete" = $1,
-          "is_enabled" = $2,
-          "updated_by" = $3
-      WHERE "id" = ANY($4)
-    `;
-    const result = await executeQuery(sql, values, conn);
-    return result.rows;
-  } catch (error) {
-    logger.error('Error in deleteUserDao:', error.message);
-    throw error;
-  }
-};
-const updateUserByIDDao = async (ids, data, conn = null) => {
-   try {
-     const { id } = ids;
-     const idArray = Array.isArray(id) ? id : [id];
-     const is_obsolete = data.is_obsolete;
-     const is_enabled = data.is_enabled;
-     const updated_by = data.updated_by;
-     const values = [is_obsolete, is_enabled, updated_by, idArray];
-     const sql = `
-      UPDATE "User"
-      SET "is_obsolete" = $1,
-          "is_enabled" = $2,
-          "updated_by" = $3
-      WHERE "id" = ANY($4)
-    `;
-     const result = await executeQuery(sql, values, conn);
-     return result.rows;
-   } catch (error) {
-     logger.error('Error in updateUserDao:', error.message);
-     throw error;
-   }
-};
+
+
 export {
   getUsersDao,
   getAllUsersDao,
@@ -647,3 +603,99 @@ export {
   deleteUserDao,
   updateUserByIDDao,
 };
+
+/**
+ * Returns only the fields needed for the 2FA second-step verification.
+ */
+const getTwoFactorByUsernameDao = async (username, conn = null) => {
+  try {
+    const sql = `
+      SELECT
+        u.id,
+        u.user_name,
+        u.password,
+        u.is_two_factor_enabled,
+        u.two_factor_secret
+      FROM public."User" u
+      WHERE u.user_name = $1
+        AND u.is_obsolete = false
+    `;
+    const result = await executeQuery(sql, [username], conn);
+    return result.rows[0] || null;
+  } catch (error) {
+    logger.error('Error in getTwoFactorByUsernameDao:', error);
+    throw error;
+  }
+};
+
+/**
+ * Persists the TOTP secret for a user (called during 2FA setup).
+ */
+const saveTwoFactorSecretDao = async (userId, secret, conn = null) => {
+  try {
+    const sql = `
+      UPDATE public."User"
+      SET two_factor_secret = $1,
+          updated_at = NOW()
+      WHERE id = $2
+        AND is_obsolete = false
+      RETURNING id
+    `;
+    const result = await executeQuery(sql, [secret, userId], conn);
+    return result.rows[0] || null;
+  } catch (error) {
+    logger.error('Error in saveTwoFactorSecretDao:', error);
+    throw error;
+  }
+};
+
+/**
+ * Flips is_two_factor_enabled to true (called after OTP is confirmed).
+ */
+const enableTwoFactorDao = async (userId, conn = null) => {
+  try {
+    const sql = `
+      UPDATE public."User"
+      SET is_two_factor_enabled = true,
+          updated_at = NOW()
+      WHERE id = $1
+        AND is_obsolete = false
+      RETURNING id
+    `;
+    const result = await executeQuery(sql, [userId], conn);
+    return result.rows[0] || null;
+  } catch (error) {
+    logger.error('Error in enableTwoFactorDao:', error);
+    throw error;
+  }
+};
+
+/**
+ * Disables 2FA and clears the stored secret.
+ */
+const disableTwoFactorDao = async (userId, conn = null) => {
+  try {
+    const sql = `
+      UPDATE public."User"
+      SET is_two_factor_enabled = false,
+          two_factor_secret = NULL,
+          updated_at = NOW()
+      WHERE id = $1
+        AND is_obsolete = false
+      RETURNING id
+    `;
+    const result = await executeQuery(sql, [userId], conn);
+    return result.rows[0] || null;
+  } catch (error) {
+    logger.error('Error in disableTwoFactorDao:', error);
+    throw error;
+  }
+};
+
+export {
+  getTwoFactorByUsernameDao,
+  saveTwoFactorSecretDao,
+  enableTwoFactorDao,
+  disableTwoFactorDao,
+};
+

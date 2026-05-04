@@ -8,11 +8,23 @@ import os from 'node:os';
 import {
   beginTransaction,
   commit,
+  executeQuery,
   getConnection,
   rollback,
 } from '../../utils/db.js';
-import { getUsersByUserNameDao, updateUserDao } from '../users/userDao.js';
-import { generateUserToken } from '../../utils/auth.js';
+import {
+  getUsersByUserNameDao,
+  updateUserDao,
+  saveTwoFactorSecretDao,
+  enableTwoFactorDao,
+  disableTwoFactorDao,
+} from '../users/userDao.js';
+import {
+  generateUserToken,
+  generatePreAuthToken,
+  verifyPreAuthToken,
+} from '../../utils/auth.js';
+import { generateSetup, verifyTotpToken } from '../../services/twoFactorService.js';
 import {
   addLoginDao,
   deleteUserSessionsDao,
@@ -136,6 +148,17 @@ const loginService = async (
     const firstLoginResponse = getFirstLoginResponse(user, isLoginSecondFlag);
     if (firstLoginResponse) {
       return firstLoginResponse;
+    }
+
+    // If 2FA is enabled and this is a normal login (not a first-login password
+    // change), do NOT issue a session yet. Return a short-lived pre-auth token
+    // so the client can complete the second factor before getting full access.
+    if (user.is_two_factor_enabled && !isLoginSecondFlag) {
+      const preAuthToken = generatePreAuthToken({
+        user_id: user.id,
+        user_name: user.user_name,
+      });
+      return { twoFactorRequired: true, preAuthToken };
     }
 
     // Proceed with session and token generation for non-first login
@@ -403,6 +426,184 @@ const getUserRoleService = async (userName) => {
   }
 };
 
+// ---------------------------------------------------------------------------
+// Internal helper: creates a DB session and returns token info.
+// Used by both loginService (non-2FA path) and verifyLoginOtpService.
+// ---------------------------------------------------------------------------
+const _createLoginSession = async (user, config, clientIP) => {
+  let conn;
+  let committed = false;
+  try {
+    const sessionId = generateUUID();
+    const tokenInfo = generateUserToken(user, sessionId);
+    const hashedToken = createDeterministicHash(tokenInfo.refreshToken);
+    const newConfig = buildLoginSessionConfig(
+      config,
+      clientIP,
+      tokenInfo,
+      hashedToken,
+    );
+
+    conn = await getConnection();
+    await beginTransaction(conn);
+
+    await deleteUserSessionsDao(user.id, user.company_id, null, conn);
+    await addLoginDao(user.id, newConfig, user.company_id, sessionId, conn);
+
+    await commit(conn);
+    committed = true;
+
+    logger.info(
+      `New session created for user: ${user.id}, session: ${sessionId}`,
+    );
+
+    await setCachedData(
+      buildAuthSessionCacheKey({
+        user_id: user.id,
+        company_id: user.company_id,
+        session_id: sessionId,
+      }),
+      { session_id: sessionId },
+      AUTH_SESSION_CACHE_TTL_SEC,
+      'Auth session cache',
+    );
+
+    forceLogoutUser(user.id, null, sessionId);
+
+    return { tokenInfo, sessionId };
+  } catch (error) {
+    if (conn && !committed) await rollback(conn);
+    throw error;
+  } finally {
+    if (conn) conn.release();
+  }
+};
+
+// ---------------------------------------------------------------------------
+// 2FA: second step of the login flow (called after OTP is submitted)
+// ---------------------------------------------------------------------------
+const verifyLoginOtpService = async (preAuthToken, otpToken, clientIP) => {
+  try {
+    // 1. Validate the pre-auth token
+    const decoded = verifyPreAuthToken(preAuthToken);
+
+    // 2. Re-fetch the full user so we have all fields for token generation
+    const user = await getUsersByUserNameDao({}, decoded.user_name);
+    if (!user) {
+      throw new NotFoundError('User not found.');
+    }
+    if (!user.is_enabled) {
+      throw new NotFoundError('User not active. Please contact Support Team');
+    }
+    if (!user.is_two_factor_enabled || !user.two_factor_secret) {
+      throw new BadRequestError('2FA is not enabled for this user.');
+    }
+
+    // 3. Verify the OTP
+    const isValid = verifyTotpToken(otpToken, user.two_factor_secret);
+    if (!isValid) {
+      throw new AuthenticationError('Invalid or expired OTP. Please try again.');
+    }
+
+    // 4. Create the real session and issue the full JWT
+    const result = await _createLoginSession(
+      user,
+      { user_location: {} },
+      clientIP,
+    );
+    return result;
+  } catch (error) {
+    logger.error('Error in verifyLoginOtpService:', error);
+    throw error;
+  }
+};
+
+// ---------------------------------------------------------------------------
+// 2FA management services (protected routes — user already authenticated)
+// ---------------------------------------------------------------------------
+
+/**
+ * Generates a fresh TOTP secret + QR code and saves the secret.
+ * The user must confirm with otpToken via confirm2FAService before 2FA
+ * is actually enabled.
+ */
+const setup2FAService = async (userId, userName) => {
+  try {
+    const { secret, qrCodeDataUrl } = await generateSetup(userName);
+    await saveTwoFactorSecretDao(userId, secret);
+    return { qrCodeDataUrl, secret };
+  } catch (error) {
+    logger.error('Error in setup2FAService:', error);
+    throw error;
+  }
+};
+
+/**
+ * Verifies the first OTP after setup and enables 2FA.
+ * The secret must already be saved via setup2FAService.
+ */
+const confirm2FAService = async (userId, otpToken) => {
+  try {
+    const result = await executeQuery(
+      `SELECT two_factor_secret
+       FROM public."User"
+       WHERE id = $1 AND is_obsolete = false`,
+      [userId],
+    );
+    const row = result.rows[0] || null;
+
+    if (!row?.two_factor_secret) {
+      throw new BadRequestError(
+        '2FA setup not started. Please call /2fa/setup first.',
+      );
+    }
+
+    const isValid = verifyTotpToken(otpToken, row.two_factor_secret);
+    if (!isValid) {
+      throw new AuthenticationError('Invalid or expired OTP. Please try again.');
+    }
+
+    await enableTwoFactorDao(userId);
+    return true;
+  } catch (error) {
+    logger.error('Error in confirm2FAService:', error);
+    throw error;
+  }
+};
+
+/**
+ * Verifies the current OTP then disables 2FA and clears the secret.
+ */
+const disable2FAService = async (userId, otpToken) => {
+  try {
+    const result = await executeQuery(
+      `SELECT is_two_factor_enabled, two_factor_secret
+       FROM public."User"
+       WHERE id = $1 AND is_obsolete = false`,
+      [userId],
+    );
+    const row = result.rows[0] || null;
+
+    if (!row?.is_two_factor_enabled) {
+      throw new BadRequestError('2FA is not currently enabled for this user.');
+    }
+    if (!row.two_factor_secret) {
+      throw new BadRequestError('No 2FA secret found. Please contact support.');
+    }
+
+    const isValid = verifyTotpToken(otpToken, row.two_factor_secret);
+    if (!isValid) {
+      throw new AuthenticationError('Invalid or expired OTP. Please try again.');
+    }
+
+    await disableTwoFactorDao(userId);
+    return true;
+  } catch (error) {
+    logger.error('Error in disable2FAService:', error);
+    throw error;
+  }
+};
+
 export {
   loginService,
   refreshTokenService,
@@ -413,4 +614,8 @@ export {
   verfyOtpService,
   forgetPasswordService,
   getUserRoleService,
+  verifyLoginOtpService,
+  setup2FAService,
+  confirm2FAService,
+  disable2FAService,
 };
