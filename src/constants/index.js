@@ -135,6 +135,7 @@ export const columns = {
     'last_login',
     'last_logout',
     'config',
+    'is_two_factor_enabled',
     'created_by',
     'updated_by',
     'created_at',
@@ -376,6 +377,7 @@ export const merchantColumns = {
     'contact_no',
     'user_name',
     'is_enabled',
+    'is_two_factor_enabled',
     'code',
   ],
   SETTLEMENT: [
@@ -478,6 +480,7 @@ export const vendorColumns = {
     'contact_no',
     'user_name',
     'code',
+    'is_two_factor_enabled',
     'created_at', //-- need bank details within date range
   ],
   SETTLEMENT: [

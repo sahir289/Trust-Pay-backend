@@ -167,8 +167,8 @@ const getAllUsersDao = async (
 export const getUsersBySearchDao = async (
   filters,
   searchTerms,
-  pageNumber = 1, 
-  pageSize = 10, 
+  pageNumber = 1,
+  pageSize = 10,
   role,
   conn = null,
 ) => {
@@ -212,6 +212,7 @@ export const getUsersBySearchDao = async (
         "User".user_name,
         "User".code,
         "User".is_enabled,
+        "User".is_two_factor_enabled,
         "User".last_login,
         "User".last_logout,
         "User".config,
@@ -241,6 +242,7 @@ export const getUsersBySearchDao = async (
         "User".user_name,
         "User".code,
         "User".is_enabled,
+        "User".is_two_factor_enabled,
         "User".last_login,
         "User".last_logout,
         "User".config,
@@ -326,7 +328,7 @@ export const getUsersBySearchDao = async (
     const totalItems = parseInt(countResult.rows[0].total);
     let totalPages = Math.ceil(totalItems / validatedPageSize);
     if (totalItems > 0 && searchResult.rows.length === 0 && offset > 0) {
-      values[values.length - 1] = 0; 
+      values[values.length - 1] = 0;
       searchResult = await executeQuery(queryText, values, conn);
       totalPages = Math.ceil(totalItems / validatedPageSize);
     }
@@ -356,6 +358,7 @@ const getUserByIdDao = async (ids, conn = null) => {
         u.last_login, 
         u.last_logout, 
         u.config, 
+        u.is_two_factor_enabled,
         u.created_by, 
         u.updated_by, 
         u.created_at, 
@@ -408,7 +411,7 @@ const getUserByIdDao = async (ids, conn = null) => {
 const getUserDao = async (id, conn = null) => {
   try {
     const sql = `
-    SELECT r.role
+    SELECT r.role, u.is_two_factor_enabled
     FROM public."User" u
     LEFT JOIN public."Role" r ON u.role_id = r.id
     WHERE u.is_obsolete = false AND u.id = $1
@@ -494,7 +497,7 @@ const createUserDao = async (payload, conn = null) => {
 
     const insertedUser = result.rows[0];
 
-  //  await createUserInES(insertedUser);
+    //  await createUserInES(insertedUser);
 
     return insertedUser;
   } catch (error) {
