@@ -23,7 +23,7 @@ import {
   TATAPAY_BULK_PAYOUT_SCHEMA,
   RUPEEFLOW_BULK_PAYOUT_SCHEMA,
 } from '../../schemas/payoutSchema.js';
-import { ValidationError } from '../../utils/appErrors.js';
+import { NotFoundError, ValidationError } from '../../utils/appErrors.js';
 // import { generateCacheKey } from '../../utils/redishashkey.js';
 import {
   // normalizeQueryForCache,
@@ -32,6 +32,7 @@ import {
   // writeJsonCache,
   invalidateCompanyCacheByPrefix,
 } from '../../utils/controllerCache.js';
+import { getMerchantsByCodeDao } from '../merchants/merchantDao.js';
 // import config from '../../config/config.js';
 // import { BadRequestError } from '../../utils/appErrors.js';
 
@@ -43,6 +44,7 @@ const invalidatePayoutCache = async (companyId) =>
 
 const createPayout = async (req, res) => {
   let payload = req.body;
+  const { role } = req.user;
   let userIp =
     req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.ip;
   if (userIp == '::1') {
@@ -54,7 +56,19 @@ const createPayout = async (req, res) => {
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
-  const x_api_key = req.headers['x-api-key'];
+  let x_api_key = req.headers['x-api-key'];
+
+  if(role === "ADMIN" || !x_api_key){
+    const data = await getMerchantsByCodeDao(payload.code);
+    if (data.length === 0) {
+      throw new NotFoundError('Merchant not found');
+    }
+    x_api_key = data[0]?.config?.keys?.public
+  }
+
+  if (!x_api_key) {
+    return sendError(res, 'Enter valid Api key', 404);
+  }
   if (!payload.user_id && !payload.user) {
     throw new ValidationError('user_id is required');
   }

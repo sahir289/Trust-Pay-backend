@@ -1,5 +1,5 @@
 import config from '../../config/config.js';
-import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
+import { BadRequestError, NotFoundError, ValidationError } from '../../utils/appErrors.js';
 import {
   sendSuccess,
   sendNewSuccess,
@@ -61,9 +61,10 @@ import {
   invalidateCompanyCacheByPrefix,
 } from '../../utils/controllerCache.js';
 import { publishPayInProcess } from '../../rabbitmq/producer.js';
+import { getMerchantsByCodeDao } from '../merchants/merchantDao.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 
-const TestingIp = process.env.LOCAL_IP;
+// const TestingIp = process.env.LOCAL_IP;
 // const { controllerCacheTtls } = config;
 
 const invalidatePayinCache = async (companyId) =>
@@ -83,11 +84,7 @@ export const generateHashForPayIn = async (req, res) => {
 export const generatePayInUrl = async (req, res) => {
   const payload = req.query;
   const x_api_key = req.headers['x-api-key'];
-  let userIp =
-    req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.ip;
 
-  // Handle localhost IP for testing
-  userIp = userIp === '::1' ? TestingIp : userIp;
   const { code, key, roleToken = null } = payload;
   let message;
   if (payload.merchant_order_id?.includes('/')) {
@@ -97,10 +94,7 @@ export const generatePayInUrl = async (req, res) => {
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
-  const apiKey = key ? key : x_api_key;
-  if (!apiKey) {
-    return sendError(res, 'Enter valid Api key', 404);
-  }
+  let apiKey = key ? key : x_api_key;
 
   const generatedHash = createHash(`${code}`);
   // // Decode the provided hash before comparison
@@ -130,13 +124,24 @@ export const generatePayInUrl = async (req, res) => {
     role = roleData.role;
   }
 
+  if(role === "ADMIN" || !apiKey){
+    const data = await getMerchantsByCodeDao(code);
+    if (data.length === 0) {
+      throw new NotFoundError('Merchant not found');
+    }
+    apiKey = data[0]?.config?.keys?.public
+  }
+
+  if (!apiKey) {
+    return sendError(res, 'Enter valid Api key', 404);
+  }
+
   const result = await generatePayInUrlService(
     {
       ...payload,
       api_key: apiKey,
     },
     role,
-    userIp,
   );
 
   // Build query string for the URL
