@@ -38,6 +38,7 @@ import { getVertexPayWalletBalance } from '../../vertexpay/vertexpay.js';
 import { vertexPayTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/vertexPayWebHook.js';
 import {runsafeTransactionStatusCallback} from "../../callBacksAndWebHook/callBacks/runsafeWebHook.js"
 import { getRunsafePayWalletBalance } from '../../runsafe/runsafepay.js';
+import { multerUpload } from '../../utils/index.js';
 const router = express.Router();
 
 /**
@@ -229,8 +230,10 @@ router.post('/check-payout-status', tryCatchHandler(checkPayOutStatus));
 router.put(
   '/update-payout/:id',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  multerUpload.single('file'),
   tryCatchHandler(updatePayout),
 );
+
 router.put(
   '/assign-vendor-payout/:id',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],

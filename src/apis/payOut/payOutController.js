@@ -220,7 +220,12 @@ const updatePayout = async (req, res) => {
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
-
+  if (req.file) {
+  payload.config = {
+    ...payload.config,
+    slip: req.file.key,
+  }; 
+}
   payload.updated_by = user_id;
   const ids = { id, company_id };
   const update = await updatePayoutService(

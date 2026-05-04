@@ -600,6 +600,8 @@ export {
   createUserDao,
   updateUserDao,
   getUserDao,
+  deleteUserDao,
+  updateUserByIDDao,
 };
 
 /**

@@ -73,6 +73,35 @@ const getSessionByIdDao = async (decodeToken, conn = null) => {
     throw error;
   }
 };
+const getSessionByUserIdDao = async (decodeToken, conn = null) => {
+  try {
+    const userId = decodeToken.user_id; 
+    let query;
+    let queryParams;
+    if (Array.isArray(userId)) {
+      query = `
+        SELECT session_id, config, user_id 
+        FROM "${tableName.ACCESS_TOKEN}" 
+        WHERE user_id = ANY($1) 
+          AND is_obsolete = false
+      `;
+      queryParams = [userId]; 
+    } else {
+      query = `
+        SELECT session_id, config 
+        FROM "${tableName.ACCESS_TOKEN}" 
+        WHERE user_id = $1 
+          AND is_obsolete = false
+      `;
+      queryParams = [userId];
+    }
+    const result = await executeQuery(query, queryParams, conn);
+    return result.rows || []; 
+  } catch (error) {
+    logger.error('Error in getting session details', error);
+    throw error;
+  }
+};
 
 const updateSessionDao = async (user_id, company_id, session_id, config, conn = null) => {
   const configData = stringifyJSON(config, (key, value) =>
@@ -216,4 +245,5 @@ export {
   getAllActiveSessionsDao,
   getRoleByUserNameDao,
   getUserForVerificationDao,
+  getSessionByUserIdDao,
 };
