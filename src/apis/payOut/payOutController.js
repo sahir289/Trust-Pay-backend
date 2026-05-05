@@ -48,11 +48,11 @@ const createPayout = async (req, res) => {
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
-  let x_api_key = req.headers['x-api-key'];
+  // let x_api_key = req.headers['x-api-key'];
 
-  if (!x_api_key) {
-    return sendError(res, 'Enter valid Api key', 404);
-  }
+  // if (!x_api_key) {
+  //   return sendError(res, 'Enter valid Api key', 404);
+  // }
   if (!payload.user_id && !payload.user) {
     throw new ValidationError('user_id is required');
   }
@@ -65,7 +65,7 @@ const createPayout = async (req, res) => {
     payload.company_id = company_id;
     payload.created_by = user_id;
     payload.updated_by = user_id;
-    payload.x_api_key = x_api_key;
+    // payload.x_api_key = x_api_key;
     result = await createPayoutService(
       req.headers,
       payload,
@@ -73,7 +73,7 @@ const createPayout = async (req, res) => {
       fromUI,
     );
   } else {
-    payload.x_api_key = x_api_key;
+    // payload.x_api_key = x_api_key;
     result = await createPayoutService(
       req.headers,
       payload,

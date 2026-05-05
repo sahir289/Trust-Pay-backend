@@ -75,7 +75,6 @@ import {
   getMerchantsForValidatePayinDao,
   getMerchantByUserIdDao,
   updateMerchantBalanceDao,
-  getMerchantsByCodeAndApiKeyDao,
   getMerchantsByCodesDao,
 } from '../merchants/merchantDao.js';
 import {
@@ -342,12 +341,12 @@ export const generatePayInUrlService = async (payload, role) => {
     if (cachedRouting) {
       ({ merchant, company, bankAssigned } = cachedRouting);
     } else {
-      const merchantArr = await getMerchantsByCodeAndApiKeyDao(code, api_key);
+      const merchantArr = await getMerchantsByCodeDao(code);
       merchant = merchantArr[0];
       if (!merchant) {
         return {
           status: 400,
-          message: 'Invalid merchant code or API key',
+          message: 'Invalid merchant code',
         };
       }
 
@@ -422,14 +421,14 @@ export const generatePayInUrlService = async (payload, role) => {
       return { status: 400, message: 'Merchant Order ID already exists' };
     }
 
-    const { keys: merchantKeys } = merchant.config || {};
-    if (
-      api_key &&
-      api_key !== merchantKeys?.private &&
-      api_key !== merchantKeys?.public
-    ) {
-      return { status: 404, message: 'Enter valid Api key' };
-    }
+    // const { keys: merchantKeys } = merchant.config || {};
+    // if (
+    //   api_key &&
+    //   api_key !== merchantKeys?.private &&
+    //   api_key !== merchantKeys?.public
+    // ) {
+    //   return { status: 404, message: 'Enter valid Api key' };
+    // }
 
     if (
       role !== Role.ADMIN &&

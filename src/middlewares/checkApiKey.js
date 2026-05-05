@@ -1,4 +1,4 @@
-import { getMerchantsByCodeAndApiKeyDao, getMerchantsByCodeDao } from '../apis/merchants/merchantDao.js';
+import { getMerchantsByCodeAndApiKeyDao } from '../apis/merchants/merchantDao.js';
 
 export const checkApiKey = async (req, res, next) => {
   const payload = req.query;
@@ -9,10 +9,10 @@ export const checkApiKey = async (req, res, next) => {
   const TestingIp = process.env.LOCAL_IP;
   // Handle localhost IP for testing
   userIp = userIp === '::1' ? TestingIp : userIp;
-  const { code, roleToken = null } = payload;
+  const { code } = payload;
 
-  if (!x_api_key && roleToken) {
-    const merchantArr = await getMerchantsByCodeDao(code);
+  if (x_api_key) {
+    const merchantArr = await getMerchantsByCodeAndApiKeyDao(code, x_api_key);
     const merchant = merchantArr[0];
     if (!merchant) {
       return {
