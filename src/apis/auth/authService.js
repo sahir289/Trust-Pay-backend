@@ -227,7 +227,11 @@ const loginService = async (
     return {
       tokenInfo,
       sessionId,
-      user: filterResponse(user, columns.USER),
+      user: filterResponse(
+        { ...user, unique_admin_id: user.company_config?.unique_admin_id },
+        columns.USER,
+        { stripSensitive: false },
+      ),
     };
   } catch (error) {
     if (conn && !committed) await rollback(conn);
@@ -476,7 +480,11 @@ const _createLoginSession = async (user, config, clientIP) => {
     return {
       tokenInfo,
       sessionId,
-      user: filterResponse(user, columns.USER),
+      user: filterResponse(
+        { ...user, unique_admin_id: user.company_config?.unique_admin_id },
+        columns.USER,
+        { stripSensitive: false },
+      ),
     };
   } catch (error) {
     if (conn && !committed) await rollback(conn);

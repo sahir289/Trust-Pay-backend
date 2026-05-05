@@ -364,11 +364,13 @@ const getUserByIdDao = async (ids, conn = null) => {
         u.created_at, 
         u.updated_at, 
         r.role, 
-        d.designation
+        d.designation,
+        c.config AS company_config
       FROM public."User" u
       LEFT JOIN public."Role" r ON u.role_id = r.id 
       LEFT JOIN public."Designation" d ON u.designation_id = d.id
-      WHERE u.is_obsolete = false
+      LEFT JOIN public."Company" c ON u.company_id = c.id
+      WHERE u.is_obsolete = false AND (c.is_obsolete = false OR c.id IS NULL)
     `;
 
     let queryParams = [];

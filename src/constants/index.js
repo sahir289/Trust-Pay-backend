@@ -140,6 +140,7 @@ export const columns = {
     'updated_by',
     'created_at',
     'updated_at',
+    'unique_admin_id',
   ],
   ROLE: ['id', 'role', 'created_at', 'updated_at'],
   COMPANY: ['id', 'first_name', 'last_name', 'email', 'contact_no', 'config'],
@@ -379,6 +380,7 @@ export const merchantColumns = {
     'is_enabled',
     'is_two_factor_enabled',
     'code',
+    'unique_admin_id',
   ],
   SETTLEMENT: [
     'id',
@@ -482,6 +484,7 @@ export const vendorColumns = {
     'code',
     'is_two_factor_enabled',
     'created_at', //-- need bank details within date range
+    'unique_admin_id',
   ],
   SETTLEMENT: [
     'id',

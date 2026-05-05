@@ -204,7 +204,7 @@ export async function streamToBuffer(stream) {
 //     return {};
 //   }
 
-export const filterResponse = (data, keys) => {
+export const filterResponse = (data, keys, options = { stripSensitive: true }) => {
   try {
     if (Array.isArray(data)) {
       logger.log('Data is an array');
@@ -214,8 +214,13 @@ export const filterResponse = (data, keys) => {
         keys.forEach((key) => {
           if (Object.prototype.hasOwnProperty.call(item, key)) {
             let value = item[key];
-            // Strip sensitive unique_admin_id from config objects
-            if ((key === 'config' || key === 'company_config') && value && typeof value === 'object') {
+            // Strip sensitive unique_admin_id from config objects if enabled
+            if (
+              options.stripSensitive &&
+              (key === 'config' || key === 'company_config') &&
+              value &&
+              typeof value === 'object'
+            ) {
               const newValue = { ...value };
               delete newValue.unique_admin_id;
               value = newValue;
@@ -234,8 +239,13 @@ export const filterResponse = (data, keys) => {
       keys.forEach((key) => {
         if (Object.prototype.hasOwnProperty.call(data, key)) {
           let value = data[key];
-          // Strip sensitive unique_admin_id from config objects
-          if ((key === 'config' || key === 'company_config') && value && typeof value === 'object') {
+          // Strip sensitive unique_admin_id from config objects if enabled
+          if (
+            options.stripSensitive &&
+            (key === 'config' || key === 'company_config') &&
+            value &&
+            typeof value === 'object'
+          ) {
             const newValue = { ...value };
             delete newValue.unique_admin_id;
             value = newValue;

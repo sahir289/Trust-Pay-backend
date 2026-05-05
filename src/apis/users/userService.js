@@ -341,7 +341,14 @@ const getUserByIdService = async (ids, role) => {
           : columns.USER;
     const result = await getUserByIdDao(ids);
 
-    const finalResult = filterResponse(result, filterColumns);
+    const resultWithAdminId = result.map((u) => ({
+      ...u,
+      unique_admin_id: u.company_config?.unique_admin_id,
+    }));
+
+    const finalResult = filterResponse(resultWithAdminId, filterColumns, {
+      stripSensitive: false,
+    });
     return finalResult;
   } catch (error) {
     logger.error('error getting while getting user by id', error);
@@ -358,7 +365,12 @@ const getUsersByUserNameService = async (username, ids, role) => {
           ? vendorColumns.USER
           : columns.USER;
     const data = await getUsersByUserNameDao(ids, username);
-    const finalResult = filterResponse(data, filterColumns);
+    if (data) {
+      data.unique_admin_id = data.company_config?.unique_admin_id;
+    }
+    const finalResult = filterResponse(data, filterColumns, {
+      stripSensitive: false,
+    });
     return finalResult;
   } catch (error) {
     logger.error('error getting while fetching user', error);
