@@ -32,6 +32,11 @@ import {
   // writeJsonCache,
   invalidateCompanyCacheByPrefix,
 } from '../../utils/controllerCache.js';
+import { GetObjectCommand } from '@aws-sdk/client-s3';
+import { streamToBase64 } from '../../helpers/index.js';
+import { s3 } from '../../helpers/Aws.js';
+import config from '../../config/config.js';
+import { getImageContentFromOCr } from '../../helpers/index.js';
 // import config from '../../config/config.js';
 // import { BadRequestError } from '../../utils/appErrors.js';
 
@@ -221,7 +226,17 @@ const updatePayout = async (req, res) => {
     ...payload.config,
     slip: req.file.key,
   }; 
-}
+} const command = new GetObjectCommand({
+    Bucket: config.bucketName,
+    Key: req.file.key,
+  });
+  const { Body } = await s3.send(command);
+  const base64Image = await streamToBase64(Body);
+  const content = await getImageContentFromOCr(base64Image);
+  console.log('base64Image', content);
+  if(content) {
+    throw new ValidationError('Invalid slip image, contains text');
+  }
   payload.updated_by = user_id;
   const ids = { id, company_id };
   const update = await updatePayoutService(
