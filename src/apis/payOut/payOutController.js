@@ -35,7 +35,6 @@ import {
 // import config from '../../config/config.js';
 // import { BadRequestError } from '../../utils/appErrors.js';
 
-const TestingIp = process.env.LOCAL_IP;
 // const { controllerCacheTtls } = config;
 
 const invalidatePayoutCache = async (companyId) =>
@@ -43,18 +42,17 @@ const invalidatePayoutCache = async (companyId) =>
 
 const createPayout = async (req, res) => {
   let payload = req.body;
-  let userIp =
-    req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.ip;
-  if (userIp == '::1') {
-    userIp = TestingIp;
-  }
   const fromUI = payload.fromUi || false;
   delete payload.fromUi;
   const joiValidation = PAYOUT_DETAILS_SCHEMA.validate(req.body);
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
-  const x_api_key = req.headers['x-api-key'];
+  let x_api_key = req.headers['x-api-key'];
+
+  if (!x_api_key) {
+    return sendError(res, 'Enter valid Api key', 404);
+  }
   if (!payload.user_id && !payload.user) {
     throw new ValidationError('user_id is required');
   }
@@ -72,7 +70,6 @@ const createPayout = async (req, res) => {
       req.headers,
       payload,
       role,
-      userIp,
       fromUI,
     );
   } else {
@@ -81,7 +78,6 @@ const createPayout = async (req, res) => {
       req.headers,
       payload,
       null,
-      userIp,
       fromUI,
     );
   }

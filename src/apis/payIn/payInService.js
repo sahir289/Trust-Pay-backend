@@ -253,11 +253,11 @@ export const generatePayInUrlByHashService = async (req) => {
       return data;
     }
 
-    let query = `user_id=${user_id}&code=${code}&ot=${ot}&key=${key}`;
+    let query = `user_id=${user_id}&code=${code}&ot=${ot}`;
     if (amount) {
       query += `&amount=${amount}`;
     }
-    if (role && role === Role.ADMIN) {
+    if (role || role === Role.ADMIN || role === Role.MERCHANT) {
       query += `&token=${role_id}`;
     }
 
@@ -316,7 +316,7 @@ export const determineType = (bankAssigned) => {
   return 'upi';
 };
 
-export const generatePayInUrlService = async (payload, role, userIp) => {
+export const generatePayInUrlService = async (payload, role) => {
   try {
     const {
       code,
@@ -395,28 +395,28 @@ export const generatePayInUrlService = async (payload, role, userIp) => {
       };
     }
 
-    if (merchant?.config?.whitelist_ips) {
-      // normalize whitelist to a clean array of strings
-      const whitelist = []
-        .concat(merchant.config.whitelist_ips) // handles string or array
-        .flatMap((ip) =>
-          typeof ip === 'string' ? ip.split(',') : [String(ip)],
-        )
-        .map((ip) => ip.trim())
-        .filter(Boolean);
+    // if (merchant?.config?.whitelist_ips) {
+    //   // normalize whitelist to a clean array of strings
+    //   const whitelist = []
+    //     .concat(merchant.config.whitelist_ips) // handles string or array
+    //     .flatMap((ip) =>
+    //       typeof ip === 'string' ? ip.split(',') : [String(ip)],
+    //     )
+    //     .map((ip) => ip.trim())
+    //     .filter(Boolean);
 
-      // If whitelist ip's exists and user IP is not allowed
-      if (
-        whitelist.length > 0 &&
-        !whitelist.includes(userIp) &&
-        role !== Role.ADMIN
-      ) {
-        return {
-          status: 400,
-          message: 'IP not whitelisted',
-        };
-      }
-    }
+    //   // If whitelist ip's exists and user IP is not allowed
+    //   if (
+    //     whitelist.length > 0 &&
+    //     !whitelist.includes(userIp) &&
+    //     role !== Role.ADMIN
+    //   ) {
+    //     return {
+    //       status: 400,
+    //       message: 'IP not whitelisted',
+    //     };
+    //   }
+    // }
 
     const existingOrder = await getPayInWithMerchantOrderIdDao(order_id);
     if (existingOrder) {
