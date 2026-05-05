@@ -12,6 +12,7 @@ import {
   createTataPayBulkPayoutController,
   createRupeeFlowBulkPayoutController,
 } from './payOutController.js';
+import { updatePayoutService } from './payOutService.js';
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
 import { payAssistTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/payAsistWebHook.js';
@@ -38,6 +39,10 @@ import { getVertexPayWalletBalance } from '../../vertexpay/vertexpay.js';
 import { vertexPayTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/vertexPayWebHook.js';
 import {runsafeTransactionStatusCallback} from "../../callBacksAndWebHook/callBacks/runsafeWebHook.js"
 import { getRunsafePayWalletBalance } from '../../runsafe/runsafepay.js';
+import { payInFintechTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/payInFintechWebHook.js';
+import {
+  getPayInFintechWalletBalance,
+} from '../../payinfintech/payinfintech.js';
 const router = express.Router();
 
 /**
@@ -324,6 +329,49 @@ router.get(
 router.post(
   '/runsafe-callback',
   tryCatchHandler(runsafeTransactionStatusCallback),
+);
+
+router.post(
+  '/payinfintech-callback',
+  tryCatchHandler(payInFintechTransactionStatusCallback),
+);
+
+router.get(
+  '/payinfintech/payinfintech-balance',
+  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  (req, res) => tryCatchHandler(getPayInFintechWalletBalance)(req, res),
+);
+
+router.post(
+  '/payinfintech-sequential-payout',
+  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  async (req, res) => {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ message: 'ids array is required' });
+    }
+
+    const { company_id, role } = req.user;
+    const results = { success: [], failed: [] };
+
+    for (const id of ids) {
+      try {
+        await updatePayoutService(
+          { id, company_id },
+          { config: { method: 'PAYINFINTECH' } },
+          role,
+        );
+        results.success.push(id);
+      } catch (err) {
+        results.failed.push({ id, reason: err.message });
+      }
+    }
+
+    return res.status(200).json({
+      message: `PayInFintech: ${results.success.length} succeeded, ${results.failed.length} failed`,
+      ...results,
+    });
+  },
 );
 
 router.post(

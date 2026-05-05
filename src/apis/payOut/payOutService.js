@@ -80,6 +80,7 @@ import { createBSS02Payout } from '../../bss/bss02.js';
 import { createBSS03Payout } from '../../bss/bss03.js';
 import { createVertexPayPayout } from '../../vertexpay/vertexpay.js';
 import { createRunsafePayPayout } from '../../runsafe/runsafepay.js';
+import { createPayInFintechPayout } from '../../payinfintech/payinfintech.js';
 // import { notifyNewCalculationTableEntry } from '../../utils/sockets.js';
 
 // Helper function to check if vendor is sub-vendor and get parent info
@@ -804,7 +805,8 @@ const _updatePayoutServiceInternal = async (
       !payload?.config?.method === Method.BSS03 &&
       !payload?.config?.method === Method.SILKPAY &&
       !payload?.config?.method === Method.VERTEXPAY &&
-      !payload?.config?.method === Method.RUNSAFE_PAY
+      !payload?.config?.method === Method.RUNSAFE_PAY &&
+      !payload?.config?.method === Method.PAYINFINTECH
     )
       await checkLockEdit(ids.id, false, conn);
 
@@ -1188,6 +1190,39 @@ const _updatePayoutServiceInternal = async (
         throw new NotFoundError(`Bank not found for ${method} payout`);
 
       const updatedPayload = await createRunsafePayPayout(
+        payload,
+        ids,
+        singleWithdrawData,
+        bankId,
+      );
+      payload = updatedPayload;
+    }
+    else if (payload?.config?.method === Method.PAYINFINTECH) {
+      const method = payload.config.method;
+
+      const [company] = await getCompanyByIDDao({ id: ids.company_id }, conn);
+      if (!company) throw new NotFoundError('Company not found');
+
+      const payinfintechConfig = company.config.PAYINFINTECH;
+      if (!payinfintechConfig)
+        throw new NotFoundError(`PayInFintech configuration not found for company`);
+
+      const bankId = payinfintechConfig.defaultBankId;
+      if (!bankId)
+        throw new NotFoundError(`Default bank ID not found for ${method}`);
+
+      bankDataArr = await getBankByIdDao({ id: bankId }, conn);
+      if (!bankDataArr[0])
+        throw new NotFoundError(`Bank not found for ${method} payout`);
+
+      // Pass credentials transiently through payload.config (scrubbed inside createPayInFintechPayout)
+      payload.config._payinfintechCredentials = {
+        Email: payinfintechConfig.Email,
+        Password: payinfintechConfig.Password,
+      };
+
+      logger.info(`Processing PayInFintech payout with bankId: ${bankId}`);
+      const updatedPayload = await createPayInFintechPayout(
         payload,
         ids,
         singleWithdrawData,
