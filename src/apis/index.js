@@ -27,6 +27,7 @@ import common from './common/index.js';
 import beneficiaryAccounts from './beneficiaryAccounts/index.js';
 import dashboardReport from './dashboardReport/index.js';
 import webhooks from './webhooks/index.js';
+import twoFactor from './twoFactor/index.js';
 import { getVersion } from '../../version.js';
 import { globalRateLimitMiddleware } from '../middlewares/rateLimiter.js';
 // import notifications from './notifications/index.js';
@@ -66,6 +67,7 @@ router.use('/cron', cron);
 router.use('/common', common);
 router.use('/dashboardReport', dashboardReport);
 router.use('/webhook', webhooks);
+router.use('/2fa', twoFactor);
 
 // router.use('/notifications', notifications);
 

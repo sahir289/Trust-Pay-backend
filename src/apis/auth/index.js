@@ -10,6 +10,7 @@ import {
   verfyOtpController,
   forgetPasswordController,
   getUserRoleController,
+  verifyLoginOtpController,
 } from './authController.js';
 import { isAuthenticated } from '../../middlewares/auth.js';
 import  {geoLocationGuard}  from '../../middlewares/loginLocationRestrict.js';
@@ -36,6 +37,9 @@ const router = express.Router();
  *                   example: "login successfully!"
  */
 router.post('/login', geoLocationGuard, tryCatchHandler(loginController)); // login route
+
+// Second step of the 2FA login flow — public (no auth middleware)
+router.post('/verify-2fa', tryCatchHandler(verifyLoginOtpController));
 
 router.post('/refresh-token', tryCatchHandler(refreshTokenController));
 

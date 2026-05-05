@@ -161,6 +161,7 @@ router.get(
 router.post(
   '/create-payout',
   // [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  checkPayoutApiKey,
   tryCatchHandler(createPayout),
 );
 
@@ -234,8 +235,10 @@ router.post('/check-payout-status', tryCatchHandler(checkPayOutStatus));
 router.put(
   '/update-payout/:id',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  multerUpload.single('file'),
   tryCatchHandler(updatePayout),
 );
+
 router.put(
   '/assign-vendor-payout/:id',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],

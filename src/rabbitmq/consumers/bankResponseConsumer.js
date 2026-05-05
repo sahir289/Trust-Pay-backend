@@ -2,6 +2,11 @@ import { logger } from '../../utils/logger.js';
 import { createBankResponseService } from '../../apis/bankResponse/bankResponseServices.js';
 import { rabbitMQConnectionManager } from '../connection.js';
 import { assertQueueTopology, TOPOLOGY } from '../topology.js';
+import {
+  extractBankId,
+  normalizeBankResponsePayload,
+  withBankLock,
+} from '../utils/bankResponseConsumerUtils.js';
 
 const PREFETCH_COUNT = Number(process.env.BANK_RESPONSE_PREFETCH || 20);
 const MAX_RETRIES = Number(process.env.BANK_RESPONSE_MAX_RETRIES || 3);
@@ -16,11 +21,13 @@ function getRetryCount(msg) {
 }
 
 async function processBankResponse(payload) {
+  const normalizedPayload = normalizeBankResponsePayload(payload);
+
   await createBankResponseService(
-    payload.payload,
-    payload.x_auth_token,
-    payload.role,
-    payload.name,
+    normalizedPayload.payload,
+    normalizedPayload.x_auth_token,
+    normalizedPayload.role,
+    normalizedPayload.name,
   );
 }
 
@@ -33,15 +40,18 @@ async function handleMessage(msg) {
 
   try {
     const payload = JSON.parse(msg.content.toString());
+    const companyId = payload?.x_auth_token ?? payload?.company_id;
+    const bankId = extractBankId(payload?.payload);
 
-    if (!payload?.payload || !payload?.x_auth_token) {
+    if (!payload?.payload || !companyId) {
       throw new Error('Invalid bank response message');
     }
 
-    await processBankResponse(payload);
+    await withBankLock(bankId, () => processBankResponse(payload));
     channel.ack(msg);
 
     logger.info('[RabbitMQ][BankResponse] Message processed', {
+      bankId,
       retryCount,
     });
   } catch (error) {

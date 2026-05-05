@@ -13,6 +13,7 @@ import {
   getConnection,
   rollback,
 } from '../../utils/db.js';
+import { getISTDateString } from '../../helpers/index.js';
 
 // Define the optimized runsafePayTransactionStatusCallback function
 export const runsafeTransactionStatusCallback = async (req, res) => {
@@ -26,23 +27,15 @@ export const runsafeTransactionStatusCallback = async (req, res) => {
     if (!apitxnid || apitxnid === '') {
       return res.status(404).send('Payment not found');
     }
-    conn = await getConnection();
-    await beginTransaction(conn);
-    const singleWithdrawData = await getPayoutByTxnId(apitxnid, conn);
-    if (!singleWithdrawData) {
-      await rollback(conn);
-      return res.status(404).send('Payment not found');
-    }
+    const singleWithdrawData = await getPayoutByTxnId(apitxnid);
 
     if (
-      ![Status.INITIATED, Status.PENDING].includes(singleWithdrawData.status)
+      ![Status.INITIATED, Status.PENDING, Status.APPROVED].includes(singleWithdrawData.status)
     ) {
       logger.info('Payout already processed', {
         payoutId: singleWithdrawData.id,
         status: singleWithdrawData.status,
       });
-      await rollback(conn);
-      return res.status(200).send('Payout already processed');
     }
 
     logger.info('Fetched payout data for OrderID:', apitxnid);
@@ -75,7 +68,7 @@ export const runsafeTransactionStatusCallback = async (req, res) => {
     if (adminUser) updatePayload.updated_by = adminUser.id;
 
     // Status mapping: 'success' => APPROVED, 'failed' => REJECTED, else PENDING
-    const statusStr = (payload.orderStatus || '').toString().toLowerCase();
+    const statusStr = (payload?.orderStatus || '').toString().toLowerCase();
     if (statusStr === 'success' || statusStr === 'SUCCESS') {
       Object.assign(updatePayload, {
         orderStatus: Status.APPROVED,
@@ -83,14 +76,19 @@ export const runsafeTransactionStatusCallback = async (req, res) => {
         approved_at: new Date().toISOString(),
       });
     } else if (statusStr === 'failed' || statusStr === 'FAILED') {
-      updatePayload.status = Status.REJECTED;
+      updatePayload.orderStatus = Status.REJECTED;
       updatePayload.config.rejected_reason =
         payload.description || 'Transaction failed';
       updatePayload.rejected_at = new Date().toISOString();
+    } else if (statusStr === "refund" || statusStr === 'REFUND' || statusStr === Status.REFUND) {
+      updatePayload.orderStatus = Status.REVERSED;
+      updatePayload.status = Status.REVERSED;
+      updatePayload.config.reversed_at = getISTDateString()
     } else {
       updatePayload.status = Status.PENDING;
     }
-
+    conn = await getConnection();
+    await beginTransaction(conn);
     logger.info('Final update payload for payout:', updatePayload);
     await _updatePayoutServiceInternal(
       {

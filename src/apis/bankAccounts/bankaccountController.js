@@ -227,19 +227,21 @@ const createBankaccount = async (req, res) => {
   if (!payload.payin_count) {
     payload.payin_count = 0;
   }
+  if (payload.is_intent === "") {
+    payload.is_intent = "off";
+  }
   delete payload.qr;
   const joiValidation = BANK_ACCOUNT_SCHEMA.validate(payload);
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
   const phonePe = payload.is_phonepay ? true : false;
-  const intent = payload.is_intent ? true : false;
   const is_staticQR = payload.is_staticQR ? true : false;
   payload.bank_used_for == 'PayIn'
     ? (payload.config = {
         merchants: [],
         is_phonepay: phonePe,
-        is_intent: intent,
+        is_intent: payload.is_intent || "off",
         is_staticQR: is_staticQR,
       })
     : (payload.config = {});
