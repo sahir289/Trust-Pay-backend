@@ -1535,6 +1535,55 @@ const updatePayoutService = async (ids, payload, role) => {
     }
   }
 };
+const _markPayoutPendingForUtrSlipMismatchInternal = async (
+  ids,
+  payload,
+  conn,
+) => {
+  const reason = 'Payload UTR does not match with slip UTR';
+  const updatePayload = {
+    status: Status.PENDING,
+    updated_by: payload.updated_by,
+    config: {
+      ...(payload.config || {}),
+      reason,
+      mismatch_utr_payload: payload.utr_id || null,
+      mismatch_utr_slip: payload.slip_utr || null,
+    },
+  };
+  if (payload.utr_id) {
+    updatePayload.utr_id = payload.utr_id;
+  }
+  const data = updatePayoutDao(ids, updatePayload, conn)
+  return data;
+};
+
+const markPayoutPendingForUtrSlipMismatchService = async (ids, payload) => {
+  let conn;
+  let committed = false;
+  try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+    const data = await _markPayoutPendingForUtrSlipMismatchInternal(
+      ids,
+      payload,
+      conn,
+    );
+    await commit(conn);
+    committed = true;
+    return data;
+  } catch (error) {
+    if (conn && !committed) {
+      await rollback(conn);
+    }
+    logger.error('Error in markPayoutPendingForUtrSlipMismatchService:', error);
+    throw error;
+  } finally {
+    if (conn) {
+      conn.release();
+    }
+  }
+};
 
 ///for update payout calculation of payout
 const updateCalculationTable = async (user_id, data, isApproved, conn) => {
@@ -2478,6 +2527,7 @@ export {
   checkPayOutStatusService,
   getPayoutsBySearchService,
   updatePayoutService,
+  markPayoutPendingForUtrSlipMismatchService,
   deletePayoutService,
   assignedPayoutService,
   createTataPayBulkPayoutService,

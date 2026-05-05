@@ -8,6 +8,7 @@ import {
   deletePayoutService,
   getPayoutsService,
   updatePayoutService,
+  markPayoutPendingForUtrSlipMismatchService,
   getPayoutsBySearchService,
   checkPayOutStatusService,
   assignedPayoutService,
@@ -222,20 +223,33 @@ const updatePayout = async (req, res) => {
     throw new ValidationError(joiValidation.error);
   }
   if (req.file) {
-  payload.config = {
-    ...payload.config,
-    slip: req.file.key,
-  }; 
-} const command = new GetObjectCommand({
-    Bucket: config.bucketName,
-    Key: req.file.key,
-  });
-  const { Body } = await s3.send(command);
-  const base64Image = await streamToBase64(Body);
-  const content = await getImageContentFromOCr(base64Image);
-  console.log('base64Image', content);
-  if(content) {
-    throw new ValidationError('Invalid slip image, contains text');
+    payload.config = {
+      ...payload.config,
+      slip: req.file.key,
+    };
+    const command = new GetObjectCommand({
+      Bucket: config.bucketName,
+      Key: req.file.key,
+    });
+    const { Body } = await s3.send(command);
+    const base64Image = await streamToBase64(Body);
+    const content = await getImageContentFromOCr(base64Image);
+    const payloadUtr = payload.utr_id;
+    const slipUtr = content?.utr;
+    if (payloadUtr && slipUtr && payloadUtr !== slipUtr) {
+      payload.updated_by = user_id;
+      const ids = { id, company_id };
+      const update = await markPayoutPendingForUtrSlipMismatchService(ids, {
+        ...payload,
+        slip_utr: content?.utr || null,
+      });
+      await invalidatePayoutCache(company_id);
+      return sendSuccess(
+        res,
+        { id: update.id, updated_by: user_name },
+        'Payout moved to pending due to UTR mismatch with slip',
+      );
+    }
   }
   payload.updated_by = user_id;
   const ids = { id, company_id };
