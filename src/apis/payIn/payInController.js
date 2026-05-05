@@ -132,9 +132,6 @@ export const generatePayInUrl = async (req, res) => {
     apiKey = data[0]?.config?.keys?.public
   }
 
-  if (!apiKey) {
-    return sendError(res, 'Enter valid Api key', 404);
-  }
 
   const result = await generatePayInUrlService(
     {
