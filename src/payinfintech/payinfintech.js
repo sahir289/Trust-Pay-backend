@@ -6,6 +6,7 @@ import { logger } from '../utils/logger.js';
 import { sendSuccess } from '../utils/responseHandlers.js';
 import { customAlphabet } from 'nanoid';
 import { getPayoutByTxnId } from '../apis/payOut/payOutDao.js';
+import { getCompanyByIDDao } from '../apis/company/companyDao.js';
 
 //  Nanoid (alphanumeric, max 16 chars for OrderId) 
 // "TXN" prefix (3 chars) + 10-digit timestamp (13 chars) = 16 chars total
@@ -343,15 +344,39 @@ export const checkPayInFintechPayoutStatus = async (orderId, credentials) => {
 
 // ─── Wallet Balance ──────────────────────────────────────────────────────────
 /**
- * Attempt to fetch the PayInFintech wallet balance.
- * The provider may not expose a balance endpoint; if none exists this returns null.
- * @param {object} credentials     - { Email, Password }
- * @param {object|undefined} res   - Express res (optional, for direct route use)
+ * Fetch the PayInFintech wallet balance.
+ * When called as an Express route handler (req, res), reads company_id from
+ * req.user and looks up PAYINFINTECH credentials from the company config —
+ * mirroring the getTataPayWalletBalance pattern.
+ * Can also be called internally with { company_id } as the first argument
+ * (res omitted) and will return the data object directly.
+ * @param {object} reqOrParams - Express req, or { company_id }
+ * @param {object|undefined} res - Express res (present when called as route handler)
  * @returns {Promise<object|null>}
  */
-export const getPayInFintechWalletBalance = async (credentials, res) => {
+export const getPayInFintechWalletBalance = async (reqOrParams, res) => {
   try {
-    const token = await authenticate(credentials);
+    const isExpress = !!res; // true when invoked by Express as a route handler
+    const company_id = isExpress
+      ? reqOrParams.user?.company_id
+      : reqOrParams.company_id;
+
+    const [company] = await getCompanyByIDDao({ id: company_id });
+
+    if (!company?.config?.PAYINFINTECH) {
+      throw new BadRequestError(
+        'PayInFintech: configuration not found for company',
+      );
+    }
+
+    const { Email, Password } = company.config.PAYINFINTECH;
+    if (!Email || !Password) {
+      throw new BadRequestError(
+        'PayInFintech: Email / Password not set in company PAYINFINTECH config',
+      );
+    }
+
+    const token = await authenticate({ Email, Password });
 
     const response = await axios.get(`${BASE_URL}/partner/balance`, {
       headers: {
@@ -369,7 +394,7 @@ export const getPayInFintechWalletBalance = async (credentials, res) => {
     };
 
     const successMsg = 'PayInFintech wallet balance fetched successfully';
-    if (res) {
+    if (isExpress) {
       return sendSuccess(res, data, successMsg);
     }
     return { success: true, message: successMsg, data };
