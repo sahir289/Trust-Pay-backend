@@ -89,6 +89,7 @@ const _createCompanyServiceInternal = async (payload, conn) => {
       allowTataPay: false,
       allow_clickrr: false,
       allowRupeeFlow: false,
+      allowPayInFintech: false,
       PAY_ASSIST: {
         walletsPayoutsUrl: config.payAssist.baseUrl || '',
         walletsPayoutsAgentCode: '',
