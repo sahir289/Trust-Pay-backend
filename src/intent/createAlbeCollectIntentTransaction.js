@@ -46,6 +46,10 @@ export const createAlbeCollectTransaction = async (providerKey, deposit, amount)
       email: deposit.customer_email || 'pay@getMaxListeners.com',
       amount: formattedAmount,
       remarks: 'Payin',
+      orderId: deposit.merchant_order_id,
+      paymentReferenceNo: deposit.merchant_order_id,
+      transactionId: deposit.id,
+      currency: deposit.currency || 'INR',
     };
 
     const hash = generateAlbeCollectHash(
@@ -56,7 +60,7 @@ export const createAlbeCollectTransaction = async (providerKey, deposit, amount)
     );
 
     requestBody.hash = hash;
-
+    
     const response = await axios.post(url, requestBody, {
       headers: {
         merchantID: mid,
@@ -64,7 +68,7 @@ export const createAlbeCollectTransaction = async (providerKey, deposit, amount)
         'Content-Type': 'application/json',
       },
     });
-
+   console.log(`${providerKey} transaction response:`, response.data);
     logger.info(`${providerKey} transaction  :`, {
       requestBody,
       response: response.data,
