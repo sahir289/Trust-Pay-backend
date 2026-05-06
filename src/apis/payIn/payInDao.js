@@ -1895,9 +1895,8 @@ export const getPayinsWithHistoryDao = async (
 };
 export const getPayinsSumAndCountByStatusDao = async (filters, conn = null) => {
   try {
-    const conditions = [`p.is_obsolete = false`];
+
     const queryParams = [filters.company_id];
-    let paramIndex = 2;
 
     const statusQuery = `
       SELECT DISTINCT status
@@ -1920,34 +1919,31 @@ export const getPayinsSumAndCountByStatusDao = async (filters, conn = null) => {
       .tz(`${today} 23:59:59.999`, 'Asia/Kolkata')
       .utc()
       .format();
-    conditions.push(
-      `p.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1}`,
-    );
-    queryParams.push(startDate, endDate);
-    paramIndex += 2;
+    queryParams.push(startDate, endDate, validStatuses);
 
-    let queryText = `
+    const queryText = `
       SELECT
         s.status,
         COALESCE(SUM(p.amount), 0) AS total_amount,
         COALESCE(COUNT(p.id), 0) AS total_count
       FROM (
-        SELECT unnest($${paramIndex}::text[]) AS status
+        SELECT unnest($4::text[]) AS status
       ) s
-      LEFT JOIN public."Payin" p ON p.status = s.status AND p.is_obsolete = false AND p.company_id = $1
+      LEFT JOIN public."Payin" p
+        ON p.status = s.status
+       AND p.company_id = $1
+       AND p.is_obsolete = false
+       AND p.updated_at BETWEEN $2 AND $3
+      GROUP BY s.status
+      ORDER BY s.status
     `;
-    queryParams.push(validStatuses);
-
-    queryText += ' WHERE (' + conditions.join(' AND ') + ')';
-
-    queryText += ` GROUP BY s.status`;
 
     const result = await executeQuery(queryText, queryParams, conn);
 
     const results = result.rows.map((row) => ({
       status: row.status,
-      totalAmount: parseFloat(row.total_amount) || 0,
-      totalCount: parseInt(row.total_count) || 0,
+      totalAmount: Number.parseFloat(row.total_amount) || 0,
+      totalCount: Number.parseInt(row.total_count, 10) || 0,
     }));
 
     return { results };
@@ -2019,7 +2015,7 @@ export const getPayInForDuplicate = async (filters = {}, conn = null) => {
   try {
     // Adjusted query to match 3 parameters: orderid, user_submitted_utr, company_id
     const [sql, params] = buildSelectQuery(
-      `SELECT id FROM "${tableName.PAYIN}" WHERE status != 'DUPLICATE' AND is_obsolete = false AND merchant_order_id != $1 AND "user_submitted_utr" = $2 AND "company_id" = $3`,
+      `SELECT id FROM "${tableName.PAYIN}" WHERE status != 'DUPLICATE' AND is_obsolete = false`,
       filters,
       // , page, limit
     );

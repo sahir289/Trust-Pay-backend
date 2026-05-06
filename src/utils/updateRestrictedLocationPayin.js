@@ -13,15 +13,16 @@ async function processPayInRestricted(payin, restrictionReason) {
         restrictionReason,
       };
       const duration = calculateDuration(payin.created_at);
+      const finalStatus = payin.status === Status.INITIATED ? Status.FAILED : Status.DROPPED;
       const data = {
-        status: Status.FAILED,
+        status: finalStatus,
         config,
         is_url_expires: true,
         is_notified: true,
         duration,
       };
       const notificationData = {
-        status: Status.FAILED,
+        status: finalStatus,
         merchantOrderId: payin?.merchant_order_id || null,
         payinId: payin?.id || null,
         amount: null,

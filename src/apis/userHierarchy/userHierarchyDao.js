@@ -112,3 +112,37 @@ export const updateUserHierarchyVendor = async (userId, newConfig, updatedBy, co
     throw error;
   }
 };
+export const getAllHierarchyUserIds = async (userId, conn) => {
+  try {
+    const visited = new Set();
+    const stack = [userId];
+    while (stack.length > 0) {
+      const currentUserId = stack.pop();
+      if (visited.has(currentUserId)) continue;
+      visited.add(currentUserId);
+      const hierarchy = await getUserHierarchysDao(
+        { user_id: currentUserId },
+        null,
+        null,
+        null,
+        null,
+        null,
+        conn,
+      );
+      const config = hierarchy?.[0]?.config || {};
+      const childOps = config?.child?.operations || [];
+      const subVendors = config?.siblings?.sub_vendors || [];
+      const subMerchants = config?.siblings?.sub_merchants || [];
+      const nextIds = [...childOps, ...subVendors, ...subMerchants];
+      for (const id of nextIds) {
+        if (!visited.has(id)) {
+          stack.push(id);
+        }
+      }
+    }
+    return Array.from(visited);
+  } catch (error) {
+    logger.error('Error in getUserHierarchyDao:', error.message);
+    throw error;
+  }
+};;

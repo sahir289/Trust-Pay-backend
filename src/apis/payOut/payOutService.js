@@ -49,7 +49,7 @@ import {
   Method,
   tableName,
 } from '../../constants/index.js';
-import { calculateCommission, filterResponse } from '../../helpers/index.js';
+import { calculateCommission, filterResponse, getISTDateString } from '../../helpers/index.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import { updateCalculationBalanceDao } from '../calculation/calculationDao.js';
 import { logger } from '../../utils/logger.js';
@@ -80,7 +80,7 @@ import { createSilkPayPayout } from '../../silkpay/silkpay.js';
 import { createBSS02Payout } from '../../bss/bss02.js';
 import { createBSS03Payout } from '../../bss/bss03.js';
 import { createVertexPayPayout } from '../../vertexpay/vertexpay.js';
-import { createRunsafePayPayout } from '../../runsafe/runsafepay.js';
+import { createRunsafePayPayout, getRunsafePayWalletBalance } from '../../runsafe/runsafepay.js';
 import { createPayInFintechPayout } from '../../payinfintech/payinfintech.js';
 // import { notifyNewCalculationTableEntry } from '../../utils/sockets.js';
 
@@ -195,7 +195,7 @@ const _createPayoutServiceInternal = async (
     //     : role === Role.VENDOR
     //       ? vendorColumns.PAYOUT
     //       : columns.PAYOUT;
-    const { code, amount, x_api_key, returnUrl, notifyUrl } = payload;
+    const { code, amount, returnUrl, notifyUrl } = payload;
     const details = await getMerchantsByCodeDao(code);
 
     if (!details[0] || details[0].length === 0) {
@@ -206,34 +206,34 @@ const _createPayoutServiceInternal = async (
       throw error;
     }
 
-    if (details[0]?.config?.whitelist_ips && role !== Role.ADMIN) {
-      let whitelist = details[0].config.whitelist_ips;
-      // Normalize whitelist to array of trimmed strings
-      if (typeof whitelist === 'string') {
-        whitelist = whitelist
-          .split(',')
-          .map((ip) => ip.trim())
-          .filter(Boolean);
-      } else if (Array.isArray(whitelist)) {
-        whitelist = whitelist.map((ip) => String(ip).trim()).filter(Boolean);
-      } else {
-        whitelist = [];
-      }
-      if (
-        whitelist.length &&
-        !whitelist.includes(userIp) &&
-        role !== Role.ADMIN
-      ) {
-        throw new BadRequestError('IP not whitelisted');
-      }
-    }
+    // if (details[0]?.config?.whitelist_ips && role !== Role.ADMIN) {
+    //   let whitelist = details[0].config.whitelist_ips;
+    //   // Normalize whitelist to array of trimmed strings
+    //   if (typeof whitelist === 'string') {
+    //     whitelist = whitelist
+    //       .split(',')
+    //       .map((ip) => ip.trim())
+    //       .filter(Boolean);
+    //   } else if (Array.isArray(whitelist)) {
+    //     whitelist = whitelist.map((ip) => String(ip).trim()).filter(Boolean);
+    //   } else {
+    //     whitelist = [];
+    //   }
+    //   if (
+    //     whitelist.length &&
+    //     !whitelist.includes(userIp) &&
+    //     role !== Role.ADMIN
+    //   ) {
+    //     throw new BadRequestError('IP not whitelisted');
+    //   }
+    // }
 
     if (details[0]?.balance < 0 && !details[0]?.config?.allow_payout) {
       throw new BadRequestError('Merchant balance is less than payout amount');
     }
 
     const { config, user_id } = details[0];
-    const merchantAPIKey = config?.keys;
+    // const merchantAPIKey = config?.keys;
     const payoutAmount = Number(amount);
     const balanceRestriction = config.balanceRestriction;
     const merchant_order_id = payload.merchant_order_id ?? uuidv4();
@@ -262,16 +262,16 @@ const _createPayoutServiceInternal = async (
       throw new BadRequestError('Merchant Order ID already exists');
     }
 
-    if (!x_api_key || !merchantAPIKey) {
-      throw new NotFoundError('Enter valid Api key');
-    }
+    // if (!x_api_key || !merchantAPIKey) {
+    //   throw new NotFoundError('Enter valid Api key');
+    // }
 
-    if (
-      x_api_key !== merchantAPIKey?.private &&
-      x_api_key !== merchantAPIKey?.public
-    ) {
-      throw new NotFoundError('Enter valid Api key');
-    }
+    // if (
+    //   x_api_key !== merchantAPIKey?.private &&
+    //   x_api_key !== merchantAPIKey?.public
+    // ) {
+    //   throw new NotFoundError('Enter valid Api key');
+    // }
     if (
       (amount < details[0].min_payout || amount > details[0].max_payout) &&
       role !== Role.ADMIN
@@ -301,6 +301,8 @@ const _createPayoutServiceInternal = async (
       clickrr_auto_approval_limit,
       allow_payassist,
       payassist_auto_approval_limit,
+      allow_runsafe,
+      runsafe_auto_approval_limit,
     } = details[0]?.config || {};
 
     if (allow_payassist) {
@@ -353,6 +355,37 @@ const _createPayoutServiceInternal = async (
         }
         // specific to clickrr max payout limit
         const updatedPayload = { config: { method: 'CLICKRR' } };
+        // Use the DAO directly since we're already in a transaction
+        updatedData = await _updatePayoutServiceInternal(
+          ids,
+          updatedPayload,
+          role,
+          conn,
+        );
+        data = updatedData;
+      }
+    }
+
+    if (allow_runsafe) {
+      const ids = { id: data.id, company_id: payload.company_id };
+      const getRunsafeWalletBalance = await getRunsafePayWalletBalance({
+        company_id: payload.company_id,
+      });
+      console.log(getRunsafeWalletBalance, "getRunsafeWalletBalance")
+      let updatedData;
+      if (Number(payoutAmount) < Number(runsafe_auto_approval_limit)) {
+        if (
+          Number(getRunsafeWalletBalance?.data?.balance) <
+          Number(payoutAmount)
+        ) {
+          data = {
+            status: 201,
+            message: 'Insufficient Balance in Wallet',
+          };
+          return data;
+        }
+        // specific to clickrr max payout limit
+        const updatedPayload = { config: { method: 'runsafe' } };
         // Use the DAO directly since we're already in a transaction
         updatedData = await _updatePayoutServiceInternal(
           ids,
@@ -426,7 +459,7 @@ const _createPayoutServiceInternal = async (
   }
 };
 
-const createPayoutService = async (headers, payload, role, userIp, fromUI) => {
+const createPayoutService = async (headers, payload, role, fromUI) => {
   let conn;
   let committed = false;
   try {
@@ -436,7 +469,7 @@ const createPayoutService = async (headers, payload, role, userIp, fromUI) => {
       headers,
       payload,
       role,
-      userIp,
+      null,
       fromUI,
       conn,
     );
@@ -1237,6 +1270,10 @@ const _updatePayoutServiceInternal = async (
       return earlyReturnResult;
     }
 
+    if (payload?.status === Status.REVERSED) {
+      payload.config = {...(payload.config || {}), reversed_at: getISTDateString()};
+    }
+
     const data = await updatePayoutDao(ids, payload, conn);
     if (data.status == Status.INITIATED) {
       earlyReturnResult = data;
@@ -1264,7 +1301,7 @@ const _updatePayoutServiceInternal = async (
     const notifyUrl = data.config?.urls?.notify || merchant?.payout_notify;
 
     // Early return if not approved
-    if (!data.approved_at && data.status !== Status.PENDING) {
+    if (!data.approved_at && data.status !== Status.PENDING && !data.rejected_at) {
       merchantPayoutCallback(notifyUrl, {
         code: merchant.code,
         merchantOrderId: data.merchant_order_id,
@@ -1476,6 +1513,7 @@ const _updatePayoutServiceInternal = async (
       vendor_id: data.vendor_id || null,
       vendor_user_id: vendor?.user_id || null,
       payout_details: data.config || {},
+      slip : data.config?.slip || null,
       updated_at: data.updated_at,
       user_id: vendor?.user_id || null,
       nick_name: bankDataArr?.[0]?.nick_name || null,

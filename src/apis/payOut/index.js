@@ -240,6 +240,7 @@ router.put(
   multerUpload.single('file'),
   tryCatchHandler(updatePayout),
 );
+
 router.put(
   '/assign-vendor-payout/:id',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],

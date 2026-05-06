@@ -36,6 +36,71 @@ export async function checkLockEdit(id, payin, conn = null) {
 }
 
 /**
+ * Acquires an advisory lock for bank balance updates with retry mechanism.
+ * Unlike checkLockEdit, this function retries on lock contention instead of failing immediately.
+ * Use this when multiple different transactions may legitimately need to update the same bank account.
+ * 
+ * @param {string} bankId - The bank account ID to lock
+ * @param {boolean} payin - Whether this is a payin transaction (affects post-lock delay)
+ * @param {object} conn - Database connection (required)
+ * @param {number} maxRetries - Maximum retry attempts (default: 5)
+ * @param {number} retryDelayMs - Initial delay between retries in ms (default: 100)
+ * @returns {Promise<boolean>} - True if lock acquired
+ * @throws {BadRequestError} - If lock cannot be acquired after all retries
+ */
+export async function acquireBankBalanceLock(bankId, payin, conn, maxRetries = 3, retryDelayMs = 1000) {
+  const lockKey = stringToInt(`bank-balance:${bankId}`);
+  
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const lockResult = await conn.query(
+        'SELECT pg_try_advisory_xact_lock($1) AS acquired',
+        [lockKey],
+      );
+      
+      if (lockResult?.rows[0]?.acquired) {
+        if (attempt > 1) {
+          logger.info(`[BankBalanceLock] Lock acquired for bank ${bankId} on attempt ${attempt}`);
+        }
+        if (!payin) {
+          await new Promise((resolve) => setTimeout(resolve, 2000));
+        }
+        return true;
+      }
+      
+      // Lock not acquired - retry with exponential backoff
+      if (attempt < maxRetries) {
+        const delay = retryDelayMs * Math.pow(2, attempt - 1); // 100, 200, 400, 800, 1600ms
+        logger.warn(`[BankBalanceLock] Lock contention for bank ${bankId} (attempt ${attempt}/${maxRetries}), retrying in ${delay}ms...`);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      } else {
+        logger.error(`[BankBalanceLock] Failed to acquire lock for bank ${bankId} after ${maxRetries} attempts`);
+        throw new BadRequestError(
+          'Bank account is busy processing another transaction. Please try again later.',
+        );
+      }
+    } catch (error) {
+      if (error instanceof BadRequestError) {
+        throw error;
+      }
+      logger.error(`[BankBalanceLock] Error on attempt ${attempt} for bank ${bankId}:`, {
+        bankId,
+        error: error.message,
+      });
+      
+      if (attempt >= maxRetries) {
+        throw error;
+      }
+      
+      const delay = retryDelayMs * Math.pow(2, attempt - 1);
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
+  
+  throw new BadRequestError('Failed to acquire bank balance lock after retries');
+}
+
+/**
  * Acquires an advisory lock for a UTR to prevent concurrent duplicate processing
  * @param {string} utr - The UTR string to lock
  * @param {object} conn - Database connection (required for transaction-level lock)
