@@ -16,6 +16,7 @@ import { payEasyWebhook } from './payeasy.js';
 import { payEasy02Webhook } from './payeasy02.js';
 import { payEasy03Webhook } from './payeasy03.js';
 import { tytlWebhook } from "./tytl.js";
+import { albeCollectWebhook } from './albeCollect.js';
 
 
 const router = express.Router();
@@ -34,5 +35,6 @@ router.post('/orvixPay', tryCatchHandler(orvixPayWebhook));
 router.post('/payeasy', tryCatchHandler(payEasyWebhook));
 router.post('/payeasy02', tryCatchHandler(payEasy02Webhook));
 router.post('/payeasy03', tryCatchHandler(payEasy03Webhook));
+router.post('/albeCollect', tryCatchHandler(albeCollectWebhook));
 
 export default router;

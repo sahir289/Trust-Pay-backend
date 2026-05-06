@@ -162,6 +162,7 @@ const getCashfreeAllowByCompanyIdDao = async (id, conn = null) => {
         COALESCE((config ->> 'allow_orvixpay')::boolean, false) AS allow_orvixpay,
         COALESCE((config ->> 'allow_payin_tytl')::boolean, false) AS allow_tytl,
         COALESCE((config ->> 'allow_orvixpay1')::boolean, false) AS allow_orvixpay1,
+        COALESCE((config ->> 'allow_albecollect')::boolean, false) AS allow_albecollect,
         COALESCE((config ->> 'allow_payeasy')::boolean, false) AS allow_payeasy,
         COALESCE((config ->> 'allow_payeasy02')::boolean, false) AS allow_payeasy02,
         COALESCE((config ->> 'allow_payeasy03')::boolean, false) AS allow_payeasy03

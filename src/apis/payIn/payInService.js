@@ -151,6 +151,7 @@ import { createOnePayPaymentTransaction } from '../../intent/createOnePayIntentT
 import { createCpsPaymentTransaction } from '../../intent/createCpsIntentTransaction.js';
 import { createtytlPaymentTransaction } from '../../intent/createtytlPayIntentTransaction.js';
 import { createPayeasyTransaction } from '../../intent/createPayeasyIntentTransaction.js';
+import { createAlbeCollectTransaction } from '../../intent/createAlbeCollectIntentTransaction.js';
 
 export const generatePayInUrlByHashService = async (req) => {
   try {
@@ -941,7 +942,6 @@ export const payInIntentGenerateOrderService = async (
   try {
     const payIn = await getPayInIntentDao(merchantOrderId);
     checkIsPayInExpired(payIn);
-
     const providerHandlers = {
       ZenTechInd: async () => {
         const order = await createPaymentTransaction(
@@ -1018,6 +1018,10 @@ export const payInIntentGenerateOrderService = async (
           amount,
         );
         return order?.url;
+      },
+      albeCollect: async () => {
+        const order = await createAlbeCollectTransaction('albeCollect', payIn, amount);
+        return order?.data?.paymentLink || null;
       },
     };
     const handler = providerHandlers[provider];
@@ -3883,6 +3887,7 @@ const _verifyPayinsServiceInternal = async (
       'allow_razorpay',
       'allow_orvixpay',
       'allow_orvixpay1',
+      'allow_albecollect',
       'allow_vertexpay',
       'allow_payeasy',
       'allow_payeasy02',
@@ -3953,6 +3958,10 @@ const _verifyPayinsServiceInternal = async (
       allowOrvixPay1:
         (selectedIntent === 'allow_orvixpay1' &&
           cashfreeDetails?.allow_orvixpay1) ||
+        false,
+      allowAlbeCollect:
+        (selectedIntent === 'allow_albecollect' &&
+          cashfreeDetails?.allow_albecollect) ||
         false,
       allowVertexPay:
         (selectedIntent === 'allow_vertexpay' &&
