@@ -15,6 +15,8 @@ import {
 import { updatePayoutService } from './payOutService.js';
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
+import { checkPayoutApiKey } from '../../middlewares/checkApiKey.js';
+import { multerUpload } from '../../utils/index.js';
 import { payAssistTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/payAsistWebHook.js';
 import { payDumTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/payDumWebHook.js';
 import { tataPayTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/tataPayWebHook.js';
@@ -37,7 +39,7 @@ import { bss02TransactionStatusCallback } from '../../callBacksAndWebHook/callBa
 import { bss03TransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/bss03WebHook.js';
 import { getVertexPayWalletBalance } from '../../vertexpay/vertexpay.js';
 import { vertexPayTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/vertexPayWebHook.js';
-import {runsafeTransactionStatusCallback} from "../../callBacksAndWebHook/callBacks/runsafeWebHook.js"
+import { runsafeTransactionStatusCallback } from "../../callBacksAndWebHook/callBacks/runsafeWebHook.js"
 import { getRunsafePayWalletBalance } from '../../runsafe/runsafepay.js';
 import { payInFintechTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/payInFintechWebHook.js';
 import {
@@ -161,6 +163,7 @@ router.get(
 router.post(
   '/create-payout',
   // [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  checkPayoutApiKey,
   tryCatchHandler(createPayout),
 );
 
@@ -234,6 +237,7 @@ router.post('/check-payout-status', tryCatchHandler(checkPayOutStatus));
 router.put(
   '/update-payout/:id',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  multerUpload.single('file'),
   tryCatchHandler(updatePayout),
 );
 router.put(
