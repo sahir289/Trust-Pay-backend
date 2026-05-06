@@ -39,16 +39,17 @@ import {
 } from '../bankAccounts/bankaccountDao.js';
 import config from '../../config/config.js';
 import { merchantPayoutCallback } from '../../callBacksAndWebHook/merchantCallBacks.js';
-import { Status, Method, tableName } from '../../constants/index.js';
-import { calculateCommission, getISTDateString } from '../../helpers/index.js';
 import { createTataPayBulkPayout } from '../../tatapay/tatapay.js';
 import {
   columns,
   merchantColumns,
   Role,
   vendorColumns,
+  Status,
+  Method,
+  tableName,
 } from '../../constants/index.js';
-import { filterResponse } from '../../helpers/index.js';
+import { calculateCommission, filterResponse, getISTDateString } from '../../helpers/index.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import { updateCalculationBalanceDao } from '../calculation/calculationDao.js';
 import { logger } from '../../utils/logger.js';
@@ -80,6 +81,7 @@ import { createBSS02Payout } from '../../bss/bss02.js';
 import { createBSS03Payout } from '../../bss/bss03.js';
 import { createVertexPayPayout } from '../../vertexpay/vertexpay.js';
 import { createRunsafePayPayout, getRunsafePayWalletBalance } from '../../runsafe/runsafepay.js';
+import { createPayInFintechPayout } from '../../payinfintech/payinfintech.js';
 // import { notifyNewCalculationTableEntry } from '../../utils/sockets.js';
 
 // Helper function to check if vendor is sub-vendor and get parent info
@@ -826,18 +828,20 @@ const _updatePayoutServiceInternal = async (
           ? vendorColumns.PAYOUT
           : columns.PAYOUT;
 
+    const method = payload?.config?.method;
     if (
-      !payload?.config?.method === Method.CLICKRR &&
-      !payload?.config?.method === Method.PAYASSIST &&
-      !payload?.config?.method === Method.PAYDUM &&
-      !payload?.config?.method === Method.TATAPAY &&
-      !payload?.config?.method === Method.RUPEEFLOW &&
-      !payload?.config?.method === Method.BSS &&
-      !payload?.config?.method === Method.BSS02 &&
-      !payload?.config?.method === Method.BSS03 &&
-      !payload?.config?.method === Method.SILKPAY &&
-      !payload?.config?.method === Method.VERTEXPAY &&
-      !payload?.config?.method === Method.RUNSAFE_PAY
+      method !== Method.CLICKRR &&
+      method !== Method.PAYASSIST &&
+      method !== Method.PAYDUM &&
+      method !== Method.TATAPAY &&
+      method !== Method.RUPEEFLOW &&
+      method !== Method.BSS &&
+      method !== Method.BSS02 &&
+      method !== Method.BSS03 &&
+      method !== Method.SILKPAY &&
+      method !== Method.VERTEXPAY &&
+      method !== Method.RUNSAFE_PAY &&
+      method !== Method.PAYINFINTECH
     )
       await checkLockEdit(ids.id, false, conn);
 
@@ -1221,6 +1225,39 @@ const _updatePayoutServiceInternal = async (
         throw new NotFoundError(`Bank not found for ${method} payout`);
 
       const updatedPayload = await createRunsafePayPayout(
+        payload,
+        ids,
+        singleWithdrawData,
+        bankId,
+      );
+      payload = updatedPayload;
+    }
+    else if (payload?.config?.method === Method.PAYINFINTECH) {
+      const method = payload.config.method;
+
+      const [company] = await getCompanyByIDDao({ id: ids.company_id }, conn);
+      if (!company) throw new NotFoundError('Company not found');
+
+      const payinfintechConfig = company.config.PAYINFINTECH;
+      if (!payinfintechConfig)
+        throw new NotFoundError(`PayInFintech configuration not found for company`);
+
+      const bankId = payinfintechConfig.defaultBankId;
+      if (!bankId)
+        throw new NotFoundError(`Default bank ID not found for ${method}`);
+
+      bankDataArr = await getBankByIdDao({ id: bankId }, conn);
+      if (!bankDataArr[0])
+        throw new NotFoundError(`Bank not found for ${method} payout`);
+
+      // Pass credentials transiently through payload.config (scrubbed inside createPayInFintechPayout)
+      payload.config._payinfintechCredentials = {
+        Email: payinfintechConfig.Email,
+        Password: payinfintechConfig.Password,
+      };
+
+      logger.info(`Processing PayInFintech payout with bankId: ${bankId}`);
+      const updatedPayload = await createPayInFintechPayout(
         payload,
         ids,
         singleWithdrawData,
