@@ -51,13 +51,14 @@ const getCompanyDetailsByIdDao = async (id, conn = null) => {
       config ->> 'allow_payout_runsafe' AS allowrunsafe,
       config ->> 'allowPayDum' AS allowPayDum,
       config ->> 'allow_silkpay' AS silkpay_intent,
-      config ->> 'allow_payin_tytl' AS tytl_intent, 
+      config ->> 'allow_payin_tytl' AS tytl_intent,
       config ->> 'allow_vertexpay' AS vertexpay_intent,
       config ->> 'allowCpsPay' AS cps_intent,
       config ->> 'allow_runsafe' AS runsafe_intent,
-      config ->> 'allow_payeasy' AS payeasy_intent, 
-      config ->> 'allow_payeasy02' AS payeasy02_intent, 
-      config ->> 'allow_payeasy03' AS payeasy03_intent 
+      config ->> 'allow_payeasy' AS payeasy_intent,
+      config ->> 'allow_payeasy02' AS payeasy02_intent,
+      config ->> 'allow_payeasy03' AS payeasy03_intent,
+      config ->> 'allowPayInFintech' AS allowPayInFintech
       FROM "${tableName.COMPANY}" WHERE 1 = 1`;
     const [sql, queryParams] = buildSelectQuery(baseQuery, id);
     const result = await executeQuery(sql, queryParams, conn);
