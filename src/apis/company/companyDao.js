@@ -58,6 +58,7 @@ const getCompanyDetailsByIdDao = async (id, conn = null) => {
       config ->> 'allow_payeasy' AS payeasy_intent,
       config ->> 'allow_payeasy02' AS payeasy02_intent,
       config ->> 'allow_payeasy03' AS payeasy03_intent,
+      config ->> 'allow_albecollect' AS albecollect_intent,
       config ->> 'allowPayInFintech' AS allowPayInFintech
       FROM "${tableName.COMPANY}" WHERE 1 = 1`;
     const [sql, queryParams] = buildSelectQuery(baseQuery, id);
