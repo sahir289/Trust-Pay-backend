@@ -1540,9 +1540,15 @@ const _markPayoutPendingForUtrSlipMismatchInternal = async (
   payload,
   conn,
 ) => {
-  const reason = 'Payload UTR does not match with slip UTR';
+  const singleWithdrawDataArr = await getPayoutsDao(ids);
+  const singleWithdrawData = singleWithdrawDataArr[0];
+  if (!singleWithdrawData) {
+    throw new NotFoundError('Payout not found!');
+  }
+  const bankAccId = payload.bank_acc_id || singleWithdrawData.bank_acc_id;
+  const reason = 'UTR does not match with slip UTR';
   const updatePayload = {
-    status: Status.PENDING,
+    status: Status.IMG_PENDING,
     updated_by: payload.updated_by,
     config: {
       ...(payload.config || {}),
@@ -1554,7 +1560,44 @@ const _markPayoutPendingForUtrSlipMismatchInternal = async (
   if (payload.utr_id) {
     updatePayload.utr_id = payload.utr_id;
   }
-  const data = updatePayoutDao(ids, updatePayload, conn)
+  if (bankAccId) {
+    updatePayload.bank_acc_id = bankAccId;
+    if (!singleWithdrawData.vendor_id) {
+      const bankDataArr = await getBankByIdDao({ id: bankAccId }, conn);
+      const bankData = bankDataArr[0];
+      if (!bankData) {
+        throw new NotFoundError('Bank not found!');
+      }
+      const vendorArr = await getVendorByIdDao(
+        bankData.user_id,
+        ids.company_id,
+        conn,
+      );
+      const vendor = vendorArr[0];
+      if (!vendor) {
+        throw new NotFoundError('Vendor not found!');
+      }
+      updatePayload.vendor_id = vendor.id;
+    }
+  }
+  const data = await updatePayoutDao(ids, updatePayload, conn);
+  const merchantArr = await getMerchantByIdDao(
+    singleWithdrawData.merchant_id,
+    ids.company_id,
+    conn,
+  );
+  const merchant = merchantArr[0];
+  if (merchant) {
+    const notifyUrl = data.config?.urls?.notify || merchant?.payout_notify;
+    merchantPayoutCallback(notifyUrl, {
+      code: merchant.code,
+      merchantOrderId: data.merchant_order_id,
+      payoutId: data.id,
+      amount: data.amount,
+      status: data.status,
+      utr_id: data.utr_id || '',
+    });
+  }
   return data;
 };
 
