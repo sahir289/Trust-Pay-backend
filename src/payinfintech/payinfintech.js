@@ -74,13 +74,36 @@ export const generatePayInFintechOrderId = async () => {
  * @param {{ Email: string, Password: string }} credentials
  * @returns {Promise<string>} Bearer token
  */
-const authenticate = async (credentials) => {
-  const { Email, Password } = credentials;
+const authenticate = async (credentials = {}) => {
+  // Try to get credentials from: 1. Passed object, 2. Prefixed env vars, 3. Raw env vars
+  const Email = credentials.Email || process.env.PAYINFINTECH_EMAIL || process.env.Email;
+  const Password = credentials.Password || process.env.PAYINFINTECH_PASSWORD || process.env.Password;
+
+  // DEBUG LOG: Sanitize values but show presence and source
+  logger.info('PayInFintech: attempting authentication', {
+    hasEmail: !!Email,
+    hasPassword: !!Password,
+    source: credentials.Email ? 'database-config' : (process.env.PAYINFINTECH_EMAIL ? 'process-env-prefixed' : 'process-env-raw'),
+    emailValue: Email ? `${Email.substring(0, 3)}...` : 'missing'
+  });
+
+  if (!Email || !Password) {
+    throw new BadRequestError('PayInFintech: Email and Password are required for authentication');
+  }
 
   try {
+    // Some APIs are case-sensitive. We send both PascalCase and lowercase to be safe,
+    // as the error "The email field is required" often implies a lowercase 'email' key requirement.
+    const loginPayload = { 
+      Email, 
+      Password,
+      email: Email,
+      password: Password 
+    };
+
     const response = await axios.post(
       `${BASE_URL}/api-login-merchant`,
-      { Email, Password },
+      loginPayload,
       { headers: { 'Content-Type': 'application/json' } },
     );
 
@@ -95,7 +118,9 @@ const authenticate = async (credentials) => {
       );
     }
 
-    logger.info('PayInFintech: authenticated successfully');
+    logger.info('PayInFintech: authenticated successfully', { 
+      source: credentials.Email ? 'database-config' : 'process-env' 
+    });
     return token;
   } catch (error) {
     if (error.response?.status === 400) {
@@ -361,7 +386,14 @@ export const getPayInFintechWalletBalance = async (reqOrParams, res) => {
       ? reqOrParams.user?.company_id
       : reqOrParams.company_id;
 
+    if (!company_id) {
+      throw new BadRequestError('PayInFintech: company_id is missing');
+    }
+
     const [company] = await getCompanyByIDDao({ id: company_id });
+
+    // TEMPORARY DEBUG LOG: Confirm the shape of the config object from DB
+    console.log('DEBUG: PayInFintech raw config from DB:', JSON.stringify(company?.config?.PAYINFINTECH, null, 2));
 
     if (!company?.config?.PAYINFINTECH) {
       throw new BadRequestError(
@@ -371,9 +403,7 @@ export const getPayInFintechWalletBalance = async (reqOrParams, res) => {
 
     const { Email, Password } = company.config.PAYINFINTECH;
     if (!Email || !Password) {
-      throw new BadRequestError(
-        'PayInFintech: Email / Password not set in company PAYINFINTECH config',
-      );
+      logger.warn('PayInFintech: Email/Password missing in DB config, falling back to ENV');
     }
 
     const token = await authenticate({ Email, Password });
