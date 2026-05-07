@@ -437,19 +437,25 @@ export const getPayInFintechWalletBalance = async (reqOrParams, res) => {
 
     const token = await getValidToken(company_id);
 
-    const response = await axios.post(`${BASE_URL}/partner/wallet-balance-v1`, {
-      headers: {
-        'Content-Type': 'application/json',
-        ...getAuthHeaders(token),
+    const response = await axios.post(
+      `${BASE_URL}/partner/wallet-balance-v1`,
+      {},
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          ...getAuthHeaders(token),
+        },
       },
-    });
+    );
 
     logger.info('PayInFintech: wallet balance response', response.data);
 
     const raw = response.data;
     const data = {
       walletBalance: parseFloat(
-        raw?.Payout_wallet_amount ?? raw?.balance ?? raw?.availableBalance ?? 0,
+        (raw?.Payout_wallet_amount ?? raw?.balance ?? raw?.availableBalance ?? '0')
+          .toString()
+          .replace(/,/g, ''),
       ),
       rawResponse: raw,
     };
