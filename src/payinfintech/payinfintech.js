@@ -201,24 +201,34 @@ export const initiatePayInFintechPayout = async (payoutData, companyId) => {
   // Step 1 — Get valid token
   const token = await getValidToken(companyId);
 
-  // Step 2 — Initiate payout
-  const body = {
-    Amount: Number(payoutData.Amount),
-    AccountNumber: Number(payoutData.AccountNumber),
+  // Step 2 — Initiate payout via multipart/form-data
+  const form = new FormData();
+  form.append('Amount', String(payoutData.Amount || 0));
+  form.append('AccountNumber', String(payoutData.AccountNumber || ''));
+  form.append('Bank', String(payoutData.Bank || ''));
+  form.append('IFSC', String(payoutData.IFSC || ''));
+  form.append('Mode', String(payoutData.Mode || 'IMPS'));
+  form.append('OrderId', String(payoutData.OrderId || ''));
+  form.append('Mobile', String(payoutData.Mobile || ''));
+
+  // Log request fields for debugging
+  logger.info('PayInFintech: full form-data fields', {
+    Amount: payoutData.Amount,
+    AccountNumber: payoutData.AccountNumber,
     Bank: payoutData.Bank,
     IFSC: payoutData.IFSC,
-    Mode: payoutData.Mode || 'IMPS',
+    Mode: payoutData.Mode,
     OrderId: payoutData.OrderId,
-    Mobile: Number(payoutData.Mobile),
-  };
+    Mobile: payoutData.Mobile,
+  });
 
   try {
     const response = await axios.post(
       `${BASE_URL}/partner/payout`,
-      body,
+      form,
       {
         headers: {
-          'Content-Type': 'application/json',
+          ...form.getHeaders(),
           ...getAuthHeaders(token),
         },
       },
@@ -229,9 +239,10 @@ export const initiatePayInFintechPayout = async (payoutData, companyId) => {
 
     logger.info('PayInFintech: payout API response', { code, raw });
 
-    // Error codes — throw immediately
+    // Error codes — throw immediately with API message if available
     if (INITIATION_ERROR_MESSAGES[code]) {
-      throw new BadRequestError(INITIATION_ERROR_MESSAGES[code]);
+      const errorMessage = raw?.message || INITIATION_ERROR_MESSAGES[code];
+      throw new BadRequestError(errorMessage);
     }
 
     const internalStatus = PAYOUT_STATUS_MAP[code];
