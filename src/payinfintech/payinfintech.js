@@ -6,7 +6,7 @@ import { logger } from '../utils/logger.js';
 import { sendSuccess } from '../utils/responseHandlers.js';
 import { customAlphabet } from 'nanoid';
 import { getPayoutByTxnId } from '../apis/payOut/payOutDao.js';
-import { getCompanyByIDDao } from '../apis/company/companyDao.js';
+import { getCompanyByIDDao, updateCompanyDao } from '../apis/company/companyDao.js';
 
 //  Nanoid (alphanumeric, max 16 chars for OrderId) 
 // "TXN" prefix (3 chars) + 10-digit timestamp (13 chars) = 16 chars total
@@ -16,6 +16,16 @@ const nanoid = customAlphabet(
 );
 
 const BASE_URL = 'https://api.payinfintech.com';
+
+/**
+ * Abstraction for authentication headers.
+ * To switch to secret key, change the implementation here.
+ * @param {string} tokenOrKey
+ * @returns {object}
+ */
+const getAuthHeaders = (tokenOrKey) => ({
+  Authorization: `Bearer ${tokenOrKey}`, // Switch to e.g. 'X-Secret-Key': tokenOrKey later
+});
 
 //  Status code maps 
 const PAYOUT_STATUS_MAP = {
@@ -70,9 +80,8 @@ export const generatePayInFintechOrderId = async () => {
 // Step 1: Authenticate 
 /**
  * Obtain a bearer token from PayInFintech.
- * Re-authenticates on every call (no shared token cache per the spec).
  * @param {{ Email: string, Password: string }} credentials
- * @returns {Promise<string>} Bearer token
+ * @returns {Promise<{ token: string, expiresAt: string }>} 
  */
 const authenticate = async (credentials = {}) => {
   // Try to get credentials from: 1. Passed object, 2. Prefixed env vars, 3. Raw env vars
@@ -92,13 +101,9 @@ const authenticate = async (credentials = {}) => {
   }
 
   try {
-    // Some APIs are case-sensitive. We send both PascalCase and lowercase to be safe,
-    // as the error "The email field is required" often implies a lowercase 'email' key requirement.
-    const loginPayload = { 
-      Email, 
-      Password,
+    const loginPayload = {
       email: Email,
-      password: Password 
+      password: Password
     };
 
     const response = await axios.post(
@@ -107,10 +112,9 @@ const authenticate = async (credentials = {}) => {
       { headers: { 'Content-Type': 'application/json' } },
     );
 
-    const token =
-      response.data?.token ||
-      response.data?.data?.token ||
-      response.data?.access_token;
+    const data = response.data?.data || response.data;
+    const token = data.access_token || data.token;
+    const expiresAt = data.expire_date_time;
 
     if (!token) {
       throw new BadRequestError(
@@ -118,10 +122,10 @@ const authenticate = async (credentials = {}) => {
       );
     }
 
-    logger.info('PayInFintech: authenticated successfully', { 
-      source: credentials.Email ? 'database-config' : 'process-env' 
+    logger.info('PayInFintech: authenticated successfully', {
+      source: credentials.Email ? 'database-config' : 'process-env'
     });
-    return token;
+    return { token, expiresAt };
   } catch (error) {
     if (error.response?.status === 400) {
       throw new BadRequestError(
@@ -137,21 +141,65 @@ const authenticate = async (credentials = {}) => {
   }
 };
 
+/**
+ * Internal helper to ensure we have a valid bearer token for PayInFintech.
+ * Checks DB config first, then re-authenticates if expired/missing.
+ * @param {string} companyId
+ * @returns {Promise<string>}
+ */
+const getValidToken = async (companyId) => {
+  const [company] = await getCompanyByIDDao({ id: companyId });
+  if (!company?.config?.PAYINFINTECH) {
+    throw new BadRequestError('PayInFintech: configuration not found for company');
+  }
+
+  const config = company.config.PAYINFINTECH;
+  const { access_token, expire_date_time } = config;
+
+  // Check if token exists and is not expired (with 5 min buffer)
+  if (access_token && expire_date_time) {
+    const expiryDate = new Date(expire_date_time);
+    const now = new Date();
+    if (expiryDate > new Date(now.getTime() + 5 * 60 * 1000)) {
+      return access_token;
+    }
+  }
+
+  // Missing or expired, get a new one
+  const { token, expiresAt } = await authenticate(config);
+
+  // Store back to DB alongside existing Email, Password, and defaultBankId
+  const updatedPAYINFINTECH = {
+    ...config,
+    access_token: token,
+    expire_date_time: expiresAt,
+  };
+
+  const updatedConfig = {
+    ...company.config,
+    PAYINFINTECH: updatedPAYINFINTECH,
+  };
+
+  await updateCompanyDao({ id: companyId }, { config: updatedConfig });
+
+  return token;
+};
+
 //  Initiate Payout 
 /**
  * Authenticate and initiate a single payout via PayInFintech.
  * @param {object} payoutData   - Mapped payout fields
- * @param {object} credentials  - { Email, Password }
+ * @param {string} companyId    - Company ID for token retrieval
  * @returns {Promise<{ status: string, orderId: string, rawResponse: object }>}
  */
-export const initiatePayInFintechPayout = async (payoutData, credentials) => {
+export const initiatePayInFintechPayout = async (payoutData, companyId) => {
   logger.info('PayInFintech: initiating payout', {
     orderId: payoutData.OrderId,
     amount: payoutData.Amount,
   });
 
-  // Step 1 — Authenticate
-  const token = await authenticate(credentials);
+  // Step 1 — Get valid token
+  const token = await getValidToken(companyId);
 
   // Step 2 — Initiate payout
   const body = {
@@ -171,7 +219,7 @@ export const initiatePayInFintechPayout = async (payoutData, credentials) => {
       {
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
+          ...getAuthHeaders(token),
         },
       },
     );
@@ -230,12 +278,9 @@ export const createPayInFintechPayout = async (
       throw new Error('Payout method missing in payload');
     }
 
-    // Pull credentials from company config (set by the caller via company.config.PAYINFINTECH)
-    const credentials = payload?.config?._payinfintechCredentials;
-    if (!credentials?.Email || !credentials?.Password) {
-      throw new BadRequestError(
-        'PayInFintech: credentials (Email / Password) not found in config',
-      );
+    // We use companyId to get the token, which handles credentials internally
+    if (!ids.company_id) {
+      throw new BadRequestError('PayInFintech: company_id is missing');
     }
 
     // Generate unique OrderId (max 16 chars)
@@ -258,7 +303,7 @@ export const createPayInFintechPayout = async (
         '9999999999',
     };
 
-    apiResult = await initiatePayInFintechPayout(payoutData, credentials);
+    apiResult = await initiatePayInFintechPayout(payoutData, ids.company_id);
 
     payload.bank_acc_id = bankId;
     payload.config.txnid = orderId;
@@ -308,14 +353,14 @@ export const createPayInFintechPayout = async (
 /**
  * Authenticate and check the status of an existing payout.
  * @param {string} orderId      - The OrderId used when initiating
- * @param {object} credentials  - { Email, Password }
+ * @param {string} companyId    - Company ID for token retrieval
  * @returns {Promise<{ status: string, rawResponse: object }>}
  */
-export const checkPayInFintechPayoutStatus = async (orderId, credentials) => {
+export const checkPayInFintechPayoutStatus = async (orderId, companyId) => {
   logger.info('PayInFintech: checking payout status', { orderId });
 
-  // Step 1 — Authenticate
-  const token = await authenticate(credentials);
+  // Step 1 — Get valid token
+  const token = await getValidToken(companyId);
 
   // Step 2 — Check status via multipart/form-data
   try {
@@ -328,7 +373,7 @@ export const checkPayInFintechPayoutStatus = async (orderId, credentials) => {
       {
         headers: {
           ...form.getHeaders(),
-          Authorization: `Bearer ${token}`,
+          ...getAuthHeaders(token),
         },
       },
     );
@@ -390,36 +435,22 @@ export const getPayInFintechWalletBalance = async (reqOrParams, res) => {
       throw new BadRequestError('PayInFintech: company_id is missing');
     }
 
-    const [company] = await getCompanyByIDDao({ id: company_id });
+    const token = await getValidToken(company_id);
 
-    // TEMPORARY DEBUG LOG: Confirm the shape of the config object from DB
-    console.log('DEBUG: PayInFintech raw config from DB:', JSON.stringify(company?.config?.PAYINFINTECH, null, 2));
-
-    if (!company?.config?.PAYINFINTECH) {
-      throw new BadRequestError(
-        'PayInFintech: configuration not found for company',
-      );
-    }
-
-    const { Email, Password } = company.config.PAYINFINTECH;
-    if (!Email || !Password) {
-      logger.warn('PayInFintech: Email/Password missing in DB config, falling back to ENV');
-    }
-
-    const token = await authenticate({ Email, Password });
-
-    const response = await axios.get(`${BASE_URL}/partner/balance`, {
+    const response = await axios.post(`${BASE_URL}/partner/wallet-balance-v1`, {
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
+        ...getAuthHeaders(token),
       },
     });
 
     logger.info('PayInFintech: wallet balance response', response.data);
 
-    const raw = response.data?.data || response.data;
+    const raw = response.data;
     const data = {
-      walletBalance: parseFloat(raw?.balance ?? raw?.availableBalance ?? 0),
+      walletBalance: parseFloat(
+        raw?.Payout_wallet_amount ?? raw?.balance ?? raw?.availableBalance ?? 0,
+      ),
       rawResponse: raw,
     };
 
