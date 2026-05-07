@@ -3912,6 +3912,7 @@ const _verifyPayinsServiceInternal = async (
     const merchantIntent = merchant[0]?.config?.allow_intent;
     let cashfreeDetails = null;
     let selectedIntent = null;
+    let paytmdetails = null;
     if (merchantIntent && bankIntents.length > 0) {
       cashfreeDetails = await getCashfreeAllowByCompanyIdDao(payIn.company_id);
       const allowedIntents = bankIntents.filter(
@@ -3921,6 +3922,9 @@ const _verifyPayinsServiceInternal = async (
         selectedIntent =
           allowedIntents[Math.floor(Math.random() * allowedIntents.length)];
       }
+    }
+    else {
+   paytmdetails = await getCashfreeAllowByCompanyIdDao(payIn.company_id);
     }
 
     const result = {
@@ -3994,6 +3998,7 @@ const _verifyPayinsServiceInternal = async (
       is_bank: enabledBanks.some((bank) => bank.is_bank),
       redirect_url: payIn.config?.urls?.return,
       isAdmin: role === Role.ADMIN ? true : false,
+      is_paytm:paytmdetails?.is_paytm_enabled || false,
     };
     const response = {
       ...result,
