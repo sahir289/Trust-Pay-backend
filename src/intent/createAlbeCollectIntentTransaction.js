@@ -2,7 +2,7 @@ import crypto from 'crypto';
 import axios from 'axios';
 import { logger } from '../utils/logger.js';
 import config from '../config/config.js';
-
+import { updatePayInUrlDao } from '../apis/payIn/payInDao.js';
 /**
  * Generate hash for AlbeCollect
  * @param {string} mid - Merchant ID
@@ -47,8 +47,6 @@ export const createAlbeCollectTransaction = async (providerKey, deposit, amount)
       amount: formattedAmount,
       remarks: 'Payin',
       orderId: deposit.merchant_order_id,
-      paymentReferenceNo: deposit.merchant_order_id,
-      transactionId: deposit.id,
       currency: deposit.currency || 'INR',
     };
 
@@ -68,12 +66,13 @@ export const createAlbeCollectTransaction = async (providerKey, deposit, amount)
         'Content-Type': 'application/json',
       },
     });
-   console.log(`${providerKey} transaction response:`, response.data);
     logger.info(`${providerKey} transaction  :`, {
       requestBody,
-      response: response.data,
+      response: response.data.data.paymentReferenceNo,
     });
-
+    await updatePayInUrlDao(deposit.id, {
+      config: { ...deposit.config, clientRefNo: response.data.data.clientRefNo },
+    });
     return response.data;
   } catch (error) {
     logger.error(`Error creating ${providerKey} transaction:`, {
