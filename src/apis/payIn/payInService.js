@@ -1035,11 +1035,16 @@ export const payInIntentGenerateOrderService = async (
       throw new NotFoundError(`No session_id found for provider: ${provider}`);
     }
 
-    return {
+    const response = {
       id: payIn.id,
-      session_id,
       return: payIn.config?.urls?.return || '',
     };
+    if (provider === 'albeCollect') {
+      response.paymentLink = session_id;
+    } else {
+      response.session_id = session_id;
+    }
+    return response;
   } catch (error) {
     logger.error('Error generate intent payin:', error.message);
     throw error;
