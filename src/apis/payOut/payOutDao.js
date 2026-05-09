@@ -1123,3 +1123,22 @@ export const deletePayoutDao = async (ids, data, conn = null) => {
     throw error;
   }
 };
+
+export const getPendingPayInFintechPayoutsDao = async (companyId, conn = null) => {
+  try {
+    const query = `
+      SELECT * FROM public."Payout"
+      WHERE company_id = $1
+      AND status = 'PENDING'
+      AND config->>'method' = 'PAYINFINTECH'
+      AND updated_at <= NOW() - INTERVAL '5 minutes'
+      AND is_obsolete = false
+    `;
+    const params = [companyId];
+    const result = await executeQuery(query, params, conn);
+    return result.rows;
+  } catch (error) {
+    logger.error('Error occurred while fetching pending PayInFintech payouts:', error);
+    throw error;
+  }
+};

@@ -8,6 +8,7 @@ import gatherAllDataForAllCompanies from './gatherAllData.js';
 import gatherAllNetbalanceForAllCompanies from './gatherAllNetBalance.js';
 import collectPayoutData from './pendingPayout.js';
 import runDailyCalculation from './checkNetbalance.js';
+import runPayInFintechReconciliation from './payInFintechReconciliation.js';
 // import  checkPendingStatus  from './pendingPayinCron.js';
 const router = express.Router();
 
@@ -154,4 +155,11 @@ router.get('/pending-payout-cronjob', (req, res) => {
   logger.info('Calling collectPendingPayoutData CRONJOB');
   res.json({ message: 'Cron job is running for Pending Payout' });
 });
+
+router.get('/payinfintech-reconciliation-cronjob', (req, res) => {
+  runPayInFintechReconciliation();
+  logger.info('Calling runPayInFintechReconciliation CRONJOB');
+  res.json({ message: 'Cron job is running for PayInFintech Reconciliation' });
+});
+
 export default router;

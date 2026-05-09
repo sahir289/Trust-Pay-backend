@@ -5,8 +5,9 @@ import { BadRequestError } from '../utils/appErrors.js';
 import { logger } from '../utils/logger.js';
 import { sendSuccess } from '../utils/responseHandlers.js';
 import { customAlphabet } from 'nanoid';
-import { getPayoutByTxnId } from '../apis/payOut/payOutDao.js';
+import { getPayoutByTxnId, getPendingPayInFintechPayoutsDao } from '../apis/payOut/payOutDao.js';
 import { getCompanyByIDDao, updateCompanyDao } from '../apis/company/companyDao.js';
+import { _updatePayoutServiceInternal } from '../apis/payOut/payOutService.js';
 
 //  Nanoid (alphanumeric, max 16 chars for OrderId) 
 // "TXN" prefix (3 chars) + 10-digit timestamp (13 chars) = 16 chars total
@@ -509,3 +510,71 @@ export const getPayInFintechWalletBalance = async (reqOrParams, res) => {
     throw error;
   }
 };
+
+// ─── Reconciliation ────────────────────────────────────────────────────────────
+/**
+ * Polling fallback: Queries DB for PayInFintech payouts stuck in PENDING for >5 mins
+ * and checks their status. Updates to APPROVED/REJECTED as needed.
+ * @param {string} companyId - Company ID to run reconciliation for
+ */
+export const reconcilePayInFintechPendingPayouts = async (companyId) => {
+  logger.info(`PayInFintech: Starting reconciliation for company ${companyId}`);
+  try {
+    const pendingPayouts = await getPendingPayInFintechPayoutsDao(companyId);
+    
+    if (!pendingPayouts || pendingPayouts.length === 0) {
+      logger.info(`PayInFintech: No pending payouts older than 5 mins for company ${companyId}`);
+      return;
+    }
+
+    logger.info(`PayInFintech: Found ${pendingPayouts.length} pending payouts for reconciliation`, { companyId });
+
+    for (const payout of pendingPayouts) {
+      const orderId = payout.config?.txnid;
+      if (!orderId) {
+        logger.warn(`PayInFintech: Payout ${payout.id} missing txnid in config. Skipping.`);
+        continue;
+      }
+
+      try {
+        const statusResult = await checkPayInFintechPayoutStatus(orderId, companyId);
+        
+        if (statusResult.status === Status.APPROVED || statusResult.status === Status.REJECTED) {
+          const updatePayload = {
+            status: statusResult.status,
+            config: {
+              ...payout.config,
+            }
+          };
+
+          if (statusResult.status === Status.APPROVED) {
+            updatePayload.approved_at = new Date().toISOString();
+            updatePayload.utr_id = statusResult.rawResponse?.utr || statusResult.rawResponse?.utrId || payout.utr_id || '';
+          } else if (statusResult.status === Status.REJECTED) {
+            updatePayload.rejected_at = new Date().toISOString();
+            const reason = statusResult.rawResponse?.message || statusResult.rawResponse?.remark || statusResult.rawResponse?.data?.message || statusResult.rawResponse?.data?.remark || 'Transaction rejected by PayInFintech';
+            updatePayload.config.rejected_reason = reason;
+          }
+
+          logger.info(`PayInFintech: Reconciling payout ${payout.id} to ${statusResult.status}`);
+          
+          await _updatePayoutServiceInternal(
+            { id: payout.id, company_id: companyId },
+            updatePayload,
+            null, // No req context
+            null  // No conn, it manages its own transaction
+          );
+
+          logger.info(`PayInFintech: Successfully updated payout ${payout.id} via reconciliation`);
+        }
+      } catch (err) {
+        logger.error(`PayInFintech: Error reconciling payout ${payout.id}`, err.message);
+      }
+    }
+    
+    logger.info(`PayInFintech: Finished reconciliation for company ${companyId}`);
+  } catch (error) {
+    logger.error(`PayInFintech: Error in reconcilePayInFintechPendingPayouts for company ${companyId}`, error.message);
+  }
+};
+

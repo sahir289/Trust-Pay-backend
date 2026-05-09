@@ -40,14 +40,15 @@ export const payInFintechTransactionStatusCallback = async (req, res) => {
       return res.status(404).send('Payment not found');
     }
 
-    // Idempotency guard – skip terminal statuses
-    if (![Status.INITIATED, Status.PENDING].includes(singleWithdrawData.status)) {
-      logger.info('PayInFintech: payout already processed', {
-        payoutId: singleWithdrawData.id,
-        status: singleWithdrawData.status,
+    const existingPayout = singleWithdrawData;
+    // Idempotency guard
+    if (existingPayout.status === Status.APPROVED || existingPayout.status === Status.REJECTED) {
+      logger.info('PayInFintech: duplicate callback received, skipping', {
+        orderId,
+        currentStatus: existingPayout.status,
       });
       await rollback(conn);
-      return res.status(200).send('Payout already processed');
+      return res.status(200).json({ message: 'Already processed' });
     }
 
     const [company] = await getCompanyByIDDao(
@@ -88,17 +89,35 @@ export const payInFintechTransactionStatusCallback = async (req, res) => {
       updatePayload.status = Status.PENDING;
     } else if ([110, 111].includes(statusCode)) {
       // REJECTED
+      const rejectionReason = payload?.message ||
+        payload?.remark ||
+        payload?.data?.message ||
+        payload?.data?.remark ||
+        'Transaction rejected by PayInFintech';
+
       updatePayload.status = Status.REJECTED;
-      updatePayload.config.rejected_reason =
-        payload?.message || 'Transaction rejected by PayInFintech';
+      updatePayload.config.rejected_reason = rejectionReason;
       updatePayload.rejected_at = new Date().toISOString();
+
+      logger.info('PayInFintech: rejection reason stored', { orderId, rejectionReason });
     } else {
-      // Unknown – treat as PENDING to avoid accidental REJECTED
-      logger.warn('PayInFintech: unknown status code in callback', {
+      // Unknown/Reversed – treat as REJECTED with raw message as reason
+      const rejectionReason = payload?.message ||
+        payload?.remark ||
+        payload?.data?.message ||
+        payload?.data?.remark ||
+        'Transaction rejected by PayInFintech';
+
+      logger.warn('PayInFintech: unknown status code in callback, treating as REJECTED', {
         statusCode,
         orderId,
       });
-      updatePayload.status = Status.PENDING;
+
+      updatePayload.status = Status.REJECTED;
+      updatePayload.config.rejected_reason = rejectionReason;
+      updatePayload.rejected_at = new Date().toISOString();
+
+      logger.info('PayInFintech: rejection reason stored', { orderId, rejectionReason });
     }
 
     logger.info('PayInFintech: final update payload', updatePayload);
