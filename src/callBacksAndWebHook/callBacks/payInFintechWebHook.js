@@ -19,7 +19,7 @@ export const payInFintechTransactionStatusCallback = async (req, res) => {
   logger.info('PayInFintech: received callback payload', payload);
 
   const orderId = payload?.orderId || payload?.OrderId || payload?.order_id;
-  const statusCode = Number(payload?.status ?? payload?.statusCode ?? payload?.code);
+  const statusCode = Number(payload?.Status_code ?? payload?.status_code ?? payload?.statusCode ?? payload?.status ?? payload?.code);
 
   let conn;
   let committed = false;
