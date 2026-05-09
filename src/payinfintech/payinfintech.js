@@ -1,5 +1,5 @@
 import axios from 'axios';
-import FormData from 'form-data';
+import FormData from 'form-data'; // Still used by checkPayInFintechPayoutStatus
 import { Status } from '../constants/index.js';
 import { BadRequestError } from '../utils/appErrors.js';
 import { logger } from '../utils/logger.js';
@@ -28,9 +28,16 @@ const getAuthHeaders = (tokenOrKey) => ({
 });
 
 //  Status code maps 
+// Confirmed working codes from live test:
+// 107 = Initiated → PENDING
+// 106 = Success   → APPROVED
+// 108 = Pending   → PENDING
+// 109 = In Progress → PENDING
+// 110 = Failed    → REJECTED
+// 111 = Request Time Limit → REJECTED
 const PAYOUT_STATUS_MAP = {
-  106: Status.APPROVED,
   107: Status.PENDING,
+  106: Status.APPROVED,
   108: Status.PENDING,
   109: Status.PENDING,
   110: Status.REJECTED,
@@ -45,7 +52,10 @@ const CHECK_STATUS_MAP = {
   104: Status.REJECTED,
 };
 
-// Error messages for initiation codes 
+// Error codes for initiation — throw BadRequestError immediately
+// 103 = Insufficient Balance
+// 104 = Withdraw Limit
+// 105 = Service Inactive
 const INITIATION_ERROR_MESSAGES = {
   101: 'PayInFintech: Validation error',
   102: 'PayInFintech: Authentication failed',
@@ -201,41 +211,35 @@ export const initiatePayInFintechPayout = async (payoutData, companyId) => {
   // Step 1 — Get valid token
   const token = await getValidToken(companyId);
 
-  // Step 2 — Initiate payout via multipart/form-data
-  const form = new FormData();
-  form.append('Amount', String(payoutData.Amount || 0));
-  form.append('AccountNumber', String(payoutData.AccountNumber || ''));
-  form.append('Bank', String(payoutData.Bank || ''));
-  form.append('IFSC', String(payoutData.IFSC || ''));
-  form.append('Mode', String(payoutData.Mode || 'IMPS'));
-  form.append('OrderId', String(payoutData.OrderId || ''));
-  form.append('Mobile', String(payoutData.Mobile || ''));
+  // Step 2 — Build JSON body with confirmed PascalCase field names
+  const body = {
+    Amount: Number(payoutData.Amount),
+    AccountNumber: String(payoutData.AccountNumber || ''),
+    BenificalName: String(payoutData.BenificalName || ''),
+    Bank: String(payoutData.Bank || ''),
+    IFSC: String(payoutData.IFSC || ''),
+    Mode: String(payoutData.Mode || 'IMPS'),
+    OrderId: String(payoutData.OrderId || ''),
+    Mobile: String(payoutData.Mobile || ''),
+  };
 
   // Log request fields for debugging
-  logger.info('PayInFintech: full form-data fields', {
-    Amount: payoutData.Amount,
-    AccountNumber: payoutData.AccountNumber,
-    Bank: payoutData.Bank,
-    IFSC: payoutData.IFSC,
-    Mode: payoutData.Mode,
-    OrderId: payoutData.OrderId,
-    Mobile: payoutData.Mobile,
-  });
+  logger.info('PayInFintech: payout JSON body', body);
 
   try {
     const response = await axios.post(
       `${BASE_URL}/partner/payout`,
-      form,
+      body,
       {
         headers: {
-          ...form.getHeaders(),
+          'Content-Type': 'application/json',
           ...getAuthHeaders(token),
         },
       },
     );
 
     const raw = response.data;
-    const code = raw?.status ?? raw?.code ?? raw?.statusCode;
+    const code = raw?.Status_code ?? raw?.status_code ?? raw?.statusCode;
 
     logger.info('PayInFintech: payout API response', { code, raw });
 
@@ -253,6 +257,7 @@ export const initiatePayInFintechPayout = async (payoutData, companyId) => {
     return {
       status: internalStatus || Status.PENDING,
       orderId: payoutData.OrderId,
+      txnId: raw?.data?.txnId || null,
       rawResponse: raw,
     };
   } catch (error) {
@@ -297,11 +302,25 @@ export const createPayInFintechPayout = async (
     // Generate unique OrderId (max 16 chars)
     const orderId = await generatePayInFintechOrderId();
 
+    // DEBUG: log singleWithdrawData shape to find the correct account holder name field
+    console.log('PayInFintech: singleWithdrawData keys', JSON.stringify({
+      account_name: singleWithdrawData.account_name,
+      name: singleWithdrawData.name,
+      user_bank_details: singleWithdrawData.user_bank_details,
+      user: singleWithdrawData.user,
+      beneficiary_name: singleWithdrawData.beneficiary_name,
+      holder_name: singleWithdrawData.holder_name,
+    }, null, 2));
+
     // Map fields from the internal payout record
     const payoutData = {
       Amount: singleWithdrawData.amount,
       AccountNumber: singleWithdrawData.user_bank_details?.account_no ||
         singleWithdrawData.acc_no,
+      BenificalName: singleWithdrawData.user_bank_details?.account_holder_name ||
+        singleWithdrawData.user_bank_details?.account_name ||
+        singleWithdrawData.account_name ||
+        '',
       Bank: singleWithdrawData.user_bank_details?.bank_name ||
         singleWithdrawData.bank_name,
       IFSC: singleWithdrawData.user_bank_details?.ifsc_code ||
@@ -318,13 +337,14 @@ export const createPayInFintechPayout = async (
 
     payload.bank_acc_id = bankId;
     payload.config.txnid = orderId;
+    payload.utr_id = apiResult.txnId || '';
 
     // Clean up the internal credentials from the stored config
     delete payload.config._payinfintechCredentials;
 
     if (apiResult.status === Status.APPROVED) {
       payload.status = Status.APPROVED;
-      payload.utr_id = payload.utr_id || '';
+      payload.utr_id = apiResult.txnId || payload.utr_id || '';
       payload.approved_at = new Date().toISOString();
     } else if (apiResult.status === Status.REJECTED) {
       payload.status = Status.REJECTED;
@@ -390,7 +410,7 @@ export const checkPayInFintechPayoutStatus = async (orderId, companyId) => {
     );
 
     const raw = response.data;
-    const code = raw?.status ?? raw?.code ?? raw?.statusCode;
+    const code = raw?.Status_code ?? raw?.status_code ?? raw?.statusCode;
 
     logger.info('PayInFintech: status check response', { code, raw });
 
