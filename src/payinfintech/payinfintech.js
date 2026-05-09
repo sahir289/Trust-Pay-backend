@@ -7,7 +7,7 @@ import { sendSuccess } from '../utils/responseHandlers.js';
 import { customAlphabet } from 'nanoid';
 import { getPayoutByTxnId, getPendingPayInFintechPayoutsDao } from '../apis/payOut/payOutDao.js';
 import { getCompanyByIDDao, updateCompanyDao } from '../apis/company/companyDao.js';
-import { _updatePayoutServiceInternal } from '../apis/payOut/payOutService.js';
+import { updatePayoutService } from '../apis/payOut/payOutService.js';
 
 //  Nanoid (alphanumeric, max 16 chars for OrderId) 
 // "TXN" prefix (3 chars) + 10-digit timestamp (13 chars) = 16 chars total
@@ -338,14 +338,20 @@ export const createPayInFintechPayout = async (
 
     payload.bank_acc_id = bankId;
     payload.config.txnid = orderId;
-    payload.utr_id = apiResult.txnId || '';
+    payload.config.payinfintech_txnid = apiResult.txnId || '';
+    payload.utr_id = ''; // UTR only available after completion via webhook or poll
 
     // Clean up the internal credentials from the stored config
     delete payload.config._payinfintechCredentials;
 
     if (apiResult.status === Status.APPROVED) {
       payload.status = Status.APPROVED;
-      payload.utr_id = apiResult.txnId || payload.utr_id || '';
+      payload.utr_id = apiResult.rawResponse?.utrNumber || 
+        apiResult.rawResponse?.utr || 
+        apiResult.rawResponse?.UTR || 
+        apiResult.rawResponse?.rrn || 
+        apiResult.rawResponse?.data?.utrNumber ||
+        apiResult.rawResponse?.data?.utr || '';
       payload.approved_at = new Date().toISOString();
     } else if (apiResult.status === Status.REJECTED) {
       payload.status = Status.REJECTED;
@@ -549,7 +555,12 @@ export const reconcilePayInFintechPendingPayouts = async (companyId) => {
 
           if (statusResult.status === Status.APPROVED) {
             updatePayload.approved_at = new Date().toISOString();
-            updatePayload.utr_id = statusResult.rawResponse?.utr || statusResult.rawResponse?.utrId || payout.utr_id || '';
+            updatePayload.utr_id = statusResult.rawResponse?.utrNumber || 
+              statusResult.rawResponse?.utr || 
+              statusResult.rawResponse?.UTR || 
+              statusResult.rawResponse?.rrn || 
+              statusResult.rawResponse?.data?.utrNumber ||
+              statusResult.rawResponse?.data?.utr || payout.utr_id || '';
           } else if (statusResult.status === Status.REJECTED) {
             updatePayload.rejected_at = new Date().toISOString();
             const reason = statusResult.rawResponse?.message || statusResult.rawResponse?.remark || statusResult.rawResponse?.data?.message || statusResult.rawResponse?.data?.remark || 'Transaction rejected by PayInFintech';
@@ -558,11 +569,10 @@ export const reconcilePayInFintechPendingPayouts = async (companyId) => {
 
           logger.info(`PayInFintech: Reconciling payout ${payout.id} to ${statusResult.status}`);
           
-          await _updatePayoutServiceInternal(
+          await updatePayoutService(
             { id: payout.id, company_id: companyId },
             updatePayload,
-            null, // No req context
-            null  // No conn, it manages its own transaction
+            null // Role
           );
 
           logger.info(`PayInFintech: Successfully updated payout ${payout.id} via reconciliation`);

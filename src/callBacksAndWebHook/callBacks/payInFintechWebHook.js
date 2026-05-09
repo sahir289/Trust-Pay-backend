@@ -16,7 +16,7 @@ import {
 
 export const payInFintechTransactionStatusCallback = async (req, res) => {
   const payload = req.body;
-  logger.info('PayInFintech: received callback payload', payload);
+  logger.info('PayInFintech: full callback payload', payload);
 
   const orderId = payload?.orderId || payload?.OrderId || payload?.order_id;
   const statusCode = Number(payload?.Status_code ?? payload?.status_code ?? payload?.statusCode ?? payload?.status ?? payload?.code);
@@ -81,7 +81,12 @@ export const payInFintechTransactionStatusCallback = async (req, res) => {
       // APPROVED
       Object.assign(updatePayload, {
         status: Status.APPROVED,
-        utr_id: payload?.utr || payload?.utrId || '',
+        utr_id: payload?.utrNumber || 
+          payload?.utr || 
+          payload?.UTR || 
+          payload?.rrn || 
+          payload?.data?.utrNumber ||
+          payload?.data?.utr || '',
         approved_at: new Date().toISOString(),
       });
     } else if ([107, 108, 109].includes(statusCode)) {
