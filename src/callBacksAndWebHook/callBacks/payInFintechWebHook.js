@@ -64,9 +64,10 @@ export const payInFintechTransactionStatusCallback = async (req, res) => {
       bank_acc_id: bankId,
       vendor_id: vendor?.id,
       config: {
-        method: 'PAYINFINTECH',
+        ...singleWithdrawData.config, // Preserve existing config
         description: 'Payout processing via PayInFintech',
         orderId,
+        _isCallbackUpdate: true, // Flag to prevent triggering payout creation
       },
     };
 
@@ -126,6 +127,12 @@ export const payInFintechTransactionStatusCallback = async (req, res) => {
     }
 
     logger.info('PayInFintech: final update payload', updatePayload);
+
+    // Merge config properly to preserve existing fields
+    updatePayload.config = {
+      ...singleWithdrawData.config,
+      ...updatePayload.config,
+    };
 
     await _updatePayoutServiceInternal(
       {
