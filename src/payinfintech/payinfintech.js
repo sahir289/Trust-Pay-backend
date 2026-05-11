@@ -337,14 +337,20 @@ export const createPayInFintechPayout = async (
 
     payload.bank_acc_id = bankId;
     payload.config.txnid = orderId;
-    payload.utr_id = apiResult.txnId || '';
+    payload.config.payinfintech_txnid = apiResult.txnId || '';
+    payload.utr_id = ''; // UTR only available after completion via webhook or poll
 
     // Clean up the internal credentials from the stored config
     delete payload.config._payinfintechCredentials;
 
     if (apiResult.status === Status.APPROVED) {
       payload.status = Status.APPROVED;
-      payload.utr_id = apiResult.txnId || payload.utr_id || '';
+      payload.utr_id = apiResult.rawResponse?.utrNumber || 
+        apiResult.rawResponse?.utr || 
+        apiResult.rawResponse?.UTR || 
+        apiResult.rawResponse?.rrn || 
+        apiResult.rawResponse?.data?.utrNumber ||
+        apiResult.rawResponse?.data?.utr || '';
       payload.approved_at = new Date().toISOString();
     } else if (apiResult.status === Status.REJECTED) {
       payload.status = Status.REJECTED;
@@ -509,3 +515,4 @@ export const getPayInFintechWalletBalance = async (reqOrParams, res) => {
     throw error;
   }
 };
+
