@@ -1,10 +1,11 @@
 // PayInFintech payout webhook / callback handler
 import { getBankByIdDao } from '../../apis/bankAccounts/bankaccountDao.js';
-import { getPayoutByTxnId, updatePayoutDao } from '../../apis/payOut/payOutDao.js';
+import { getPayoutByTxnId } from '../../apis/payOut/payOutDao.js';
 import { Role, Status } from '../../constants/index.js';
 import { logger } from '../../utils/logger.js';
 import { getCompanyByIDDao } from '../../apis/company/companyDao.js';
 import { getVendorsDao } from '../../apis/vendors/vendorDao.js';
+import { _updatePayoutServiceInternal } from '../../apis/payOut/payOutService.js';
 import { getUserByCompanyCreatedAtDao } from '../../apis/users/userDao.js';
 import {
   beginTransaction,
@@ -64,9 +65,9 @@ export const payInFintechTransactionStatusCallback = async (req, res) => {
       vendor_id: vendor?.id,
       config: {
         ...singleWithdrawData.config, // Preserve existing config
-        // Don't set method here - it's already in the config and will trigger payout creation
         description: 'Payout processing via PayInFintech',
         orderId,
+        _isCallbackUpdate: true, // Flag to prevent triggering payout creation
       },
     };
 
@@ -127,13 +128,19 @@ export const payInFintechTransactionStatusCallback = async (req, res) => {
 
     logger.info('PayInFintech: final update payload', updatePayload);
 
-    // Use updatePayoutDao directly to avoid triggering payout creation logic
-    await updatePayoutDao(
+    // Merge config properly to preserve existing fields
+    updatePayload.config = {
+      ...singleWithdrawData.config,
+      ...updatePayload.config,
+    };
+
+    await _updatePayoutServiceInternal(
       {
         id: singleWithdrawData.id,
         company_id: singleWithdrawData.company_id,
       },
       updatePayload,
+      null,
       conn,
     );
 
