@@ -27,9 +27,9 @@ const runPayInFintechReconciliation = async () => {
 };
 
 if (isCronWorker && process.env.NODE_ENV === 'production') {
-  // Run every 5 minutes
-  payInFintechReconciliationCronJob = cron.schedule('*/5 * * * *', runPayInFintechReconciliation);
-  logger.info('PayInFintech reconciliation cron job initialized in cron worker');
+  // Run every 10 minutes
+  payInFintechReconciliationCronJob = cron.schedule('*/10 * * * *', runPayInFintechReconciliation);
+  logger.info('PayInFintech reconciliation cron job initialized in cron worker (runs every 10 minutes)');
 }
 
 export const stopPayInFintechReconciliationCron = () => {
