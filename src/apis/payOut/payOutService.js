@@ -1232,7 +1232,7 @@ const _updatePayoutServiceInternal = async (
       );
       payload = updatedPayload;
     }
-    else if (payload?.config?.method === Method.PAYINFINTECH && !payload?.config?._isCallbackUpdate) {
+    else if (payload?.config?.method === Method.PAYINFINTECH) {
       const method = payload.config.method;
 
       const [company] = await getCompanyByIDDao({ id: ids.company_id }, conn);
