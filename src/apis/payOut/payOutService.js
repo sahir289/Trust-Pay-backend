@@ -1238,9 +1238,15 @@ const _updatePayoutServiceInternal = async (
       const [company] = await getCompanyByIDDao({ id: ids.company_id }, conn);
       if (!company) throw new NotFoundError('Company not found');
 
+      // Allow if either allowPayInFintech flag is true, or PAYINFINTECH config exists (backward compatibility)
+      if (!(company.config?.allowPayInFintech || company.config?.PAYINFINTECH)) {
+        throw new BadRequestError('PayInFintech is not enabled for this company');
+      }
+
       const payinfintechConfig = company.config.PAYINFINTECH;
-      if (!payinfintechConfig)
+      if (!payinfintechConfig) {
         throw new NotFoundError(`PayInFintech configuration not found for company`);
+      }
 
       const bankId = payinfintechConfig.defaultBankId;
       if (!bankId)
@@ -1250,7 +1256,6 @@ const _updatePayoutServiceInternal = async (
       if (!bankDataArr[0])
         throw new NotFoundError(`Bank not found for ${method} payout`);
 
-      // Pass credentials transiently through payload.config (scrubbed inside createPayInFintechPayout)
       payload.config._payinfintechCredentials = {
         Email: payinfintechConfig.Email,
         Password: payinfintechConfig.Password,

@@ -151,6 +151,7 @@ import { createOnePayPaymentTransaction } from '../../intent/createOnePayIntentT
 import { createCpsPaymentTransaction } from '../../intent/createCpsIntentTransaction.js';
 import { createtytlPaymentTransaction } from '../../intent/createtytlPayIntentTransaction.js';
 import { createPayeasyTransaction } from '../../intent/createPayeasyIntentTransaction.js';
+import { createAlbeCollectTransaction } from '../../intent/createAlbeCollectIntentTransaction.js';
 
 export const generatePayInUrlByHashService = async (req) => {
   try {
@@ -273,6 +274,24 @@ export const generatePayInUrlByHashService = async (req) => {
     logger.error('Error generating payin hash:', error);
     throw error;
   }
+};
+const createPayInWithUniqueShortCode = async (data) => {
+  let attempts = 0;
+  while (attempts < 10) {
+    attempts += 1;
+    try {
+      return await generatePayInUrlDao({
+        ...data,
+        upi_short_code: nanoid(5),
+      });
+    } catch (error) {
+      if (error.code === '23505') {
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw new Error('Unable to generate unique short code after 10 attempts');
 };
 
 const isBankDisabled = (bank) => bank.is_enabled === false;
@@ -450,7 +469,6 @@ export const generatePayInUrlService = async (payload, role) => {
     }
 
     const data = {
-      upi_short_code: nanoid(10),
       amount: amount || 0,
       status: Status.INITIATED,
       currency: Currency.INR,
@@ -468,7 +486,7 @@ export const generatePayInUrlService = async (payload, role) => {
       created_by: role === Role.ADMIN ? admin.id : merchant?.user_id,
     };
 
-    const result = await generatePayInUrlDao(data);
+    const result = await createPayInWithUniqueShortCode(data);
 
     const responseObj = {
       ...result,
@@ -941,7 +959,6 @@ export const payInIntentGenerateOrderService = async (
   try {
     const payIn = await getPayInIntentDao(merchantOrderId);
     checkIsPayInExpired(payIn);
-
     const providerHandlers = {
       ZenTechInd: async () => {
         const order = await createPaymentTransaction(
@@ -1019,6 +1036,10 @@ export const payInIntentGenerateOrderService = async (
         );
         return order?.url;
       },
+      albeCollect: async () => {
+        const order = await createAlbeCollectTransaction('albeCollect', payIn, amount);
+        return order?.data?.paymentLink || null;
+      },
     };
     const handler = providerHandlers[provider];
     if (!handler) {
@@ -1031,11 +1052,16 @@ export const payInIntentGenerateOrderService = async (
       throw new NotFoundError(`No session_id found for provider: ${provider}`);
     }
 
-    return {
+    const response = {
       id: payIn.id,
-      session_id,
       return: payIn.config?.urls?.return || '',
     };
+    if (provider === 'albeCollect') {
+      response.paymentLink = session_id;
+    } else {
+      response.session_id = session_id;
+    }
+    return response;
   } catch (error) {
     logger.error('Error generate intent payin:', error.message);
     throw error;
@@ -3883,6 +3909,7 @@ const _verifyPayinsServiceInternal = async (
       'allow_razorpay',
       'allow_orvixpay',
       'allow_orvixpay1',
+      'allow_albecollect',
       'allow_vertexpay',
       'allow_payeasy',
       'allow_payeasy02',
@@ -3907,6 +3934,7 @@ const _verifyPayinsServiceInternal = async (
     const merchantIntent = merchant[0]?.config?.allow_intent;
     let cashfreeDetails = null;
     let selectedIntent = null;
+    let paytmdetails = null;
     if (merchantIntent && bankIntents.length > 0) {
       cashfreeDetails = await getCashfreeAllowByCompanyIdDao(payIn.company_id);
       const allowedIntents = bankIntents.filter(
@@ -3916,6 +3944,9 @@ const _verifyPayinsServiceInternal = async (
         selectedIntent =
           allowedIntents[Math.floor(Math.random() * allowedIntents.length)];
       }
+    }
+    else {
+   paytmdetails = await getCashfreeAllowByCompanyIdDao(payIn.company_id);
     }
 
     const result = {
@@ -3954,6 +3985,10 @@ const _verifyPayinsServiceInternal = async (
         (selectedIntent === 'allow_orvixpay1' &&
           cashfreeDetails?.allow_orvixpay1) ||
         false,
+      allowAlbeCollect:
+        (selectedIntent === 'allow_albecollect' &&
+          cashfreeDetails?.allow_albecollect) ||
+        false,
       allowVertexPay:
         (selectedIntent === 'allow_vertexpay' &&
           cashfreeDetails?.allow_vertexpay) ||
@@ -3985,6 +4020,8 @@ const _verifyPayinsServiceInternal = async (
       is_bank: enabledBanks.some((bank) => bank.is_bank),
       redirect_url: payIn.config?.urls?.return,
       isAdmin: role === Role.ADMIN ? true : false,
+      is_paytm:paytmdetails?.is_paytm_enabled || false,
+      short_code: paytmdetails?.is_paytm_enabled ? payIn?.upi_short_code : null,
     };
     const response = {
       ...result,

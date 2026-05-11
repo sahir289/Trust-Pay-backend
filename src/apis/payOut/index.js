@@ -344,7 +344,7 @@ router.post(
 router.get(
   '/payinfintech/payinfintech-balance',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
-  (req, res) => tryCatchHandler(getPayInFintechWalletBalance)(req, res),
+  tryCatchHandler(getPayInFintechWalletBalance),
 );
 
 router.post(
