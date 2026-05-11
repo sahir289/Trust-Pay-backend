@@ -33,6 +33,7 @@ import { multerUpload } from '../../utils/index.js';
 import getUserLocationMiddleware from '../../middlewares/locationRestrict.js';
 import dbConnScope from '../../middlewares/dbConnScope.js';
 import { checkApiKey } from '../../middlewares/checkApiKey.js';
+import { waitForCronMiddleware } from '../../middlewares/calculationLockMiddleware.js';
 
 const router = express.Router();
 
@@ -228,9 +229,9 @@ router.post(
  *       404:
  *         description: Pay-In URL not found
  */
-router.post('/process/:merchantOrderId', tryCatchHandler(processPayIn));
+router.post('/process/:merchantOrderId', waitForCronMiddleware, tryCatchHandler(processPayIn));
 
-router.post('/process-payin/:merchantOrderId', tryCatchHandler(processPayInH2H)); //h2h
+router.post('/process-payin/:merchantOrderId', waitForCronMiddleware, tryCatchHandler(processPayInH2H)); //h2h
 
 /**
  * @swagger
@@ -266,6 +267,7 @@ router.post('/process-payin/:merchantOrderId', tryCatchHandler(processPayInH2H))
 router.post(
   '/process-by-image/:merchantOrderId',
   multerUpload.single('file'),
+  waitForCronMiddleware,
   tryCatchHandler(processPayInByImage),
 );
 
@@ -400,6 +402,7 @@ router.post(
   '/processIMGUTR/:merchantOrderId',
   isAuthenticated,
   authorized(AccessRoles.PAYIN),
+  waitForCronMiddleware,
   tryCatchHandler(processPayInIMGUTR),
 );
 
@@ -407,6 +410,7 @@ router.put(
   '/updateFailedPayinUtr/:id',
   isAuthenticated,
   authorized(AccessRoles.PAYIN),
+  waitForCronMiddleware,
   tryCatchHandler(updateUtrPayins),
 );
 
@@ -434,6 +438,7 @@ router.get(
 router.put(
   '/updatePayin/:merchant_order_id',
   isAuthenticated,
+  waitForCronMiddleware,
   authorized(AccessRoles.PAYIN),
   tryCatchHandler(updatePayIn),
 );

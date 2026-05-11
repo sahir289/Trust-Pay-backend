@@ -10,6 +10,8 @@ import {
 } from '../apis/calculation/calculationDao.js';
 import { logger } from '../utils/logger.js';
 import { beginTransaction, commit, getConnection, rollback } from '../utils/db.js';
+import redisClient from '../utils/redisClient.js';
+import { CALCULATION_LOCK } from '../utils/constants.js';
 // Initialize dayjs plugins
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -25,12 +27,42 @@ let calculationCronJob = null;
 // Only run cron jobs in the dedicated cron worker process (works in both prod and local)
 const isCronWorker = process.env.CRON_WORKER === 'true';
 if (isCronWorker && process.env.NODE_ENV === 'production') {
-  // Main cron job at midnight
   calculationCronJob = cron.schedule(
     '0 0 * * *',
     async () => {
-      retryCount = 0; // Reset retry count for new day
-      await executeWithRetry('12:00 AM IST (Attempt 1)');
+      try {
+        // Check if already running
+        const existingLock = await redisClient.get(CALCULATION_LOCK);
+
+        if (existingLock) {
+          logger.info('Calculation cron already running');
+          return;
+        }
+
+        // SET LOCK
+        // EX = auto expire after seconds
+        await redisClient.set(
+          CALCULATION_LOCK,
+          'true',
+          'EX',
+          3600, // 1 hour expiry
+        );
+
+        logger.info('Calculation cron started');
+
+        retryCount = 0;
+
+        await executeWithRetry('12:00 AM IST (Attempt 1)');
+
+        logger.info('Calculation cron completed');
+      } catch (error) {
+        logger.error('Cron Error:', error);
+      } finally {
+        // REMOVE LOCK
+        await redisClient.del(CALCULATION_LOCK);
+
+        logger.info('Calculation cron lock removed');
+      }
     },
     {
       timezone: IST,
