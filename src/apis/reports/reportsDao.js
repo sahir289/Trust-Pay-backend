@@ -465,8 +465,6 @@ const getPayOutVendorReportDao = async (
         query += ` AND (
           (po.status IN ('${Status.APPROVED}', '${Status.REVERSED}') AND po.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1})
           OR
-          (po.status = '${Status.REVERSED}' AND (to_timestamp(po.config->>'reversed_at', 'DD-MM-YYYY HH12:MI:SS AM') BETWEEN $${paramIndex} AND $${paramIndex + 1}) AND po.approved_at IS NOT NULL)
-          OR
           (po.status = '${Status.REJECTED}' AND po.rejected_at BETWEEN $${paramIndex} AND $${paramIndex + 1})
           OR
           (po.status IN ('${Status.INITIATED}', '${Status.PENDING}') AND po.updated_at BETWEEN $${paramIndex} AND $${paramIndex + 1})
