@@ -1,12 +1,11 @@
 // PayInFintech payout webhook / callback handler
 import { getBankByIdDao } from '../../apis/bankAccounts/bankaccountDao.js';
 import { getPayoutByTxnId } from '../../apis/payOut/payOutDao.js';
-import { Role, Status } from '../../constants/index.js';
+import { Status } from '../../constants/index.js';
 import { logger } from '../../utils/logger.js';
 import { getCompanyByIDDao } from '../../apis/company/companyDao.js';
 import { getVendorsDao } from '../../apis/vendors/vendorDao.js';
 import { _updatePayoutServiceInternal } from '../../apis/payOut/payOutService.js';
-import { getUserByCompanyCreatedAtDao } from '../../apis/users/userDao.js';
 import {
   beginTransaction,
   commit,
@@ -63,18 +62,13 @@ export const payInFintechTransactionStatusCallback = async (req, res) => {
     const updatePayload = {
       bank_acc_id: bankId,
       vendor_id: vendor?.id,
+      updated_by: 'trust-pay',
       config: {
         method: 'PAYINFINTECH',
         description: 'Payout processing via PayInFintech',
         orderId,
       },
     };
-
-    const adminUser = await getUserByCompanyCreatedAtDao(
-      singleWithdrawData.company_id,
-      Role.ADMIN,
-    );
-    if (adminUser) updatePayload.updated_by = adminUser.id;
 
     // Map numeric status code → internal status
     if (statusCode === 106) {
