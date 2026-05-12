@@ -1,5 +1,4 @@
 import axios from 'axios';
-import FormData from 'form-data'; // Still used by checkPayInFintechPayoutStatus
 import { Status } from '../constants/index.js';
 import { BadRequestError } from '../utils/appErrors.js';
 import { logger } from '../utils/logger.js';
@@ -42,14 +41,6 @@ const PAYOUT_STATUS_MAP = {
   109: Status.PENDING,
   110: Status.REJECTED,
   111: Status.REJECTED,
-};
-
-const CHECK_STATUS_MAP = {
-  101: Status.APPROVED,
-  102: Status.PENDING,
-  105: Status.PENDING,
-  103: Status.REJECTED,
-  104: Status.REJECTED,
 };
 
 // Error codes for initiation — throw BadRequestError immediately
@@ -383,69 +374,6 @@ export const createPayInFintechPayout = async (
     logger.error('PayInFintech: payout error', error.message);
     logger.warn('PayInFintech: payout error response', payload);
     return payload;
-  }
-};
-
-// ─── Check Payout Status ─────────────────────────────────────────────────────
-/**
- * Authenticate and check the status of an existing payout.
- * @param {string} orderId      - The OrderId used when initiating
- * @param {string} companyId    - Company ID for token retrieval
- * @returns {Promise<{ status: string, rawResponse: object }>}
- */
-export const checkPayInFintechPayoutStatus = async (orderId, companyId) => {
-  logger.info('PayInFintech: checking payout status', { orderId });
-
-  // Step 1 — Get valid token
-  const token = await getValidToken(companyId);
-
-  // Step 2 — Check status via multipart/form-data
-  try {
-    const form = new FormData();
-    form.append('orderId', orderId);
-
-    const response = await axios.post(
-      `${BASE_URL}/webhook/payout/checkstatus`,
-      form,
-      {
-        headers: {
-          ...form.getHeaders(),
-          ...getAuthHeaders(token),
-        },
-      },
-    );
-
-    const raw = response.data;
-    const code = raw?.Status_code ?? raw?.status_code ?? raw?.statusCode;
-
-    logger.info('PayInFintech: status check response', { code, raw });
-
-    // Error codes
-    if (code === 106) {
-      throw new BadRequestError('PayInFintech: OrderId does not exist');
-    }
-    if (code === 107) {
-      throw new BadRequestError('PayInFintech: Validation error on status check');
-    }
-
-    const internalStatus = CHECK_STATUS_MAP[code];
-    if (!internalStatus) {
-      logger.warn('PayInFintech: unknown status code from checkstatus API', {
-        code,
-      });
-    }
-
-    return {
-      status: internalStatus || Status.PENDING,
-      rawResponse: raw,
-    };
-  } catch (error) {
-    if (error instanceof BadRequestError) throw error;
-    logger.error('PayInFintech: status check failed', {
-      message: error.message,
-      data: error.response?.data,
-    });
-    throw error;
   }
 };
 
