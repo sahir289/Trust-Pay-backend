@@ -327,6 +327,7 @@ export const createPayInFintechPayout = async (
     apiResult = await initiatePayInFintechPayout(payoutData, ids.company_id);
 
     payload.bank_acc_id = bankId;
+    payload.txnid = orderId; // Store OrderId as txnid for callback lookup
     payload.config.txnid = orderId;
     payload.config.payinfintech_txnid = apiResult.txnId || '';
     payload.utr_id = ''; // UTR only available after completion via webhook or poll
@@ -336,12 +337,12 @@ export const createPayInFintechPayout = async (
 
     if (apiResult.status === Status.APPROVED) {
       payload.status = Status.APPROVED;
-      payload.utr_id = apiResult.rawResponse?.utrNumber || 
-        apiResult.rawResponse?.utr || 
+      payload.utr_id = apiResult.rawResponse?.utr || 
+        apiResult.rawResponse?.utrNumber || 
         apiResult.rawResponse?.UTR || 
         apiResult.rawResponse?.rrn || 
-        apiResult.rawResponse?.data?.utrNumber ||
-        apiResult.rawResponse?.data?.utr || '';
+        apiResult.rawResponse?.data?.utr ||
+        apiResult.rawResponse?.data?.utrNumber || '';
       payload.approved_at = new Date().toISOString();
     } else if (apiResult.status === Status.REJECTED) {
       payload.status = Status.REJECTED;
@@ -359,9 +360,15 @@ export const createPayInFintechPayout = async (
 
     return payload;
   } catch (error) {
-    payload.status = Status.PENDING;
+    // If it's a BadRequestError (validation, auth, insufficient balance, etc.), throw it up
+    if (error instanceof BadRequestError) {
+      throw error;
+    }
+
+    // For other errors, set to REJECTED (not PENDING)
+    payload.status = Status.REJECTED;
     payload.bank_acc_id = bankId;
-    payload.utr_id = apiResult?._id || '';
+    payload.utr_id = '';
     payload.rejected_reason =
       error?.response?.data?.message || error.message || 'API call failed';
     payload.rejected_at = new Date().toISOString();
@@ -372,7 +379,7 @@ export const createPayInFintechPayout = async (
     }
 
     logger.error('PayInFintech: payout error', error.message);
-    logger.warn('PayInFintech: payout error response', payload);
+    logger.warn('PayInFintech: payout rejected due to error', payload);
     return payload;
   }
 };

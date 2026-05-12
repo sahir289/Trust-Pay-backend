@@ -17,8 +17,12 @@ export const payInFintechTransactionStatusCallback = async (req, res) => {
   const payload = req.body;
   logger.info('PayInFintech: full callback payload', payload);
 
-  const orderId = payload?.orderId || payload?.OrderId || payload?.order_id;
-  const statusCode = Number(payload?.Status_code ?? payload?.status_code ?? payload?.statusCode ?? payload?.status ?? payload?.code);
+  // Handle both lowercase 'orderid' and camelCase 'orderId'
+  const orderId = payload?.orderid || payload?.orderId || payload?.OrderId || payload?.order_id;
+  
+  // Handle both string status ('success', 'failed', 'pending') and numeric status codes
+  const statusString = (payload?.status || '').toString().toLowerCase();
+  const statusCode = Number(payload?.Status_code ?? payload?.status_code ?? payload?.statusCode ?? payload?.code);
 
   let conn;
   let committed = false;
@@ -71,23 +75,25 @@ export const payInFintechTransactionStatusCallback = async (req, res) => {
       },
     };
 
-    // Map numeric status code → internal status
-    if (statusCode === 106) {
+    // Map status - handle both string status and numeric codes
+    // String status: 'success', 'failed', 'pending'
+    // Numeric codes: 106 = success, 107-109 = pending, 110-111 = failed
+    if (statusString === 'success' || statusCode === 106) {
       // APPROVED
       Object.assign(updatePayload, {
         status: Status.APPROVED,
-        utr_id: payload?.utrNumber || 
-          payload?.utr || 
+        utr_id: payload?.utr || 
+          payload?.utrNumber || 
           payload?.UTR || 
           payload?.rrn || 
-          payload?.data?.utrNumber ||
-          payload?.data?.utr || '',
+          payload?.data?.utr ||
+          payload?.data?.utrNumber || '',
         approved_at: new Date().toISOString(),
       });
-    } else if ([107, 108, 109].includes(statusCode)) {
+    } else if (statusString === 'pending' || [107, 108, 109].includes(statusCode)) {
       // PENDING
       updatePayload.status = Status.PENDING;
-    } else if ([110, 111].includes(statusCode)) {
+    } else if (statusString === 'failed' || statusString === 'failure' || [110, 111].includes(statusCode)) {
       // REJECTED
       const rejectionReason = payload?.message ||
         payload?.remark ||
@@ -101,14 +107,15 @@ export const payInFintechTransactionStatusCallback = async (req, res) => {
 
       logger.info('PayInFintech: rejection reason stored', { orderId, rejectionReason });
     } else {
-      // Unknown/Reversed – treat as REJECTED with raw message as reason
+      // Unknown status – treat as REJECTED with raw message as reason
       const rejectionReason = payload?.message ||
         payload?.remark ||
         payload?.data?.message ||
         payload?.data?.remark ||
         'Transaction rejected by PayInFintech';
 
-      logger.warn('PayInFintech: unknown status code in callback, treating as REJECTED', {
+      logger.warn('PayInFintech: unknown status in callback, treating as REJECTED', {
+        statusString,
         statusCode,
         orderId,
       });
