@@ -154,4 +154,5 @@ router.get('/pending-payout-cronjob', (req, res) => {
   logger.info('Calling collectPendingPayoutData CRONJOB');
   res.json({ message: 'Cron job is running for Pending Payout' });
 });
+
 export default router;
