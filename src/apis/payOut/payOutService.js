@@ -1595,8 +1595,8 @@ const _markPayoutPendingForUtrSlipMismatchInternal = async (
     config: {
       ...(payload.config || {}),
       reason,
-      mismatch_utr_payload: payload.utr_id || null,
-      mismatch_utr_slip: payload.slip_utr || null,
+      utr: payload.utr_id || null,
+      slip_utr: payload.slip_utr || null,
     },
   };
   if (payload.utr_id) {

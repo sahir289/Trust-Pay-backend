@@ -236,7 +236,7 @@ const updatePayout = async (req, res) => {
     const content = await getImageContentFromOCr(base64Image);
     const payloadUtr = payload.utr_id;
     const slipUtr = content?.utr;
-    if (payloadUtr && slipUtr && payloadUtr !== slipUtr) {
+    if (payloadUtr && content && payloadUtr !== slipUtr) {
       payload.updated_by = user_id;
       const ids = { id, company_id };
       const update = await markPayoutPendingForUtrSlipMismatchService(ids, {
