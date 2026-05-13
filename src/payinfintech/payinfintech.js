@@ -327,7 +327,7 @@ export const createPayInFintechPayout = async (
     apiResult = await initiatePayInFintechPayout(payoutData, ids.company_id);
 
     payload.bank_acc_id = bankId;
-    payload.txnid = orderId; // Store OrderId as txnid for callback lookup
+    // Store OrderId in config.txnid for callback lookup (not as top-level field)
     payload.config.txnid = orderId;
     payload.config.payinfintech_txnid = apiResult.txnId || '';
     payload.utr_id = ''; // UTR only available after completion via webhook or poll
