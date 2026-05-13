@@ -204,13 +204,13 @@ export const initiatePayInFintechPayout = async (payoutData, companyId) => {
 
   // Step 2 — Build JSON body with confirmed PascalCase field names
   const body = {
+    OrderId: String(payoutData.orderid || payoutData.OrderId || ''),
     Amount: Number(payoutData.Amount),
     AccountNumber: String(payoutData.AccountNumber || ''),
     BenificalName: String(payoutData.BenificalName || ''),
-    Bank: String(payoutData.Bank || ''),
     IFSC: String(payoutData.IFSC || ''),
+    Bank: String(payoutData.Bank || ''),
     Mode: String(payoutData.Mode || 'IMPS'),
-    OrderId: String(payoutData.OrderId || ''),
     Mobile: String(payoutData.Mobile || ''),
   };
 
