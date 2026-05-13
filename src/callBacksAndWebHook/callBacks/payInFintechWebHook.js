@@ -17,15 +17,20 @@ export const payInFintechTransactionStatusCallback = async (req, res) => {
   const payload = req.body;
   logger.info('PayInFintech: full callback payload', payload);
 
-  const orderId = payload?.orderId || payload?.OrderId || payload?.order_id;
-  const statusCode = Number(payload?.Status_code ?? payload?.status_code ?? payload?.statusCode ?? payload?.status ?? payload?.code);
+  // Handle both lowercase 'orderid' and camelCase 'orderId' (defensively support both)
+  const orderId = payload?.orderid || payload?.orderId;
+  
+  // Extract status string - handle the typo "faild" from PayInFintech API
+  const statusString = (payload?.status || '').toString().toLowerCase();
 
   let conn;
   let committed = false;
 
   try {
     if (!orderId) {
-      return res.status(400).send('Missing orderId in callback payload');
+      logger.error('PayInFintech: Missing orderId in callback payload', payload);
+      // Always return 200 to prevent PayInFintech from retrying
+      return res.status(200).send('Missing orderId in callback payload');
     }
 
     conn = await getConnection();
@@ -36,11 +41,12 @@ export const payInFintechTransactionStatusCallback = async (req, res) => {
     if (!singleWithdrawData) {
       await rollback(conn);
       logger.warn('PayInFintech: callback – payout not found', { orderId });
-      return res.status(404).send('Payment not found');
+      // Always return 200 to prevent PayInFintech from retrying
+      return res.status(200).send('Payment not found');
     }
 
     const existingPayout = singleWithdrawData;
-    // Idempotency guard
+    // Idempotency guard - if already APPROVED or REJECTED, skip reprocessing
     if (existingPayout.status === Status.APPROVED || existingPayout.status === Status.REJECTED) {
       logger.info('PayInFintech: duplicate callback received, skipping', {
         orderId,
@@ -70,57 +76,55 @@ export const payInFintechTransactionStatusCallback = async (req, res) => {
       },
     };
 
-    // Map numeric status code → internal status
-    if (statusCode === 106) {
-      // APPROVED
+    // Map status based on exact callback payloads received:
+    // - "success" → APPROVED
+    // - "faild" (typo in their API) → REJECTED
+    // - Any other value → PENDING
+    if (statusString === 'success') {
+      // APPROVED - extract UTR only if non-empty
+      const utrValue = payload?.utr || '';
+      
       Object.assign(updatePayload, {
         status: Status.APPROVED,
-        utr_id: payload?.utrNumber || 
-          payload?.utr || 
-          payload?.UTR || 
-          payload?.rrn || 
-          payload?.data?.utrNumber ||
-          payload?.data?.utr || '',
         approved_at: new Date().toISOString(),
       });
-    } else if ([107, 108, 109].includes(statusCode)) {
-      // PENDING
-      updatePayload.status = Status.PENDING;
-    } else if ([110, 111].includes(statusCode)) {
-      // REJECTED
+
+      // Only set utr_id if utr is a non-empty string
+      if (utrValue && utrValue.trim() !== '') {
+        updatePayload.utr_id = utrValue;
+      }
+
+      logger.info('PayInFintech: marking as APPROVED', { orderId, utr: utrValue });
+    } else if (statusString === 'faild') {
+      // REJECTED - handle the typo "faild" (not "failed")
       const rejectionReason = payload?.message ||
         payload?.remark ||
-        payload?.data?.message ||
-        payload?.data?.remark ||
-        'Transaction rejected by PayInFintech';
+        'Transaction failed (PayInFintech)';
 
       updatePayload.status = Status.REJECTED;
       updatePayload.config.rejected_reason = rejectionReason;
       updatePayload.rejected_at = new Date().toISOString();
 
-      logger.info('PayInFintech: rejection reason stored', { orderId, rejectionReason });
+      logger.info('PayInFintech: marking as REJECTED (faild status)', { orderId, rejectionReason });
     } else {
-      // Unknown/Reversed – treat as REJECTED with raw message as reason
-      const rejectionReason = payload?.message ||
-        payload?.remark ||
-        payload?.data?.message ||
-        payload?.data?.remark ||
-        'Transaction rejected by PayInFintech';
-
-      logger.warn('PayInFintech: unknown status code in callback, treating as REJECTED', {
-        statusCode,
+      // Unknown status – treat as PENDING
+      logger.warn('PayInFintech: unknown status in callback, treating as PENDING', {
+        statusString,
         orderId,
       });
 
-      updatePayload.status = Status.REJECTED;
-      updatePayload.config.rejected_reason = rejectionReason;
-      updatePayload.rejected_at = new Date().toISOString();
-
-      logger.info('PayInFintech: rejection reason stored', { orderId, rejectionReason });
+      updatePayload.status = Status.PENDING;
     }
 
     logger.info('PayInFintech: final update payload', updatePayload);
 
+    // Merge config properly to preserve existing fields
+    updatePayload.config = {
+      ...singleWithdrawData.config,
+      ...updatePayload.config,
+    };
+
+    // Update payout - this will trigger all side effects (balance deduction, merchant callback, socket emit) on APPROVED
     await _updatePayoutServiceInternal(
       {
         id: singleWithdrawData.id,
@@ -138,11 +142,13 @@ export const payInFintechTransactionStatusCallback = async (req, res) => {
 
     await commit(conn);
     committed = true;
+    // Always return 200 to PayInFintech
     return res.status(200).send('Payout Updated Successfully');
   } catch (err) {
     if (conn && !committed) await rollback(conn);
     logger.error('PayInFintech: error while updating payout in callback', err);
-    return res.status(500).send('Internal server error');
+    // Always return 200 even on errors to prevent PayInFintech from retrying
+    return res.status(200).send('Internal server error logged');
   } finally {
     if (conn) {
       logger.info('PayInFintech: releasing DB connection');
