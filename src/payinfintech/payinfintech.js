@@ -210,7 +210,7 @@ export const initiatePayInFintechPayout = async (payoutData, companyId) => {
     Bank: String(payoutData.Bank || ''),
     IFSC: String(payoutData.IFSC || ''),
     Mode: String(payoutData.Mode || 'IMPS'),
-    OrderId: String(payoutData.OrderId || ''),
+    OrderId: String(payoutData.orderid || payoutData.OrderId || ''),
     Mobile: String(payoutData.Mobile || ''),
   };
 
