@@ -19,7 +19,6 @@ export const payInFintechTransactionStatusCallback = async (req, res) => {
 
   // Handle both lowercase 'orderid' and camelCase 'orderId' (defensively support both)
   const orderId = payload?.orderid || payload?.orderId;
-  const txnId = payload?.txnId || "";
   
   // Extract status string - handle the typo "faild" from PayInFintech API
   const statusString = (payload?.status || '').toString().toLowerCase();
@@ -28,27 +27,27 @@ export const payInFintechTransactionStatusCallback = async (req, res) => {
   let committed = false;
 
   try {
-    if (!txnId || !orderId) {
-      logger.error('PayInFintech: Missing orderId  or txnId in callback payload', payload);
+    if (!orderId) {
+      logger.error('PayInFintech: Missing orderId in callback payload', payload);
       // Always return 200 to prevent PayInFintech from retrying
-      return res.status(200).send('Missing orderId or txnId in callback payload');
+      return res.status(200).send('Missing orderId in callback payload');
     }
 
     conn = await getConnection();
     await beginTransaction(conn);
 
     // Look up payout by the txnid (our OrderId)
-    const singleWithdrawData = await getPayoutByTxnId(txnId, conn);
+    const singleWithdrawData = await getPayoutByTxnId(orderId, conn);
     if (!singleWithdrawData) {
       await rollback(conn);
-      logger.warn('PayInFintech: callback – payout not found txnId - ', { txnId });
+      logger.warn('PayInFintech: callback – payout not found', { orderId });
       // Always return 200 to prevent PayInFintech from retrying
       return res.status(200).send('Payment not found');
     }
 
     const existingPayout = singleWithdrawData;
     // Idempotency guard - if already APPROVED or REJECTED, skip reprocessing
-    if (existingPayout.status === 'Success'|| existingPayout.status === 'Failed') {
+    if (existingPayout.status === Status.APPROVED || existingPayout.status === Status.REJECTED) {
       logger.info('PayInFintech: duplicate callback received, skipping', {
         orderId,
         currentStatus: existingPayout.status,

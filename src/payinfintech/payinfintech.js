@@ -328,8 +328,8 @@ export const createPayInFintechPayout = async (
 
     payload.bank_acc_id = bankId;
     // Store OrderId in config.txnid for callback lookup (not as top-level field)
-    payload.config.orderId = orderId;
-    payload.config.txnId = apiResult.txnId || '';
+    payload.config.txnid = orderId;
+    payload.config.payinfintech_txnid = apiResult.txnId || '';
     payload.utr_id = ''; // UTR only available after completion via webhook or poll
 
     // Clean up the internal credentials from the stored config
