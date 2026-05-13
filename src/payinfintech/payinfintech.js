@@ -317,7 +317,7 @@ export const createPayInFintechPayout = async (
       IFSC: singleWithdrawData.user_bank_details?.ifsc_code ||
         singleWithdrawData.ifsc_code,
       Mode: payload?.config?.payout_mode || 'IMPS',
-      OrderId: orderId,
+      orderid: orderId,
       Mobile: singleWithdrawData.phone ||
         singleWithdrawData.user?.phone ||
         singleWithdrawData.mobile ||
