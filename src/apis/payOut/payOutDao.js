@@ -1034,6 +1034,15 @@ export const updatePayoutDao = async (ids, data, conn = null) => {
   try {
     // Clone the data object to avoid modifying the original
     const updateData = { ...data };
+    
+    // Move txnid to config if it exists as a direct field (it should always be in config)
+    if (updateData.txnid !== undefined) {
+      logger.warn('txnid found as direct field, moving to config', { txnid: updateData.txnid });
+      updateData.config = updateData.config || {};
+      updateData.config.txnid = updateData.txnid;
+      delete updateData.txnid;
+    }
+    
     // If config is present, ensure it's properly formatted
     if (updateData.config && typeof updateData.config === 'object') {
       // Get existing config first to merge with new config
