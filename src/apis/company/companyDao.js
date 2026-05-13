@@ -166,7 +166,8 @@ const getCashfreeAllowByCompanyIdDao = async (id, conn = null) => {
         COALESCE((config ->> 'allow_albecollect')::boolean, false) AS allow_albecollect,
         COALESCE((config ->> 'allow_payeasy')::boolean, false) AS allow_payeasy,
         COALESCE((config ->> 'allow_payeasy02')::boolean, false) AS allow_payeasy02,
-        COALESCE((config ->> 'allow_payeasy03')::boolean, false) AS allow_payeasy03
+        COALESCE((config ->> 'allow_payeasy03')::boolean, false) AS allow_payeasy03,
+        COALESCE((config ->> 'allow_paytm')::boolean, false) AS is_paytm_enabled
       FROM "${tableName.COMPANY}"
       WHERE id = $1
     `;
