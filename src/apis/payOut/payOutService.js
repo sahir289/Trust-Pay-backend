@@ -1268,6 +1268,25 @@ const _updatePayoutServiceInternal = async (
         singleWithdrawData,
         bankId,
       );
+      
+      // Sanitize payload: move top-level txnid and payinfintech_txnid into config
+      // These fields should only exist in the config JSONB field, not as database columns
+      if (updatedPayload.txnid !== undefined) {
+        updatedPayload.config = updatedPayload.config || {};
+        updatedPayload.config.txnid = updatedPayload.txnid;
+        delete updatedPayload.txnid;
+      }
+      if (updatedPayload.payinfintech_txnid !== undefined) {
+        updatedPayload.config = updatedPayload.config || {};
+        updatedPayload.config.payinfintech_txnid = updatedPayload.payinfintech_txnid;
+        delete updatedPayload.payinfintech_txnid;
+      }
+      
+      logger.info('PayInFintech: payload sanitized', {
+        configTxnid: updatedPayload.config?.txnid,
+        payinfintechTxnid: updatedPayload.config?.payinfintech_txnid,
+      });
+      
       payload = updatedPayload;
     }
 
