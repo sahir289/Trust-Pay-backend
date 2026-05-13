@@ -380,6 +380,35 @@ export const getPayInIntentDao = async (merchantOrderId, conn = null) => {
     throw error;
   }
 };
+export const getPayInByClientRefNoDao = async (clientRefNo, conn = null) => {
+  try {
+    const sql = `
+      SELECT
+        p.id,
+        p.merchant_order_id,
+        p.user,
+        p.merchant_id,
+        p.status,
+        p.created_at,
+        p.amount,
+        p.company_id,
+        p.config,
+        p.bank_acc_id,
+        p.user_submitted_utr,
+        p.is_url_expires,
+        p.expiration_date
+      FROM "${tableName.PAYIN}" p
+      WHERE p.config->>'clientRefNo' = $1
+        AND p.is_obsolete = false
+      LIMIT 1
+    `;
+    const result = await executeQuery(sql, [clientRefNo], conn);
+    return result.rows[0] || null;
+  } catch (error) {
+    logger.error('Error getting PayIn by clientRefNo:', error);
+    throw error;
+  }
+};
 
 export const getPayInsForCronDao = async (filters = {}, conn = null) => {
   try {

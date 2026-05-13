@@ -70,10 +70,9 @@ export const payInFintechTransactionStatusCallback = async (req, res) => {
       vendor_id: vendor?.id,
       updated_by: 'trust-pay',
       config: {
-        ...singleWithdrawData.config, // Preserve existing config
+        method: 'PAYINFINTECH',
         description: 'Payout processing via PayInFintech',
         orderId,
-        _isCallbackUpdate: true, // Flag to prevent triggering payout creation
       },
     };
 
