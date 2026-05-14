@@ -72,7 +72,6 @@ export const payInFintechTransactionStatusCallback = async (req, res) => {
       config: {
         method: 'PAYINFINTECH',
         description: 'Payout processing via PayInFintech',
-        orderId,
       },
     };
 
