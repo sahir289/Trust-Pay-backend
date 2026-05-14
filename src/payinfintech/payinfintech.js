@@ -331,16 +331,15 @@ export const createPayInFintechPayout = async (
           delete payload.status;
         } else {
           apiResult = await initiatePayInFintechPayout(payoutData, ids.company_id);
+
+          // Store OrderId in config.txnid for callback lookup (not as top-level field)
+          payload.config.txnid = orderId;
+          payload.config.payinfintech_txnid = apiResult.txnId || '';
+          payload.bank_acc_id = bankId;
+          payload.utr_id = ''; // UTR only available after completion via webhook or poll
         }
 
-        const status = apiResult?.Status || apiResult?.status;
-
-    payload.bank_acc_id = bankId;
-    // Store OrderId in config.txnid for callback lookup (not as top-level field)
-    payload.config.txnid = orderId;
-    payload.config.payinfintech_txnid = apiResult.txnId || '';
-    payload.utr_id = ''; // UTR only available after completion via webhook or poll
-
+    const status = apiResult?.Status || apiResult?.status;
     // Clean up the internal credentials from the stored config
     delete payload.config._payinfintechCredentials;
 
@@ -351,7 +350,8 @@ export const createPayInFintechPayout = async (
         apiResult.rawResponse?.UTR || 
         apiResult.rawResponse?.rrn || 
         apiResult.rawResponse?.data?.utr ||
-        apiResult.rawResponse?.data?.utrNumber || '';
+        apiResult.rawResponse?.data?.utrNumber
+        || apiResult.utr ||  apiResult.utr_id || '';
       payload.approved_at = new Date().toISOString();
     } else if (status === 'Failed' || status === 'failed' || status === Status.FAILED || apiResult.status === Status.REJECTED) {
       payload.status = Status.REJECTED;
