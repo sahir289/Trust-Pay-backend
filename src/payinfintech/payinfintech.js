@@ -291,7 +291,7 @@ export const createPayInFintechPayout = async (
     }
 
     // Generate unique OrderId (max 16 chars)
-    const orderId = await generatePayInFintechOrderId();
+    // const orderId = await generatePayInFintechOrderId();
 
     // DEBUG: log singleWithdrawData shape to find the correct account holder name field
     console.log('PayInFintech: singleWithdrawData keys', JSON.stringify({
@@ -317,7 +317,7 @@ export const createPayInFintechPayout = async (
       IFSC: singleWithdrawData.user_bank_details?.ifsc_code ||
         singleWithdrawData.ifsc_code,
       Mode: payload?.config?.payout_mode || 'IMPS',
-      orderid: orderId,
+      orderid: singleWithdrawData.merchant_order_id,
       Mobile: singleWithdrawData.phone ||
         singleWithdrawData.user?.phone ||
         singleWithdrawData.mobile ||
@@ -333,7 +333,7 @@ export const createPayInFintechPayout = async (
           apiResult = await initiatePayInFintechPayout(payoutData, ids.company_id);
 
           // Store OrderId in config.txnid for callback lookup (not as top-level field)
-          payload.config.txnid = orderId;
+          // payload.config.txnid = singleWithdrawData.merchant_order_id;
           payload.config.payinfintech_txnid = apiResult.txnId || '';
           payload.bank_acc_id = bankId;
           payload.utr_id = ''; // UTR only available after completion via webhook or poll
@@ -363,7 +363,7 @@ export const createPayInFintechPayout = async (
     }
 
     logger.info('PayInFintech: payout processed', {
-      orderId,
+      orderId : singleWithdrawData.merchant_order_id,
       status: payload.status,
     });
 
