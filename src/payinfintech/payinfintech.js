@@ -3,16 +3,7 @@ import { Status } from '../constants/index.js';
 import { BadRequestError } from '../utils/appErrors.js';
 import { logger } from '../utils/logger.js';
 import { sendSuccess } from '../utils/responseHandlers.js';
-import { customAlphabet } from 'nanoid';
-import { getPayoutByTxnId } from '../apis/payOut/payOutDao.js';
 import { getCompanyByIDDao, updateCompanyDao } from '../apis/company/companyDao.js';
-
-//  Nanoid (alphanumeric, max 16 chars for OrderId) 
-// "TXN" prefix (3 chars) + 10-digit timestamp (13 chars) = 16 chars total
-const nanoid = customAlphabet(
-  '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ',
-  3,
-);
 
 const BASE_URL = 'https://api.payinfintech.com';
 
@@ -55,28 +46,7 @@ const INITIATION_ERROR_MESSAGES = {
   105: 'PayInFintech: Service inactive',
 };
 
-//  Generate a unique OrderId (max 16 chars)
-/**
- * Generate a unique transaction / order ID for PayInFintech.
- * Format: "PI" + last-10-digits-of-epoch-ms + 4-char random suffix = 16 chars.
- * Checks the DB for duplicates and regenerates on collision.
- * @returns {Promise<string>}
- */
-export const generatePayInFintechOrderId = async () => {
-  const ts = Date.now().toString().slice(-10); // 10 digits
-  let orderId = `PI${ts}${nanoid(4)}`;         // Total length: 16 chars
 
-  // Check for existing payout with the same OrderId (txnid)
-
-  const existing = await getPayoutByTxnId(orderId);
-  if (existing) {
-    const ts2 = Date.now().toString().slice(-10);
-    orderId = `PI${ts2}${nanoid(4)}`;
-    logger.info('PayInFintech: duplicate orderId, regenerated', { orderId });
-  }
-
-  return orderId;
-};
 
 // Step 1: Authenticate 
 /**
@@ -290,9 +260,6 @@ export const createPayInFintechPayout = async (
       throw new BadRequestError('PayInFintech: company_id is missing');
     }
 
-    // Generate unique OrderId (max 16 chars)
-    // const orderId = await generatePayInFintechOrderId();
-
     // DEBUG: log singleWithdrawData shape to find the correct account holder name field
     console.log('PayInFintech: singleWithdrawData keys', JSON.stringify({
       account_name: singleWithdrawData.account_name,
@@ -332,8 +299,6 @@ export const createPayInFintechPayout = async (
         } else {
           apiResult = await initiatePayInFintechPayout(payoutData, ids.company_id);
 
-          // Store OrderId in config.txnid for callback lookup (not as top-level field)
-          // payload.config.txnid = singleWithdrawData.merchant_order_id;
           payload.config.payinfintech_txnid = apiResult.txnId || '';
           payload.bank_acc_id = bankId;
           payload.utr_id = ''; // UTR only available after completion via webhook or poll

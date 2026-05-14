@@ -1,6 +1,5 @@
-// PayInFintech payout webhook / callback handler
 import { getBankByIdDao } from '../../apis/bankAccounts/bankaccountDao.js';
-import { getPayoutsDao } from '../../apis/payOut/payOutDao.js';
+import { getPayoutByOrderId } from '../../apis/payOut/payOutDao.js';
 import { Status } from '../../constants/index.js';
 import { logger } from '../../utils/logger.js';
 import { getCompanyByIDDao } from '../../apis/company/companyDao.js';
@@ -15,56 +14,60 @@ import {
 
 export const payInFintechTransactionStatusCallback = async (req, res) => {
   const payload = req.body;
-  logger.info('PayInFintech: full callback payload', payload);
 
-  // Handle both lowercase 'orderid' and camelCase 'orderId' (defensively support both)
-  const orderId = payload?.orderid || payload?.orderId;
-  
-  // Extract status string - handle the typo "faild" from PayInFintech API
+  const merchantOrderId = payload?.orderid || payload?.orderId;
   const statusString = (payload?.status || '').toString().toLowerCase();
 
-  //The webhook callback was not returning a response immediately to PayInFintech. Instead, it was processing the entire transaction (database updates, balance deductions, merchant callbacks) BEFORE sending a response. This caused PayInFintech to timeout waiting for acknowledgment, marking the webhook as failed and leaving payouts stuck in PENDING status.
-  
-  // CRITICAL: Send immediate 200 response to PayInFintech to acknowledge receipt
-  // This prevents them from timing out while we process the webhook
+  // Acknowledge immediately — prevents PayInFintech timeout
   res.status(200).send('Webhook received successfully');
+
+  // All logs use merchant_order_id as the primary trace key for AWS CloudWatch
+  const logCtx = { merchant_order_id: merchantOrderId };
+
+  logger.info('PayInFintech: callback received', { ...logCtx, status: statusString, payload });
+
+  if (!merchantOrderId) {
+    logger.error('PayInFintech: missing merchant_order_id in callback payload', { payload });
+    return;
+  }
 
   let conn;
   let committed = false;
 
   try {
-    if (!orderId) {
-      logger.error('PayInFintech: Missing orderId in callback payload', payload);
-      return;
-    }
-
     conn = await getConnection();
     await beginTransaction(conn);
 
-    // Look up payout by the txnid (our OrderId)
-    const [singleWithdrawData] = await getPayoutsDao({ merchant_order_id: orderId });
-    if (!singleWithdrawData) {
+    // Lock the row immediately to prevent duplicate processing from concurrent callbacks
+    const lockQuery = `
+      SELECT id, status FROM public."Payout"
+      WHERE merchant_order_id = $1 AND is_obsolete = false
+      LIMIT 1
+      FOR UPDATE
+    `;
+    const lockResult = await conn.query(lockQuery, [merchantOrderId]);
+    const lockedRow = lockResult.rows[0];
+
+    if (!lockedRow) {
       await rollback(conn);
-      logger.warn('PayInFintech: callback – payout not found', { orderId });
+      logger.warn('PayInFintech: payout not found', logCtx);
       return;
     }
 
-    const existingPayout = singleWithdrawData;
-    // Idempotency guard - if already APPROVED or REJECTED, skip reprocessing
-    if (existingPayout.status === Status.APPROVED || existingPayout.status === Status.REJECTED) {
-      logger.info('PayInFintech: duplicate callback received, skipping', {
-        orderId,
-        currentStatus: existingPayout.status,
+    // Idempotency — skip if already in terminal state
+    if (lockedRow.status === Status.APPROVED || lockedRow.status === Status.REJECTED) {
+      await rollback(conn);
+      logger.info('PayInFintech: duplicate callback skipped', {
+        ...logCtx,
+        current_status: lockedRow.status,
       });
-      await rollback(conn);
       return;
     }
 
-    const [company] = await getCompanyByIDDao(
-      { id: singleWithdrawData.company_id },
-      conn,
-    );
+    // Fetch full payout record now that we hold the lock
+    const singleWithdrawData = await getPayoutByOrderId(merchantOrderId, conn);
 
+    const [company] = await getCompanyByIDDao({ id: singleWithdrawData.company_id }, conn);
     const bankId = company?.config?.PAYINFINTECH?.defaultBankId;
     const [bankVendor] = await getBankByIdDao({ id: bankId });
     const [vendor] = await getVendorsDao({ user_id: bankVendor?.user_id });
@@ -79,84 +82,54 @@ export const payInFintechTransactionStatusCallback = async (req, res) => {
       },
     };
 
-    // Map status based on exact callback payloads received:
-    // - "success" → APPROVED
-    // - "faild" (typo in their API) → REJECTED
-    // - Any other value → PENDING
     if (statusString === 'success') {
-      // APPROVED - extract UTR only if non-empty
-      const utrValue = payload?.utr || '';
-      
+      const utrValue = (payload?.utr || '').trim();
       Object.assign(updatePayload, {
         status: Status.APPROVED,
         approved_at: new Date().toISOString(),
+        ...(utrValue && { utr_id: utrValue }),
       });
+      logger.info('PayInFintech: marking APPROVED', { ...logCtx, utr: utrValue });
 
-      // Only set utr_id if utr is a non-empty string
-      if (utrValue && utrValue.trim() !== '') {
-        updatePayload.utr_id = utrValue;
-      }
-
-      logger.info('PayInFintech: marking as APPROVED', { orderId, utr: utrValue });
     } else if (statusString === 'faild') {
-      // REJECTED - handle the typo "faild" (not "failed")
-      const rejectionReason = payload?.message ||
-        payload?.remark ||
-        'Transaction failed (PayInFintech)';
-
-      updatePayload.status = Status.REJECTED;
-      updatePayload.config.rejected_reason = rejectionReason;
-      updatePayload.rejected_at = new Date().toISOString();
-
-      logger.info('PayInFintech: marking as REJECTED (faild status)', { orderId, rejectionReason });
-    } else {
-      // Unknown status – treat as PENDING
-      logger.warn('PayInFintech: unknown status in callback, treating as PENDING', {
-        statusString,
-        orderId,
+      const rejectionReason = payload?.message || payload?.remark || 'Transaction failed (PayInFintech)';
+      Object.assign(updatePayload, {
+        status: Status.REJECTED,
+        rejected_at: new Date().toISOString(),
       });
+      updatePayload.config.rejected_reason = rejectionReason;
+      logger.info('PayInFintech: marking REJECTED', { ...logCtx, reason: rejectionReason });
 
+    } else {
       updatePayload.status = Status.PENDING;
+      logger.warn('PayInFintech: unknown status, treating as PENDING', { ...logCtx, statusString });
     }
 
-    logger.info('PayInFintech: final update payload', updatePayload);
-
-    // Merge config properly to preserve existing fields
+    // Merge config to preserve existing fields
     updatePayload.config = {
       ...singleWithdrawData.config,
       ...updatePayload.config,
     };
 
-    // Update payout - this will trigger all side effects (balance deduction, merchant callback, socket emit) on APPROVED
     await _updatePayoutServiceInternal(
-      {
-        id: singleWithdrawData.id,
-        company_id: singleWithdrawData.company_id,
-      },
+      { id: singleWithdrawData.id, company_id: singleWithdrawData.company_id },
       updatePayload,
       null,
       conn,
     );
 
-    logger.info('PayInFintech: payout updated by callback', {
-      payoutId: singleWithdrawData.id,
-      status: updatePayload.status,
-    });
-
     await commit(conn);
     committed = true;
-    logger.info('PayInFintech: payout update committed successfully', {
-      payoutId: singleWithdrawData.id,
-      orderId,
-      status: updatePayload.status,
+    logger.info('PayInFintech: callback processed successfully', {
+      ...logCtx,
+      payout_id: singleWithdrawData.id,
+      final_status: updatePayload.status,
     });
+
   } catch (err) {
     if (conn && !committed) await rollback(conn);
-    logger.error('PayInFintech: error while updating payout in callback', err);
+    logger.error('PayInFintech: error processing callback', { ...logCtx, error: err.message });
   } finally {
-    if (conn) {
-      logger.info('PayInFintech: releasing DB connection');
-      conn.release();
-    }
+    if (conn) conn.release();
   }
 };

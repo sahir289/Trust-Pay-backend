@@ -582,6 +582,22 @@ export const getAllPayoutsDao = async (
   }
 };
 
+export const getPayoutByOrderId = async (merchantOrderId, conn = null) => {
+  try {
+    const query = `
+      SELECT * FROM public."Payout"
+      WHERE merchant_order_id = $1
+        AND is_obsolete = false
+      LIMIT 1
+    `;
+    const result = await executeQuery(query, [merchantOrderId], conn);
+    return result.rows[0];
+  } catch (error) {
+    logger.error('Error in getPayoutByOrderId:', error);
+    throw error;
+  }
+};
+
 export const getCompanyIdByMerchantOrderIdDao = async (id, conn = null) => {
   try {
     const sql = `SELECT id, merchant_order_id, company_id FROM "${tableName.PAYOUT}" WHERE merchant_order_id = $1 AND is_obsolete = false`;
