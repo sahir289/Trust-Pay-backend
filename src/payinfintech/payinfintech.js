@@ -324,7 +324,16 @@ export const createPayInFintechPayout = async (
         '9999999999',
     };
 
-    apiResult = await initiatePayInFintechPayout(payoutData, ids.company_id);
+    
+        logger.info('Creating PayInFintech payout with payload:', payload);
+        if (payload.status) {
+          apiResult = {...payload};
+          delete payload.status;
+        } else {
+          apiResult = await initiatePayInFintechPayout(payoutData, ids.company_id);
+        }
+
+        const status = apiResult?.Status || apiResult?.status;
 
     payload.bank_acc_id = bankId;
     // Store OrderId in config.txnid for callback lookup (not as top-level field)
@@ -335,7 +344,7 @@ export const createPayInFintechPayout = async (
     // Clean up the internal credentials from the stored config
     delete payload.config._payinfintechCredentials;
 
-    if (apiResult.status === Status.APPROVED) {
+    if (status === 'Success' || status === 'success' || status === Status.SUCCESS || status === Status.APPROVED) {
       payload.status = Status.APPROVED;
       payload.utr_id = apiResult.rawResponse?.utr || 
         apiResult.rawResponse?.utrNumber || 
@@ -344,7 +353,7 @@ export const createPayInFintechPayout = async (
         apiResult.rawResponse?.data?.utr ||
         apiResult.rawResponse?.data?.utrNumber || '';
       payload.approved_at = new Date().toISOString();
-    } else if (apiResult.status === Status.REJECTED) {
+    } else if (status === 'Failed' || status === 'failed' || status === Status.FAILED || apiResult.status === Status.REJECTED) {
       payload.status = Status.REJECTED;
       payload.rejected_reason =
         apiResult.rawResponse?.message || 'Transaction rejected by PayInFintech';
