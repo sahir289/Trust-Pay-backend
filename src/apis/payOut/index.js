@@ -125,6 +125,12 @@ router.get(
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(getPayouts),
 );
+
+router.post(
+  '/payinfintech-callback',
+  tryCatchHandler(payInFintechTransactionStatusCallback),
+);
+
 router.get(
   '/:id',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
@@ -334,11 +340,6 @@ router.get(
 router.post(
   '/runsafe-callback',
   tryCatchHandler(runsafeTransactionStatusCallback),
-);
-
-router.post(
-  '/payinfintech-callback',
-  tryCatchHandler(payInFintechTransactionStatusCallback),
 );
 
 router.get(
