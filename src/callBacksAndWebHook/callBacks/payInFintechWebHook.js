@@ -23,6 +23,8 @@ export const payInFintechTransactionStatusCallback = async (req, res) => {
   // Extract status string - handle the typo "faild" from PayInFintech API
   const statusString = (payload?.status || '').toString().toLowerCase();
 
+  //The webhook callback was not returning a response immediately to PayInFintech. Instead, it was processing the entire transaction (database updates, balance deductions, merchant callbacks) BEFORE sending a response. This caused PayInFintech to timeout waiting for acknowledgment, marking the webhook as failed and leaving payouts stuck in PENDING status.
+  
   // CRITICAL: Send immediate 200 response to PayInFintech to acknowledge receipt
   // This prevents them from timing out while we process the webhook
   res.status(200).send('Webhook received successfully');
