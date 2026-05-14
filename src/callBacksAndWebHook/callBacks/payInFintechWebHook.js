@@ -1,6 +1,6 @@
 // PayInFintech payout webhook / callback handler
 import { getBankByIdDao } from '../../apis/bankAccounts/bankaccountDao.js';
-import { getPayoutByTxnId } from '../../apis/payOut/payOutDao.js';
+import { getPayoutsDao } from '../../apis/payOut/payOutDao.js';
 import { Status } from '../../constants/index.js';
 import { logger } from '../../utils/logger.js';
 import { getCompanyByIDDao } from '../../apis/company/companyDao.js';
@@ -37,7 +37,7 @@ export const payInFintechTransactionStatusCallback = async (req, res) => {
     await beginTransaction(conn);
 
     // Look up payout by the txnid (our OrderId)
-    const singleWithdrawData = await getPayoutByTxnId(orderId, conn);
+    const [singleWithdrawData] = await getPayoutsDao({ merchant_order_id: orderId });
     if (!singleWithdrawData) {
       await rollback(conn);
       logger.warn('PayInFintech: callback – payout not found', { orderId });
