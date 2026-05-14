@@ -23,14 +23,17 @@ export const payInFintechTransactionStatusCallback = async (req, res) => {
   // Extract status string - handle the typo "faild" from PayInFintech API
   const statusString = (payload?.status || '').toString().toLowerCase();
 
+  // CRITICAL: Send immediate 200 response to PayInFintech to acknowledge receipt
+  // This prevents them from timing out while we process the webhook
+  res.status(200).send('Webhook received successfully');
+
   let conn;
   let committed = false;
 
   try {
     if (!orderId) {
       logger.error('PayInFintech: Missing orderId in callback payload', payload);
-      // Always return 200 to prevent PayInFintech from retrying
-      return res.status(200).send('Missing orderId in callback payload');
+      return;
     }
 
     conn = await getConnection();
@@ -41,8 +44,7 @@ export const payInFintechTransactionStatusCallback = async (req, res) => {
     if (!singleWithdrawData) {
       await rollback(conn);
       logger.warn('PayInFintech: callback – payout not found', { orderId });
-      // Always return 200 to prevent PayInFintech from retrying
-      return res.status(200).send('Payment not found');
+      return;
     }
 
     const existingPayout = singleWithdrawData;
@@ -53,7 +55,7 @@ export const payInFintechTransactionStatusCallback = async (req, res) => {
         currentStatus: existingPayout.status,
       });
       await rollback(conn);
-      return res.status(200).json({ message: 'Already processed' });
+      return;
     }
 
     const [company] = await getCompanyByIDDao(
@@ -141,13 +143,14 @@ export const payInFintechTransactionStatusCallback = async (req, res) => {
 
     await commit(conn);
     committed = true;
-    // Always return 200 to PayInFintech
-    return res.status(200).send('Payout Updated Successfully');
+    logger.info('PayInFintech: payout update committed successfully', {
+      payoutId: singleWithdrawData.id,
+      orderId,
+      status: updatePayload.status,
+    });
   } catch (err) {
     if (conn && !committed) await rollback(conn);
     logger.error('PayInFintech: error while updating payout in callback', err);
-    // Always return 200 even on errors to prevent PayInFintech from retrying
-    return res.status(200).send('Internal server error logged');
   } finally {
     if (conn) {
       logger.info('PayInFintech: releasing DB connection');
