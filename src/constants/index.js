@@ -10,6 +10,7 @@ export const Status = {
   PENDING: 'PENDING',
   PROCESSING: 'PROCESSING',
   REJECTED: 'REJECTED',
+  REFUND: 'REFUND',
   TEST_SUCCESS: 'TEST_SUCCESS',
   TEST_DROPPED: 'TEST_DROPPED',
   BANK_MISMATCH: 'BANK_MISMATCH',
@@ -41,6 +42,7 @@ export const Method = {
   VERTEXPAY: 'VERTEXPAY',
   CPS: 'CPS',
   RUNSAFE_PAY: 'runsafe',
+  PAYINFINTECH: 'PAYINFINTECH',
 };
 
 export const Type = {
@@ -134,6 +136,7 @@ export const columns = {
     'last_login',
     'last_logout',
     'config',
+    'is_two_factor_enabled',
     'created_by',
     'updated_by',
     'created_at',
@@ -375,6 +378,7 @@ export const merchantColumns = {
     'contact_no',
     'user_name',
     'is_enabled',
+    'is_two_factor_enabled',
     'code',
   ],
   SETTLEMENT: [
@@ -477,6 +481,7 @@ export const vendorColumns = {
     'contact_no',
     'user_name',
     'code',
+    'is_two_factor_enabled',
     'created_at', //-- need bank details within date range
   ],
   SETTLEMENT: [

@@ -68,7 +68,6 @@ import {
   getMerchantsForValidatePayinDao,
   getMerchantByUserIdDao,
   updateMerchantBalanceDao,
-  getMerchantsByCodeAndApiKeyDao,
   getMerchantsByCodesDao,
 } from '../merchants/merchantDao.js';
 import {
@@ -228,11 +227,11 @@ export const generatePayInUrlByHashService = async (req) => {
       return data;
     }
 
-    let query = `user_id=${user_id}&code=${code}&ot=${ot}&key=${key}`;
+    let query = `user_id=${user_id}&code=${code}&ot=${ot}`;
     if (amount) {
       query += `&amount=${amount}`;
     }
-    if (role && role === Role.ADMIN) {
+    if (role || role === Role.ADMIN || role === Role.MERCHANT) {
       query += `&token=${role_id}`;
     }
 
@@ -250,6 +249,24 @@ export const generatePayInUrlByHashService = async (req) => {
     logger.error('Error generating payin hash:', error);
     throw error;
   }
+};
+const createPayInWithUniqueShortCode = async (data) => {
+  let attempts = 0;
+  while (attempts < 10) {
+    attempts += 1;
+    try {
+      return await generatePayInUrlDao({
+        ...data,
+        upi_short_code: nanoid(5),
+      });
+    } catch (error) {
+      if (error.code === '23505') {
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw new Error('Unable to generate unique short code after 10 attempts');
 };
 
 const isBankDisabled = (bank) => bank.is_enabled === false;
@@ -291,7 +308,7 @@ export const determineType = (bankAssigned) => {
   return 'upi';
 };
 
-export const generatePayInUrlService = async (payload, role, userIp) => {
+export const generatePayInUrlService = async (payload, role) => {
   try {
     const {
       code,
@@ -318,12 +335,12 @@ export const generatePayInUrlService = async (payload, role, userIp) => {
     if (cachedRouting) {
       ({ merchant, company, bankAssigned } = cachedRouting);
     } else {
-      const merchantArr = await getMerchantsByCodeAndApiKeyDao(code, api_key);
+      const merchantArr = await getMerchantsByCodeDao(code);
       merchant = merchantArr[0];
       if (!merchant) {
         return {
           status: 400,
-          message: 'Invalid merchant code or API key',
+          message: 'Invalid merchant code',
         };
       }
 
@@ -370,42 +387,42 @@ export const generatePayInUrlService = async (payload, role, userIp) => {
       };
     }
 
-    if (merchant?.config?.whitelist_ips) {
-      // normalize whitelist to a clean array of strings
-      const whitelist = []
-        .concat(merchant.config.whitelist_ips) // handles string or array
-        .flatMap((ip) =>
-          typeof ip === 'string' ? ip.split(',') : [String(ip)],
-        )
-        .map((ip) => ip.trim())
-        .filter(Boolean);
+    // if (merchant?.config?.whitelist_ips) {
+    //   // normalize whitelist to a clean array of strings
+    //   const whitelist = []
+    //     .concat(merchant.config.whitelist_ips) // handles string or array
+    //     .flatMap((ip) =>
+    //       typeof ip === 'string' ? ip.split(',') : [String(ip)],
+    //     )
+    //     .map((ip) => ip.trim())
+    //     .filter(Boolean);
 
-      // If whitelist ip's exists and user IP is not allowed
-      if (
-        whitelist.length > 0 &&
-        !whitelist.includes(userIp) &&
-        role !== Role.ADMIN
-      ) {
-        return {
-          status: 400,
-          message: 'IP not whitelisted',
-        };
-      }
-    }
+    //   // If whitelist ip's exists and user IP is not allowed
+    //   if (
+    //     whitelist.length > 0 &&
+    //     !whitelist.includes(userIp) &&
+    //     role !== Role.ADMIN
+    //   ) {
+    //     return {
+    //       status: 400,
+    //       message: 'IP not whitelisted',
+    //     };
+    //   }
+    // }
 
     const existingOrder = await getPayInWithMerchantOrderIdDao(order_id);
     if (existingOrder) {
       return { status: 400, message: 'Merchant Order ID already exists' };
     }
 
-    const { keys: merchantKeys } = merchant.config || {};
-    if (
-      api_key &&
-      api_key !== merchantKeys?.private &&
-      api_key !== merchantKeys?.public
-    ) {
-      return { status: 404, message: 'Enter valid Api key' };
-    }
+    // const { keys: merchantKeys } = merchant.config || {};
+    // if (
+    //   api_key &&
+    //   api_key !== merchantKeys?.private &&
+    //   api_key !== merchantKeys?.public
+    // ) {
+    //   return { status: 404, message: 'Enter valid Api key' };
+    // }
 
     if (
       role !== Role.ADMIN &&
@@ -427,7 +444,6 @@ export const generatePayInUrlService = async (payload, role, userIp) => {
     }
 
     const data = {
-      upi_short_code: nanoid(10),
       amount: amount || 0,
       status: Status.INITIATED,
       currency: Currency.INR,
@@ -445,7 +461,7 @@ export const generatePayInUrlService = async (payload, role, userIp) => {
       created_by: role === Role.ADMIN ? admin.id : merchant?.user_id,
     };
 
-    const result = await generatePayInUrlDao(data);
+    const result = await createPayInWithUniqueShortCode(data);
 
     const responseObj = {
       ...result,
@@ -3941,6 +3957,8 @@ const _verifyPayinsServiceInternal = async (
       is_bank: banks.some((bank) => bank.is_bank),
       redirect_url: payIn.config?.urls?.return,
       isAdmin: role === Role.ADMIN ? true : false,
+      is_paytm:paytmdetails?.is_paytm_enabled || false,
+      short_code: paytmdetails?.is_paytm_enabled ? payIn?.upi_short_code : null,
     };
     const response = {
       ...result,

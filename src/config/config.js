@@ -207,6 +207,11 @@ function config(Env) {
       apiKey: Env?.BSS03_API_KEY,
       apiSecret: Env?.BSS03_API_SECRET,
     },
+    albeCollect: {
+      url: Env?.ALBE_COLLECT_API_URL,
+      mid: Env?.ALBE_COLLECT_MID,
+      secretKey: Env?.ALBE_COLLECT_SECRET_KEY,
+    },
     controllerCacheTtls: {
       auth: {
         session: parsePositiveInt(Env?.AUTH_SESSION_CACHE_TTL_SEC, 30),

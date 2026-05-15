@@ -167,8 +167,8 @@ const getAllUsersDao = async (
 export const getUsersBySearchDao = async (
   filters,
   searchTerms,
-  pageNumber = 1, 
-  pageSize = 10, 
+  pageNumber = 1,
+  pageSize = 10,
   role,
   conn = null,
 ) => {
@@ -212,6 +212,7 @@ export const getUsersBySearchDao = async (
         "User".user_name,
         "User".code,
         "User".is_enabled,
+        "User".is_two_factor_enabled,
         "User".last_login,
         "User".last_logout,
         "User".config,
@@ -241,6 +242,7 @@ export const getUsersBySearchDao = async (
         "User".user_name,
         "User".code,
         "User".is_enabled,
+        "User".is_two_factor_enabled,
         "User".last_login,
         "User".last_logout,
         "User".config,
@@ -326,7 +328,7 @@ export const getUsersBySearchDao = async (
     const totalItems = parseInt(countResult.rows[0].total);
     let totalPages = Math.ceil(totalItems / validatedPageSize);
     if (totalItems > 0 && searchResult.rows.length === 0 && offset > 0) {
-      values[values.length - 1] = 0; 
+      values[values.length - 1] = 0;
       searchResult = await executeQuery(queryText, values, conn);
       totalPages = Math.ceil(totalItems / validatedPageSize);
     }
@@ -356,6 +358,7 @@ const getUserByIdDao = async (ids, conn = null) => {
         u.last_login, 
         u.last_logout, 
         u.config, 
+        u.is_two_factor_enabled,
         u.created_by, 
         u.updated_by, 
         u.created_at, 
@@ -408,7 +411,7 @@ const getUserByIdDao = async (ids, conn = null) => {
 const getUserDao = async (id, conn = null) => {
   try {
     const sql = `
-    SELECT r.role
+    SELECT r.role, u.is_two_factor_enabled
     FROM public."User" u
     LEFT JOIN public."Role" r ON u.role_id = r.id
     WHERE u.is_obsolete = false AND u.id = $1
@@ -445,6 +448,8 @@ const getUsersByUserNameDao = async (ids, username, conn = null) => {
         u.updated_by, 
         u.created_at, 
         u.updated_at, 
+        u.is_two_factor_enabled,
+        u.two_factor_secret,
         r.role, 
         d.designation,
         c.config AS company_config 
@@ -492,7 +497,7 @@ const createUserDao = async (payload, conn = null) => {
 
     const insertedUser = result.rows[0];
 
-  //  await createUserInES(insertedUser);
+    //  await createUserInES(insertedUser);
 
     return insertedUser;
   } catch (error) {
@@ -584,54 +589,41 @@ const getUserByRoleDao = async (company_id, role, conn = null) => {
     throw error;
   }
 };
- const deleteUserDao = async (
-  ids,
-  data,
-  conn = null,
-) => {
+
+
+const deleteUserDao = async (ids, data, conn = null) => {
   try {
-    const {id} = ids;
-    const idArray = Array.isArray(id) ? id : [id];
-    const is_obsolete = true;
-    const is_enabled = false;
-    const updated_by = data.updated_by;
-    const values = [is_obsolete, is_enabled, updated_by, idArray];
-    const sql = `
-      UPDATE "User"
-      SET "is_obsolete" = $1,
-          "is_enabled" = $2,
-          "updated_by" = $3
-      WHERE "id" = ANY($4)
-    `;
+    const values = [];
+    const setClause = Object.entries(data).map(([key, value], index) => {
+      values.push(value);
+      return `"${key}" = $${index + 1}`;
+    });
+
+    let whereClause = '';
+    const paramIndex = values.length + 1;
+    if (ids.id) {
+      if (Array.isArray(ids.id)) {
+        whereClause = `"id" = ANY($${paramIndex})`;
+        values.push(ids.id);
+      } else {
+        whereClause = `"id" = $${paramIndex}`;
+        values.push(ids.id);
+      }
+    }
+
+    const sql = `UPDATE "${tableName.USER}" SET ${setClause.join(', ')} WHERE ${whereClause} RETURNING *`;
     const result = await executeQuery(sql, values, conn);
     return result.rows;
   } catch (error) {
-    logger.error('Error in deleteUserDao:', error.message);
+    logger.error('Error in deleteUserDao:', error);
     throw error;
   }
 };
+
 const updateUserByIDDao = async (ids, data, conn = null) => {
-   try {
-     const { id } = ids;
-     const idArray = Array.isArray(id) ? id : [id];
-     const is_obsolete = data.is_obsolete;
-     const is_enabled = data.is_enabled;
-     const updated_by = data.updated_by;
-     const values = [is_obsolete, is_enabled, updated_by, idArray];
-     const sql = `
-      UPDATE "User"
-      SET "is_obsolete" = $1,
-          "is_enabled" = $2,
-          "updated_by" = $3
-      WHERE "id" = ANY($4)
-    `;
-     const result = await executeQuery(sql, values, conn);
-     return result.rows;
-   } catch (error) {
-     logger.error('Error in updateUserDao:', error.message);
-     throw error;
-   }
+  return await deleteUserDao(ids, data, conn);
 };
+
 export {
   getUsersDao,
   getAllUsersDao,
@@ -647,3 +639,99 @@ export {
   deleteUserDao,
   updateUserByIDDao,
 };
+
+/**
+ * Returns only the fields needed for the 2FA second-step verification.
+ */
+const getTwoFactorByUsernameDao = async (username, conn = null) => {
+  try {
+    const sql = `
+      SELECT
+        u.id,
+        u.user_name,
+        u.password,
+        u.is_two_factor_enabled,
+        u.two_factor_secret
+      FROM public."User" u
+      WHERE u.user_name = $1
+        AND u.is_obsolete = false
+    `;
+    const result = await executeQuery(sql, [username], conn);
+    return result.rows[0] || null;
+  } catch (error) {
+    logger.error('Error in getTwoFactorByUsernameDao:', error);
+    throw error;
+  }
+};
+
+/**
+ * Persists the TOTP secret for a user (called during 2FA setup).
+ */
+const saveTwoFactorSecretDao = async (userId, secret, conn = null) => {
+  try {
+    const sql = `
+      UPDATE public."User"
+      SET two_factor_secret = $1,
+          updated_at = NOW()
+      WHERE id = $2
+        AND is_obsolete = false
+      RETURNING id
+    `;
+    const result = await executeQuery(sql, [secret, userId], conn);
+    return result.rows[0] || null;
+  } catch (error) {
+    logger.error('Error in saveTwoFactorSecretDao:', error);
+    throw error;
+  }
+};
+
+/**
+ * Flips is_two_factor_enabled to true (called after OTP is confirmed).
+ */
+const enableTwoFactorDao = async (userId, conn = null) => {
+  try {
+    const sql = `
+      UPDATE public."User"
+      SET is_two_factor_enabled = true,
+          updated_at = NOW()
+      WHERE id = $1
+        AND is_obsolete = false
+      RETURNING id
+    `;
+    const result = await executeQuery(sql, [userId], conn);
+    return result.rows[0] || null;
+  } catch (error) {
+    logger.error('Error in enableTwoFactorDao:', error);
+    throw error;
+  }
+};
+
+/**
+ * Disables 2FA and clears the stored secret.
+ */
+const disableTwoFactorDao = async (userId, conn = null) => {
+  try {
+    const sql = `
+      UPDATE public."User"
+      SET is_two_factor_enabled = false,
+          two_factor_secret = NULL,
+          updated_at = NOW()
+      WHERE id = $1
+        AND is_obsolete = false
+      RETURNING id
+    `;
+    const result = await executeQuery(sql, [userId], conn);
+    return result.rows[0] || null;
+  } catch (error) {
+    logger.error('Error in disableTwoFactorDao:', error);
+    throw error;
+  }
+};
+
+export {
+  getTwoFactorByUsernameDao,
+  saveTwoFactorSecretDao,
+  enableTwoFactorDao,
+  disableTwoFactorDao,
+};
+

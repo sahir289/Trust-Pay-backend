@@ -12,8 +12,11 @@ import {
   createTataPayBulkPayoutController,
   createRupeeFlowBulkPayoutController,
 } from './payOutController.js';
+import { updatePayoutService } from './payOutService.js';
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
+import { checkPayoutApiKey } from '../../middlewares/checkApiKey.js';
+import { multerUpload } from '../../utils/index.js';
 import { payAssistTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/payAsistWebHook.js';
 import { payDumTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/payDumWebHook.js';
 import { tataPayTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/tataPayWebHook.js';
@@ -36,8 +39,12 @@ import { bss02TransactionStatusCallback } from '../../callBacksAndWebHook/callBa
 import { bss03TransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/bss03WebHook.js';
 import { getVertexPayWalletBalance } from '../../vertexpay/vertexpay.js';
 import { vertexPayTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/vertexPayWebHook.js';
-import {runsafeTransactionStatusCallback} from "../../callBacksAndWebHook/callBacks/runsafeWebHook.js"
+import { runsafeTransactionStatusCallback } from "../../callBacksAndWebHook/callBacks/runsafeWebHook.js"
 import { getRunsafePayWalletBalance } from '../../runsafe/runsafepay.js';
+import { payInFintechTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/payInFintechWebHook.js';
+import {
+  getPayInFintechWalletBalance,
+} from '../../payinfintech/payinfintech.js';
 const router = express.Router();
 
 /**
@@ -118,6 +125,12 @@ router.get(
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(getPayouts),
 );
+
+router.post(
+  '/payinfintech-callback',
+  tryCatchHandler(payInFintechTransactionStatusCallback),
+);
+
 router.get(
   '/:id',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
@@ -156,6 +169,7 @@ router.get(
 router.post(
   '/create-payout',
   // [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  checkPayoutApiKey,
   tryCatchHandler(createPayout),
 );
 
@@ -229,6 +243,7 @@ router.post('/check-payout-status', tryCatchHandler(checkPayOutStatus));
 router.put(
   '/update-payout/:id',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  multerUpload.single('file'),
   tryCatchHandler(updatePayout),
 );
 
@@ -325,6 +340,44 @@ router.get(
 router.post(
   '/runsafe-callback',
   tryCatchHandler(runsafeTransactionStatusCallback),
+);
+
+router.get(
+  '/payinfintech/payinfintech-balance',
+  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  tryCatchHandler(getPayInFintechWalletBalance),
+);
+
+router.post(
+  '/payinfintech-sequential-payout',
+  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  async (req, res) => {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ message: 'ids array is required' });
+    }
+
+    const { company_id, role } = req.user;
+    const results = { success: [], failed: [] };
+
+    for (const id of ids) {
+      try {
+        await updatePayoutService(
+          { id, company_id },
+          { config: { method: 'PAYINFINTECH' } },
+          role,
+        );
+        results.success.push(id);
+      } catch (err) {
+        results.failed.push({ id, reason: err.message });
+      }
+    }
+
+    return res.status(200).json({
+      message: `PayInFintech: ${results.success.length} succeeded, ${results.failed.length} failed`,
+      ...results,
+    });
+  },
 );
 
 router.post(
@@ -505,148 +558,6 @@ router.post(
   '/tatapay/bulk-payout',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(createTataPayBulkPayoutController),
-);
-/**
- * @swagger
- * /payout/tatapay/bulk-payout:
- *   post:
- *     summary: Create TataPay bulk payout
- *     description: Process multiple payouts through TataPay in a single request
- *     tags:
- *       - Payout
- *     security:
- *       - bearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               payoutEntries:
- *                 type: array
- *                 items:
- *                   type: object
- *                   properties:
- *                     id:
- *                       type: string
- *                       description: Unique payout ID
- *                     account_holder_name:
- *                       type: string
- *                       description: Beneficiary name
- *                     account_no:
- *                       type: string
- *                       description: Bank account number
- *                     ifsc_code:
- *                       type: string
- *                       description: IFSC code
- *                     bank_name:
- *                       type: string
- *                       description: Bank name
- *                     amount:
- *                       type: number
- *                       description: Payout amount
- *                     remark:
- *                       type: string
- *                       description: Payment remark
- *                 example:
- *                   - id: "payout_001"
- *                     account_holder_name: "John Doe"
- *                     account_no: "1234567890"
- *                     ifsc_code: "HDFC0001234"
- *                     bank_name: "HDFC Bank"
- *                     amount: 1000
- *                     remark: "Payment for services"
- *               payoutIds:
- *                 type: array
- *                 items:
- *                   type: string
- *                 description: Array of payout IDs (alternative to payoutEntries)
- *                 example: ["payout_001", "payout_002"]
- *             oneOf:
- *               - required: [payoutEntries]
- *               - required: [payoutIds]
- *     responses:
- *       200:
- *         description: Bulk payout processed successfully
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 success:
- *                   type: boolean
- *                   example: true
- *                 message:
- *                   type: string
- *                   example: "Bulk payout processed successfully"
- *                 data:
- *                   type: object
- *                   properties:
- *                     totalRecords:
- *                       type: number
- *                       example: 10
- *                     successpayout:
- *                       type: number
- *                       example: 8
- *                     skippayout:
- *                       type: number
- *                       example: 2
- *                     results:
- *                       type: array
- *                       items:
- *                         type: object
- *                         properties:
- *                           success:
- *                             type: boolean
- *                           message:
- *                             type: string
- *                           payoutId:
- *                             type: string
- *                           beneficiaryId:
- *                             type: string
- *                           balanceAfter:
- *                             type: number
- *       400:
- *         description: Invalid request data
- *       401:
- *         description: Unauthorized access
- *       500:
- *         description: Internal server error
- */
-router.post(
-  '/tatapay/bulk-payout',
-  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
-  tryCatchHandler(createTataPayBulkPayoutController),
-);
-
-router.post(
-  '/rupeeflow',
-  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
-  tryCatchHandler(initiateRupeeFlowPayout),
-);
-
-router.get(
-  '/rupeeflow/wallet-balance',
-  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
-  tryCatchHandler(getRupeeFlowWalletBalance),
-);
-
-router.post(
-  '/rupeeflow',
-  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
-  tryCatchHandler(initiateRupeeFlowPayout),
-);
-
-router.get(
-  '/rupeeflow/wallet-balance',
-  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
-  tryCatchHandler(getRupeeFlowWalletBalance),
-);
-router.post(
-  '/rupeeflow/bulk-payout',
-  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
-  tryCatchHandler(createRupeeFlowBulkPayoutController),
 );
 router.post(
   '/rupeeflow/bulk-payout',

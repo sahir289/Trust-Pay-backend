@@ -16,6 +16,10 @@ import {
   forgetPasswordService,
   logoutService,
   getUserRoleService,
+  verifyLoginOtpService,
+  setup2FAService,
+  confirm2FAService,
+  disable2FAService,
 } from './authService.js';
 
 const loginController = async (req, res) => {
@@ -31,6 +35,14 @@ const loginController = async (req, res) => {
   ///for first login user
   if (data.isLoginFirst) {
     return sendSuccess(res, data, "user's first login");
+  }
+  // 2FA gate: return a short-lived pre-auth token instead of the real session
+  if (data.twoFactorRequired) {
+    return sendSuccess(
+      res,
+      { twoFactorRequired: true, preAuthToken: data.preAuthToken },
+      '2FA verification required',
+    );
   }
   res.cookie('refreshToken', data.refreshToken, {
     httpOnly: true,
@@ -138,6 +150,75 @@ const getUserRoleController = async (req, res) => {
   return sendSuccess(res, role, 'User role fetched successfully');
 };
 
+// ---------------------------------------------------------------------------
+// 2FA controllers
+// ---------------------------------------------------------------------------
+
+/**
+ * POST /auth/verify-2fa  (public)
+ * Body: { preAuthToken, otpToken }
+ * Validates the pre-auth token + OTP, then issues the real JWT + session.
+ */
+const verifyLoginOtpController = async (req, res) => {
+  const clientIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  const { preAuthToken, otpToken } = req.body;
+  if (!preAuthToken || !otpToken) {
+    throw new BadRequestError('preAuthToken and otpToken are required');
+  }
+  const data = await verifyLoginOtpService(preAuthToken, String(otpToken), clientIP);
+  res.cookie('refreshToken', data.tokenInfo.refreshToken, {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'Strict',
+  });
+  const token = {
+    accessToken: data.tokenInfo.accessToken,
+    sessionId: data.sessionId,
+  };
+  return sendSuccess(res, token, 'login successfully');
+};
+
+/**
+ * POST /2fa/setup  (protected)
+ * Generates a TOTP secret + QR code. Does NOT enable 2FA yet.
+ * Returns: { qrCodeDataUrl, secret }
+ */
+const setup2FAController = async (req, res) => {
+  const { user_id, user_name } = req.user;
+  const result = await setup2FAService(user_id, user_name);
+  return sendSuccess(res, result, '2FA setup initiated. Scan the QR code, then call /2fa/confirm');
+};
+
+/**
+ * POST /2fa/confirm  (protected)
+ * Body: { otpToken }
+ * Verifies the first OTP and enables 2FA for the account.
+ */
+const confirm2FAController = async (req, res) => {
+  const { user_id } = req.user;
+  const { otpToken } = req.body;
+  if (!otpToken) {
+    throw new BadRequestError('otpToken is required');
+  }
+  await confirm2FAService(user_id, String(otpToken));
+  return sendSuccess(res, {}, '2FA has been enabled successfully');
+};
+
+/**
+ * POST /2fa/disable  (protected)
+ * Body: { otpToken }
+ * Verifies the current OTP then disables 2FA and clears the secret.
+ */
+const disable2FAController = async (req, res) => {
+  const { user_id } = req.user;
+  const { otpToken } = req.body;
+  if (!otpToken) {
+    throw new BadRequestError('otpToken is required');
+  }
+  await disable2FAService(user_id, String(otpToken));
+  return sendSuccess(res, {}, '2FA has been disabled successfully');
+};
+
 export {
   loginController,
   refreshTokenController,
@@ -148,4 +229,8 @@ export {
   verfyOtpController,
   forgetPasswordController,
   getUserRoleController,
+  verifyLoginOtpController,
+  setup2FAController,
+  confirm2FAController,
+  disable2FAController,
 };

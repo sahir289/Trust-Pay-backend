@@ -75,7 +75,7 @@ export const getPayInwithMerchantDao = async (merchantorderid, conn = null) => {
     FROM "Payin" p
     INNER JOIN "Merchant" m ON p.merchant_id = m.id
     INNER JOIN "Company" c ON p.company_id = c.id
-    WHERE p.merchant_order_id = $1`;
+    WHERE p.merchant_order_id = $1 LIMIT 1`;
 
     const filterArray = Array.isArray(merchantorderid)
       ? merchantorderid
@@ -93,7 +93,7 @@ export const getPayInwithMerchantDao = async (merchantorderid, conn = null) => {
 
 export const getPayInWithMerchantOrderIdDao = async (merchantOrderid, conn = null) => {
   try {
-    const sql = `
+    let sql = `
     SELECT 
       p.id,
       p.merchant_order_id,
@@ -101,6 +101,7 @@ export const getPayInWithMerchantOrderIdDao = async (merchantOrderid, conn = nul
       p.merchant_id
     FROM "Payin" p
     WHERE p.merchant_order_id = $1`;
+    sql += ` ORDER BY "created_at" DESC LIMIT 1`;
     const params = [merchantOrderid];
     const result = await executeQuery(sql, params, conn);
     return result.rows[0];
@@ -279,7 +280,7 @@ export const getPayInForCheckStatusDao = async (filters, conn = null) => {
 
 export const getPayinsForServiccDao = async (filters, conn = null) => {
   try {
-    const [sql, params] = buildSelectQuery(
+    let [sql, params] = buildSelectQuery(
       `SELECT 
         id,
         merchant_order_id,
@@ -304,6 +305,7 @@ export const getPayinsForServiccDao = async (filters, conn = null) => {
        FROM "${tableName.PAYIN}" WHERE is_obsolete = false`,
       filters,
     );
+    sql += ` LIMIT 1`;
     const result = await executeQuery(sql, params, conn);
 
     return result.rows[0];
@@ -377,6 +379,35 @@ export const getPayInIntentDao = async (merchantOrderId, conn = null) => {
     return result.rows[0] || [];
   } catch (error) {
     logger.error('Error getting while creating intent link:', error);
+    throw error;
+  }
+};
+export const getPayInByClientRefNoDao = async (clientRefNo, conn = null) => {
+  try {
+    const sql = `
+      SELECT
+        p.id,
+        p.merchant_order_id,
+        p.user,
+        p.merchant_id,
+        p.status,
+        p.created_at,
+        p.amount,
+        p.company_id,
+        p.config,
+        p.bank_acc_id,
+        p.user_submitted_utr,
+        p.is_url_expires,
+        p.expiration_date
+      FROM "${tableName.PAYIN}" p
+      WHERE p.config->>'clientRefNo' = $1
+        AND p.is_obsolete = false
+      LIMIT 1
+    `;
+    const result = await executeQuery(sql, [clientRefNo], conn);
+    return result.rows[0] || null;
+  } catch (error) {
+    logger.error('Error getting PayIn by clientRefNo:', error);
     throw error;
   }
 };
@@ -1307,6 +1338,7 @@ export const getPayinsWithoutHistoryDao = async (
         p.created_at,
         p.updated_at`;
     } else {
+      
       commissionSelect = `
         p.payin_merchant_commission,
         json_build_object(

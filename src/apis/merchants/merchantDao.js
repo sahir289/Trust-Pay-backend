@@ -210,17 +210,20 @@ export const getMerchantByUserDao = async (userId, role, conn = null) => {
         "Merchant".is_demo, 
         "Merchant".balance, 
         CASE 
-          WHEN UPPER($2::TEXT) = 'ADMIN' THEN "Merchant".config 
-          ELSE json_build_object(
-            'keys', COALESCE("Merchant".config->'keys', '{}'),
-            'urls', COALESCE("Merchant".config->'urls', '{}')
-          ) 
+          WHEN $2 = 'ADMIN' 
+            THEN (("Merchant".config::jsonb - ARRAY['keys', 'SUCCESSRATIOCHATID'])::json)
+          ELSE 
+            json_build_object(
+            'urls', COALESCE("Merchant".config->'urls', '{}'),
+            'unblocked_countries', COALESCE("Merchant".config->'unblocked_countries', '{}')
+          )
         END AS config,
         creator.user_name AS created_by, 
         updater.user_name AS updated_by, 
         "Merchant".created_at, 
         "Merchant".updated_at, 
-        "User".designation_id, 
+        CASE WHEN $2 = 'ADMIN' THEN "Merchant".company_id ELSE NULL END AS company_id, 
+        CASE WHEN $2 = 'ADMIN' THEN "User".designation_id ELSE NULL END AS designation_id,
         "User".first_name || ' ' || "User".last_name AS full_name, 
         "Designation".designation AS designation_name 
       FROM "Merchant" 
@@ -461,10 +464,10 @@ export const getMerchantsByCodeDao = async (code, api_key, conn = null) => {
       baseQuery += ` AND "Merchant".code = $1`;
       queryParams = [code.trim()];
     }
-    if (api_key) {
-      queryParams.push(api_key);
-      baseQuery += ` AND ("Merchant".config->'keys'->>'public' = $${queryParams.length} OR "Merchant".config->'keys'->>'private' = $${queryParams.length})`;
-    }
+    // if (api_key) {
+    //   queryParams.push(api_key);
+    //   baseQuery += ` AND ("Merchant".config->'keys'->>'public' = $${queryParams.length} OR "Merchant".config->'keys'->>'private' = $${queryParams.length})`;
+    // }
 
     const result = await executeQuery(baseQuery, queryParams, conn);
     return result.rows;
@@ -533,8 +536,7 @@ export const getMerchantByCodeDao = async (code, conn = null) => {
         "Merchant".payin_commission, 
         "Merchant".payout_commission,
         "Merchant".min_payin,
-        "Merchant".max_payin,
-        ("Merchant".config->'keys'->>'public') AS public_key
+        "Merchant".max_payin
       FROM "Merchant" 
     `;
 
@@ -696,18 +698,20 @@ export const getMerchantsBySearchDao = async (
         "Merchant".dispute_enabled, 
         "Merchant".is_demo, 
         CASE 
-          WHEN $${roleParamIndex} = 'ADMIN' THEN "Merchant".config 
-          ELSE json_build_object(
-            'keys', "Merchant".config->'keys',
-            'urls', "Merchant".config->'urls'
-          ) 
+          WHEN $${roleParamIndex} = 'ADMIN' 
+        THEN (("Merchant".config::jsonb - ARRAY['keys', 'SUCCESSRATIOCHATID'])::json)
+          ELSE 
+        json_build_object(
+          'urls', COALESCE("Merchant".config->'urls', '{}'),
+          'unblocked_countries', COALESCE("Merchant".config->'unblocked_countries', '{}')
+        )
         END AS config,
-        "Merchant".company_id, 
+        CASE WHEN $2 = 'ADMIN' THEN "Merchant".company_id ELSE NULL END AS company_id, 
         creator.user_name AS created_by, 
         updater.user_name AS updated_by, 
         "Merchant".created_at, 
         "Merchant".updated_at, 
-        "User".designation_id, 
+        CASE WHEN $2 = 'ADMIN' THEN "User".designation_id ELSE NULL END AS designation_id,
         "User".first_name || ' ' || "User".last_name AS full_name, 
         "Designation".designation AS designation_name,
         (SELECT net_balance 
@@ -787,8 +791,6 @@ export const getMerchantsBySearchDao = async (
         OR LOWER(updater.user_name) LIKE LOWER($${paramIndex})
         OR LOWER("User".first_name || ' ' || "User".last_name) LIKE LOWER($${paramIndex})
         OR LOWER("Designation".designation) LIKE LOWER($${paramIndex})
-        OR LOWER("Merchant".config->'keys'->>'public') LIKE LOWER($${paramIndex})
-        OR LOWER("Merchant".config->'keys'->>'private') LIKE LOWER($${paramIndex})
         OR LOWER("Merchant".config->'urls'->>'site') LIKE LOWER($${paramIndex})
         OR LOWER("Merchant".config->'urls'->>'return') LIKE LOWER($${paramIndex})
         OR LOWER("Merchant".config->'urls'->>'payin_notify') LIKE LOWER($${paramIndex})
