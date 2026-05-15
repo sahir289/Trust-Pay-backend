@@ -153,6 +153,8 @@ function config(Env) {
       payoutNotifyUrl: Env?.RUNSAFE_PAYOUT_NOTIFY_URL,
       privateKey: Env?.RUNSAFE_PRIVATE_KEY,
       publicKey: Env?.RUNSAFE_PUBLIC_KEY,
+      mchId: Env?.RUNSAFE_MCH_ID,
+      appId: Env?.RUNSAFE_APP_ID,
     },
     cps: {
       url: Env?.CPS_API_URL,
