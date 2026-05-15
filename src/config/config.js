@@ -147,6 +147,8 @@ function config(Env) {
     runsafe: {
       url: Env?.RUNSAFE_API_URL,
       baseUrl: Env?.RUNSAFE_BASE_API_URL,
+      mchId: Env?.RUNSAFE_MCH_ID,
+      appId: Env?.RUNSAFE_APP_ID,
       initiatePayout: Env?.RUNSAFE_INITIATE_API_URL,
       walletBalance: Env?.RUNSAFE_WALLET_BALANCE_API_URL,
       NotifyUrl: Env?.RUNSAFE_NOTIFY_URL,
