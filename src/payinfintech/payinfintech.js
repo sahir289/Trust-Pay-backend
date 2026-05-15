@@ -1,5 +1,4 @@
 import axios from 'axios';
-import FormData from 'form-data'; // Still used by checkPayInFintechPayoutStatus
 import { Status } from '../constants/index.js';
 import { BadRequestError } from '../utils/appErrors.js';
 import { logger } from '../utils/logger.js';
@@ -42,14 +41,6 @@ const PAYOUT_STATUS_MAP = {
   109: Status.PENDING,
   110: Status.REJECTED,
   111: Status.REJECTED,
-};
-
-const CHECK_STATUS_MAP = {
-  101: Status.APPROVED,
-  102: Status.PENDING,
-  105: Status.PENDING,
-  103: Status.REJECTED,
-  104: Status.REJECTED,
 };
 
 // Error codes for initiation — throw BadRequestError immediately
@@ -213,13 +204,13 @@ export const initiatePayInFintechPayout = async (payoutData, companyId) => {
 
   // Step 2 — Build JSON body with confirmed PascalCase field names
   const body = {
+    OrderId: String(payoutData.orderid || payoutData.OrderId || ''),
     Amount: Number(payoutData.Amount),
     AccountNumber: String(payoutData.AccountNumber || ''),
     BenificalName: String(payoutData.BenificalName || ''),
-    Bank: String(payoutData.Bank || ''),
     IFSC: String(payoutData.IFSC || ''),
+    Bank: String(payoutData.Bank || ''),
     Mode: String(payoutData.Mode || 'IMPS'),
-    OrderId: String(payoutData.OrderId || ''),
     Mobile: String(payoutData.Mobile || ''),
   };
 
@@ -300,7 +291,7 @@ export const createPayInFintechPayout = async (
     }
 
     // Generate unique OrderId (max 16 chars)
-    const orderId = await generatePayInFintechOrderId();
+    // const orderId = await generatePayInFintechOrderId();
 
     // DEBUG: log singleWithdrawData shape to find the correct account holder name field
     console.log('PayInFintech: singleWithdrawData keys', JSON.stringify({
@@ -326,33 +317,43 @@ export const createPayInFintechPayout = async (
       IFSC: singleWithdrawData.user_bank_details?.ifsc_code ||
         singleWithdrawData.ifsc_code,
       Mode: payload?.config?.payout_mode || 'IMPS',
-      OrderId: orderId,
+      orderid: singleWithdrawData.merchant_order_id,
       Mobile: singleWithdrawData.phone ||
         singleWithdrawData.user?.phone ||
         singleWithdrawData.mobile ||
         '9999999999',
     };
 
-    apiResult = await initiatePayInFintechPayout(payoutData, ids.company_id);
+    
+        logger.info('Creating PayInFintech payout with payload:', payload);
+        if (payload.status) {
+          apiResult = {...payload};
+          delete payload.status;
+        } else {
+          apiResult = await initiatePayInFintechPayout(payoutData, ids.company_id);
 
-    payload.bank_acc_id = bankId;
-    payload.config.txnid = orderId;
-    payload.config.payinfintech_txnid = apiResult.txnId || '';
-    payload.utr_id = ''; // UTR only available after completion via webhook or poll
+          // Store OrderId in config.txnid for callback lookup (not as top-level field)
+          // payload.config.txnid = singleWithdrawData.merchant_order_id;
+          payload.config.payinfintech_txnid = apiResult.txnId || '';
+          payload.bank_acc_id = bankId;
+          payload.utr_id = ''; // UTR only available after completion via webhook or poll
+        }
 
+    const status = apiResult?.Status || apiResult?.status;
     // Clean up the internal credentials from the stored config
     delete payload.config._payinfintechCredentials;
 
-    if (apiResult.status === Status.APPROVED) {
+    if (status === 'Success' || status === 'success' || status === Status.SUCCESS || status === Status.APPROVED) {
       payload.status = Status.APPROVED;
-      payload.utr_id = apiResult.rawResponse?.utrNumber || 
-        apiResult.rawResponse?.utr || 
+      payload.utr_id = apiResult.rawResponse?.utr || 
+        apiResult.rawResponse?.utrNumber || 
         apiResult.rawResponse?.UTR || 
         apiResult.rawResponse?.rrn || 
-        apiResult.rawResponse?.data?.utrNumber ||
-        apiResult.rawResponse?.data?.utr || '';
+        apiResult.rawResponse?.data?.utr ||
+        apiResult.rawResponse?.data?.utrNumber
+        || apiResult.utr ||  apiResult.utr_id || '';
       payload.approved_at = new Date().toISOString();
-    } else if (apiResult.status === Status.REJECTED) {
+    } else if (status === 'Failed' || status === 'failed' || status === Status.FAILED || apiResult.status === Status.REJECTED) {
       payload.status = Status.REJECTED;
       payload.rejected_reason =
         apiResult.rawResponse?.message || 'Transaction rejected by PayInFintech';
@@ -362,15 +363,21 @@ export const createPayInFintechPayout = async (
     }
 
     logger.info('PayInFintech: payout processed', {
-      orderId,
+      orderId : singleWithdrawData.merchant_order_id,
       status: payload.status,
     });
 
     return payload;
   } catch (error) {
-    payload.status = Status.PENDING;
+    // If it's a BadRequestError (validation, auth, insufficient balance, etc.), throw it up
+    if (error instanceof BadRequestError) {
+      throw error;
+    }
+
+    // For other errors, set to REJECTED (not PENDING)
+    payload.status = Status.REJECTED;
     payload.bank_acc_id = bankId;
-    payload.utr_id = apiResult?._id || '';
+    payload.utr_id = '';
     payload.rejected_reason =
       error?.response?.data?.message || error.message || 'API call failed';
     payload.rejected_at = new Date().toISOString();
@@ -381,71 +388,8 @@ export const createPayInFintechPayout = async (
     }
 
     logger.error('PayInFintech: payout error', error.message);
-    logger.warn('PayInFintech: payout error response', payload);
+    logger.warn('PayInFintech: payout rejected due to error', payload);
     return payload;
-  }
-};
-
-// ─── Check Payout Status ─────────────────────────────────────────────────────
-/**
- * Authenticate and check the status of an existing payout.
- * @param {string} orderId      - The OrderId used when initiating
- * @param {string} companyId    - Company ID for token retrieval
- * @returns {Promise<{ status: string, rawResponse: object }>}
- */
-export const checkPayInFintechPayoutStatus = async (orderId, companyId) => {
-  logger.info('PayInFintech: checking payout status', { orderId });
-
-  // Step 1 — Get valid token
-  const token = await getValidToken(companyId);
-
-  // Step 2 — Check status via multipart/form-data
-  try {
-    const form = new FormData();
-    form.append('orderId', orderId);
-
-    const response = await axios.post(
-      `${BASE_URL}/webhook/payout/checkstatus`,
-      form,
-      {
-        headers: {
-          ...form.getHeaders(),
-          ...getAuthHeaders(token),
-        },
-      },
-    );
-
-    const raw = response.data;
-    const code = raw?.Status_code ?? raw?.status_code ?? raw?.statusCode;
-
-    logger.info('PayInFintech: status check response', { code, raw });
-
-    // Error codes
-    if (code === 106) {
-      throw new BadRequestError('PayInFintech: OrderId does not exist');
-    }
-    if (code === 107) {
-      throw new BadRequestError('PayInFintech: Validation error on status check');
-    }
-
-    const internalStatus = CHECK_STATUS_MAP[code];
-    if (!internalStatus) {
-      logger.warn('PayInFintech: unknown status code from checkstatus API', {
-        code,
-      });
-    }
-
-    return {
-      status: internalStatus || Status.PENDING,
-      rawResponse: raw,
-    };
-  } catch (error) {
-    if (error instanceof BadRequestError) throw error;
-    logger.error('PayInFintech: status check failed', {
-      message: error.message,
-      data: error.response?.data,
-    });
-    throw error;
   }
 };
 
