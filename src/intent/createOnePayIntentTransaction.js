@@ -88,9 +88,9 @@ export const createOnePayPaymentTransaction = async (
     //   returnUrl: deposit?.config?.urls?.return || '',
     // };
     const body = {
-      mchId: 3558644692,
+      mchId: providerConfig.mchId,
       txChannel: "TX_INDIA_001",
-      appId: "BSahxNHf56acIa47Xo5KRWM8gbs=",
+      appId: providerConfig.appId,
       timestamp: Date.now(),
       mchOrderNo: deposit.merchant_order_id,
       bankCode: "UPI",

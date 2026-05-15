@@ -37,9 +37,9 @@ export const initiateRunsafePayPayout = async (
   const providerConfig = config['runsafe'];
   const payoutNotifyUrl = providerConfig.payoutNotifyUrl;
   const newPayload = {
-    mchId: 3558644692,
+    mchId: providerConfig.mchId,
     txChannel: "TX_INDIA_001",
-    appId: "BSahxNHf56acIa47Xo5KRWM8gbs=",
+    appId: providerConfig.appId,
     timestamp: Date.now(),
     mchOrderNo: payload?.merchant_order_id,
     name: payload?.user_bank_details?.account_holder_name || '',
@@ -101,16 +101,16 @@ export const initiateRunsafePayPayout = async (
  */
 export const getRunsafePayWalletBalance = async (req, res) => {
   try {
-    console.log('Fetching runsafePay wallet balance', req);
-    const body = {
-      mchId: 3558644692,
-      timestamp: Date.now()
-    }
     const providerConfig = config['runsafe'];
+    const body = {
+      mchId: providerConfig.mchId,
+      timestamp: Date.now(),
+    };
     // const [company] = await getCompanyByIDDao({ id: company_id });
-    const sign = generateSign(body , providerConfig.privateKey);    
+    const sign = generateSign(body , providerConfig.privateKey);
     const response = await axios.post(
-      `https://api-in.transafe.co/cashout/balance`,{...body, sign: sign},
+      `${providerConfig.baseUrl}${providerConfig.walletBalance}`,
+      { ...body, sign },
     );
 
     logger.info('runsafePay wallet balance response:', response.data);
