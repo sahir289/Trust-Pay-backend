@@ -715,7 +715,15 @@ const getBankAccountNickNameForPayinEsDao = async (bankId, conn = null) => {
 };
 const getMerchantBankDao = async (filters, conn = null) => {
   try {
-    const query = `SELECT * FROM  "${tableName.BANK_ACCOUNT}" WHERE 1=1`;
+    const query = `SELECT       
+      id,
+      user_id,
+      nick_name,
+      is_qr,
+      is_bank,
+      bank_used_for,
+      is_enabled,
+      config FROM  "${tableName.BANK_ACCOUNT}" WHERE 1=1`;
     const [sql, parameters] = buildSelectQuery(query, filters);
     const result = await executeQuery(sql, parameters, conn);
     return result.rows || [];
