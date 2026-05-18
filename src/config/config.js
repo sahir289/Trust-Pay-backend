@@ -168,6 +168,10 @@ function config(Env) {
       NotifyUrl: Env?.TYTL_NOTIFY_URL,
       payinUrl : Env?.TYTL_PAYIN_URL,
     },
+    vertexPay:{
+      url: Env?.VERTEX_API_PAYIN_UPI_INTENT_URL,
+      apiKey: Env?.VERTEX_API_KEY,
+    },
     clickrr : {
       baseUrl: Env?.CLICKRR_BASE_API_URL,
       initiatePayout: Env?.CLICKRR_INITIATE_API_URL,

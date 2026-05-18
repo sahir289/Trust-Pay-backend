@@ -13,6 +13,7 @@ import {
   VALIDATE_CHECK_UTR,
   VALIDATE_DISPUTE_DUPLICATE_TRANSACTION,
   VALIDATE_EXPIRE_PAY_IN_URL,
+  VALIDATE_GENERATE_PAYIN_URL_SCHEMA,
   VALIDATE_PAY_IN_INTENT_GENERATE_ORDER,
   VALIDATE_PAYIN_SCHEMA,
   VALIDATE_PROCESS_PAYIN,
@@ -201,14 +202,14 @@ export const validatePayInUrl = async (req, res) => {
 export const generateUpiUrl = async (req, res) => {
   const payload = req.body;
 
-  // const joiValidation = VALIDATE_PAYIN_SCHEMA.validate(req.params);
-  // if (joiValidation.error) {
-  //   throw new ValidationError(joiValidation.error);
-  // }
+  const joiValidation = VALIDATE_GENERATE_PAYIN_URL_SCHEMA.validate(payload);
+  if (joiValidation.error) {
+    throw new ValidationError(joiValidation.error);
+  }
 
   const result = await generateUpiUrlService(payload);
 
-  return sendSuccess(res, result, 'UPI Url is generated successfully');
+  return sendSuccess(res, result, 'UPI Urls are generated successfully');
 };
 
 export const assignedBankToPayInUrl = async (req, res) => {

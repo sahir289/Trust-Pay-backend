@@ -57,6 +57,37 @@ export const setCachedData = async (
   }
 };
 
+export const setCachedDataIfNotExists = async (
+  cacheKey,
+  data,
+  ttl = 300,
+  label = 'cache',
+) => {
+  try {
+    if (!cacheKey) {
+      return false;
+    }
+
+    const result = await redisClient.set(
+      cacheKey,
+      JSON.stringify(data),
+      'EX',
+      ttl,
+      'NX',
+    );
+
+    const created = result === 'OK';
+    logger.info(
+      `${label} ${created ? 'created' : 'already exists'} for key: ${cacheKey}`,
+    );
+
+    return created;
+  } catch (redisError) {
+    logger.error('Redis set NX error:', redisError);
+    return false;
+  }
+};
+
 export const deleteCachedData = async (cacheKey, label = 'cache') => {
   try {
     if (!cacheKey) {

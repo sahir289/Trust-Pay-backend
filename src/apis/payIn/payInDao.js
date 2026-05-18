@@ -468,6 +468,80 @@ export const getExpiredPayInsDao = async (expireTime, status, dateField = 'creat
   }
 };
 
+export const getPayInsForCronByDateRangeDao = async (
+  {
+    statuses = [],
+    isNotified,
+    dateField = 'updated_at',
+    startTime,
+    endTime,
+    maxRows,
+  } = {},
+  conn = null,
+) => {
+  try {
+    const normalizedStatuses = Array.isArray(statuses)
+      ? statuses.filter(Boolean)
+      : [statuses].filter(Boolean);
+
+    if (!normalizedStatuses.length) {
+      return [];
+    }
+
+    if (!startTime || !endTime) {
+      throw new Error('startTime and endTime are required for cron date range query');
+    }
+
+    const allowedDateFields = new Set(['created_at', 'updated_at']);
+    const safeDateField = allowedDateFields.has(dateField) ? dateField : 'updated_at';
+
+    const selectColumns = `
+      id,
+      merchant_order_id,
+      status,
+      is_notified,
+      amount,
+      user_submitted_utr,
+      config,
+      created_at,
+      updated_at
+    `;
+
+    const parsedMaxRows = Number.parseInt(maxRows, 10);
+    const safeMaxRows = Number.isFinite(parsedMaxRows) && parsedMaxRows > 0
+      ? parsedMaxRows
+      : null;
+
+    const params = [normalizedStatuses, startTime, endTime];
+    let sql = `
+      SELECT ${selectColumns}
+      FROM "${tableName.PAYIN}"
+      WHERE is_obsolete = false
+        AND status = ANY($1)
+        AND ${safeDateField} >= $2
+        AND ${safeDateField} <= $3
+    `;
+
+    if (isNotified !== undefined) {
+      params.push(isNotified);
+      sql += ` AND is_notified = $${params.length}`;
+    }
+
+    sql += ` ORDER BY ${safeDateField} DESC`;
+
+    if (safeMaxRows) {
+      params.push(safeMaxRows);
+      sql += ` LIMIT $${params.length}`;
+    }
+
+    const result = await executeQuery(sql, params, conn);
+    return result.rows || [];
+  } catch (error) {
+    logger.error('Error getting PayIns for cron by date range:', error);
+    throw error;
+  }
+};
+
 export const getPayInForTelegramUtrDao = async (filters = {}, conn = null) => {
   try {
     const selectColumns = `

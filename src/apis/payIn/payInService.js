@@ -146,12 +146,43 @@ import {
   rollback,
 } from '../../utils/db.js';
 import { createSilkPaymentTransaction } from '../../intent/createSilkIntentTransaction.js';
-import { getCachedData, setCachedData } from '../../utils/redishashkey.js';
+import {
+  deleteCachedData,
+  getCachedData,
+  setCachedData,
+  setCachedDataIfNotExists,
+} from '../../utils/redishashkey.js';
 import { createOnePayPaymentTransaction } from '../../intent/createOnePayIntentTransaction.js';
 import { createCpsPaymentTransaction } from '../../intent/createCpsIntentTransaction.js';
 import { createtytlPaymentTransaction } from '../../intent/createtytlPayIntentTransaction.js';
 import { createPayeasyTransaction } from '../../intent/createPayeasyIntentTransaction.js';
 import { createAlbeCollectTransaction } from '../../intent/createAlbeCollectIntentTransaction.js';
+
+const PAYIN_IDEMPOTENCY_INFLIGHT_TTL_SEC = Number(
+  process.env.PAYIN_IDEMPOTENCY_INFLIGHT_TTL_SEC || 60,
+);
+
+const normalizePayInAmount = (amount) => {
+  const parsed = Number.parseFloat(amount);
+  return Number.isFinite(parsed) ? parsed.toFixed(2) : 'na';
+};
+
+const buildPayInProcessIdempotencyBaseKey = (payload = {}) => {
+  const merchantOrderId = payload?.merchantOrderId;
+  const userSubmittedUtr = payload?.userSubmittedUtr;
+
+  if (!merchantOrderId || !userSubmittedUtr) {
+    return null;
+  }
+
+  const normalizedUtr = String(userSubmittedUtr).trim().toUpperCase();
+  if (!normalizedUtr) {
+    return null;
+  }
+
+  const amountToken = normalizePayInAmount(payload?.amount);
+  return `idem:payin:process:${merchantOrderId}:${normalizedUtr}:${amountToken}`;
+};
 
 export const generatePayInUrlByHashService = async (req) => {
   try {
@@ -2356,7 +2387,37 @@ export const processPayInService = async (
 ) => {
   let conn;
   let committed = false;
+  const idempotencyBaseKey = buildPayInProcessIdempotencyBaseKey(payload);
+  const inflightKey = idempotencyBaseKey
+    ? `${idempotencyBaseKey}:inflight`
+    : null;
+
   try {
+    if (inflightKey) {
+      const inflightAcquired = await setCachedDataIfNotExists(
+        inflightKey,
+        {
+          merchantOrderId: payload?.merchantOrderId,
+          userSubmittedUtr: payload?.userSubmittedUtr,
+          amount: payload?.amount,
+          startedAt: new Date().toISOString(),
+        },
+        PAYIN_IDEMPOTENCY_INFLIGHT_TTL_SEC,
+        'payin_process_idempotency_inflight',
+      );
+
+      if (!inflightAcquired) {
+        return {
+          status: Status.PENDING,
+          merchantOrderId: payload?.merchantOrderId,
+          req_amount: payload?.amount,
+          utr_id: payload?.userSubmittedUtr || null,
+          idempotent: true,
+          message: 'PayIn is already being processed',
+        };
+      }
+    }
+
     conn = await getConnection();
     await beginTransaction(conn);
     const result = await _processPayInServiceInternal(
@@ -2371,12 +2432,19 @@ export const processPayInService = async (
     );
     await commit(conn);
     committed = true;
+
     return result;
   } catch (error) {
     if (conn && !committed) await rollback(conn);
     logger.error('Error processing PayIn:', error);
     throw error;
   } finally {
+    if (inflightKey) {
+      await deleteCachedData(
+        inflightKey,
+        'payin_process_idempotency_inflight',
+      );
+    }
     if (conn) conn.release();
   }
 };
