@@ -340,6 +340,15 @@ function config(Env) {
     databaseUrl: Env?.DATABASE_URL,
     databaseWriterUrl: Env?.DATABASE_WRITER_URL,
     databaseReaderUrl: Env?.DATABASE_READER_URL,
+    // Optional: comma-separated list of postgresql reader *instance* endpoints
+    // (e.g. "postgresql://...instance-2...,postgresql://...instance-3...").
+    // When provided, the app round-robins SELECTs across each endpoint to
+    // avoid pinning all reader traffic to a single PostgreSQL reader instance.
+    // Falls back to databaseReaderUrl when unset.
+    databaseReaderUrls: (Env?.DATABASE_READER_URLS || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean),
     accessTokenSecretKey: Env?.ACCESS_TOKEN_SECRET_KEY,
     accessTokenExpireTime: 24 * 60 * 60, // in seconds
     reactFrontOrigin1: Env?.REACT_FRONT_ORIGIN_1,
