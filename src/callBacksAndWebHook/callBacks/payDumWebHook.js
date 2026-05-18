@@ -13,6 +13,7 @@ export const payDumTransactionStatusCallback = async (req, res) => {
   sendSuccess(res, {}, 'Webhook received successfully');
   const payload = req.body;
   const apitxnid = payload?.Response?.apitxnid;
+  logger.info('Webhook received paydum payload ', payload)
 
   try {
     if (!apitxnid || apitxnid === '') {
@@ -29,8 +30,8 @@ export const payDumTransactionStatusCallback = async (req, res) => {
       singleWithdrawData.status === Status.REJECTED
     ) {
       logger.info('Payout already processed', {
-        payoutId: singleWithdrawData.id,
-        status: singleWithdrawData.status,
+        payoutId: singleWithdrawData?.id,
+        status: singleWithdrawData?.status,
       });
       return;
     }
