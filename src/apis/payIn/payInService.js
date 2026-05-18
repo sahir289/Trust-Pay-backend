@@ -734,10 +734,18 @@ export const assignedBankToPayInUrlService = async (
     // First, check if any bank satisfies the amount condition
     const banksWithValidAmount = banks.filter((bank) => {
       const isPayInBank = ['PayIn', 'payIn'].includes(bank.bank_used_for);
-      const isActive = bank.is_enabled && isPayInBank;
+    
+      const isActive =
+        bank.is_enabled &&
+        bank.is_bank &&
+        isPayInBank;
+    
       if (!isActive) return false;
-
-      return amt >= Number(bank.min) && amt <= Number(bank.max);
+    
+      const min = Number(bank?.min || 0);
+      const max = Number(bank?.max || Infinity);
+    
+      return amt >= min && amt <= max;
     });
 
     // If no bank satisfies the amount condition, check for enabled banks to provide appropriate error
