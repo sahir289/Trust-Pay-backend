@@ -773,6 +773,7 @@ const getMerchantBankDao = async (filters, conn = null) => {
         ba.acc_no,
         ba.ifsc,
         ba.bank_name,
+        upi_id,
         ba.config
       FROM "${tableName.BANK_ACCOUNT}" ba
       ${conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''}
