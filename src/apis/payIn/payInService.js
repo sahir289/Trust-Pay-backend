@@ -706,15 +706,9 @@ export const assignedBankToPayInUrlService = async (
     
       const isActive =
         bank.is_enabled &&
-        bank.is_bank &&
         isPayInBank;
-    
       if (!isActive) return false;
-    
-      const min = Number(bank?.min || 0);
-      const max = Number(bank?.max || Infinity);
-    
-      return amt >= min && amt <= max;
+      return amt >= Number(bank.min) && amt <= Number(bank.max);
     });
 
     // If no bank satisfies the amount condition, check for enabled banks to provide appropriate error
