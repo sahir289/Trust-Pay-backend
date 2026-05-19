@@ -204,6 +204,9 @@ export const generatePayInUrlByHashService = async (req) => {
       };
       return data;
     }
+    if (merchantArr[0]?.config?.is_h2h && role === Role.ADMIN) {
+      throw new NotFoundError('The system is not allowing link generation for the H2H Merchant.');
+    }
     const bankAssigned = await getMerchantBankDao({
       config_merchants_contains: merchantArr[0].id,
     });
