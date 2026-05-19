@@ -130,7 +130,7 @@ export const generatePayInUrl = async (req, res) => {
     if (data.length === 0) {
       throw new NotFoundError('Merchant not found');
     }
-    if (data[0].config.is_h2h) {
+    if (data[0]?.config?.is_h2h) {
       throw new NotFoundError('The system is not allowing link generation for the H2H Merchant.');
     }
     apiKey = data[0]?.config?.keys?.public
