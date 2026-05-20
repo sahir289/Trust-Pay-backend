@@ -86,14 +86,25 @@ class DbError extends HTTPServerError {
 }
 
 const parseValidationMessage = (errorDetails) => {
-  const { details } = errorDetails;
-  let errString = '';
-  details.forEach((d) => {
-    let msg = d.message;
-    msg = msg.replace('"', '').replace('"', '');
-    errString = errString ? `${errString}, ${msg}` : msg;
-  });
-  return errString;
+  // Joi error: { details: [{ message }, ...] }
+  if (errorDetails && Array.isArray(errorDetails.details)) {
+    let errString = '';
+    errorDetails.details.forEach((d) => {
+      let msg = typeof d?.message === 'string' ? d.message : String(d?.message ?? '');
+      msg = msg.replace(/"/g, '');
+      errString = errString ? `${errString}, ${msg}` : msg;
+    });
+    return errString || 'Validation failed';
+  }
+  // Joi error instance may also expose `.message` directly
+  if (errorDetails && typeof errorDetails.message === 'string') {
+    return errorDetails.message.replace(/"/g, '');
+  }
+  // Fallback: plain string or anything else — don't crash the server
+  if (typeof errorDetails === 'string') {
+    return errorDetails;
+  }
+  return 'Validation failed';
 };
 class ValidationError extends BadRequestError {
   constructor(message) {
