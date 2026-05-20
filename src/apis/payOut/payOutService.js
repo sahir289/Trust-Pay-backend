@@ -1596,6 +1596,89 @@ const updatePayoutService = async (ids, payload, role) => {
     }
   }
 };
+const _markPayoutPendingForUtrSlipMismatchInternal = async (
+  ids,
+  payload,
+  conn,
+) => {
+  try {
+    const singleWithdrawDataArr = await getPayoutsDao(ids);
+    const singleWithdrawData = singleWithdrawDataArr[0];
+    if (!singleWithdrawData) {
+      throw new NotFoundError('Payout not found!');
+    }
+    const bankAccId = payload.bank_acc_id || singleWithdrawData.bank_acc_id;
+    const reason = 'UTR does not match with slip UTR';
+    const updatePayload = {
+      status: Status.IMG_PENDING,
+      updated_by: payload.updated_by,
+      config: {
+        ...(payload.config || {}),
+        reason,
+        utr: payload.utr_id || null,
+        slip_utr: payload.slip_utr || null,
+      },
+    };
+    if (payload.utr_id) {
+      updatePayload.utr_id = payload.utr_id;
+    }
+    if (bankAccId) {
+      updatePayload.bank_acc_id = bankAccId;
+      if (!singleWithdrawData.vendor_id) {
+        const bankDataArr = await getBankByIdDao({ id: bankAccId }, conn);
+        const bankData = bankDataArr[0];
+        if (!bankData) {
+          throw new NotFoundError('Bank not found!');
+        }
+        const vendorArr = await getVendorByIdDao(
+          bankData.user_id,
+          ids.company_id,
+          conn,
+        );
+        const vendor = vendorArr[0];
+        if (!vendor) {
+          throw new NotFoundError('Vendor not found!');
+        }
+        updatePayload.vendor_id = vendor.id;
+      }
+    }
+    const data = await updatePayoutDao(ids, updatePayload, conn);
+    return data;
+  } catch (error) {
+    logger.error(
+      'Error in _markPayoutPendingForUtrSlipMismatchInternal:',
+      error,
+    );
+    throw error;
+  }
+};
+
+const markPayoutPendingForUtrSlipMismatchService = async (ids, payload) => {
+  let conn;
+  let committed = false;
+  try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+    const data = await _markPayoutPendingForUtrSlipMismatchInternal(
+      ids,
+      payload,
+      conn,
+    );
+    await commit(conn);
+    committed = true;
+    return data;
+  } catch (error) {
+    if (conn && !committed) {
+      await rollback(conn);
+    }
+    logger.error('Error in markPayoutPendingForUtrSlipMismatchService:', error);
+    throw error;
+  } finally {
+    if (conn) {
+      conn.release();
+    }
+  }
+};
 
 ///for update payout calculation of payout
 const updateCalculationTable = async (user_id, data, isApproved, conn) => {
@@ -2539,6 +2622,7 @@ export {
   checkPayOutStatusService,
   getPayoutsBySearchService,
   updatePayoutService,
+  markPayoutPendingForUtrSlipMismatchService,
   deletePayoutService,
   assignedPayoutService,
   createTataPayBulkPayoutService,
