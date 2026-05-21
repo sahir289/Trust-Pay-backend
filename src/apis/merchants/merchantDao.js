@@ -526,6 +526,34 @@ export const getMerchantsByCodeAndApiKeyDao = async (
     throw error;
   }
 };
+export const  getMerchantsBalance = async (
+  code,
+  api_key,
+  conn = null,
+) => {
+  try {
+    if (!code || !api_key) return {};
+    const cleanCode = code.trim();
+    const cleanApiKey = api_key.trim();
+    const query = `
+      SELECT 
+        m.user_id
+      FROM "Merchant" m
+      WHERE 
+        m.is_enabled = TRUE
+        AND m.is_obsolete = FALSE
+        AND m.code = $1
+        AND m.config->'keys'->>'private' = $2
+    `;
+    const params = [cleanCode, cleanApiKey];
+    const result = await executeQuery(query, params, conn);
+    console.log(result.rows[0]);
+    return result?.rows[0] ?? {};
+  } catch (error) {
+    logger.error('Error in getMerchantsByCodeAndApiKeyDao:', error);
+    throw error;
+  }
+};
 
 export const getMerchantByCodeDao = async (code, conn = null) => {
   try {
