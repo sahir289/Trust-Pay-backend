@@ -119,6 +119,7 @@ export const payDumTransactionStatusCallback = async (req, res) => {
       } else if (errorCode === '1' && statuscode === 'TXF') {
         await handlePayoutUpdate(payload, false);
       } else {
+        logger.error("Paydum payout callback error", payload.ErrorMessage)
         return res.status(400).send(payload.ErrorMessage);
       }
     }
