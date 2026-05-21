@@ -82,6 +82,7 @@ import { createBSS03Payout } from '../../bss/bss03.js';
 import { createVertexPayPayout } from '../../vertexpay/vertexpay.js';
 import { createRunsafePayPayout, getRunsafePayWalletBalance } from '../../runsafe/runsafepay.js';
 import { createPayInFintechPayout } from '../../payinfintech/payinfintech.js';
+import {createPennyPayPayout} from '../../pennypay/pennypay.js';
 // import { notifyNewCalculationTableEntry } from '../../utils/sockets.js';
 
 // Helper function to check if vendor is sub-vendor and get parent info
@@ -912,7 +913,6 @@ const _updatePayoutServiceInternal = async (
       const isInvalidTransition = invalidTransitions.some(
         ([from, to]) => currentStatus === from && newStatus === to,
       );
-
       if (isInvalidTransition) {
         throw new BadRequestError(
           `Cannot change payout status from ${currentStatus} to ${newStatus}`,
@@ -967,7 +967,28 @@ const _updatePayoutServiceInternal = async (
         bankId,
       );
       payload = updatedPayload;
-    } else if (payload?.config?.method === Method.BSS) {
+    }
+    else if (payload?.config?.method === Method.PENNYPAY) {
+      const method = payload.config.method;
+      logger.info(`Processing PennyPay payout for method: ${method}`);
+      const [company] = await getCompanyByIDDao({ id: ids.company_id }, conn);
+      if (!company) throw new NotFoundError('Company not found');
+      const bankId = company.config.PENNYPAY.defaultBankId;
+      if (!bankId)
+        throw new NotFoundError(`Default bank ID not found for ${method}`);
+      bankDataArr = await getBankByIdDao({ id: bankId });
+      if (!bankDataArr[0])
+        throw new NotFoundError(`Bank not found for ${method} payout`);
+      // const clientIp = getClientIp(req);
+      logger.info(`Creating PennyPay payout with bankId: ${bankId}`);
+      const updatedPayload = await createPennyPayPayout(
+        payload,
+        singleWithdrawData,
+        bankId,
+      );
+      payload = updatedPayload;
+    }
+     else if (payload?.config?.method === Method.BSS) {
       const method = payload.config.method;
       logger.info(`Processing BSS payout for method: ${method}`);
       const [company] = await getCompanyByIDDao({ id: ids.company_id }, conn);
@@ -1297,7 +1318,6 @@ const _updatePayoutServiceInternal = async (
     if (payload?.status === Status.REVERSED) {
       payload.config = {...(payload.config || {}), reversed_at: getISTDateString()};
     }
-
     const data = await updatePayoutDao(ids, payload, conn);
     if (data.status == Status.INITIATED) {
       earlyReturnResult = data;
