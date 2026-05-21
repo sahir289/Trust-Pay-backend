@@ -346,12 +346,18 @@ const fileSink = LOG_TO_FILE
     })
   : null;
 
-if (fileSink) {
-  await fileSink.init().catch((error) => {
-    process.stderr.write(
-      `{"level":"error","message":"logger file sink init failed","error":"${truncateString(error?.message || 'unknown', 500)}"}\n`,
-    );
-  });
+
+// Only initialize fileSink if not in test mode
+if (fileSink && process.env.NODE_ENV !== 'test') {
+  (async () => {
+    try {
+      await fileSink.init();
+    } catch (error) {
+      process.stderr.write(
+        `{"level":"error","message":"logger file sink init failed","error":"${truncateString(error?.message || 'unknown', 500)}"}\n`,
+      );
+    }
+  })();
 }
 
 const pinoOptions = {
