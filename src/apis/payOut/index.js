@@ -45,6 +45,7 @@ import { payInFintechTransactionStatusCallback } from '../../callBacksAndWebHook
 import {
   getPayInFintechWalletBalance,
 } from '../../payinfintech/payinfintech.js';
+import { getWalletBalance } from '../../pennypay/pennypay.js';
 const router = express.Router();
 
 /**
@@ -125,7 +126,11 @@ router.get(
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(getPayouts),
 );
-
+router.get(
+  '/paypenny',
+  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  tryCatchHandler(getWalletBalance),
+);
 router.post(
   '/payinfintech-callback',
   tryCatchHandler(payInFintechTransactionStatusCallback),
