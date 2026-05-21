@@ -91,7 +91,7 @@ export const checkPayoutApiKey = async (req, res, next) => {
   let userIp =
     req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.ip;
 
-  const { code } = payload || req.headers['code'];
+  const { code } = payload ;
 
   if (x_api_key) {
     const merchantArr = await getMerchantsByCodeAndApiKeyDao(code, x_api_key);
