@@ -43,7 +43,47 @@ export const checkApiKey = async (req, res, next) => {
 
   next();
 };
+export const checkApiWallet = async (req, res, next) => {
+  const x_api_key = req.headers['x-api-key'];
+  const code = req.headers['code'];
 
+  let userIp =
+    req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.ip;
+  const TestingIp = process.env.LOCAL_IP;
+  // Handle localhost IP for testing
+  userIp = userIp === '::1' ? TestingIp : userIp;
+
+  if (x_api_key) {
+    const merchantArr = await getMerchantsByCodeAndApiKeyDao(code, x_api_key);
+    const merchant = merchantArr[0];
+    if (!merchant) {
+      return res.status(400).json({
+        success: false,
+        message: 'Invalid merchant code or API key',
+      });
+    }
+    if (merchant?.config?.whitelist_ips) {
+      // normalize whitelist to a clean array of strings
+      const whitelist = []
+        .concat(merchant.config.whitelist_ips) // handles string or array
+        .flatMap((ip) =>
+          typeof ip === 'string' ? ip.split(',') : [String(ip)],
+        )
+        .map((ip) => ip.trim())
+        .filter(Boolean);
+
+      // If whitelist ip's exists and user IP is not allowed
+      if (whitelist.length > 0 && !whitelist.includes(userIp)) {
+        return res.status(400).json({
+          success: false,
+          message: 'IP not whitelisted',
+        });
+      }
+    }
+  }
+
+  next();
+};
 export const checkPayoutApiKey = async (req, res, next) => {
   const payload = req.body;
   const x_api_key = req.headers['x-api-key'];
@@ -51,7 +91,7 @@ export const checkPayoutApiKey = async (req, res, next) => {
   let userIp =
     req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.ip;
 
-  const { code } = payload;
+  const { code } = payload ;
 
   if (x_api_key) {
     const merchantArr = await getMerchantsByCodeAndApiKeyDao(code, x_api_key);
