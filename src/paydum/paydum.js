@@ -183,23 +183,26 @@ export const createPayDumPayout = async (
 
     // Status handling based on PayDum response
     const errorCode = checkPayDum?.ErrorCode;
+    let statuscode = checkPayDum?.Response?.statuscode
     payload.config.txnid = checkPayDum?.Response?.txnid || '';
     if (!errorCode) {
       payload.status = Status.PENDING;
-    } else if (errorCode === '0') {
+    } else if (errorCode === '0' && statuscode === 'TXN') {
       payload.status = Status.APPROVED;
       payload.utr_id =
         checkPayDum?.Response?.refno || checkPayDum?.Response?.utr || '';
       payload.approved_at = new Date().toISOString();
-    } else if (errorCode === 'TUP') {
+    } else if (errorCode === '0' && statuscode === 'TUP') {
       payload.status = Status.PENDING;
-    } else {
+    } else if(errorCode === '1' && statuscode === 'TXF'){
       payload.status = Status.REJECTED;
       payload.config.rejected_reason =
         checkPayDum?.Response?.message ||
         payAssistErrorCodeMap[checkPayDum?.Response?.statusCode] ||
         'Server Unreachable';
       payload.rejected_at = new Date().toISOString();
+    }else {
+      payload.status = Status.PENDING;
     }
 
     if (!payload.utr_id) {
