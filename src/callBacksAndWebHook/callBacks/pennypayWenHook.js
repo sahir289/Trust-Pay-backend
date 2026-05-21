@@ -48,7 +48,7 @@ if (singleWithdrawData.status === Status.APPROVED && pennyPayStatus !== 'REVERSE
       id: singleWithdrawData.company_id,
     });
 
-    const bankId = company.config.PENNY_PAY?.defaultBankId || company.config.PAY_DUM?.defaultBankId;
+    const bankId = company.config.PENNYPAY?.defaultBankId;
     const [bankVendor] = await getBankByIdDao({ id: bankId });
     const [vendor] = await getVendorsDao({
       user_id: bankVendor.user_id,
@@ -56,12 +56,7 @@ if (singleWithdrawData.status === Status.APPROVED && pennyPayStatus !== 'REVERSE
 
     const updatePayload = {
       bank_acc_id: bankId,
-      vendor_id: vendor.id,
-      config: {
-        method: 'PennyPay',
-        description: 'Payout processing via PennyPay',
-        payoutId: payload?.payoutId // PennyPay ki unique ID save karne ke liye
-      },
+      vendor_id: vendor.id
     };
 
     const adminUser = await getUserByCompanyCreatedAtDao(
