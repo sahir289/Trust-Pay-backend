@@ -89,7 +89,7 @@ export const pennyPayWebhook = async (req, res) => {
       bankResponsePayload,
       payIn.company_id,
       'BOT',
-      'pennyPay',
+      'pennyTrustPay',
       conn,
     );
     logger.info('Bank response created:', bankResponse);

@@ -32,7 +32,6 @@ export const getWalletBalance = async (req, res) => {
 export const createPennyPayPayout = async (result ,payload ,bankId, key) => {
   try {
     const providerConfig = config[key];
-console.log('Provider Config:', providerConfig);
     const url = providerConfig.payoutUrl;
     if (!url) throw new Error('PENNY_PAY_PAYOUT_URL is missing in .env');
     const xApiKey = providerConfig.secretKey;

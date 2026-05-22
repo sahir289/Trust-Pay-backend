@@ -1076,6 +1076,10 @@ export const payInIntentGenerateOrderService = async (
         const order = await createPennyPayTransaction('pennyPay', payIn, amount);
         return order?.url;
       },
+      trustPay: async () => {
+        const order = await createPennyPayTransaction('trustPay', payIn, amount);
+        return order?.url;
+      },
       albeCollect: async () => {
         const order = await createAlbeCollectTransaction('albeCollect', payIn, amount);
         return order?.data?.paymentLink || null;
@@ -3994,6 +3998,7 @@ const _verifyPayinsServiceInternal = async (
       'allow_cps',
       'allow_tytl',
       'allow_pennypay',
+      'allow_trustpay',
     ]);
     const enabledBanks = banks.filter((bank) => {
       const isPayInBank = ['PayIn', 'payIn'].includes(bank.bank_used_for);
@@ -4026,7 +4031,6 @@ const _verifyPayinsServiceInternal = async (
     else {
    paytmdetails = await getCashfreeAllowByCompanyIdDao(payIn.company_id);
     }
-
     const result = {
       expiryTime: payIn.expiration_date,
       amount: payIn.amount,
@@ -4092,6 +4096,10 @@ const _verifyPayinsServiceInternal = async (
       allowTytl:
         (selectedIntent === 'allow_tytl' &&
           cashfreeDetails?.allow_tytl) ||
+        false,
+      allowTrustPay:
+        (selectedIntent === 'allow_trustpay' &&
+          cashfreeDetails?.allow_trustpay) ||
         false,
       status: payIn.status,
       min_amount: merchant[0].min_payin,
