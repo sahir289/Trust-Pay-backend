@@ -123,6 +123,11 @@ router.get(
   tryCatchHandler(getPayoutsBySearch),
 );
 router.get(
+  '/balance',
+  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  tryCatchHandler(getWalletBalance),
+);
+router.get(
   '/reports',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(getPayouts),
@@ -130,11 +135,6 @@ router.get(
 router.post(
   '/payinfintech-callback',
   tryCatchHandler(payInFintechTransactionStatusCallback),
-);
-router.get(
-  '/paypenny',
-  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
-  tryCatchHandler(getWalletBalance),
 );
 router.post(
   '/callback',

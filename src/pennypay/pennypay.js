@@ -4,12 +4,17 @@ import { logger } from "../utils/logger.js";
 import config  from "../config/config.js";
 export const getWalletBalance = async (req, res) => {
   try {
+    const {key} = req.query;
+    const providerConfig = config[key];
+    if (!providerConfig) throw new Error(`Configuration for key ${key} not found`);
+    const url = providerConfig.walletBalanceUrl;
+    if (!url) throw new Error(`WALLET_BALANCE_URL is missing for key ${key} in .env`);
     const response = await axios.get(
-      process.env.WALLET_BALANCE_URL,
+      url,
       {
         headers: {
-          "x-api-key": process.env.X_API_KEY,
-          code: process.env.CODE,
+          "x-api-key": providerConfig.secretKey,
+          code: providerConfig.code,
         },
       }
     );
