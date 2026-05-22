@@ -10,4 +10,6 @@ export {
   newTableEntry,
   notifyBankResponseAccessUpdate,
   notifyNewTableEntry,
+  notifyStatementUpload,
+  notifyStatementUploadCleared,
 } from './socket/publicApi.js';
