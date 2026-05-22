@@ -146,9 +146,31 @@ function config(Env) {
     },
     runsafe: {
       url: Env?.RUNSAFE_API_URL,
+      baseUrl: Env?.RUNSAFE_BASE_API_URL,
+      initiatePayout: Env?.RUNSAFE_INITIATE_API_URL,
+      walletBalance: Env?.RUNSAFE_WALLET_BALANCE_API_URL,
       NotifyUrl: Env?.RUNSAFE_NOTIFY_URL,
+      payoutNotifyUrl: Env?.RUNSAFE_PAYOUT_NOTIFY_URL,
       privateKey: Env?.RUNSAFE_PRIVATE_KEY,
       publicKey: Env?.RUNSAFE_PUBLIC_KEY,
+      mchId: Env?.RUNSAFE_MCH_ID,
+      appId: Env?.RUNSAFE_APP_ID,
+    },
+    cps: {
+      url: Env?.CPS_API_URL,
+      NotifyUrl: Env?.CPS_NOTIFY_URL,
+      privateKey: Env?.CPS_PRIVATE_KEY,
+      publicKey: Env?.CPS_PUBLIC_KEY,
+    },
+    tytl : {
+      apiKey: Env.TYTL_API_KEY,
+      secretKey: Env.TTYL_SECRET_KEY,
+      NotifyUrl: Env?.TYTL_NOTIFY_URL,
+      payinUrl : Env?.TYTL_PAYIN_URL,
+    },
+    vertexPay:{
+      url: Env?.VERTEX_API_PAYIN_UPI_INTENT_URL,
+      apiKey: Env?.VERTEX_API_KEY,
     },
     clickrr : {
       baseUrl: Env?.CLICKRR_BASE_API_URL,
@@ -190,6 +212,11 @@ function config(Env) {
       walletBalance: Env?.BSS_WALLET_BALANCE_API_URL,
       apiKey: Env?.BSS03_API_KEY,
       apiSecret: Env?.BSS03_API_SECRET,
+    },
+    albeCollect: {
+      url: Env?.ALBE_COLLECT_API_URL,
+      mid: Env?.ALBE_COLLECT_MID,
+      secretKey: Env?.ALBE_COLLECT_SECRET_KEY,
     },
     controllerCacheTtls: {
       auth: {
@@ -298,13 +325,39 @@ function config(Env) {
     proxyCheck: {
       proxyCheckUrl: Env?.PROXY_CHECK_URL,
     },
+    payeasy: {
+      url: Env?.PAYEASY_API_URL,
+      payeasyClientId: Env?.PAYEASY_CLIENT_ID,
+      encryptionKey: Env?.PAYEASY_ENCRYPTION_KEY
+    },
+    payeasy02: {
+      url: Env?.PAYEASY02_API_URL,
+      payeasyClientId: Env?.PAYEASY02_CLIENT_ID,
+      encryptionKey: Env?.PAYEASY02_ENCRYPTION_KEY
+    },
+    payeasy03: {
+      url: Env?.PAYEASY03_API_URL,
+      payeasyClientId: Env?.PAYEASY03_CLIENT_ID,
+      encryptionKey: Env?.PAYEASY03_ENCRYPTION_KEY
+    },
     // reactAppBaseUrl: Env?.REACT_APP_BASE_URL,
     databaseUrl: Env?.DATABASE_URL,
     databaseWriterUrl: Env?.DATABASE_WRITER_URL,
     databaseReaderUrl: Env?.DATABASE_READER_URL,
+    // Optional: comma-separated list of postgresql reader *instance* endpoints
+    // (e.g. "postgresql://...instance-2...,postgresql://...instance-3...").
+    // When provided, the app round-robins SELECTs across each endpoint to
+    // avoid pinning all reader traffic to a single PostgreSQL reader instance.
+    // Falls back to databaseReaderUrl when unset.
+    databaseReaderUrls: (Env?.DATABASE_READER_URLS || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean),
     accessTokenSecretKey: Env?.ACCESS_TOKEN_SECRET_KEY,
     accessTokenExpireTime: 24 * 60 * 60, // in seconds
-    reactFrontOrigin: Env?.REACT_FRONT_ORIGIN,
+    reactFrontOrigin1: Env?.REACT_FRONT_ORIGIN_1,
+    reactFrontOrigin2: Env?.REACT_FRONT_ORIGIN_2,
+    LOGIN_BLOCK_ORIGIN: Env?.LOGIN_BLOCK_ORIGIN,
     reactPaymentOrigin: Env?.REACT_PAYMENT_ORIGIN,
     ocrPrivateKey: Env?.OCR_PRIVATE_KEY,
     clientEmail: Env?.CLIENT_EMAIL,

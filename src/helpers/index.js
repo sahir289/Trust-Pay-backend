@@ -148,10 +148,10 @@ export const getImageContentFromOCr = async (image) => {
     const data = res.data?.data || {};
 
     return {
-      amount: data.amount?.replace(',', ''),
-      utr: data.transaction_id,
-      bankName: data.bank_name,
-      timeStamp: data.timestamp,
+      amount: String(data?.amount || '').replace(/,/g, ''),
+      utr: data?.transaction_id,
+      bankName: data?.bank_name,
+      timeStamp: data?.timestamp,
     };
   } catch (error) {
     logger.error('Error while fetching content from image', error.message);
@@ -241,6 +241,16 @@ export const filterResponse = (data, keys) => {
     console.error('Error while filtering response', error);
     throw error;
   }
+};
+
+export const getISTDateString = () => {
+  const now = new Date();
+  const d = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  const timePart = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true });
+  return `${dd}-${mm}-${yyyy} ${timePart}`;
 };
 
 export const decodeAuthToken = (token) => {

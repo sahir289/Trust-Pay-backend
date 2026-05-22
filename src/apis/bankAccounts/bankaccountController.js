@@ -1,9 +1,9 @@
-import {
-  columns,
-  merchantColumns,
-  Role,
-  vendorColumns,
-} from '../../constants/index.js';
+// import {
+//   columns,
+//   merchantColumns,
+//   Role,
+//   vendorColumns,
+// } from '../../constants/index.js';
 import {
   BANK_ACCOUNT_SCHEMA,
   UPDATE_BANK_ACCOUNT_SCHEMA,
@@ -14,7 +14,7 @@ import { ValidationError } from '../../utils/appErrors.js';
 import { sendError, sendSuccess } from '../../utils/responseHandlers.js';
 import {
   checkBankNickNameExistsDao,
-  getMerchantBankDao,
+  // getMerchantBankDao,
 } from './bankaccountDao.js';
 import { generateCacheKey } from '../../utils/redishashkey.js';
 import {
@@ -228,19 +228,21 @@ const createBankaccount = async (req, res) => {
   if (!payload.payin_count) {
     payload.payin_count = 0;
   }
+  if (payload.is_intent === "") {
+    payload.is_intent = "off";
+  }
   delete payload.qr;
   const joiValidation = BANK_ACCOUNT_SCHEMA.validate(payload);
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
   const phonePe = payload.is_phonepay ? true : false;
-  const intent = payload.is_intent ? true : false;
   const is_staticQR = payload.is_staticQR ? true : false;
   payload.bank_used_for == 'PayIn'
     ? (payload.config = {
         merchants: [],
         is_phonepay: phonePe,
-        is_intent: intent,
+        is_intent: payload.is_intent || "off",
         is_staticQR: is_staticQR,
       })
     : (payload.config = {});
@@ -301,51 +303,51 @@ const updateBankaccount = async (req, res) => {
   );
 };
 
-const getMerchantBank = async (req, res) => {
-  // Fetch the bank account details for the given merchant ID
-  const { company_id, user_id } = req.user;
-  const { role } = req.user;
-  const filterColumns =
-    role === Role.MERCHANT
-      ? merchantColumns.BANK_ACCOUNT
-      : role === Role.VENDOR
-        ? vendorColumns.BANK_ACCOUNT
-        : columns.BANK_ACCOUNT;
-  const cacheKey = `bankaccounts:read:${company_id}:merchantbank:${generateCacheKey(
-    {
-      company_id,
-      user_id,
-      role,
-    },
-    'bankaccounts-merchant-bank',
-  )}`;
+// const getMerchantBank = async (req, res) => {
+//   // Fetch the bank account details for the given merchant ID
+//   const { company_id, user_id } = req.user;
+//   const { role } = req.user;
+//   const filterColumns =
+//     role === Role.MERCHANT
+//       ? merchantColumns.BANK_ACCOUNT
+//       : role === Role.VENDOR
+//         ? vendorColumns.BANK_ACCOUNT
+//         : columns.BANK_ACCOUNT;
+//   const cacheKey = `bankaccounts:read:${company_id}:merchantbank:${generateCacheKey(
+//     {
+//       company_id,
+//       user_id,
+//       role,
+//     },
+//     'bankaccounts-merchant-bank',
+//   )}`;
 
-  const cached = await readJsonCache(cacheKey, 'BankAccounts merchant-bank cache');
-  if (shouldServeCachedResponse(cached, req.query)) {
-    return sendSuccess(res, cached, 'Bank details fetched successfully');
-  }
+//   const cached = await readJsonCache(cacheKey, 'BankAccounts merchant-bank cache');
+//   if (shouldServeCachedResponse(cached, req.query)) {
+//     return sendSuccess(res, cached, 'Bank details fetched successfully');
+//   }
 
-  // const bankRes = await getMerchantBankDao({
-  //   company_id,
-  //   user_id
-  // }, role);
-  const bankRes = await getMerchantBankDao(
-    { company_id: company_id, user_id: user_id },
-    null,
-    null,
-    null,
-    null,
-    filterColumns,
-  );
+//   // const bankRes = await getMerchantBankDao({
+//   //   company_id,
+//   //   user_id
+//   // }, role);
+//   const bankRes = await getMerchantBankDao(
+//     { company_id: company_id, user_id: user_id },
+//     null,
+//     null,
+//     null,
+//     null,
+//     filterColumns,
+//   );
 
-  await writeJsonCache(
-    cacheKey,
-    bankRes,
-    controllerCacheTtls.bankAccounts.merchantBank,
-  );
+//   await writeJsonCache(
+//     cacheKey,
+//     bankRes,
+//     controllerCacheTtls.bankAccounts.merchantBank,
+//   );
 
-  return sendSuccess(res, bankRes, 'Bank details fetched successfully');
-};
+//   return sendSuccess(res, bankRes, 'Bank details fetched successfully');
+// };
 
 const deleteBankaccount = async (req, res) => {
   const { id } = req.params;
@@ -407,7 +409,7 @@ export {
   createBankaccount,
   updateBankaccount,
   deleteBankaccount,
-  getMerchantBank,
+  // getMerchantBank,
   getBankaccountNickName,
   activeInactiveBankAccount,
   resetBankNotification,

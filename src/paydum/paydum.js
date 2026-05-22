@@ -5,6 +5,12 @@ import { getCompanyByIDDao } from '../apis/company/companyDao.js';
 import { payAssistErrorCodeMap, Status } from '../constants/index.js';
 import { BadRequestError } from '../utils/appErrors.js';
 
+const isPayDumDuplicateRetryResponse = (response = {}) =>
+  response?.ErrorCode === '11' ||
+  /same transaction not allowed in 5 minutes/i.test(
+    response?.ErrorMessage || '',
+  );
+
 /**
  * Initiate a single PayDum payout request (simplified like Clickrr)
  * @param {object} payload - Contains amount, user_bank_details, merchant_order_id, etc.
@@ -150,7 +156,7 @@ export const createPayDumPayout = async (
     }
 
     if (payload.txnStatus) {
-      checkPayDum = {...payload};
+      checkPayDum = { ...payload };
       delete payload.txnStatus;
     } else {
       checkPayDum = await initiatePayDumPayout(
@@ -159,27 +165,44 @@ export const createPayDumPayout = async (
       );
     }
 
+    if (isPayDumDuplicateRetryResponse(checkPayDum)) {
+      logger.warn(
+        'PayDum duplicate transaction retry response received; skipping payout update',
+        {
+          merchant_order_id: singleWithdrawData?.merchant_order_id,
+          data: checkPayDum,
+        },
+      );
+      return {
+        ...payload,
+        skipPayoutUpdate: true,
+      };
+    }
+
     payload.bank_acc_id = bankId;
 
     // Status handling based on PayDum response
     const errorCode = checkPayDum?.ErrorCode;
+    let statuscode = checkPayDum?.Response?.statuscode
     payload.config.txnid = checkPayDum?.Response?.txnid || '';
     if (!errorCode) {
       payload.status = Status.PENDING;
-    } else if (errorCode === '0') {
+    } else if (errorCode === '0' && statuscode === 'TXN') {
       payload.status = Status.APPROVED;
       payload.utr_id =
         checkPayDum?.Response?.refno || checkPayDum?.Response?.utr || '';
       payload.approved_at = new Date().toISOString();
-    } else if (errorCode === 'TUP') {
+    } else if (errorCode === '0' && statuscode === 'TUP') {
       payload.status = Status.PENDING;
-    } else {
+    } else if(errorCode === '1' && statuscode === 'TXF'){
       payload.status = Status.REJECTED;
       payload.config.rejected_reason =
         checkPayDum?.Response?.message ||
         payAssistErrorCodeMap[checkPayDum?.Response?.statusCode] ||
         'Server Unreachable';
       payload.rejected_at = new Date().toISOString();
+    }else {
+      payload.status = Status.PENDING;
     }
 
     if (!payload.utr_id) {

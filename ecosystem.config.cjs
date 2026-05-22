@@ -5,24 +5,28 @@ module.exports = {
         {
             name: 'trust-pay-backend',
             script: './server.js',
+            cwd: __dirname,
             instances: instances, // 2 instances for dev, all cores for prod
             exec_mode: 'cluster',
             max_memory_restart: '1G',
             node_args: '--max-old-space-size=2048',
             env: {
                 FORCE_COLOR: '1',
+                LOG_DIR: 'logs',
             },
             env_production: {
                 NODE_ENV: 'production',
                 PORT: 8090,
                 FORCE_COLOR: '1',
                 RUN_CRONS: 'false', // Don't run crons in cluster workers
+                LOG_DIR: 'logs',
             },
             env_development: {
                 NODE_ENV: 'development',
                 PORT: 8090,
                 FORCE_COLOR: '1',
                 RUN_CRONS: 'false',
+                LOG_DIR: 'logs',
             },
             // Graceful shutdown
             kill_timeout: 5000,
@@ -47,16 +51,19 @@ module.exports = {
         {
             name: 'trust-pay-crons',
             script: './cron-worker.js',
+            cwd: __dirname,
             instances: 1, // Always single instance
             exec_mode: 'fork', // Not clustered
             max_memory_restart: '512M',
             node_args: '--max-old-space-size=1024',
             env: {
                 FORCE_COLOR: '1',
+                LOG_DIR: 'logs',
             },
             env_production: {
                 NODE_ENV: 'production',
                 FORCE_COLOR: '1',
+                LOG_DIR: 'logs',
                 BANK_RESPONSE_BOT_BULK_PREFETCH: 20,
                 BANK_RESPONSE_BOT_BULK_MAX_RETRIES: 5,
                 DB_WRITER_POOL_MAX: 10,
@@ -65,6 +72,7 @@ module.exports = {
             env_development: {
                 NODE_ENV: 'development',
                 FORCE_COLOR: '1',
+                LOG_DIR: 'logs',
                 BANK_RESPONSE_BOT_BULK_PREFETCH: 2,
                 BANK_RESPONSE_BOT_BULK_MAX_RETRIES: 5,
                 DB_WRITER_POOL_MAX: 10,
@@ -83,16 +91,19 @@ module.exports = {
         {
             name: 'trust-pay-rabbitmq',
             script: './rabbitmq-worker.js',
+            cwd: __dirname,
             instances: 1,
             exec_mode: 'fork',
             max_memory_restart: '512M',
             node_args: '--max-old-space-size=1024',
             env: {
                 FORCE_COLOR: '1',
+                LOG_DIR: 'logs',
             },
             env_production: {
                 NODE_ENV: 'production',
                 FORCE_COLOR: '1',
+                LOG_DIR: 'logs',
                 BANK_RESPONSE_BOT_BULK_PREFETCH: 4,
                 BANK_RESPONSE_BOT_BULK_MAX_RETRIES: 5,
                 PAYIN_PROCESS_PREFETCH: 20,
@@ -103,10 +114,16 @@ module.exports = {
                 DB_CONN_HOLD_WARN_MS: 45000,
                 BANK_RESPONSE_DB_LOCK_TIMEOUT_MS: 10000,
                 BANK_RESPONSE_DB_STATEMENT_TIMEOUT_MS: 45000,
+                DLQ_REPLAYER_ENABLED: 'true',
+                DLQ_REPLAYER_PREFETCH: 1,
+                DLQ_REPLAYER_MAX_ATTEMPTS: 3,
+                DLQ_REPLAYER_INTERVAL_MS: 1000,
+                DLQ_REPLAYER_ERROR_BACKOFF_MS: 3000,
             },
             env_development: {
                 NODE_ENV: 'development',
                 FORCE_COLOR: '1',
+                LOG_DIR: 'logs',
                 BANK_RESPONSE_BOT_BULK_PREFETCH: 2,
                 BANK_RESPONSE_BOT_BULK_MAX_RETRIES: 5,
                 PAYIN_PROCESS_PREFETCH: 5,
@@ -117,6 +134,11 @@ module.exports = {
                 DB_CONN_HOLD_WARN_MS: 30000,
                 BANK_RESPONSE_DB_LOCK_TIMEOUT_MS: 10000,
                 BANK_RESPONSE_DB_STATEMENT_TIMEOUT_MS: 45000,
+                DLQ_REPLAYER_ENABLED: 'true',
+                DLQ_REPLAYER_PREFETCH: 1,
+                DLQ_REPLAYER_MAX_ATTEMPTS: 3,
+                DLQ_REPLAYER_INTERVAL_MS: 1500,
+                DLQ_REPLAYER_ERROR_BACKOFF_MS: 3000,
             },
             kill_timeout: 5000,
             wait_ready: true,
@@ -131,6 +153,7 @@ module.exports = {
         {
             name: 'trust-pay-cloudwatch-forwarder',
             script: './src/utils/cloudwatchForwarder.js',
+            cwd: __dirname,
             instances: 1,
             exec_mode: 'fork',
             max_memory_restart: '256M',
@@ -139,6 +162,7 @@ module.exports = {
             min_uptime: '10s',
             env: {
                 FORCE_COLOR: '1',
+                LOG_DIR: 'logs',
             },
             env_production: {
                 NODE_ENV: 'production',
@@ -146,8 +170,11 @@ module.exports = {
                 LOG_DIR: 'logs',
                 CW_POLL_INTERVAL_MS: 1000,
                 CW_LOG_LEVEL: 'info',
-                CW_STREAM_PREFIX: '',
+                CW_LOG_STREAM_NAME: process.env.CW_LOG_STREAM_NAME || 'trust-pay-api-logs',
                 CW_START_POSITION: 'beginning',
+                CW_DISCOVERY_INTERVAL_MS: 10000,
+                CW_MAX_FILES_PER_TICK: 3,
+                CW_MAX_BYTES_PER_TICK: 2097152,
                 CW_ERROR_THROTTLE_MS: 15000,
                 // Dead-letter queue: lines that fail CW delivery are stored here and auto-replayed.
                 CW_DLQ_PREFIX: 'cw-dlq',
@@ -159,8 +186,11 @@ module.exports = {
                 LOG_DIR: 'logs',
                 CW_POLL_INTERVAL_MS: 1000,
                 CW_LOG_LEVEL: 'info',
-                CW_STREAM_PREFIX: 'dev-',
+                CW_LOG_STREAM_NAME: process.env.CW_LOG_STREAM_NAME || 'dev-trust-pay-api-logs',
                 CW_START_POSITION: 'beginning',
+                CW_DISCOVERY_INTERVAL_MS: 5000,
+                CW_MAX_FILES_PER_TICK: 3,
+                CW_MAX_BYTES_PER_TICK: 2097152,
                 CW_ERROR_THROTTLE_MS: 15000,
                 CW_DLQ_PREFIX: 'cw-dlq',
                 CW_DLQ_REPLAY_INTERVAL_MS: 60000,

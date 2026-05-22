@@ -8,6 +8,7 @@ import {
   buildUpdateQuery,
   executeQuery,
 } from '../../utils/db.js';
+import { buildSelectQuery } from '../../utils/db.js';
 // import { createPayoutInES ,updatePayoutInES} from '../../elasticSearch/payout/common.js';
 // import { getPayoutByESSearch } from '../../elasticSearch/payout/common.js';
 // import { getMerchantForEsDao } from '../merchants/merchantDao.js';
@@ -363,7 +364,36 @@ export const getPayoutBankDetailsDao = async (filters, company_id, conn = null) 
     throw error.message;
   }
 };
+export const getPayoutsNotifyDao = async (filters = {}, company_id, conn = null) => {
+  try {
+    const selectColumns = `
+      id,
+      amount,
+      status,
+      utr_id,
+      merchant_order_id,
+      merchant_id,
+      config AS payout_details
+    `;
 
+    const baseQuery = `
+      SELECT ${selectColumns}
+      FROM "${tableName.PAYOUT}"
+      WHERE is_obsolete = false
+    `;
+
+    const queryFilters = { ...filters };
+    if (company_id !== undefined && company_id !== null) {
+      queryFilters.company_id = company_id;
+    }
+    const [sql, params] = buildSelectQuery(baseQuery, queryFilters);
+    const result = await executeQuery(sql, params, conn);
+    return result.rows || [];
+  } catch (error) {
+    logger.error('Error in getPayoutsDao:', error);
+    throw error;
+  }
+};
 export const getAllPayoutsDao = async (
   filters,
   company_id,
@@ -576,47 +606,6 @@ export const getPayoutsBySearchDao = async (
 ) => {
   try {
     const conditions = [`p.is_obsolete = false`, `p.company_id = $1`];
-    // if (filters.search) {
-    //   const filterPayoutByRole = (payout, role) => {
-    //     let allowedKeys;
-    //     switch (role) {
-    //       case Role.VENDOR:
-    //         allowedKeys = PayoutResponses.VENDOR;
-    //         break;
-    //       case Role.MERCHANT:
-    //         allowedKeys = PayoutResponses.MERCHANT;
-    //         break;
-    //       case Role.ADMIN:
-    //       default:
-    //         allowedKeys = PayoutResponses.ADMIN;
-    //         break;
-    //     }
-    //     return Object.fromEntries(
-    //       Object.entries(payout).filter(([key]) => allowedKeys.includes(key)),
-    //     );
-    //   };
-    //   delete filters.page;
-    //   delete filters.limit;
-
-    //   const { results, totalCount, totalPages } = await getPayoutByESSearch(
-    //     filters.search,
-    //     filters,
-    //     offset,
-    //     limitNum,
-    //   );
-
-    //   const filteredPayouts = results.map((payout) =>
-    //     filterPayoutByRole(payout, role),
-    //   );
-
-    //   const data = {
-    //     totalCount,
-    //     totalPages,
-    //     payout: filteredPayouts, 
-    //   };
-
-    //   return data;
-    // }
     
     // Parameters for main query
     const queryParams = [filters.company_id];
@@ -671,8 +660,6 @@ export const getPayoutsBySearchDao = async (
     } else if (role === 'VENDOR') {
       commissionSelect = `
         p.payout_vendor_commission, 
-        COALESCE((p.config->>'actual_vendor_commission')::numeric, 0) AS actual_vendor_commission,
-        COALESCE((p.config->>'brokerage_commission')::numeric, 0) AS brokerage_commission,
         v.code AS vendor_code,
         p.config->>'method' AS payout_method,
         b.nick_name
@@ -682,8 +669,6 @@ export const getPayoutsBySearchDao = async (
         p.merchant_id, 
         p.payout_merchant_commission, 
         p.payout_vendor_commission, 
-        COALESCE((p.config->>'actual_vendor_commission')::numeric, 0) AS actual_vendor_commission,
-        COALESCE((p.config->>'brokerage_commission')::numeric, 0) AS brokerage_commission,
         p.merchant_order_id,
         p.bank_acc_id,
         p.approved_at, 
@@ -694,16 +679,14 @@ export const getPayoutsBySearchDao = async (
         v.code AS vendor_code, 
         v.id AS vendor_id, 
         v.user_id AS vendor_user_id,
-        p.config AS payout_details,
+        (p.config::jsonb - 'slip') AS payout_details,
         p.updated_at,
         b.user_id,
         b.nick_name,
         json_build_object(
           'merchant_code', COALESCE(m.config->>'sub_code', m.code),
           'return_url', m.config->>'return_url',
-          'notify_url', m.config->>'notify_url',
-          'public_key', m.config->'keys'->>'public',
-          'private_key', m.config->'keys'->>'private'
+          'notify_url', m.config->>'notify_url'
         ) AS merchant_details
       `;
     }
@@ -720,9 +703,8 @@ export const getPayoutsBySearchDao = async (
         p.upi_id, 
         p.utr_id, 
         p.rejected_reason,
+        p.config ->> 'slip' AS slip,
         ${commissionSelect},
-        COALESCE((p.config->>'actual_vendor_commission')::numeric, 0) AS actual_vendor_commission,
-        COALESCE((p.config->>'brokerage_commission')::numeric, 0) AS brokerage_commission,
         json_build_object(
           'account_holder_name', p.acc_holder_name,
           'account_no', p.acc_no,
@@ -789,37 +771,6 @@ export const getPayoutsBySearchDao = async (
       delete filters.txnid;
     }
     // Handle search terms
-    if (searchTerms.length > 0) {
-      searchTerms.forEach((term) => {
-        if (term.toLowerCase() !== 'true' && term.toLowerCase() !== 'false') {
-          conditions.push(`
-            (
-              LOWER(p.id::text) LIKE LOWER($${paramIndex})
-              OR LOWER(p.user) LIKE LOWER($${paramIndex})
-              OR LOWER(p.merchant_order_id) LIKE LOWER($${paramIndex})
-              OR LOWER(p.failed_reason) LIKE LOWER($${paramIndex})
-              OR LOWER(p.currency) LIKE LOWER($${paramIndex})
-              OR LOWER(p.upi_id) LIKE LOWER($${paramIndex})
-              OR LOWER(p.utr_id) LIKE LOWER($${paramIndex})
-              OR LOWER(p.status) LIKE LOWER($${paramIndex})
-              OR LOWER(p.rejected_reason) LIKE LOWER($${paramIndex})
-              OR LOWER(b.nick_name) LIKE LOWER($${paramIndex})
-              OR LOWER(m.code) LIKE LOWER($${paramIndex})
-              OR LOWER(v.code) LIKE LOWER($${paramIndex})
-              OR p.amount::text LIKE $${paramIndex}
-              OR LOWER(p.config->>'method') LIKE LOWER($${paramIndex})
-              OR LOWER(p.config->>'rejected_reason') LIKE LOWER($${paramIndex})
-              OR LOWER(p.acc_holder_name) LIKE LOWER($${paramIndex})
-              OR LOWER(p.acc_no) LIKE LOWER($${paramIndex})
-              OR LOWER(p.ifsc_code) LIKE LOWER($${paramIndex})
-              OR LOWER(p.bank_name) LIKE LOWER($${paramIndex})
-            )
-          `);
-          queryParams.push(`%${term}%`);
-          paramIndex++;
-        }
-      });
-    }
 
     // Handle updated_at filter
     if (filters.updated_at) {
@@ -956,40 +907,6 @@ export const getPayoutsBySearchDao = async (
           amountParamIndex += statusArray.length;
         }
       }
-
-      // Reapply search terms
-      if (searchTerms.length > 0) {
-        searchTerms.forEach((term) => {
-          if (term.toLowerCase() !== 'true' && term.toLowerCase() !== 'false') {
-            amountConditions.push(`
-              (
-                LOWER(p.id::text) LIKE LOWER($${amountParamIndex})
-                OR LOWER(p.user) LIKE LOWER($${amountParamIndex})
-                OR LOWER(p.merchant_order_id) LIKE LOWER($${amountParamIndex})
-                OR LOWER(p.failed_reason) LIKE LOWER($${amountParamIndex})
-                OR LOWER(p.currency) LIKE LOWER($${amountParamIndex})
-                OR LOWER(p.upi_id) LIKE LOWER($${amountParamIndex})
-                OR LOWER(p.utr_id) LIKE LOWER($${amountParamIndex})
-                OR LOWER(p.status) LIKE LOWER($${amountParamIndex})
-                OR LOWER(p.rejected_reason) LIKE LOWER($${amountParamIndex})
-                OR LOWER(b.nick_name) LIKE LOWER($${amountParamIndex})
-                OR LOWER(m.code) LIKE LOWER($${amountParamIndex})
-                OR LOWER(v.code) LIKE LOWER($${amountParamIndex})
-                OR p.amount::text LIKE $${amountParamIndex}
-                OR LOWER(p.config->>'method') LIKE LOWER($${amountParamIndex})
-                OR LOWER(p.config->>'rejected_reason') LIKE LOWER($${amountParamIndex})
-                OR LOWER(p.acc_holder_name) LIKE LOWER($${amountParamIndex})
-                OR LOWER(p.acc_no) LIKE LOWER($${amountParamIndex})
-                OR LOWER(p.ifsc_code) LIKE LOWER($${amountParamIndex})
-                OR LOWER(p.bank_name) LIKE LOWER($${amountParamIndex})
-              )
-            `);
-            amountParams.push(`%${term}%`);
-            amountParamIndex++;
-          }
-        });
-      }
-
       // Reapply other filters
       Object.entries(filters).forEach(([key, value]) => {
         if (handledKeys.has(key) || value == null || !validColumns.has(key)) {
@@ -1018,7 +935,6 @@ export const getPayoutsBySearchDao = async (
           amountParams.push(...valueArray);
         }
       });
-
       // Build amount query
       const amountQuery = `
         SELECT COALESCE(SUM(p.amount), 0) as total_amount
@@ -1119,6 +1035,15 @@ export const updatePayoutDao = async (ids, data, conn = null) => {
   try {
     // Clone the data object to avoid modifying the original
     const updateData = { ...data };
+    
+    // Move txnid to config if it exists as a direct field (it should always be in config)
+    if (updateData.txnid !== undefined) {
+      logger.warn('txnid found as direct field, moving to config', { txnid: updateData.txnid });
+      updateData.config = updateData.config || {};
+      updateData.config.txnid = updateData.txnid;
+      delete updateData.txnid;
+    }
+    
     // If config is present, ensure it's properly formatted
     if (updateData.config && typeof updateData.config === 'object') {
       // Get existing config first to merge with new config

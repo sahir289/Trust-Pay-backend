@@ -3,7 +3,7 @@ import config from '../../config/config.js';
 import { logger } from '../../utils/logger.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import { processPayInService } from '../payIn/payInService.js';
-import { createBankResponseService } from '../bankResponse/bankResponseServices.js';
+import { publishBankResponse } from '../../rabbitmq/producer.js';
 import { getPayInIntentDao } from '../payIn/payInDao.js';
 
 const env =
@@ -51,15 +51,17 @@ export const cashfreeWebHook = async (req, res) => {
 
     const bankResponsePayload = `${eventData?.data?.order?.order_amount} nil ${eventData?.data?.payment?.bank_reference} ${payIn.bank_acc_id}`;
 
-    if (eventData?.data?.payment?.payment_status === 'SUCCESS') {
-      await createBankResponseService(
-        bankResponsePayload,
-        payIn.company_id,
-        'BOT',
-        'CASHFREE',
-      );
-    }
     await processPayInService(payload);
+
+    if (eventData?.data?.payment?.payment_status === 'SUCCESS') {
+      const bankResponseObject = {
+        payload: bankResponsePayload,
+        x_auth_token: payIn.company_id,
+        role: 'BOT',
+        name: 'CASHFREE',
+      };
+      await publishBankResponse(bankResponseObject);
+    }
   } catch (error) {
     logger.error('Cashfree webhook error:', error.message || error);
   }

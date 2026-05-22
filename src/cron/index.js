@@ -9,7 +9,6 @@ import gatherAllNetbalanceForAllCompanies from './gatherAllNetBalance.js';
 import collectPayoutData from './pendingPayout.js';
 import runDailyCalculation from './checkNetbalance.js';
 import checkStatementUploads from './statementUploadCron.js';
-// import  checkPendingStatus  from './pendingPayinCron.js';
 const router = express.Router();
 
 /**
@@ -89,15 +88,6 @@ router.get(
 // *--------- Pending Payin Cron Job - ---------
 
 
-// router.get(
-//   '/checkPendingStatus',
-//   (req, res) => {
-//     checkPendingStatus('Asia/Kolkata');
-//     res.json({ message: 'Cron job is running for pending status' });
-//   },
-//   checkPendingStatus,
-// );
-// ;
 /**
  * @swagger
  * /notifyPayinDroppedCron:
@@ -121,9 +111,22 @@ router.get(
 router.get(
   '/notifyPayinDroppedCron',
   (req, res) => {
-    collectPayinData('Asia/Kolkata');
-    logger.info('Calling collectPayinData CRONJOB with timezone: Asia/Kolkata');
-    res.json({ message: 'Cron job is running for Notify-Url' });
+    const timezone = req.query.timezone || 'Asia/Kolkata';
+    const parsedLookback = Number.parseInt(req.query.lookbackMinutes, 10);
+    const lookbackMinutes = Number.isFinite(parsedLookback)
+      ? Math.min(Math.max(parsedLookback, 1), 240)
+      : 10;
+
+    collectPayinData({ timezone, lookbackMinutes, mode: 'manual-catchup' });
+    logger.info('Calling collectPayinData CRONJOB with windowed mode', {
+      timezone,
+      lookbackMinutes,
+    });
+    res.json({
+      message: 'Cron job is running for Notify-Url',
+      timezone,
+      lookbackMinutes,
+    });
   },
   collectPayinData,
 );
@@ -155,6 +158,7 @@ router.get('/pending-payout-cronjob', (req, res) => {
   logger.info('Calling collectPendingPayoutData CRONJOB');
   res.json({ message: 'Cron job is running for Pending Payout' });
 });
+
 
 router.get('/statement-upload-check-cronjob', (req, res) => {
   checkStatementUploads('Asia/Kolkata');

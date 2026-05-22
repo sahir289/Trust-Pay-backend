@@ -1,5 +1,4 @@
 import express from 'express';
-// import bodyParser from 'body-parser';
 import cors from 'cors';
 import helmet from 'helmet';
 import methodOverride from 'method-override';
@@ -18,11 +17,15 @@ import config from './config/config.js';
 const app = express();
 export const usedTokens = new Set();
 
+// Behind reverse proxy/load balancer, trust the first upstream proxy for accurate req.ip
+app.set('trust proxy', 1);
+
 app.use('/static', express.static('public'));
 app.use(helmet());
 // took Set here instead array as it will fast lookup 
 const corsWhitelist = new Set([
-  config.reactFrontOrigin,
+  config.reactFrontOrigin1,
+  config.reactFrontOrigin2,
   config.reactPaymentOrigin,
 ].filter(Boolean));
 

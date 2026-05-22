@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 // import querystring from 'querystring';
 import config from '../../config/config.js';
 // import { razorpay } from '../webhooks/razorPay.js';
-import { getPayoutsDao } from '../payOut/payOutDao.js';
+import { getPayoutsNotifyDao } from '../payOut/payOutDao.js';
 import { checkLockEdit } from '../../utils/advisoryLock.js';
 import {
   BankTypes,
@@ -42,6 +42,7 @@ import {
   getPayInIntentDao,
   getPayInsForCronDao,
   getPayInWithMerchantOrderIdDao,
+  // atomicClaimPayInUrlDao,
 } from './payInDao.js';
 import {
   BadRequestError,
@@ -70,10 +71,10 @@ import {
 import {
   getMerchantsByCodeDao,
   getMerchantsDao,
+  getMerchantForNotifyDao,
   getMerchantsForValidatePayinDao,
   getMerchantByUserIdDao,
   updateMerchantBalanceDao,
-  getMerchantsByCodeAndApiKeyDao,
   getMerchantsByCodesDao,
 } from '../merchants/merchantDao.js';
 import {
@@ -120,7 +121,7 @@ import { createHash } from '../../utils/hashUtils.js';
 import { logger } from '../../utils/logger.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 // import { generateUUID } from '../../utils/generateUUID.js';
-import { randomUUID } from 'crypto';
+// import { randomUUID } from 'crypto';
 import { usedTokens } from '../../app.js';
 import {
   getCashfreeAllowByCompanyIdDao,
@@ -145,8 +146,43 @@ import {
   rollback,
 } from '../../utils/db.js';
 import { createSilkPaymentTransaction } from '../../intent/createSilkIntentTransaction.js';
-import { getCachedData, setCachedData } from '../../utils/redishashkey.js';
+import {
+  deleteCachedData,
+  getCachedData,
+  setCachedData,
+  setCachedDataIfNotExists,
+} from '../../utils/redishashkey.js';
 import { createOnePayPaymentTransaction } from '../../intent/createOnePayIntentTransaction.js';
+import { createCpsPaymentTransaction } from '../../intent/createCpsIntentTransaction.js';
+import { createtytlPaymentTransaction } from '../../intent/createtytlPayIntentTransaction.js';
+import { createPayeasyTransaction } from '../../intent/createPayeasyIntentTransaction.js';
+import { createAlbeCollectTransaction } from '../../intent/createAlbeCollectIntentTransaction.js';
+
+const PAYIN_IDEMPOTENCY_INFLIGHT_TTL_SEC = Number(
+  process.env.PAYIN_IDEMPOTENCY_INFLIGHT_TTL_SEC || 60,
+);
+
+const normalizePayInAmount = (amount) => {
+  const parsed = Number.parseFloat(amount);
+  return Number.isFinite(parsed) ? parsed.toFixed(2) : 'na';
+};
+
+const buildPayInProcessIdempotencyBaseKey = (payload = {}) => {
+  const merchantOrderId = payload?.merchantOrderId;
+  const userSubmittedUtr = payload?.userSubmittedUtr;
+
+  if (!merchantOrderId || !userSubmittedUtr) {
+    return null;
+  }
+
+  const normalizedUtr = String(userSubmittedUtr).trim().toUpperCase();
+  if (!normalizedUtr) {
+    return null;
+  }
+
+  const amountToken = normalizePayInAmount(payload?.amount);
+  return `idem:payin:process:${merchantOrderId}:${normalizedUtr}:${amountToken}`;
+};
 
 export const generatePayInUrlByHashService = async (req) => {
   try {
@@ -168,12 +204,32 @@ export const generatePayInUrlByHashService = async (req) => {
       };
       return data;
     }
+    if (merchantArr[0]?.config?.is_h2h && !amount) {
+      throw new NotFoundError('amount is required');
+    }
     const bankAssigned = await getMerchantBankDao({
       config_merchants_contains: merchantArr[0].id,
     });
     const [company] = await getCompanyByIDDao({
       id: merchantArr[0].company_id,
     });
+    if (merchantArr[0]?.config?.allow_intent) {
+      const validIntentBanks = bankAssigned.filter((bank) => {
+        const intent = bank?.config?.is_intent;
+        return intent && intent !== 'off' && intent !== false;
+      });
+      if (validIntentBanks.length === 0) {
+        await sendBankNotAssignedAlertTelegram(
+          company.config?.telegramBankAlertChatId,
+          code,
+          company.config?.telegramBotToken,
+        );
+        return {
+          status: 404,
+          message: 'Intent Bank account not found for the given merchant',
+        };
+      }
+    }
     if (bankAssigned.length <= 0) {
       await sendBankNotAssignedAlertTelegram(
         company.config?.telegramBankAlertChatId,
@@ -209,8 +265,16 @@ export const generatePayInUrlByHashService = async (req) => {
       if (!bank.is_enabled) return true;
       const config = bank.config || {};
       const isPhonepay = config.is_phonepay || false;
+      const isIntent =
+        (config.is_intent !== undefined &&
+          config.is_intent !== 'off' &&
+          config.is_intent !== false) ||
+        false;
       return (
-        isPhonepay === false && bank.is_qr === false && bank.is_bank === false
+        isPhonepay === false &&
+        bank.is_qr === false &&
+        bank.is_bank === false &&
+        isIntent === false
       );
     });
 
@@ -222,11 +286,11 @@ export const generatePayInUrlByHashService = async (req) => {
       return data;
     }
 
-    let query = `user_id=${user_id}&code=${code}&ot=${ot}&key=${key}`;
+    let query = `user_id=${user_id}&code=${code}&ot=${ot}`;
     if (amount) {
       query += `&amount=${amount}`;
     }
-    if (role && role === Role.ADMIN) {
+    if (role || role === Role.ADMIN || role === Role.MERCHANT) {
       query += `&token=${role_id}`;
     }
 
@@ -244,6 +308,24 @@ export const generatePayInUrlByHashService = async (req) => {
     logger.error('Error generating payin hash:', error);
     throw error;
   }
+};
+const createPayInWithUniqueShortCode = async (data) => {
+  let attempts = 0;
+  while (attempts < 10) {
+    attempts += 1;
+    try {
+      return await generatePayInUrlDao({
+        ...data,
+        upi_short_code: nanoid(5),
+      });
+    } catch (error) {
+      if (error.code === '23505') {
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw new Error('Unable to generate unique short code after 10 attempts');
 };
 
 const isBankDisabled = (bank) => bank.is_enabled === false;
@@ -285,7 +367,7 @@ export const determineType = (bankAssigned) => {
   return 'upi';
 };
 
-export const generatePayInUrlService = async (payload, role, userIp) => {
+export const generatePayInUrlService = async (payload, role) => {
   try {
     const {
       code,
@@ -312,12 +394,12 @@ export const generatePayInUrlService = async (payload, role, userIp) => {
     if (cachedRouting) {
       ({ merchant, company, bankAssigned } = cachedRouting);
     } else {
-      const merchantArr = await getMerchantsByCodeAndApiKeyDao(code, api_key);
+      const merchantArr = await getMerchantsByCodeDao(code);
       merchant = merchantArr[0];
       if (!merchant) {
         return {
           status: 400,
-          message: 'Invalid merchant code or API key',
+          message: 'Invalid merchant code',
         };
       }
 
@@ -364,42 +446,42 @@ export const generatePayInUrlService = async (payload, role, userIp) => {
       };
     }
 
-    if (merchant?.config?.whitelist_ips) {
-      // normalize whitelist to a clean array of strings
-      const whitelist = []
-        .concat(merchant.config.whitelist_ips) // handles string or array
-        .flatMap((ip) =>
-          typeof ip === 'string' ? ip.split(',') : [String(ip)],
-        )
-        .map((ip) => ip.trim())
-        .filter(Boolean);
+    // if (merchant?.config?.whitelist_ips) {
+    //   // normalize whitelist to a clean array of strings
+    //   const whitelist = []
+    //     .concat(merchant.config.whitelist_ips) // handles string or array
+    //     .flatMap((ip) =>
+    //       typeof ip === 'string' ? ip.split(',') : [String(ip)],
+    //     )
+    //     .map((ip) => ip.trim())
+    //     .filter(Boolean);
 
-      // If whitelist ip's exists and user IP is not allowed
-      if (
-        whitelist.length > 0 &&
-        !whitelist.includes(userIp) &&
-        role !== Role.ADMIN
-      ) {
-        return {
-          status: 400,
-          message: 'IP not whitelisted',
-        };
-      }
-    }
+    //   // If whitelist ip's exists and user IP is not allowed
+    //   if (
+    //     whitelist.length > 0 &&
+    //     !whitelist.includes(userIp) &&
+    //     role !== Role.ADMIN
+    //   ) {
+    //     return {
+    //       status: 400,
+    //       message: 'IP not whitelisted',
+    //     };
+    //   }
+    // }
 
     const existingOrder = await getPayInWithMerchantOrderIdDao(order_id);
     if (existingOrder) {
       return { status: 400, message: 'Merchant Order ID already exists' };
     }
 
-    const { keys: merchantKeys } = merchant.config || {};
-    if (
-      api_key &&
-      api_key !== merchantKeys?.private &&
-      api_key !== merchantKeys?.public
-    ) {
-      return { status: 404, message: 'Enter valid Api key' };
-    }
+    // const { keys: merchantKeys } = merchant.config || {};
+    // if (
+    //   api_key &&
+    //   api_key !== merchantKeys?.private &&
+    //   api_key !== merchantKeys?.public
+    // ) {
+    //   return { status: 404, message: 'Enter valid Api key' };
+    // }
 
     if (
       role !== Role.ADMIN &&
@@ -421,7 +503,6 @@ export const generatePayInUrlService = async (payload, role, userIp) => {
     }
 
     const data = {
-      upi_short_code: nanoid(10),
       amount: amount || 0,
       status: Status.INITIATED,
       currency: Currency.INR,
@@ -439,7 +520,7 @@ export const generatePayInUrlService = async (payload, role, userIp) => {
       created_by: role === Role.ADMIN ? admin.id : merchant?.user_id,
     };
 
-    const result = await generatePayInUrlDao(data);
+    const result = await createPayInWithUniqueShortCode(data);
 
     const responseObj = {
       ...result,
@@ -452,17 +533,28 @@ export const generatePayInUrlService = async (payload, role, userIp) => {
         logger.error('Socket emit failed:', err),
       );
     });
-
     if (merchant?.config?.allow_intent) {
+      const validIntentBanks = bankAssigned.filter((bank) => {
+        const intent = bank?.config?.is_intent;
+        return intent && intent !== 'off' && intent !== false;
+      });
+      if (validIntentBanks.length === 0) {
+        await triggerBankAlert(company, code);
+        return {
+          status: 404,
+          message: 'Bank account not found for the given merchant',
+        };
+      }
+      const randomBank =
+        validIntentBanks[Math.floor(Math.random() * validIntentBanks.length)];
       const duration = calculateDuration(result.created_at);
       await updatePayInUrlDao(result.id, {
         amount: parseFloat(amount || 0),
         status: Status.ASSIGNED,
-        bank_acc_id: bankAssigned[0].id,
+        bank_acc_id: randomBank.id,
         duration: duration,
       });
     }
-
     // Assign bank if H2H
     if (merchant.config?.is_h2h) {
       const assign = await assignedBankToPayInUrlService(
@@ -577,6 +669,9 @@ export const assignedBankToPayInUrlService = async (
 ) => {
   // Validate the PayIn URL
   try {
+    logger.info(
+      `Verifying PayIn with merchantOrderId: ${merchantOrderId}, amount: ${amount}, type: ${type}, isAdmin: ${isAdmin}`,
+    );
     const payIn = await getPayInUrlService(merchantOrderId);
     const payInConfig = payIn.config || {};
     let merchant = {};
@@ -621,8 +716,8 @@ export const assignedBankToPayInUrlService = async (
     const merchantArr = await getMerchantsDao({ id: payIn.merchant_id });
     merchant = merchantArr[0] || {};
     if (!merchant) {
-      // throw new NotFoundError('No merchant found');
-      return { message: `No merchant found` };
+      throw new NotFoundError('No merchant found');
+      // return { message: `No merchant found` };
     }
     const maxPayIn = Number(merchant.max_payin);
     const minPayIn = Number(merchant.min_payin);
@@ -630,7 +725,10 @@ export const assignedBankToPayInUrlService = async (
 
     if ((amt > maxPayIn || amt < minPayIn) && !isAdmin) {
       //-- exact amounts should also be considered
-      return { message: `Amount must be between ${minPayIn} and ${maxPayIn}` };
+      throw new BadRequestError(
+        `Amount must be between ${minPayIn} and ${maxPayIn}`,
+      );
+      // return { message: `Amount must be between ${minPayIn} and ${maxPayIn}` };
     }
     const banks = await getMerchantBankDao({
       config_merchants_contains: merchant.id,
@@ -639,9 +737,11 @@ export const assignedBankToPayInUrlService = async (
     // First, check if any bank satisfies the amount condition
     const banksWithValidAmount = banks.filter((bank) => {
       const isPayInBank = ['PayIn', 'payIn'].includes(bank.bank_used_for);
-      const isActive = bank.is_enabled && isPayInBank;
+    
+      const isActive =
+        bank.is_enabled &&
+        isPayInBank;
       if (!isActive) return false;
-
       return amt >= Number(bank.min) && amt <= Number(bank.max);
     });
 
@@ -649,10 +749,10 @@ export const assignedBankToPayInUrlService = async (
     if (banksWithValidAmount.length === 0) {
       await updatePayInUrlDao(payIn.id, {
         is_url_expires: true,
-        status: Status.DROPPED,
+        status: Status.FAILED,
       });
       merchantPayinCallback(payInConfig.urls?.notify, {
-        status: Status.DROPPED,
+        status: Status.FAILED,
         merchantOrderId: payIn.merchant_order_id,
         payinId: payIn.id,
         amount: null,
@@ -709,6 +809,9 @@ export const assignedBankToPayInUrlService = async (
     // Randomly assign one enabled bank account
     const selectedBankDetails =
       enabledBanks[Math.floor(Math.random() * enabledBanks.length)];
+    logger.info(
+      `Bank assigned for PayIn ${payIn.id}: ${selectedBankDetails.nick_name} (${selectedBankDetails.id})`,
+    );
     const duration = calculateDuration(payIn.created_at);
     const updatePayIn = await updatePayInUrlDao(payIn.id, {
       amount: parseFloat(amount),
@@ -892,7 +995,6 @@ export const payInIntentGenerateOrderService = async (
   try {
     const payIn = await getPayInIntentDao(merchantOrderId);
     checkIsPayInExpired(payIn);
-
     const providerHandlers = {
       ZenTechInd: async () => {
         const order = await createPaymentTransaction(
@@ -922,6 +1024,14 @@ export const payInIntentGenerateOrderService = async (
         );
         return order?.link;
       },
+      cpsPay: async () => {
+        const order = await createCpsPaymentTransaction('cps', payIn, amount);
+        return order?.upiIntend;
+      },
+      tytl: async () => {
+        const order = await createtytlPaymentTransaction('tytl', payIn, amount);
+        return order?.url;
+      },
       orvixPay: async () => {
         const order = await createPaymentTransaction('orvixPay', payIn, amount);
         return order?.payment_url;
@@ -942,8 +1052,31 @@ export const payInIntentGenerateOrderService = async (
         const order = await createRazorPayOrder(payIn, amount);
         return order?.id;
       },
+      Payeasy: async () => {
+        const order = await createPayeasyTransaction('payeasy', payIn, amount);
+        return order?.url;
+      },
+      Payeasy02: async () => {
+        const order = await createPayeasyTransaction(
+          'payeasy02',
+          payIn,
+          amount,
+        );
+        return order?.url;
+      },
+      Payeasy03: async () => {
+        const order = await createPayeasyTransaction(
+          'payeasy03',
+          payIn,
+          amount,
+        );
+        return order?.url;
+      },
+      albeCollect: async () => {
+        const order = await createAlbeCollectTransaction('albeCollect', payIn, amount);
+        return order?.data?.paymentLink || null;
+      },
     };
-    console.log('provider', provider);
     const handler = providerHandlers[provider];
     if (!handler) {
       throw new NotFoundError(`No handler found for provider: ${provider}`);
@@ -955,11 +1088,16 @@ export const payInIntentGenerateOrderService = async (
       throw new NotFoundError(`No session_id found for provider: ${provider}`);
     }
 
-    return {
+    const response = {
       id: payIn.id,
-      session_id,
       return: payIn.config?.urls?.return || '',
     };
+    if (provider === 'albeCollect') {
+      response.paymentLink = session_id;
+    } else {
+      response.session_id = session_id;
+    }
+    return response;
   } catch (error) {
     logger.error('Error generate intent payin:', error.message);
     throw error;
@@ -998,12 +1136,13 @@ export const updatePaymentNotificationStatusService = async (
       });
     } else if (type === Type.PAYOUT) {
       // find on the basis of payoutId
-      const payouts = await getPayoutsDao({ id: payInId, company_id });
+      // const payouts = await getPayoutsDao({ id: payInId, company_id });
+      const payouts = await getPayoutsNotifyDao({ id: payInId, company_id });
       const payout = payouts[0];
       if (!payout) {
         throw new NotFoundError('Payout data not found.');
       }
-      const merchants = await getMerchantsDao({
+      const merchants = await getMerchantForNotifyDao({
         id: payout.merchant_id,
         company_id,
       });
@@ -1024,7 +1163,6 @@ export const updatePaymentNotificationStatusService = async (
         },
       );
     }
-
     return data;
   } catch (error) {
     logger.error('Error updating payment status notification:', error);
@@ -1038,21 +1176,23 @@ export const updateDepositStatusService = async (
   company_id,
   updated_by,
 ) => {
+  // Guard: check cooldown BEFORE acquiring a DB connection so we never open a
+  // transaction that we immediately abandon (which contaminates the pool).
+  const KEY_PREFIX = company_id;
+  const cacheKey = `${KEY_PREFIX}:${merchantOrderId}`;
+  const HOLD_TIME = 3;
+  const cooldownActive = await getCachedData(cacheKey);
+  if (cooldownActive) {
+    logger.log(`Duplicate merchantOrderId ${merchantOrderId}  ${HOLD_TIME}s`);
+    return;
+  }
+  await setCachedData(cacheKey, '1', HOLD_TIME);
+
   let conn;
   let committed = false;
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const KEY_PREFIX = company_id;
-    const cacheKey = `${KEY_PREFIX}:${merchantOrderId}`;
-    const HOLD_TIME = 3;
-    const cooldownActive = await getCachedData(cacheKey);
-    if (cooldownActive) {
-      logger.log(`Duplicate merchantOrderId ${merchantOrderId}  ${HOLD_TIME}s`);
-      return;
-    } else {
-      await setCachedData(cacheKey, '1', HOLD_TIME);
-    }
     const payInData = await getPayInForUpdateServiceDao(
       {
         merchant_order_id: merchantOrderId,
@@ -1602,7 +1742,10 @@ export const getPayinsBySearchService = async (
     const offset = (pageNum - 1) * limitNum;
 
     if (
-      (designation === Role.VENDOR || designation === Role.VENDOR_OPERATIONS) &&
+      (designation === Role.VENDOR ||
+        designation === Role.VENDOR_OPERATIONS ||
+        designation === Role.SUB_VENDOR ||
+        designation === Role.VENDOR_ADMIN) &&
       Array.isArray(filters.bank_acc_id) &&
       filters.bank_acc_id.length === 0
     ) {
@@ -1633,7 +1776,7 @@ export const getPayinsBySearchService = async (
     return data;
   } catch (error) {
     logger.error('Error while fetching Payin by search', error);
-    throw new InternalServerError(error.message);
+    throw error;
   }
 };
 
@@ -1643,7 +1786,7 @@ export const getPayinsSummaryService = async (filters) => {
     return data;
   } catch (error) {
     logger.error('Error while fetching Payin SUM', error);
-    throw new InternalServerError(error.message);
+    throw error;
   }
 };
 
@@ -1655,6 +1798,7 @@ export const _processPayInServiceInternal = async (
   designation,
   h2h,
   conn = null,
+  img_utr_fileKey = null,
 ) => {
   const {
     userSubmittedUtr,
@@ -1704,6 +1848,10 @@ export const _processPayInServiceInternal = async (
     };
     return { error: `This payin url is already used`, result };
   }
+
+  logger.info(
+    `PayIn: ${JSON.stringify(payIn)} found for merchantOrderId: ${merchantOrderId}`,
+  );
   //lock payin transaction
   // Validate that we have valid values for lock key
   if (!payIn.bank_acc_id || !userSubmittedUtr) {
@@ -1741,7 +1889,7 @@ export const _processPayInServiceInternal = async (
   const vendor = vendors[0];
 
   const duration = calculateDuration(payIn.created_at);
-  const otherPayIns = await getPayInForDuplicate(
+  let otherPayIns = await getPayInForDuplicate(
     {
       merchant_order_id: merchantOrderId,
       user_submitted_utr: userSubmittedUtr,
@@ -1749,6 +1897,18 @@ export const _processPayInServiceInternal = async (
     },
     conn,
   );
+  if (
+    (!otherPayIns || otherPayIns.length === 0) &&
+    (tele_check || img_utr_fileKey)
+  ) {
+    otherPayIns = await getPayInForDuplicate(
+      {
+        user_submitted_utr: userSubmittedUtr,
+        company_id: payIn.company_id,
+      },
+      conn,
+    );
+  }
   const updatePayInData = {
     amount,
     //img_utr only for updating utr directly when image uploaded
@@ -2228,10 +2388,41 @@ export const processPayInService = async (
   img_utr = false,
   designation,
   h2h,
+  img_utr_fileKey,
 ) => {
   let conn;
   let committed = false;
+  const idempotencyBaseKey = buildPayInProcessIdempotencyBaseKey(payload);
+  const inflightKey = idempotencyBaseKey
+    ? `${idempotencyBaseKey}:inflight`
+    : null;
+
   try {
+    if (inflightKey) {
+      const inflightAcquired = await setCachedDataIfNotExists(
+        inflightKey,
+        {
+          merchantOrderId: payload?.merchantOrderId,
+          userSubmittedUtr: payload?.userSubmittedUtr,
+          amount: payload?.amount,
+          startedAt: new Date().toISOString(),
+        },
+        PAYIN_IDEMPOTENCY_INFLIGHT_TTL_SEC,
+        'payin_process_idempotency_inflight',
+      );
+
+      if (!inflightAcquired) {
+        return {
+          status: Status.PENDING,
+          merchantOrderId: payload?.merchantOrderId,
+          req_amount: payload?.amount,
+          utr_id: payload?.userSubmittedUtr || null,
+          idempotent: true,
+          message: 'PayIn is already being processed',
+        };
+      }
+    }
+
     conn = await getConnection();
     await beginTransaction(conn);
     const result = await _processPayInServiceInternal(
@@ -2242,15 +2433,23 @@ export const processPayInService = async (
       designation,
       h2h,
       conn,
+      img_utr_fileKey,
     );
     await commit(conn);
     committed = true;
+
     return result;
   } catch (error) {
     if (conn && !committed) await rollback(conn);
     logger.error('Error processing PayIn:', error);
     throw error;
   } finally {
+    if (inflightKey) {
+      await deleteCachedData(
+        inflightKey,
+        'payin_process_idempotency_inflight',
+      );
+    }
     if (conn) conn.release();
   }
 };
@@ -2450,18 +2649,20 @@ export const processPayInWebHookService = async (payload, updated_by, conn) => {
 // };
 
 export const telegramResponseService = async (message) => {
+  // Guard: validate photo before acquiring a DB connection so we never open a
+  // transaction that we immediately abandon (which contaminates the pool).
+  const { photo } = message;
+  const TELEGRAM_BOT_TOKEN = config.telegramOcrBotToken;
+  if (!photo) {
+    logger.error('No Telegram Message Photo found!', message);
+    return;
+  }
+
   let conn;
   let committed = false;
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const { photo } = message;
-    const TELEGRAM_BOT_TOKEN = config.telegramOcrBotToken;
-
-    if (!photo) {
-      logger.error('No Telegram Message Photo found!', message);
-      return;
-    }
 
     const lastPhoto = Array.isArray(photo) ? photo.pop() : photo;
     const filePath = await getTelegramFilePath(lastPhoto?.file_id);
@@ -2479,6 +2680,7 @@ export const telegramResponseService = async (message) => {
         TELEGRAM_BOT_TOKEN,
         message.message_id,
       );
+      await rollback(conn);
       return;
     }
 
@@ -2488,6 +2690,7 @@ export const telegramResponseService = async (message) => {
         TELEGRAM_BOT_TOKEN,
         message.message_id,
       );
+      await rollback(conn);
       return;
     }
 
@@ -2522,6 +2725,7 @@ export const telegramResponseService = async (message) => {
         TELEGRAM_BOT_TOKEN,
         message.message_id,
       );
+      await rollback(conn);
       return;
     }
     if (!bankResponse) {
@@ -2531,6 +2735,7 @@ export const telegramResponseService = async (message) => {
         TELEGRAM_BOT_TOKEN,
         message.message_id,
       );
+      await rollback(conn);
       return;
     }
     if (payIn.status === Status.FAILED) {
@@ -2541,6 +2746,7 @@ export const telegramResponseService = async (message) => {
         message.message_id,
         Status.FAILED,
       );
+      await rollback(conn);
       return;
     }
     if (payIn.status === Status.INITIATED) {
@@ -2551,6 +2757,7 @@ export const telegramResponseService = async (message) => {
         message.message_id,
         Status.INITIATED,
       );
+      await rollback(conn);
       return;
     }
     // Fetch related pay-in URLs concurrently
@@ -2607,6 +2814,7 @@ export const telegramResponseService = async (message) => {
         otherUtrPayIns,
         payIn,
       );
+      await rollback(conn);
       return;
     }
 
@@ -2622,6 +2830,7 @@ export const telegramResponseService = async (message) => {
         TELEGRAM_BOT_TOKEN,
         message.message_id,
       );
+      await rollback(conn);
       return;
     }
 
@@ -2636,6 +2845,7 @@ export const telegramResponseService = async (message) => {
           message.message_id,
           otherBotResponsePayIns,
         );
+        await rollback(conn);
         return;
       } else {
         await sendMerchantOrderIDStatusDuplicateTelegramMessage(
@@ -2646,6 +2856,7 @@ export const telegramResponseService = async (message) => {
           message.message_id,
           otherUtrPayIns,
         );
+        await rollback(conn);
         return;
       }
     }
@@ -2669,6 +2880,7 @@ export const telegramResponseService = async (message) => {
         duplicateEntry,
         payIn,
       );
+      await rollback(conn);
       return;
     }
 
@@ -2714,6 +2926,7 @@ export const processPayInByImageService = async (payload) => {
       const result = {
         redirect_url: payInData.config?.urls?.return,
       };
+      await rollback(conn);
       return { error: `This payin url is already used`, result };
     }
     const isUtrMissing =
@@ -2753,8 +2966,8 @@ export const processPayInByImageService = async (payload) => {
         user_submitted_image: payload.fileKey,
       },
       undefined,
-      false,
-      false,
+      true,
+      true,
       undefined,
       undefined,
       conn,
@@ -2917,7 +3130,7 @@ export const disputeDuplicateTransactionService = async (
     let newEntryResponse = {};
     if (!makeItSuccess) {
       const newStatus =
-        payInData.bank_acc_id != payIn.bank_acc_id
+        payInData.bank_acc_id != bankResponse.bank_id
           ? Status.BANK_MISMATCH
           : parseFloat(payInData.amount) != parseFloat(toAmount)
             ? Status.DISPUTE
@@ -3078,6 +3291,7 @@ export const disputeDuplicateTransactionService = async (
       updatePayload.amount = toAmount;
       updatePayload.payin_merchant_commission = payinCommission;
       updatePayload.payin_vendor_commission = vendorPayinCommission;
+      updatePayload.bank_acc_id = bankResponse.bank_id;
       updatePayload.approved_at = new Date(); //add this for approved at
       // updatePayload.config = payinConfig;
     } else {
@@ -3300,6 +3514,7 @@ export const telegramCheckUTRService = async (
 
     // check old code flow
     if (payIn.status === Status.SUCCESS) {
+      await rollback(conn);
       return {
         message: `${payIn.merchant_order_id} is already confirmed with ${payIn.user_submitted_utr || otherBankResponse.utr || ''}`,
       };
@@ -3312,6 +3527,7 @@ export const telegramCheckUTRService = async (
       conn,
     );
     if (isAlreadyExit && isAlreadyExit.status !== Status.FAILED) {
+      await rollback(conn);
       return {
         message: `Utr: ${utr} is ${isAlreadyExit.status} with ${isAlreadyExit.merchant_order_id}`,
       };
@@ -3320,6 +3536,7 @@ export const telegramCheckUTRService = async (
       await updateUtrPayinService(null, isAlreadyExit.id, updated_by, utr);
     }
     if (![Status.ASSIGNED, Status.DROPPED].includes(payIn.status)) {
+      await rollback(conn);
       return {
         status: payIn.status,
         message: `${payIn.merchant_order_id} is in ${payIn.status} with ${payIn.user_submitted_utr || otherBankResponse.utr || ''}`,
@@ -3632,10 +3849,9 @@ const _verifyPayinsServiceInternal = async (
   merchantOrderId,
   user_location,
   oneTimeUsed,
-  conn,
 ) => {
   try {
-    const payIn = await getPayInUrlService(merchantOrderId, null, conn);
+    const payIn = await getPayInUrlService(merchantOrderId, null);
 
     if (!payIn) {
       throw new BadRequestError('Invalid merchant order id');
@@ -3658,15 +3874,10 @@ const _verifyPayinsServiceInternal = async (
         page_reload: true,
       });
 
-      await updatePayInUrlDao(
-        payIn.id,
-        {
-          config: updatedConfig,
-          one_time_used: true,
-        },
-        null,
-        conn,
-      );
+      await updatePayInUrlDao(payIn.id, {
+        config: updatedConfig,
+        one_time_used: true,
+      });
 
       const result = {
         redirect_url: payIn.config?.urls?.return,
@@ -3724,17 +3935,15 @@ const _verifyPayinsServiceInternal = async (
       ...payIn.config,
       user: user_location,
     });
-    const merchant = await getMerchantsForValidatePayinDao({
-      id: payIn.merchant_id,
-    });
+
     const updateResult = await updatePayInUrlDao(payIn.id, {
       config: updatedConfig,
       one_time_used: oneTimeUsed || false,
     });
-
     if (!updateResult) {
       throw new InternalServerError('Failed to update payin URL');
     }
+
     if (oneTimeUsed === 'true' && updateResult.one_time_used) {
       // If already used
       const result = {
@@ -3743,14 +3952,47 @@ const _verifyPayinsServiceInternal = async (
       return { error: `This payin url is already used`, result };
     }
 
-    const banks = await getMerchantLinkBankDao({
-      config_merchants_contains: merchant[0].id,
+    // Atomically claim the URL, PostgreSQL guarantees only one concurrent
+    // caller whose WHERE one_time_used=false matches will win, the rest get null back without any locking or transaction required.
+    // const claimed = await atomicClaimPayInUrlDao(payIn.id, updatedConfig);
+    // if (!claimed) {
+    //   const result = { redirect_url: payIn.config?.urls?.return };
+    //   return { error: `This payin url is already used`, result };
+    // }
+
+    const merchant = await getMerchantsForValidatePayinDao({
+      id: payIn.merchant_id,
     });
-    let bankIntent;
+    let banks = [];
+    if (payIn.bank_acc_id) {
+      banks = await getMerchantLinkBankDao({
+        id: payIn.bank_acc_id,
+      });
+    } else {
+      banks = await getMerchantLinkBankDao({
+        config_merchants_contains: merchant[0].id,
+      });
+    }
+    const VALID_INTENTS = new Set([
+      'allow_cashfree',
+      'allow_zentechind',
+      'allow_nmplpay',
+      'allow_runsafe',
+      'allow_silkpay',
+      'allow_razorpay',
+      'allow_orvixpay',
+      'allow_orvixpay1',
+      'allow_albecollect',
+      'allow_vertexpay',
+      'allow_payeasy',
+      'allow_payeasy02',
+      'allow_payeasy03',
+      'allow_cps',
+      'allow_tytl',
+    ]);
     const enabledBanks = banks.filter((bank) => {
       const isPayInBank = ['PayIn', 'payIn'].includes(bank.bank_used_for);
       const isActive = bank.is_enabled && isPayInBank;
-      bankIntent = bank.config?.is_intent;
       const hasAnyMethod =
         bank.is_qr ||
         bank.is_bank ||
@@ -3758,25 +4000,91 @@ const _verifyPayinsServiceInternal = async (
         bank.config?.is_intent;
       return isActive && hasAnyMethod;
     });
+    const bankIntents = enabledBanks
+      .map((b) => b.config?.is_intent)
+      .filter((i) => VALID_INTENTS.has(String(i)));
 
     const merchantIntent = merchant[0]?.config?.allow_intent;
-    let cashfreeDetails;
-    if (merchantIntent && bankIntent) {
+    let cashfreeDetails = null;
+    let selectedIntent = null;
+    let paytmdetails = null;
+    if (merchantIntent && bankIntents.length > 0) {
       cashfreeDetails = await getCashfreeAllowByCompanyIdDao(payIn.company_id);
+      const allowedIntents = bankIntents.filter(
+        (intent) => cashfreeDetails?.[intent] === true,
+      );
+      if (allowedIntents.length > 0) {
+        selectedIntent =
+          allowedIntents[Math.floor(Math.random() * allowedIntents.length)];
+      }
     }
+    else {
+   paytmdetails = await getCashfreeAllowByCompanyIdDao(payIn.company_id);
+    }
+
     const result = {
       expiryTime: payIn.expiration_date,
       amount: payIn.amount,
       one_time_used: payIn.one_time_used,
-      allowCashfree: cashfreeDetails?.allow_cashfree || false,
-      allowZenTechInd: cashfreeDetails?.allow_zentechind || false,
-      allowNmplPay: cashfreeDetails?.allow_nmplpay || false,
-      allowRunsafePay: cashfreeDetails?.allow_runsafe || false,
-      allowSilkPay: cashfreeDetails?.allow_silkpay || false,
-      allowRazorPay: cashfreeDetails?.allow_razorpay || false,
-      allowOrvixPay: cashfreeDetails?.allow_orvixpay || false,
-      allowOrvixPay1: cashfreeDetails?.allow_orvixpay1 || false,
-      allowrunsafe: cashfreeDetails?.allow_runsafe || false,
+      allowCashfree:
+        (selectedIntent === 'allow_cashfree' &&
+          cashfreeDetails?.allow_cashfree) ||
+        false,
+      allowZenTechInd:
+        (selectedIntent === 'allow_zentechind' &&
+          cashfreeDetails?.allow_zentechind) ||
+        false,
+      allowNmplPay:
+        (selectedIntent === 'allow_nmplpay' &&
+          cashfreeDetails?.allow_nmplpay) ||
+        false,
+      allowrunsafe:
+        (selectedIntent === 'allow_runsafe' &&
+          cashfreeDetails?.allow_runsafe) ||
+        false,
+      allowSilkPay:
+        (selectedIntent === 'allow_silkpay' &&
+          cashfreeDetails?.allow_silkpay) ||
+        false,
+      allowRazorPay:
+        (selectedIntent === 'allow_razorpay' &&
+          cashfreeDetails?.allow_razorpay) ||
+        false,
+      allowOrvixPay:
+        (selectedIntent === 'allow_orvixpay' &&
+          cashfreeDetails?.allow_orvixpay) ||
+        false,
+      allowOrvixPay1:
+        (selectedIntent === 'allow_orvixpay1' &&
+          cashfreeDetails?.allow_orvixpay1) ||
+        false,
+      allowAlbeCollect:
+        (selectedIntent === 'allow_albecollect' &&
+          cashfreeDetails?.allow_albecollect) ||
+        false,
+      allowVertexPay:
+        (selectedIntent === 'allow_vertexpay' &&
+          cashfreeDetails?.allow_vertexpay) ||
+        false,
+      allowPayeasy:
+        (selectedIntent === 'allow_payeasy' &&
+          cashfreeDetails?.allow_payeasy) ||
+        false,
+      allowPayeasy02:
+        (selectedIntent === 'allow_payeasy02' &&
+          cashfreeDetails?.allow_payeasy02) ||
+        false,
+      allowPayeasy03:
+        (selectedIntent === 'allow_payeasy03' &&
+          cashfreeDetails?.allow_payeasy03) ||
+        false,
+      allowCpsPay:
+        (selectedIntent === 'allow_cps' && cashfreeDetails?.allow_cps) || false,
+      allowTytl:
+        (selectedIntent === 'allow_tytl' &&
+          cashfreeDetails?.allow_payin_tytl) ||
+        cashfreeDetails?.allow_tytl ||
+        false,
       status: payIn.status,
       min_amount: merchant[0].min_payin,
       max_amount: merchant[0].max_payin,
@@ -3785,6 +4093,8 @@ const _verifyPayinsServiceInternal = async (
       is_bank: enabledBanks.some((bank) => bank.is_bank),
       redirect_url: payIn.config?.urls?.return,
       isAdmin: role === Role.ADMIN ? true : false,
+      is_paytm:paytmdetails?.is_paytm_enabled || false,
+      short_code: paytmdetails?.is_paytm_enabled ? payIn?.upi_short_code : null,
     };
     const response = {
       ...result,
@@ -3799,41 +4109,34 @@ const _verifyPayinsServiceInternal = async (
   }
 };
 
+// No transaction needed here for two reasons:
+// 1. Race-condition safety is handled atomically at the DB level via atomicClaimPayInUrlDao (UPDATE ... WHERE one_time_used=false RETURNING *).
+//    PostgreSQL's row-level locking ensures exactly one concurrent caller wins the claim — no BEGIN/COMMIT wrapper is required.
+// 2. All other reads (merchant, bank, vendor) are independent reference-data. lookups that don't need to be consistent with each other or with the payin write
 export const verifyPayinsService = async (
   merchantOrderId,
   user_location,
   oneTimeUsed,
 ) => {
-  let conn;
-  let committed = false;
   try {
-    conn = await getConnection();
-    await beginTransaction(conn);
-    const result = await _verifyPayinsServiceInternal(
+    return await _verifyPayinsServiceInternal(
       merchantOrderId,
       user_location,
       oneTimeUsed,
-      conn,
     );
-    await commit(conn);
-    committed = true;
-    return result;
   } catch (error) {
-    if (conn && !committed) await rollback(conn);
     logger.error('Error in verifyPayinsService:', error);
     throw error;
-  } finally {
-    if (conn) conn.release();
   }
 };
 
-function generateTransactionId() {
-  const uuid =
-    typeof randomUUID === 'function'
-      ? randomUUID()
-      : Date.now().toString(16) + Math.random().toString(16).slice(2);
-  return `IND${uuid.replace(/-/g, '').slice(0, 13)}`; // make sure total fits 32 chars with IND prefix
-}
+// function generateTransactionId() {
+//   const uuid =
+//     typeof randomUUID === 'function'
+//       ? randomUUID()
+//       : Date.now().toString(16) + Math.random().toString(16).slice(2);
+//   return `IND${uuid.replace(/-/g, '').slice(0, 13)}`; // make sure total fits 32 chars with IND prefix
+// }
 
 /**
  * Validate VPA (simple RFC-like), allow common characters and domain part alphabetic
@@ -3847,31 +4150,31 @@ function generateTransactionId() {
 /**
  * Safe formatter for amount: returns string with 2 decimals
  */
-function formatAmount(amount) {
-  const num = typeof amount === 'string' ? parseFloat(amount) : Number(amount);
-  if (Number.isNaN(num) || !isFinite(num) || num <= 0) return null;
-  // toFixed returns string; ensure rounding to two decimals
-  return num.toFixed(2);
-}
+// function formatAmount(amount) {
+//   const num = typeof amount === 'string' ? parseFloat(amount) : Number(amount);
+//   if (Number.isNaN(num) || !isFinite(num) || num <= 0) return null;
+//   // toFixed returns string; ensure rounding to two decimals
+//   return num.toFixed(2);
+// }
 
 /**
  * Convert params object to URL-encoded query (keeps null/empty as empty string)
  * Uses encodeURIComponent for values so we can include spaces, etc.
  */
-function buildQuery(paramsObj) {
-  const p = [];
-  Object.entries(paramsObj).forEach(([k, v]) => {
-    if (v === undefined) return;
-    // do not encode `pa` field
-    const val = v === null ? '' : String(v);
-    if (k === 'pa') {
-      p.push(`${k}=${val}`);
-    } else {
-      p.push(`${k}=${encodeURIComponent(val)}`);
-    }
-  });
-  return p.join('&');
-}
+// function buildQuery(paramsObj) {
+//   const p = [];
+//   Object.entries(paramsObj).forEach(([k, v]) => {
+//     if (v === undefined) return;
+//     // do not encode `pa` field
+//     const val = v === null ? '' : String(v);
+//     if (k === 'pa') {
+//       p.push(`${k}=${val}`);
+//     } else {
+//       p.push(`${k}=${encodeURIComponent(val)}`);
+//     }
+//   });
+//   return p.join('&');
+// }
 
 /**
  * parse a deeplink like "pa=...&pn=...&am=...&..."
@@ -3913,52 +4216,94 @@ export function setDeeplinkParam(deeplink, key, value) {
  *  - businessName -> bn optional (not used by all apps)
  *  - mode, purpose (optional)
  */
+// export const generateUpiUrlService = async (payload = {}) => {
+//   try {
+//     // Basic validation
+//     const amountStr = formatAmount(payload.amount);
+//     if (!amountStr) throw new BadRequestError('Invalid amount');
+
+//     const pa = (payload.payeeVPA || '').trim();
+//     // if (!validateVpa(pa)) throw new BadRequestError('Invalid VPA format');
+
+//     const transactionId = generateTransactionId();
+
+//     // Build canonical params used by all UPI schemes
+//     const canonicalParams = {
+//       pa, // payee VPA
+//       pn: payload.payeeName?.trim() || 'Merchant', // payee name (pn)
+//       am: amountStr, // amount
+//       cu: 'INR', // currency
+//       tr: transactionId, // transaction reference
+//       tn: (payload.transactionNote || '').trim() || transactionId, // txn note (fallback to txid)
+//       tid: transactionId, // terminal id / txn id
+//       featuretype: 'money_transfer',
+//       mc: 'VKTRAD47056927653169',
+//     };
+
+//     // optional additions
+//     // if (payload.merchantCode) canonicalParams.mc = 'VKTRAD47056927653169' || payload.merchantCode;
+//     if (payload.businessName) canonicalParams.bn = payload.businessName.trim();
+//     if (payload.mode) canonicalParams.mode = payload.mode;
+//     if (payload.purpose) canonicalParams.purpose = payload.purpose;
+
+//     const encoded = buildQuery(canonicalParams);
+
+//     // Compose platform-specific deep links (ap param is app package where applicable)
+//     const gpayUrl = `upi://pay?${encoded}&ap=com.google.android.apps.nbu.paisa.user`;
+//     const phonepeUrl = `upi://pay?${encoded}&ap=com.phonepe.app`;
+//     const paytmUrl = `upi://pay?${encoded}&ap=net.one97.paytm`;
+//     const genericUpiUrl = `upi://pay?${encoded}`;
+
+//     return {
+//       gpayUrl,
+//       phonepeUrl,
+//       paytmUrl,
+//       genericUpiUrl,
+//       transactionId,
+//       rawParams: canonicalParams, // useful for logging / debugging
+//     };
+//   } catch (error) {
+//     logger.error('Error in generateUpiUrlService:', error);
+//     throw error;
+//   }
+// };
+
+export const generateTxnId = () => {
+  const randomNumber = Math.floor(100000000 + Math.random() * 900000000);
+  return `TXN${randomNumber}`;
+};
+
 export const generateUpiUrlService = async (payload = {}) => {
+  if (!payload?.amount) {
+    throw new BadRequestError('Missing required fields: amount, name');
+  }
+  const orderId = payload.orderId || generateTxnId();
+  const PaytmbankName = 'AKASH TOURS AND TRAVELS';
+  // const GPAYbankName = 'Pratik Hire';
+  const PAYTM_MERCHANT_UPI = 'akashtravels6326@iob';
+  const MERCHANT_UPI = '7208647020@ptaxis';
+  const GPAY_MERCHANT_UPI = 'akashtravels6326@iob';
+
   try {
-    // Basic validation
-    const amountStr = formatAmount(payload.amount);
-    if (!amountStr) throw new BadRequestError('Invalid amount');
+    const encodedName = encodeURIComponent(PaytmbankName);
+    const upiLink = `upi://pay?pa=${GPAY_MERCHANT_UPI}&pn=${encodedName}&am=${payload.amount}&cu=INR&tr=${orderId}`;
 
-    const pa = (payload.payeeVPA || '').trim();
-    // if (!validateVpa(pa)) throw new BadRequestError('Invalid VPA format');
+    // ✅ Paytm
+    const paytmLink = `paytmmp://cash_wallet?pa=${PAYTM_MERCHANT_UPI}&pn=${encodedName}&tr=${orderId}&am=${payload.amount}&cu=INR`;
 
-    const transactionId = generateTransactionId();
+    // ✅ Google Pay
+    const gpayLink = `tez://upi/pay?pa=${GPAY_MERCHANT_UPI}&pn=${encodedName}&am=${payload.amount}&cu=INR&tr=${orderId}`;
 
-    // Build canonical params used by all UPI schemes
-    const canonicalParams = {
-      pa, // payee VPA
-      pn: payload.payeeName?.trim() || 'Merchant', // payee name (pn)
-      am: amountStr, // amount
-      cu: 'INR', // currency
-      tr: transactionId, // transaction reference
-      tn: (payload.transactionNote || '').trim() || transactionId, // txn note (fallback to txid)
-      tid: transactionId, // terminal id / txn id
-      featuretype: 'money_transfer',
-      mc: 'VKTRAD47056927653169',
+    // ✅ PhonePe
+    const phonepeLink = `phonepe://pay?pa=${MERCHANT_UPI}&pn=${encodedName}&am=${payload.amount}&cu=INR&tr=${orderId}`;
+
+    const data = {
+      upiLink,
+      paytmLink,
+      gpayLink,
+      phonepeLink,
     };
-
-    // optional additions
-    // if (payload.merchantCode) canonicalParams.mc = 'VKTRAD47056927653169' || payload.merchantCode;
-    if (payload.businessName) canonicalParams.bn = payload.businessName.trim();
-    if (payload.mode) canonicalParams.mode = payload.mode;
-    if (payload.purpose) canonicalParams.purpose = payload.purpose;
-
-    const encoded = buildQuery(canonicalParams);
-
-    // Compose platform-specific deep links (ap param is app package where applicable)
-    const gpayUrl = `upi://pay?${encoded}&ap=com.google.android.apps.nbu.paisa.user`;
-    const phonepeUrl = `upi://pay?${encoded}&ap=com.phonepe.app`;
-    const paytmUrl = `upi://pay?${encoded}&ap=net.one97.paytm`;
-    const genericUpiUrl = `upi://pay?${encoded}`;
-
-    return {
-      gpayUrl,
-      phonepeUrl,
-      paytmUrl,
-      genericUpiUrl,
-      transactionId,
-      rawParams: canonicalParams, // useful for logging / debugging
-    };
+    return data;
   } catch (error) {
     logger.error('Error in generateUpiUrlService:', error);
     throw error;

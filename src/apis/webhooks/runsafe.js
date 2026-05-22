@@ -6,8 +6,8 @@ import { processPayInWebHookService } from '../payIn/payInService.js';
 import { getBankResponseByUTR } from '../bankResponse/bankResponseDao.js';
 import { beginTransaction, commit, getConnection, rollback } from '../../utils/db.js';
 import { checkLockEdit } from '../../utils/advisoryLock.js';
-
-const processingSet = new Set();
+import { Status } from '../../constants/index.js';
+import { acquireLock, releaseLock } from '../../utils/distributedLock.js';
 
 const parsePositiveInt = (value, fallback) => {
   const parsed = Number.parseInt(value, 10);
@@ -40,12 +40,11 @@ export const runsafeWebhook = async (req, res) => {
     sendSuccess(res, 200, 'runsafe webhook received successfully');
     const merchantOrderId = body?.mchOrderNo;
     const utr = body?.utr;
-    if (processingSet.has(utr)) {
+    const lockAcquired = await acquireLock(utr, 'runsafe');
+    if (!lockAcquired) {
       logger.warn(`Duplicate concurrent webhook skipped for ${utr} and merchantOrderId ${merchantOrderId}`);
       return;
     }
-
-    processingSet.add(utr);
 
     const payload = {
       merchantOrderId: body?.mchOrderNo,
@@ -101,7 +100,7 @@ export const runsafeWebhook = async (req, res) => {
           return;
         }
 
-        if (body?.orderStatus === 'SUCCESS') {
+        if (body?.orderStatus === 'SUCCESS' || body?.orderStatus === "PART_SUC") {
           const bankResponse = await createBankResponseWebHookService(
             bankResponsePayload,
             payIn.company_id,
@@ -112,6 +111,9 @@ export const runsafeWebhook = async (req, res) => {
           logger.info('Bank response created:', bankResponse);
         }
         logger.info('Calling processPayInWebHookService for payload', payload);
+        if (body?.orderStatus === "PART_SUC" || payIn.amount !== body?.amount) {
+          payload.status = Status.DISPUTE
+        }
         const payin = await processPayInWebHookService(
           payload,
           '',
@@ -152,6 +154,6 @@ export const runsafeWebhook = async (req, res) => {
       }
     }
   } finally {
-    processingSet.delete(body?.utr);
+    await releaseLock(body?.utr, 'runsafe');
   }
 };

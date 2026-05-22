@@ -139,30 +139,23 @@ const getResetHistoryBySearchDao = async (
     const values = [company_id];
     let paramIndex = 2;
 
-    // Default columns with table aliases
-
     let queryText = `
       SELECT 
-        rdh.*,
+        rdh.id,
+        rdh.sno,
+        rdh.payin_id,
+        rdh.created_at,
+        u.user_name as created_by,
         p.merchant_order_id,
-        json_build_object(
-          'status', p.status,
-          'user_submitted_utr', p.user_submitted_utr
-        ) AS new_details,
-        json_build_object(
-          'amount', br.amount,
-          'utr', br.utr,
-          'previous_status', rdh.pre_status
-        ) AS previous_details
+        p.status as new_details,
+        p.user_submitted_utr,
+        rdh.pre_status as previous_details,
+        br.amount as amount,
+        br.utr as utr
       FROM public."ResetDataHistory" rdh
       JOIN public."Payin" p ON rdh.payin_id = p.id
-      LEFT JOIN LATERAL (
-    SELECT utr, amount
-    FROM public."BankResponse" 
-    WHERE bank_id = p.bank_acc_id
-    ORDER BY created_at DESC  
-    LIMIT 1
-) br ON true
+      JOIN public."User" u ON rdh.created_by = u.id
+      LEFT JOIN public."BankResponse" br ON p.bank_response_id = br.id
     WHERE rdh.is_obsolete = false
       AND rdh.company_id = $1
     `;
@@ -179,15 +172,14 @@ const getResetHistoryBySearchDao = async (
             LOWER(rdh.id::text) LIKE LOWER($${paramIndex})
             OR LOWER(rdh.sno::text) LIKE LOWER($${paramIndex})
             OR LOWER(rdh.payin_id::text) LIKE LOWER($${paramIndex})
-            OR LOWER(rdh.created_by) LIKE LOWER($${paramIndex})
-            OR LOWER(rdh.updated_by) LIKE LOWER($${paramIndex})
+            OR LOWER(rdh.created_by::text) LIKE LOWER($${paramIndex})
+            OR LOWER(rdh.updated_by::text) LIKE LOWER($${paramIndex})
             OR LOWER(p.merchant_order_id) LIKE LOWER($${paramIndex})
             OR LOWER(p.status) LIKE LOWER($${paramIndex})
             OR LOWER(p.user_submitted_utr) LIKE LOWER($${paramIndex})
             OR LOWER(br.utr) LIKE LOWER($${paramIndex})
             OR LOWER(br.amount::text) LIKE LOWER($${paramIndex})
             OR LOWER(rdh.pre_status) LIKE LOWER($${paramIndex})
-            OR LOWER(rdh.config->>'from_UI') LIKE LOWER($${paramIndex})
           )
         `);
         values.push(`%${term}%`);
@@ -199,7 +191,21 @@ const getResetHistoryBySearchDao = async (
       queryText += ' AND (' + conditions.join(' OR ') + ')';
     }
 
-    const countQuery = `SELECT COUNT(*) as total FROM (${queryText}) as count_table`;
+    let countQuery = `
+      SELECT COUNT(*) as total 
+      FROM public."ResetDataHistory" rdh
+      JOIN public."Payin" p ON rdh.payin_id = p.id
+      JOIN public."User" u ON rdh.created_by = u.id
+      LEFT JOIN public."BankResponse" br ON p.bank_response_id = br.id
+      WHERE rdh.is_obsolete = false 
+        AND rdh.company_id = $1
+    `;
+    if (conditions.length > 0) {
+      countQuery += ' AND (' + conditions.join(' OR ') + ')';
+    }
+    const countValues = [...values]; 
+    const countResult = await executeQuery(countQuery, countValues, conn);
+    const totalItems = parseInt(countResult.rows[0].total) || 0;
 
     queryText += `
       ORDER BY rdh.created_at DESC
@@ -208,16 +214,13 @@ const getResetHistoryBySearchDao = async (
     `;
     values.push(limitNum, offset);
 
-    const countResult = await executeQuery(countQuery, values.slice(0, -2), conn);
     let searchResult = await executeQuery(queryText, values, conn);
 
-    const totalItems = parseInt(countResult.rows[0].total);
-    let totalPages = Math.ceil(totalItems / limitNum);
     if (totalItems > 0 && searchResult.rows.length === 0 && offset > 0) {
       values[values.length - 1] = 0; 
       searchResult = await executeQuery(queryText, values, conn);
-      totalPages = Math.ceil(totalItems / limitNum);
     }
+    const totalPages = Math.ceil(totalItems / limitNum);
     return {
       totalCount: totalItems,
       totalPages,

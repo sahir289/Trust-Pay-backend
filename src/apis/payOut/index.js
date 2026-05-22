@@ -12,8 +12,11 @@ import {
   createTataPayBulkPayoutController,
   createRupeeFlowBulkPayoutController,
 } from './payOutController.js';
+import { updatePayoutService } from './payOutService.js';
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
+import { checkPayoutApiKey } from '../../middlewares/checkApiKey.js';
+import { multerUpload } from '../../utils/index.js';
 import { payAssistTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/payAsistWebHook.js';
 import { payDumTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/payDumWebHook.js';
 import { tataPayTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/tataPayWebHook.js';
@@ -39,6 +42,12 @@ import { bss02TransactionStatusCallback } from '../../callBacksAndWebHook/callBa
 import { bss03TransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/bss03WebHook.js';
 import { getVertexPayWalletBalance } from '../../vertexpay/vertexpay.js';
 import { vertexPayTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/vertexPayWebHook.js';
+import { runsafeTransactionStatusCallback } from "../../callBacksAndWebHook/callBacks/runsafeWebHook.js"
+import { getRunsafePayWalletBalance } from '../../runsafe/runsafepay.js';
+import { payInFintechTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/payInFintechWebHook.js';
+import {
+  getPayInFintechWalletBalance,
+} from '../../payinfintech/payinfintech.js';
 const router = express.Router();
 
 /**
@@ -121,6 +130,12 @@ router.get(
   tryCatchHandler(getPayouts),
 );
 
+
+router.post(
+  '/payinfintech-callback',
+  tryCatchHandler(payInFintechTransactionStatusCallback),
+);
+
 router.get(
   '/:id',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
@@ -159,6 +174,7 @@ router.get(
 router.post(
   '/create-payout',
   // [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  checkPayoutApiKey,
   tryCatchHandler(createPayout),
 );
 
@@ -232,6 +248,7 @@ router.post('/check-payout-status', tryCatchHandler(checkPayOutStatus));
 router.put(
   '/update-payout/:id',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  multerUpload.single('file'),
   tryCatchHandler(updatePayout),
 );
 
@@ -320,6 +337,55 @@ router.get(
   '/bss03/bss03-balance',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(getBSS03WalletBalance),
+);
+
+router.get(
+  '/runsafe/runsafe-balance',
+  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  tryCatchHandler(getRunsafePayWalletBalance),
+);
+
+router.post(
+  '/runsafe-callback',
+  tryCatchHandler(runsafeTransactionStatusCallback),
+);
+
+router.get(
+  '/payinfintech/payinfintech-balance',
+  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  tryCatchHandler(getPayInFintechWalletBalance),
+);
+
+router.post(
+  '/payinfintech-sequential-payout',
+  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  async (req, res) => {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return res.status(400).json({ message: 'ids array is required' });
+    }
+
+    const { company_id, role } = req.user;
+    const results = { success: [], failed: [] };
+
+    for (const id of ids) {
+      try {
+        await updatePayoutService(
+          { id, company_id },
+          { config: { method: 'PAYINFINTECH' } },
+          role,
+        );
+        results.success.push(id);
+      } catch (err) {
+        results.failed.push({ id, reason: err.message });
+      }
+    }
+
+    return res.status(200).json({
+      message: `PayInFintech: ${results.success.length} succeeded, ${results.failed.length} failed`,
+      ...results,
+    });
+  },
 );
 
 router.post(

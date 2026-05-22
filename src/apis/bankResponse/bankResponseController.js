@@ -6,19 +6,18 @@ import {
   VALIDATE_BANK_RESPONSE_BY_ID,
   // VALIDATE_BANK_RESPONSE_QUERY,
 } from '../../schemas/bankResponseSchema.js';
-import { ValidationError } from '../../utils/appErrors.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import {
   getBankResponseService,
   getClaimResponseService,
   getBankMessageServices,
-  createBankResponseService,
+  // createBankResponseService,
   updateBankResponseService,
   getBankResponseBySearchService,
   importBankResponseService,
   resetBankResponseService,
 } from './bankResponseServices.js';
-import { BadRequestError } from '../../utils/appErrors.js';
+import { ValidationError, BadRequestError } from '../../utils/appErrors.js';
 
 import { Role } from '../../constants/index.js';
 
@@ -114,32 +113,21 @@ const getBankResponseBySearch = async (req, res) => {
 };
 
 const createBankResponse = async (req, res) => {
-  const { role, user_name, company_id, user_id } = req.user;
+  const { role, user_name, company_id } = req.user;
   const payload = req.body?.body;
   const { error } = CREATE_BANK_RESPONSE_SCHEMA.validate(req.body);
   if (error) {
     throw new ValidationError(error);
   }
-  const result = await createBankResponseService(
+  
+  const bankResponseObject = {
     payload,
-    company_id,
+    x_auth_token: company_id,
     role,
-    user_name,
-    user_id,
-  );
-
-  // Prepare the full payload as expected by your service/consumer
-  // const bankResponseObject = {
-  //   payload,
-  //   company_id,
-  //   role,
-  //   user_name,
-  //   user_id,
-  // };
-  // await newTableEntry(tableName.BANK_RESPONSE);
-  // if (!result.message === 'Entry created successfully' ) {
-    // await publishBankResponse(bankResponseObject);
-  // }
+    name: user_name,
+  };
+  
+  const result = await publishBankResponse(bankResponseObject);
   sendSuccess(res, result, 'Created Bank Response successfully');
 };
 
@@ -172,7 +160,7 @@ const createBankBotResponseBulk = async (req, res) => {
   const payloads = req.body?.body; // Expecting an array
 
   if (!Array.isArray(payloads)) {
-    throw new ValidationError('body must be an array of payloads');
+    throw new BadRequestError('body must be an array of payloads');
   }
 
   if (payloads.length > BULK_PUBLISH_MAX_ITEMS) {

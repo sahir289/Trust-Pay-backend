@@ -22,20 +22,11 @@ export const bss02TransactionStatusCallback = async (req, res) => {
   const payload = req.body;
   const apitxnid = payload?.CallBack?.OrderID;
   let conn;
+  let committed = false;
   logger.info('Received BSS1013 callback payload:', payload);
   try {
     if (!apitxnid || apitxnid === '') {
       return res.status(404).send('Payment not found');
-    }
-
-    if (
-      ![Status.INITIATED, Status.PENDING].includes(singleWithdrawData.status)
-    ) {
-      logger.info('Payout already processed', {
-        payoutId: singleWithdrawData.id,
-        status: singleWithdrawData.status,
-      });
-      return res.status(200).send('Payout already processed');
     }
 
     conn = await getConnection();
@@ -50,6 +41,7 @@ export const bss02TransactionStatusCallback = async (req, res) => {
       conn,
     );
     if (!singleWithdrawData) {
+      await rollback(conn);
       return res.status(404).send('Payment not found');
     }
 
@@ -60,6 +52,7 @@ export const bss02TransactionStatusCallback = async (req, res) => {
         payoutId: singleWithdrawData.id,
         status: singleWithdrawData.status,
       });
+      await rollback(conn);
       return res.status(200).send('Payout already processed');
     }
     logger.info('Fetched payout data for OrderID:', apitxnid);
@@ -153,6 +146,7 @@ export const bss02TransactionStatusCallback = async (req, res) => {
     ) {
       await handlePayoutUpdate(payload, false, false, conn);
     } else {
+      await rollback(conn);
       return res.status(400).send(payload.ErrorMessage);
     }
 
@@ -162,10 +156,11 @@ export const bss02TransactionStatusCallback = async (req, res) => {
     });
 
     await commit(conn);
+    committed = true;
 
     return res.status(200).send('Payout Updated Successfully');
   } catch (err) {
-    await rollback(conn);
+    if (conn && !committed) await rollback(conn);
     // Log any errors while updating the payout
     logger.error('getting error while updating payout', err);
   } finally {

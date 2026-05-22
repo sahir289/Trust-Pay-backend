@@ -1,6 +1,6 @@
 {
   "name": "trust-pay-new-backend",
-  "version": "2.0.84",
+  "version": "2.0.101",
   "main": "server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
@@ -68,6 +68,7 @@
     "ngrok": "^5.0.0-beta.2",
     "node-cron": "^3.0.3",
     "nodemailer": "^6.10.1",
+    "otplib": "^13.4.0",
     "pdf2json": "^3.1.5",
     "pg": "^8.13.1",
     "pino": "^8.21.0",

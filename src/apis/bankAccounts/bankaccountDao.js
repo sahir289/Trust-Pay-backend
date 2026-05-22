@@ -9,7 +9,7 @@ import {
 } from '../../utils/db.js';
 
 import { logger } from '../../utils/logger.js';
-import { checkLockEdit } from '../../utils/advisoryLock.js';
+import { acquireBankBalanceLock } from '../../utils/advisoryLock.js';
 
 const PRIVILEGED_BANK_DESIGNATIONS = new Set([
   Role.ADMIN,
@@ -470,6 +470,7 @@ const getBankAccountsBySearchDao = async (
           OR LOWER(updater.user_name) LIKE LOWER($${paramIndex})
           OR LOWER(v.code) LIKE LOWER($${paramIndex})
           OR LOWER(ba.config->>'max_limit') LIKE LOWER($${paramIndex})
+          OR LOWER(ba.config->>'is_intent') LIKE LOWER($${paramIndex})
       `;
           // Add merchant code search only for ADMIN role
           if (role === 'ADMIN') {
@@ -714,9 +715,71 @@ const getBankAccountNickNameForPayinEsDao = async (bankId, conn = null) => {
 };
 const getMerchantBankDao = async (filters, conn = null) => {
   try {
-    const query = `SELECT * FROM  "${tableName.BANK_ACCOUNT}" WHERE 1=1`;
-    const [sql, parameters] = buildSelectQuery(query, filters);
-    const result = await executeQuery(sql, parameters, conn);
+    let queryParams = [];
+    let conditions = [];
+
+    if (filters?.config_merchants_contains) {
+
+      queryParams.push(
+        Array.isArray(filters.config_merchants_contains)
+          ? filters.config_merchants_contains
+          : [filters.config_merchants_contains]
+      );
+    
+      conditions.push(
+        `(ba.config->'merchants')::jsonb ?| $${queryParams.length}::text[]`
+      );
+    
+      delete filters.config_merchants_contains;
+    }
+
+    if (filters && Object.keys(filters).length > 0) {
+      Object.keys(filters).forEach((key) => {
+        const value = filters[key];
+
+        if (value !== null && value !== undefined && value !== '') {
+
+          if (Array.isArray(value)) {
+            conditions.push(
+              `ba."${key}" = ANY($${queryParams.length + 1})`
+            );
+
+            queryParams.push(value);
+
+          } else {
+
+            conditions.push(
+              `ba."${key}" = $${queryParams.length + 1}`
+            );
+
+            queryParams.push(value);
+          }
+        }
+      });
+    }
+
+    const query = `
+      SELECT
+        ba.id,
+        ba.user_id,
+        ba.nick_name,
+        ba.is_qr,
+        ba.is_bank,
+        ba.bank_used_for,
+        ba.is_enabled,
+        ba.min,
+        ba.max,
+        ba.acc_holder_name,
+        ba.acc_no,
+        ba.ifsc,
+        ba.bank_name,
+        upi_id,
+        ba.config
+      FROM "${tableName.BANK_ACCOUNT}" ba
+      ${conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''}
+    `;
+
+    const result = await executeQuery(query, queryParams, conn);
     return result.rows || [];
   } catch (error) {
     logger.error(error);
@@ -914,7 +977,7 @@ const getPostgresErrorCode = (error) => error?.code || error?.err?.code;
 const updateBankaccountDao = async (id, payload, isParentDeleted, conn = null) => {
   try {
     if (conn && id?.id && shouldAcquireBankBalanceLock(payload)) {
-      await checkLockEdit(`bank-balance:${id.id}`, true, conn);
+      await acquireBankBalanceLock(id.id, true, conn);
     }
 
     // Fetch existing bank config to merge with added_at
@@ -988,7 +1051,23 @@ const updateBankaccountDao = async (id, payload, isParentDeleted, conn = null) =
     throw error;
   }
 };
-
+const deleteBankaccountByUserIdDao = async (id, payload, conn = null) => {
+  try {
+     const result = await buildAndExecuteUpdateQuery(
+       tableName.BANK_ACCOUNT,
+       payload,
+       id,
+       {}, 
+       { returnUpdated: true }, 
+       conn,
+       true, 
+     );
+    return result;
+  } catch (error) {
+    logger.error('Error in deleteBankaccountDao:', error);
+    throw error;
+  }
+};
 const deleteBankaccountDao = async (id, data, conn = null) => {
   try {
     const [sql, params] = buildUpdateQuery(tableName.BANK_ACCOUNT, data, id);
@@ -1085,7 +1164,7 @@ const updateBanktBalanceDao = async (
     );
 
     if (conn && filters?.id) {
-      await checkLockEdit(`bank-balance:${filters.id}`, true, conn);
+      await acquireBankBalanceLock(filters.id, true, conn);
     }
 
     const result = await executeQuery(sql, params, conn);
@@ -1120,7 +1199,7 @@ const atomicUpdateBankBalanceDao = async (
   );
 
   if (conn && filters?.id) {
-    await checkLockEdit(`bank-balance:${filters.id}`, true, conn);
+    await acquireBankBalanceLock(filters.id, true, conn);
   }
 
   // IMPORTANT: when an external transaction connection is supplied,
@@ -1171,7 +1250,7 @@ const atomicDecrementBankBalanceDao = async (
   );
 
   if (conn && filters?.id) {
-    await checkLockEdit(`bank-balance:${filters.id}`, true, conn);
+    await acquireBankBalanceLock(filters.id, true, conn);
   }
 
   // IMPORTANT: when an external transaction connection is supplied,
@@ -1284,4 +1363,5 @@ export {
   updateStatementUploadNotificationDao,
   resetBankNotificationDao,
   getBankaccountDaoBatch,
+  deleteBankaccountByUserIdDao,
 };

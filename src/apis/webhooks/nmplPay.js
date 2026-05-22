@@ -5,8 +5,7 @@ import { getPayInIntentDao } from '../payIn/payInDao.js';
 import { processPayInWebHookService } from '../payIn/payInService.js';
 import { generateHash } from '../../intent/createIntentTransaction.js';
 import { getBankResponseByUTR } from '../bankResponse/bankResponseDao.js';
-
-const processingSet = new Set();
+import { acquireLock, releaseLock } from '../../utils/distributedLock.js';
 
 export const nmplPayWebhook = async (req, res) => {
   try {
@@ -14,12 +13,11 @@ export const nmplPayWebhook = async (req, res) => {
     const body = req.body?.transaction;
     const merchantOrderId = body?.order_id
     const utr = body?.utr;
-    if (processingSet.has(utr)) {
+    const lockAcquired = await acquireLock(utr, 'nmplPay');
+    if (!lockAcquired) {
       logger.warn(`Duplicate concurrent webhook skipped for ${utr} and merchantOrderId ${merchantOrderId}`);
       return;
     }
-
-    processingSet.add(utr);
 
     const hash = generateHash(body, 'nmplPay');
     if (hash !== body.hash) {
@@ -68,6 +66,6 @@ export const nmplPayWebhook = async (req, res) => {
   } catch (error) {
     logger.error('nmplPay webhook error:', error);
   } finally {
-    processingSet.delete(req.body?.transaction?.utr);
+    await releaseLock(req.body?.transaction?.utr, 'nmplPay');
   }
 };
