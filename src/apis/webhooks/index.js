@@ -37,6 +37,6 @@ router.post('/payeasy', tryCatchHandler(payEasyWebhook));
 router.post('/payeasy02', tryCatchHandler(payEasy02Webhook));
 router.post('/payeasy03', tryCatchHandler(payEasy03Webhook));
 router.post('/albeCollect', tryCatchHandler(albeCollectWebhook));
-router.post('/pay', tryCatchHandler(pennyPayWebhook));
+router.post('/paynow', tryCatchHandler(pennyPayWebhook));
 
 export default router;
