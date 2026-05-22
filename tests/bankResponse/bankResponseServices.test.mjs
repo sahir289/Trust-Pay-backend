@@ -44,10 +44,6 @@ jest.unstable_mockModule('../../src/apis/bankResponse/bankResponseServices.js', 
   };
 });
 
-
-// import { executeQuery } from '../../src/utils/db.js';
-
-
 beforeEach(() => {
   if (dao) {
     dao.getBankResponseDaoAll = jest.fn();
@@ -68,7 +64,6 @@ beforeEach(() => {
     logger.error = jest.fn();
   }
 });
-
 
 let services, dao, logger;
 // let realBankId, realCompanyId, realMerchantId, realVendorId, realUserId;
