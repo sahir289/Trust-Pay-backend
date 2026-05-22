@@ -60,6 +60,8 @@ const getCompanyDetailsByIdDao = async (id, conn = null) => {
       config ->> 'allow_payeasy03' AS payeasy03_intent,
       config ->> 'allow_albecollect' AS albecollect_intent,
       config ->> 'allow_pennypay' AS pennypay_intent,
+      config ->> 'allow_trustpay' AS trustpay_intent,
+      config ->> 'allow_payout_trustpay' AS allowtrustpay,
       config ->> 'allow_payout_pennypay' AS allowpennypay,
       config ->> 'allowPayInFintech' AS allowPayInFintech
       FROM "${tableName.COMPANY}" WHERE 1 = 1`;
