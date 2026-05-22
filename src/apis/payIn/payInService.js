@@ -157,7 +157,7 @@ import { createCpsPaymentTransaction } from '../../intent/createCpsIntentTransac
 import { createtytlPaymentTransaction } from '../../intent/createtytlPayIntentTransaction.js';
 import { createPayeasyTransaction } from '../../intent/createPayeasyIntentTransaction.js';
 import { createAlbeCollectTransaction } from '../../intent/createAlbeCollectIntentTransaction.js';
-
+import { createPennyPayTransaction } from '../../intent/createPennyPayTransaction.js';
 const PAYIN_IDEMPOTENCY_INFLIGHT_TTL_SEC = Number(
   process.env.PAYIN_IDEMPOTENCY_INFLIGHT_TTL_SEC || 60,
 );
@@ -1070,6 +1070,10 @@ export const payInIntentGenerateOrderService = async (
           payIn,
           amount,
         );
+        return order?.url;
+      },
+      pennyPay: async () => {
+        const order = await createPennyPayTransaction('pennyPay', payIn, amount);
         return order?.url;
       },
       albeCollect: async () => {
@@ -3991,7 +3995,6 @@ const _verifyPayinsServiceInternal = async (
       'allow_tytl',
       'allow_pennypay',
     ]);
-    console.log('Fetched banks:', banks);
     const enabledBanks = banks.filter((bank) => {
       const isPayInBank = ['PayIn', 'payIn'].includes(bank.bank_used_for);
       const isActive = bank.is_enabled && isPayInBank;
@@ -4000,11 +4003,8 @@ const _verifyPayinsServiceInternal = async (
         bank.is_bank ||
         bank.config?.is_phonepay ||
         bank.config?.is_intent;
-                  console.log('Has any method:', hasAnyMethod);
-
       return isActive && hasAnyMethod;
     });
-    console.log('Enabled banks after filtering:', enabledBanks);
     const bankIntents = enabledBanks
       .map((b) => b.config?.is_intent)
       .filter((i) => VALID_INTENTS.has(String(i)));
@@ -4012,11 +4012,9 @@ const _verifyPayinsServiceInternal = async (
     const merchantIntent = merchant[0]?.config?.allow_intent;
     let cashfreeDetails = null;
     let selectedIntent = null;
-    console.log(bankIntents,enabledBanks, merchantIntent);
     let paytmdetails = null;
     if (merchantIntent && bankIntents.length > 0) {
       cashfreeDetails = await getCashfreeAllowByCompanyIdDao(payIn.company_id);
-      console.log('Cashfree details:', cashfreeDetails);
       const allowedIntents = bankIntents.filter(
         (intent) => cashfreeDetails?.[intent] === true,
       );
@@ -4110,8 +4108,6 @@ const _verifyPayinsServiceInternal = async (
       ...result,
       merchantOrderId,
     };
-    console.log(selectedIntent, cashfreeDetails);
-    console.log('PayIn URL verified successfully:', response);
     usedTokens.add(merchantOrderId);
     logger.info('PayIn URL verified successfully:', response);
     return result;
