@@ -979,12 +979,32 @@ const _updatePayoutServiceInternal = async (
       bankDataArr = await getBankByIdDao({ id: bankId });
       if (!bankDataArr[0])
         throw new NotFoundError(`Bank not found for ${method} payout`);
-      // const clientIp = getClientIp(req);
       logger.info(`Creating PennyPay payout with bankId: ${bankId}`);
       const updatedPayload = await createPennyPayPayout(
         payload,
         singleWithdrawData,
         bankId,
+        'pennyPay'
+      );
+      payload = updatedPayload;
+    }
+     else if (payload?.config?.method === Method.TRUSTPAY) {
+      const method = payload.config.method;
+      logger.info(`Processing TrustPay payout for method: ${method}`);
+      const [company] = await getCompanyByIDDao({ id: ids.company_id }, conn);
+      if (!company) throw new NotFoundError('Company not found');
+      const bankId = company.config.TRUSTPAY.defaultBankId;
+      if (!bankId)
+        throw new NotFoundError(`Default bank ID not found for ${method}`);
+      bankDataArr = await getBankByIdDao({ id: bankId });
+      if (!bankDataArr[0])
+        throw new NotFoundError(`Bank not found for ${method} payout`);
+      logger.info(`Creating TrustPay payout with bankId: ${bankId}`);
+      const updatedPayload = await createPennyPayPayout(
+        payload,
+        singleWithdrawData,
+        bankId,
+        'trustPay'
       );
       payload = updatedPayload;
     }

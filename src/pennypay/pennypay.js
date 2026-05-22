@@ -1,6 +1,7 @@
 import axios from "axios";
 import {sendNewSuccess} from "../utils/responseHandlers.js";
 import { logger } from "../utils/logger.js";
+import config  from "../config/config.js";
 export const getWalletBalance = async (req, res) => {
   try {
     const response = await axios.get(
@@ -23,12 +24,14 @@ export const getWalletBalance = async (req, res) => {
     throw error;
   }
 };
-export const createPennyPayPayout = async (result ,payload ,bankId) => {
+export const createPennyPayPayout = async (result ,payload ,bankId, key) => {
   try {
-    const url = process.env.PENNY_PAY_PAYOUT_URL;
+    const providerConfig = config[key];
+console.log('Provider Config:', providerConfig);
+    const url = providerConfig.payoutUrl;
     if (!url) throw new Error('PENNY_PAY_PAYOUT_URL is missing in .env');
-    const xApiKey = process.env.X_API_KEY;
-    const code = process.env.CODE;
+    const xApiKey = providerConfig.secretKey;
+    const code = providerConfig.code;
     if (!code) throw new Error('CODE is missing in .env');
     if (!xApiKey) throw new Error('X_API_KEY is missing in .env');
     const requestBody =  {
