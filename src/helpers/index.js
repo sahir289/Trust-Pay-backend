@@ -214,22 +214,22 @@ export const filterResponse = (data, keys) => {
         keys.forEach((key) => {
           if (Object.prototype.hasOwnProperty.call(item, key)) {
             filteredItem[key] = item[key];
-          } else {
-            logger.error(item, key, 'Key not found in object');
-          }
+          } 
+          // else {
+          //   logger.error(item, key, 'Key not found in object');
+          // }
         });
         return filteredItem;
       });
     } else if (typeof data === 'object' && data !== null) {
-      logger.log('Data is an object');
-
       const filteredItem = {};
       keys.forEach((key) => {
         if (Object.prototype.hasOwnProperty.call(data, key)) {
           filteredItem[key] = data[key];
-        } else {
-          logger.warn('Key not found in object');
-        }
+        } 
+        // else {
+        //   logger.warn('Key not found in object');
+        // }
       });
       return filteredItem;
     } else {

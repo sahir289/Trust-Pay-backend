@@ -1,13 +1,17 @@
 /* global describe, it, expect, afterEach, beforeAll */
 import { jest } from '@jest/globals';
 
-// ESM mocking: mock db.js before importing the DAO
+// ─────────────────────────────────────────────
+// DB MOCK
+// ─────────────────────────────────────────────
 jest.unstable_mockModule('../../src/utils/db.js', () => ({
   executeQuery: jest.fn(),
   buildInsertQuery: jest.fn(),
 }));
 
-// ESM mocking: mock redisClient.js before importing the DAO
+// ─────────────────────────────────────────────
+// REDIS MOCK
+// ─────────────────────────────────────────────
 jest.unstable_mockModule('../../src/utils/redisClient.js', () => ({
   default: {
     get: jest.fn(),
@@ -21,7 +25,9 @@ jest.unstable_mockModule('../../src/utils/redisClient.js', () => ({
   closeRedis: jest.fn(),
 }));
 
-// ESM mocking: mock logger.js before importing the DAO
+// ─────────────────────────────────────────────
+// LOGGER MOCK
+// ─────────────────────────────────────────────
 jest.unstable_mockModule('../../src/utils/logger.js', () => ({
   logger: {
     log: jest.fn(),
@@ -42,10 +48,12 @@ jest.unstable_mockModule('../../src/utils/logger.js', () => ({
     infoOnce: jest.fn(),
     warnOnce: jest.fn(),
     close: jest.fn(),
-  }
+  },
 }));
 
-// ESM mocking: mock redishashkey.js before importing the DAO
+// ─────────────────────────────────────────────
+// REDIS HASH KEY MOCK
+// ─────────────────────────────────────────────
 jest.unstable_mockModule('../../src/utils/redishashkey.js', () => ({
   AUTH_SESSION_CACHE_TTL_SEC: 30,
   buildScopedCacheKey: jest.fn(),
@@ -54,7 +62,9 @@ jest.unstable_mockModule('../../src/utils/redishashkey.js', () => ({
   getCachedData: jest.fn(),
 }));
 
-// ESM mocking: mock controllerCache.js before importing the DAO
+// ─────────────────────────────────────────────
+// CONTROLLER CACHE MOCK
+// ─────────────────────────────────────────────
 jest.unstable_mockModule('../../src/utils/controllerCache.js', () => ({
   readJsonCache: jest.fn(),
   writeJsonCache: jest.fn(),
@@ -63,17 +73,27 @@ jest.unstable_mockModule('../../src/utils/controllerCache.js', () => ({
   invalidateCompanyCacheByPrefix: jest.fn(),
 }));
 
-let dao, db;
+// ─────────────────────────────────────────────
+// IMPORTS
+// ─────────────────────────────────────────────
+let dao;
+let db;
 
 beforeAll(async () => {
   dao = await import('../../src/apis/bankAccounts/bankaccountDao.js');
   db = await import('../../src/utils/db.js');
-  // Guarantee db mock is a Jest mock function
+
+  // ensure mock consistency
   db.executeQuery = jest.fn();
 });
 
-afterEach(() => { jest.clearAllMocks(); });
+afterEach(() => {
+  jest.clearAllMocks();
+});
 
+// ─────────────────────────────────────────────
+// TEST SUITE
+// ─────────────────────────────────────────────
 describe('bankaccountDao', () => {
   const daoNames = [
     'getBankaccountPayinDao',
@@ -95,16 +115,36 @@ describe('bankaccountDao', () => {
     });
   });
 
+  // ─────────────────────────────────────────
+  // getBankaccountPayinDao
+  // ─────────────────────────────────────────
   describe('getBankaccountPayinDao', () => {
     it('should call executeQuery and return rows', async () => {
-      db.executeQuery.mockResolvedValue({ rows: [{ id: 1, nick_name: 'test', user_id: 2 }] });
-      const result = await dao.getBankaccountPayinDao({ id: 1 });
-      expect(result).toEqual([{ id: 1, nick_name: 'test', user_id: 2 }]);
+      db.executeQuery.mockResolvedValue({
+        rows: [
+          { id: 1, nick_name: 'test', user_id: 2 },
+        ],
+      });
+
+      const result = await dao.getBankaccountPayinDao({
+        id: 1,
+      });
+
+      expect(result).toEqual([
+        { id: 1, nick_name: 'test', user_id: 2 },
+      ]);
+
       expect(db.executeQuery).toHaveBeenCalled();
     });
+
     it('should throw on db error', async () => {
-      db.executeQuery.mockRejectedValue(new Error('fail'));
-      await expect(dao.getBankaccountPayinDao({ id: 1 })).rejects.toThrow('fail');
+      db.executeQuery.mockRejectedValue(
+        new Error('fail'),
+      );
+
+      await expect(
+        dao.getBankaccountPayinDao({ id: 1 }),
+      ).rejects.toThrow('fail');
     });
   });
 });

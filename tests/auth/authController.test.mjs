@@ -1,7 +1,9 @@
 /* global describe, it, expect, beforeEach, afterEach, beforeAll */
 import { jest } from '@jest/globals';
 
-// ESM mocking: mock all modules before importing the controller
+// ─────────────────────────────────────────────
+// AUTH SERVICE MOCKS (must stay at top)
+// ─────────────────────────────────────────────
 jest.unstable_mockModule('../../src/apis/auth/authService.js', () => ({
   loginService: jest.fn(),
   refreshTokenService: jest.fn(),
@@ -17,20 +19,40 @@ jest.unstable_mockModule('../../src/apis/auth/authService.js', () => ({
   confirm2FAService: jest.fn(),
   disable2FAService: jest.fn(),
 }));
+
+// ─────────────────────────────────────────────
+// RESPONSE HANDLERS MOCK
+// ─────────────────────────────────────────────
 jest.unstable_mockModule('../../src/utils/responseHandlers.js', () => ({
   sendSuccess: jest.fn(),
 }));
+
+// ─────────────────────────────────────────────
+// APP ERRORS MOCK
+// ─────────────────────────────────────────────
 jest.unstable_mockModule('../../src/utils/appErrors.js', () => ({
   ValidationError: class ValidationError extends Error {},
   BadRequestError: class BadRequestError extends Error {},
 }));
+
+// ─────────────────────────────────────────────
+// AUTH SCHEMA MOCK
+// ─────────────────────────────────────────────
 jest.unstable_mockModule('../../src/schemas/authSchema.js', () => ({
   INSERT_AUTH_SCHEMA: { validate: jest.fn() },
 }));
+
+// ─────────────────────────────────────────────
+// AUTH UTILS MOCK
+// ─────────────────────────────────────────────
 jest.unstable_mockModule('../../src/utils/auth.js', () => ({
   verifyToken: jest.fn(),
   generateUserToken: jest.fn(),
 }));
+
+// ─────────────────────────────────────────────
+// AUTH DAO MOCK
+// ─────────────────────────────────────────────
 jest.unstable_mockModule('../../src/apis/auth/authDao.js', () => ({
   addLoginDao: jest.fn(),
   getRefreshTokenDao: jest.fn(),
@@ -46,6 +68,9 @@ jest.unstable_mockModule('../../src/apis/auth/authDao.js', () => ({
   getSessionByUserIdDao: jest.fn(),
 }));
 
+// ─────────────────────────────────────────────
+// IMPORTS (after mocks)
+// ─────────────────────────────────────────────
 let controllers, authService, responseHandlers, appErrors, authSchema, authUtil;
 
 beforeAll(async () => {
@@ -57,18 +82,27 @@ beforeAll(async () => {
   authUtil = await import('../../src/utils/auth.js');
 });
 
+// ─────────────────────────────────────────────
+// RESET BETWEEN TESTS
+// ─────────────────────────────────────────────
 beforeEach(() => {
   if (authService) authService.loginService = jest.fn();
   if (authService) authService.refreshTokenService = jest.fn();
-  if (authSchema && authSchema.INSERT_AUTH_SCHEMA) authSchema.INSERT_AUTH_SCHEMA.validate = jest.fn();
+  if (authSchema?.INSERT_AUTH_SCHEMA) authSchema.INSERT_AUTH_SCHEMA.validate = jest.fn();
   if (responseHandlers) responseHandlers.sendSuccess = jest.fn();
   if (authUtil) authUtil.verifyToken = jest.fn();
   if (authUtil) authUtil.generateUserToken = jest.fn();
 });
 
-afterEach(() => { jest.clearAllMocks(); });
+afterEach(() => {
+  jest.clearAllMocks();
+});
 
+// ─────────────────────────────────────────────
+// TEST SUITE
+// ─────────────────────────────────────────────
 describe('authController', () => {
+
   const controllerNames = [
     'loginController',
     'refreshTokenController',
@@ -92,8 +126,13 @@ describe('authController', () => {
     });
   });
 
+  // ─────────────────────────────────────────────
+  // LOGIN CONTROLLER
+  // ─────────────────────────────────────────────
   describe('loginController', () => {
+
     let req, res;
+
     beforeEach(() => {
       req = {
         headers: {},
@@ -101,6 +140,7 @@ describe('authController', () => {
         body: { username: 'test', password: 'pass' },
         user_location: { city: 'TestCity' },
       };
+
       res = {
         cookie: jest.fn(),
       };
@@ -111,75 +151,127 @@ describe('authController', () => {
         tokenInfo: { accessToken: 'token' },
         sessionId: 'session',
       });
+
       responseHandlers.sendSuccess.mockImplementation((res, token, msg) => {
         res._sent = { token, msg };
         return res;
       });
+
       authSchema.INSERT_AUTH_SCHEMA.validate.mockReturnValue({});
+
       await controllers.loginController(req, res);
+
       expect(res.cookie).toHaveBeenCalled();
-      expect(res._sent.token).toEqual({ accessToken: 'token', sessionId: 'session' });
+      expect(res._sent.token).toEqual({
+        accessToken: 'token',
+        sessionId: 'session',
+      });
       expect(res._sent.msg).toBe('login successfully');
     });
 
     it('should handle validation error', async () => {
-      // Mock validate to return error object with details array as expected by controller
-      authSchema.INSERT_AUTH_SCHEMA.validate.mockReturnValue({ error: { details: [{ message: 'validation error' }] } });
-      await expect(controllers.loginController(req, res)).rejects.toThrow(appErrors.ValidationError);
+      authSchema.INSERT_AUTH_SCHEMA.validate.mockReturnValue({
+        error: { details: [{ message: 'validation error' }] },
+      });
+
+      await expect(
+        controllers.loginController(req, res),
+      ).rejects.toThrow(appErrors.ValidationError);
     });
 
     it('should handle first login', async () => {
-      authService.loginService.mockResolvedValue({ isLoginFirst: true });
+      authService.loginService.mockResolvedValue({
+        isLoginFirst: true,
+      });
+
       responseHandlers.sendSuccess.mockImplementation((res, data, msg) => {
         res._sent = { data, msg };
         return res;
       });
+
       authSchema.INSERT_AUTH_SCHEMA.validate.mockReturnValue({});
+
       await controllers.loginController(req, res);
+
       expect(res._sent.data).toEqual({ isLoginFirst: true });
       expect(res._sent.msg).toBe("user's first login");
     });
 
     it('should handle 2FA required', async () => {
-      authService.loginService.mockResolvedValue({ twoFactorRequired: true, preAuthToken: 'preAuth' });
+      authService.loginService.mockResolvedValue({
+        twoFactorRequired: true,
+        preAuthToken: 'preAuth',
+      });
+
       responseHandlers.sendSuccess.mockImplementation((res, data, msg) => {
         res._sent = { data, msg };
         return res;
       });
+
       authSchema.INSERT_AUTH_SCHEMA.validate.mockReturnValue({});
+
       await controllers.loginController(req, res);
-      expect(res._sent.data).toEqual({ twoFactorRequired: true, preAuthToken: 'preAuth' });
+
+      expect(res._sent.data).toEqual({
+        twoFactorRequired: true,
+        preAuthToken: 'preAuth',
+      });
+
       expect(res._sent.msg).toBe('2FA verification required');
     });
   });
 
+  // ─────────────────────────────────────────────
+  // REFRESH TOKEN CONTROLLER
+  // ─────────────────────────────────────────────
   describe('refreshTokenController', () => {
+
     let req, res;
+
     beforeEach(() => {
       req = {
         cookies: { refreshToken: 'refresh' },
       };
+
       res = {};
     });
 
     it('should throw error if no refreshToken', async () => {
       req.cookies = {};
-      await expect(controllers.refreshTokenController(req, res)).rejects.toThrow(appErrors.BadRequestError);
+
+      await expect(
+        controllers.refreshTokenController(req, res),
+      ).rejects.toThrow(appErrors.BadRequestError);
     });
 
     it('should handle successful refresh', async () => {
-      authUtil.verifyToken.mockReturnValue({ user_id: 1, company_id: 2 });
-      // Mock refreshTokenService to return config with token object as expected by controller
-      authService.refreshTokenService.mockResolvedValue({ config: '{"token":{}}', session_id: 'sid' });
+      authUtil.verifyToken.mockReturnValue({
+        user_id: 1,
+        company_id: 2,
+      });
+
+      authService.refreshTokenService.mockResolvedValue({
+        config: '{"token":{}}',
+        session_id: 'sid',
+      });
+
       authUtil.generateUserToken.mockReturnValue('newAccessToken');
+
       responseHandlers.sendSuccess.mockImplementation((res, token, msg) => {
         res._sent = { token, msg };
         return res;
       });
+
       await controllers.refreshTokenController(req, res);
+
       expect(responseHandlers.sendSuccess).toHaveBeenCalled();
-      expect(res._sent.token).toEqual({ accessToken: 'newAccessToken' });
-      expect(res._sent.msg).toBe('Refresh token generated successfully');
+      expect(res._sent.token).toEqual({
+        accessToken: 'newAccessToken',
+      });
+
+      expect(res._sent.msg).toBe(
+        'Refresh token generated successfully',
+      );
     });
   });
 });

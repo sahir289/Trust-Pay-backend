@@ -1,7 +1,9 @@
-/* global describe, it, expect, afterEach, beforeAll */
+/* global describe, it, expect, afterEach, beforeAll, beforeEach */
 import { jest } from '@jest/globals';
 
-// ESM mocking: mock all modules before importing the service
+// ─────────────────────────────────────────────
+// DAO MOCKS (must be before imports)
+// ─────────────────────────────────────────────
 jest.unstable_mockModule('../../src/apis/auth/authDao.js', () => ({
   addLoginDao: jest.fn(),
   getRefreshTokenDao: jest.fn(),
@@ -16,14 +18,28 @@ jest.unstable_mockModule('../../src/apis/auth/authDao.js', () => ({
   getUserForVerificationDao: jest.fn(),
   getSessionByUserIdDao: jest.fn(),
 }));
+
+// ─────────────────────────────────────────────
+// MAILER MOCK
+// ─────────────────────────────────────────────
 jest.unstable_mockModule('../../src/utils/sendMailer.js', () => ({
   sendOTP: jest.fn(),
 }));
+
+// ─────────────────────────────────────────────
+// OTP DAO MOCK
+// ─────────────────────────────────────────────
 jest.unstable_mockModule('../../src/apis/userOtp/userOtpDao.js', () => ({
   createUserOtpDao: jest.fn(),
 }));
 
-let authService, authDao, sendMailer, userOtpDao;
+// ─────────────────────────────────────────────
+// IMPORTS
+// ─────────────────────────────────────────────
+let authService;
+let authDao;
+let sendMailer;
+let userOtpDao;
 
 beforeAll(async () => {
   authService = await import('../../src/apis/auth/authService.js');
@@ -32,15 +48,24 @@ beforeAll(async () => {
   userOtpDao = await import('../../src/apis/userOtp/userOtpDao.js');
 });
 
+// ─────────────────────────────────────────────
+// RESET
+// ─────────────────────────────────────────────
 beforeEach(() => {
-  if (authDao) authDao.getUserForVerificationDao = jest.fn();
-  if (sendMailer) sendMailer.sendOTP = jest.fn();
-  if (userOtpDao) userOtpDao.createUserOtpDao = jest.fn();
+  authDao.getUserForVerificationDao = jest.fn();
+  sendMailer.sendOTP = jest.fn();
+  userOtpDao.createUserOtpDao = jest.fn();
 });
 
-afterEach(() => { jest.clearAllMocks(); });
+afterEach(() => {
+  jest.clearAllMocks();
+});
 
+// ─────────────────────────────────────────────
+// TEST SUITE
+// ─────────────────────────────────────────────
 describe('authService', () => {
+
   const serviceNames = [
     'loginService',
     'refreshTokenService',
@@ -64,18 +89,34 @@ describe('authService', () => {
     });
   });
 
+  // ─────────────────────────────────────────────
+  // verfyUserService
+  // ─────────────────────────────────────────────
   describe('verfyUserService', () => {
+
     it('should throw if user not found', async () => {
       authDao.getUserForVerificationDao.mockResolvedValue(null);
-      await expect(authService.verfyUserService('nouser')).rejects.toThrow();
+
+      await expect(
+        authService.verfyUserService('nouser'),
+      ).rejects.toThrow();
     });
+
     it('should send OTP and create user OTP', async () => {
       authDao.getUserForVerificationDao.mockResolvedValue({
-        id: 1, email: 'a@b.com', user_name: 'test', designation: 'admin'
+        id: 1,
+        email: 'a@b.com',
+        user_name: 'test',
+        designation: 'admin',
       });
+
       sendMailer.sendOTP.mockResolvedValue();
       userOtpDao.createUserOtpDao.mockResolvedValue();
-      await expect(authService.verfyUserService('test')).resolves.toBe(true);
+
+      await expect(
+        authService.verfyUserService('test'),
+      ).resolves.toBe(true);
+
       expect(sendMailer.sendOTP).toHaveBeenCalled();
       expect(userOtpDao.createUserOtpDao).toHaveBeenCalled();
     });
