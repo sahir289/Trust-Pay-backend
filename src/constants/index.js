@@ -43,6 +43,8 @@ export const Method = {
   CPS: 'CPS',
   RUNSAFE_PAY: 'runsafe',
   PAYINFINTECH: 'PAYINFINTECH',
+  PENNYPAY: 'PENNYPAY',
+  TRUSTPAY: 'TRUSTPAY',
 };
 
 export const Type = {
