@@ -54,8 +54,6 @@ import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import { updateCalculationBalanceDao } from '../calculation/calculationDao.js';
 import { logger } from '../../utils/logger.js';
 import { publishBulkPayout } from '../../rabbitmq/producer.js';
-// import { updatePayout } from '../../utils/sockets.js';
-import { newTableEntry } from '../../utils/sockets.js';
 import { checkLockEdit } from '../../utils/advisoryLock.js';
 import { stringifyJSON } from '../../utils/index.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
@@ -83,6 +81,7 @@ import { createVertexPayPayout } from '../../vertexpay/vertexpay.js';
 import { createRunsafePayPayout, getRunsafePayWalletBalance } from '../../runsafe/runsafepay.js';
 import { createPayInFintechPayout } from '../../payinfintech/payinfintech.js';
 import {createPennyPayPayout} from '../../pennypay/pennypay.js';
+import { emitTableEntryAsync } from '../../utils/socket/sessionUtils.js';
 // import { notifyNewCalculationTableEntry } from '../../utils/sockets.js';
 
 // Helper function to check if vendor is sub-vendor and get parent info
@@ -448,11 +447,8 @@ const _createPayoutServiceInternal = async (
       },
       rejected_at: data.rejected_at || null,
     };
-    setImmediate(() => {
-      newTableEntry(tableName.PAYOUT, responseObj).catch((err) =>
-        logger.error('Socket emit failed for payout:', err),
-      );
-    });
+
+    emitTableEntryAsync(tableName.PAYOUT, responseObj)
     return data;
   } catch (error) {
     logger.error('error in _createPayoutServiceInternal', error);
@@ -895,6 +891,9 @@ const _updatePayoutServiceInternal = async (
     const singleWithdrawData = singleWithdrawDataArr[0];
     if (!singleWithdrawData) {
       throw new NotFoundError('Payout not found!');
+    }
+    if(singleWithdrawData.status === Status.APPROVED && payload.status !== Status.REVERSED ){
+      throw new BadRequestError('Payout Already Approved');
     }
 
     const previousStatus = singleWithdrawData.status;
@@ -1631,11 +1630,9 @@ const _updatePayoutServiceInternal = async (
     };
 
     // Emit socket event for every payout status update, at the end
-    setImmediate(() => {
-      newTableEntry(tableName.PAYOUT, responseObj).catch((err) =>
-        logger.error('Socket emit failed for payout:', err),
-      );
-    });
+
+    emitTableEntryAsync(tableName.PAYOUT, responseObj)
+    
     // Always emit socket, then return the correct result
     if (earlyReturnResult !== null) {
       return earlyReturnResult;
@@ -2109,11 +2106,8 @@ const _assignedPayoutServiceInternal = async (
           },
           rejected_at: fullPayout.rejected_at || null,
         };
-        setImmediate(() => {
-          newTableEntry(tableName.PAYOUT, responseObj).catch((err) =>
-            logger.error('Socket emit failed for payout:', err),
-          );
-        });
+
+        emitTableEntryAsync(tableName.PAYOUT, responseObj)
       }
     }
     return data;
