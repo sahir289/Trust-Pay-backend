@@ -75,7 +75,6 @@ import {
   getMerchantsForValidatePayinDao,
   getMerchantByUserIdDao,
   updateMerchantBalanceDao,
-  getMerchantsByCodeAndApiKeyDao,
   getMerchantsByCodesDao,
 } from '../merchants/merchantDao.js';
 import {
@@ -147,11 +146,43 @@ import {
   rollback,
 } from '../../utils/db.js';
 import { createSilkPaymentTransaction } from '../../intent/createSilkIntentTransaction.js';
-import { getCachedData, setCachedData } from '../../utils/redishashkey.js';
+import {
+  deleteCachedData,
+  getCachedData,
+  setCachedData,
+  setCachedDataIfNotExists,
+} from '../../utils/redishashkey.js';
 import { createOnePayPaymentTransaction } from '../../intent/createOnePayIntentTransaction.js';
 import { createCpsPaymentTransaction } from '../../intent/createCpsIntentTransaction.js';
 import { createtytlPaymentTransaction } from '../../intent/createtytlPayIntentTransaction.js';
 import { createPayeasyTransaction } from '../../intent/createPayeasyIntentTransaction.js';
+import { createAlbeCollectTransaction } from '../../intent/createAlbeCollectIntentTransaction.js';
+import { createPennyPayTransaction } from '../../intent/createPennyPayTransaction.js';
+const PAYIN_IDEMPOTENCY_INFLIGHT_TTL_SEC = Number(
+  process.env.PAYIN_IDEMPOTENCY_INFLIGHT_TTL_SEC || 60,
+);
+
+const normalizePayInAmount = (amount) => {
+  const parsed = Number.parseFloat(amount);
+  return Number.isFinite(parsed) ? parsed.toFixed(2) : 'na';
+};
+
+const buildPayInProcessIdempotencyBaseKey = (payload = {}) => {
+  const merchantOrderId = payload?.merchantOrderId;
+  const userSubmittedUtr = payload?.userSubmittedUtr;
+
+  if (!merchantOrderId || !userSubmittedUtr) {
+    return null;
+  }
+
+  const normalizedUtr = String(userSubmittedUtr).trim().toUpperCase();
+  if (!normalizedUtr) {
+    return null;
+  }
+
+  const amountToken = normalizePayInAmount(payload?.amount);
+  return `idem:payin:process:${merchantOrderId}:${normalizedUtr}:${amountToken}`;
+};
 
 export const generatePayInUrlByHashService = async (req) => {
   try {
@@ -172,6 +203,9 @@ export const generatePayInUrlByHashService = async (req) => {
         message: 'Merchant is inactive. Contact support for help!',
       };
       return data;
+    }
+    if (merchantArr[0]?.config?.is_h2h && !amount) {
+      throw new NotFoundError('amount is required');
     }
     const bankAssigned = await getMerchantBankDao({
       config_merchants_contains: merchantArr[0].id,
@@ -252,11 +286,11 @@ export const generatePayInUrlByHashService = async (req) => {
       return data;
     }
 
-    let query = `user_id=${user_id}&code=${code}&ot=${ot}&key=${key}`;
+    let query = `user_id=${user_id}&code=${code}&ot=${ot}`;
     if (amount) {
       query += `&amount=${amount}`;
     }
-    if (role && role === Role.ADMIN) {
+    if (role || role === Role.ADMIN || role === Role.MERCHANT) {
       query += `&token=${role_id}`;
     }
 
@@ -274,6 +308,24 @@ export const generatePayInUrlByHashService = async (req) => {
     logger.error('Error generating payin hash:', error);
     throw error;
   }
+};
+const createPayInWithUniqueShortCode = async (data) => {
+  let attempts = 0;
+  while (attempts < 10) {
+    attempts += 1;
+    try {
+      return await generatePayInUrlDao({
+        ...data,
+        upi_short_code: nanoid(5),
+      });
+    } catch (error) {
+      if (error.code === '23505') {
+        continue;
+      }
+      throw error;
+    }
+  }
+  throw new Error('Unable to generate unique short code after 10 attempts');
 };
 
 const isBankDisabled = (bank) => bank.is_enabled === false;
@@ -315,7 +367,7 @@ export const determineType = (bankAssigned) => {
   return 'upi';
 };
 
-export const generatePayInUrlService = async (payload, role, userIp) => {
+export const generatePayInUrlService = async (payload, role) => {
   try {
     const {
       code,
@@ -342,12 +394,12 @@ export const generatePayInUrlService = async (payload, role, userIp) => {
     if (cachedRouting) {
       ({ merchant, company, bankAssigned } = cachedRouting);
     } else {
-      const merchantArr = await getMerchantsByCodeAndApiKeyDao(code, api_key);
+      const merchantArr = await getMerchantsByCodeDao(code);
       merchant = merchantArr[0];
       if (!merchant) {
         return {
           status: 400,
-          message: 'Invalid merchant code or API key',
+          message: 'Invalid merchant code',
         };
       }
 
@@ -394,42 +446,42 @@ export const generatePayInUrlService = async (payload, role, userIp) => {
       };
     }
 
-    if (merchant?.config?.whitelist_ips) {
-      // normalize whitelist to a clean array of strings
-      const whitelist = []
-        .concat(merchant.config.whitelist_ips) // handles string or array
-        .flatMap((ip) =>
-          typeof ip === 'string' ? ip.split(',') : [String(ip)],
-        )
-        .map((ip) => ip.trim())
-        .filter(Boolean);
+    // if (merchant?.config?.whitelist_ips) {
+    //   // normalize whitelist to a clean array of strings
+    //   const whitelist = []
+    //     .concat(merchant.config.whitelist_ips) // handles string or array
+    //     .flatMap((ip) =>
+    //       typeof ip === 'string' ? ip.split(',') : [String(ip)],
+    //     )
+    //     .map((ip) => ip.trim())
+    //     .filter(Boolean);
 
-      // If whitelist ip's exists and user IP is not allowed
-      if (
-        whitelist.length > 0 &&
-        !whitelist.includes(userIp) &&
-        role !== Role.ADMIN
-      ) {
-        return {
-          status: 400,
-          message: 'IP not whitelisted',
-        };
-      }
-    }
+    //   // If whitelist ip's exists and user IP is not allowed
+    //   if (
+    //     whitelist.length > 0 &&
+    //     !whitelist.includes(userIp) &&
+    //     role !== Role.ADMIN
+    //   ) {
+    //     return {
+    //       status: 400,
+    //       message: 'IP not whitelisted',
+    //     };
+    //   }
+    // }
 
     const existingOrder = await getPayInWithMerchantOrderIdDao(order_id);
     if (existingOrder) {
       return { status: 400, message: 'Merchant Order ID already exists' };
     }
 
-    const { keys: merchantKeys } = merchant.config || {};
-    if (
-      api_key &&
-      api_key !== merchantKeys?.private &&
-      api_key !== merchantKeys?.public
-    ) {
-      return { status: 404, message: 'Enter valid Api key' };
-    }
+    // const { keys: merchantKeys } = merchant.config || {};
+    // if (
+    //   api_key &&
+    //   api_key !== merchantKeys?.private &&
+    //   api_key !== merchantKeys?.public
+    // ) {
+    //   return { status: 404, message: 'Enter valid Api key' };
+    // }
 
     if (
       role !== Role.ADMIN &&
@@ -451,7 +503,6 @@ export const generatePayInUrlService = async (payload, role, userIp) => {
     }
 
     const data = {
-      upi_short_code: nanoid(10),
       amount: amount || 0,
       status: Status.INITIATED,
       currency: Currency.INR,
@@ -469,7 +520,7 @@ export const generatePayInUrlService = async (payload, role, userIp) => {
       created_by: role === Role.ADMIN ? admin.id : merchant?.user_id,
     };
 
-    const result = await generatePayInUrlDao(data);
+    const result = await createPayInWithUniqueShortCode(data);
 
     const responseObj = {
       ...result,
@@ -686,9 +737,11 @@ export const assignedBankToPayInUrlService = async (
     // First, check if any bank satisfies the amount condition
     const banksWithValidAmount = banks.filter((bank) => {
       const isPayInBank = ['PayIn', 'payIn'].includes(bank.bank_used_for);
-      const isActive = bank.is_enabled && isPayInBank;
+    
+      const isActive =
+        bank.is_enabled &&
+        isPayInBank;
       if (!isActive) return false;
-
       return amt >= Number(bank.min) && amt <= Number(bank.max);
     });
 
@@ -942,7 +995,6 @@ export const payInIntentGenerateOrderService = async (
   try {
     const payIn = await getPayInIntentDao(merchantOrderId);
     checkIsPayInExpired(payIn);
-
     const providerHandlers = {
       ZenTechInd: async () => {
         const order = await createPaymentTransaction(
@@ -1020,6 +1072,18 @@ export const payInIntentGenerateOrderService = async (
         );
         return order?.url;
       },
+      pennyPay: async () => {
+        const order = await createPennyPayTransaction('pennyPay', payIn, amount);
+        return order?.url;
+      },
+      trustPay: async () => {
+        const order = await createPennyPayTransaction('trustPay', payIn, amount);
+        return order?.url;
+      },
+      albeCollect: async () => {
+        const order = await createAlbeCollectTransaction('albeCollect', payIn, amount);
+        return order?.data?.paymentLink || null;
+      },
     };
     const handler = providerHandlers[provider];
     if (!handler) {
@@ -1032,11 +1096,16 @@ export const payInIntentGenerateOrderService = async (
       throw new NotFoundError(`No session_id found for provider: ${provider}`);
     }
 
-    return {
+    const response = {
       id: payIn.id,
-      session_id,
       return: payIn.config?.urls?.return || '',
     };
+    if (provider === 'albeCollect') {
+      response.paymentLink = session_id;
+    } else {
+      response.session_id = session_id;
+    }
+    return response;
   } catch (error) {
     logger.error('Error generate intent payin:', error.message);
     throw error;
@@ -2331,7 +2400,37 @@ export const processPayInService = async (
 ) => {
   let conn;
   let committed = false;
+  const idempotencyBaseKey = buildPayInProcessIdempotencyBaseKey(payload);
+  const inflightKey = idempotencyBaseKey
+    ? `${idempotencyBaseKey}:inflight`
+    : null;
+
   try {
+    if (inflightKey) {
+      const inflightAcquired = await setCachedDataIfNotExists(
+        inflightKey,
+        {
+          merchantOrderId: payload?.merchantOrderId,
+          userSubmittedUtr: payload?.userSubmittedUtr,
+          amount: payload?.amount,
+          startedAt: new Date().toISOString(),
+        },
+        PAYIN_IDEMPOTENCY_INFLIGHT_TTL_SEC,
+        'payin_process_idempotency_inflight',
+      );
+
+      if (!inflightAcquired) {
+        return {
+          status: Status.PENDING,
+          merchantOrderId: payload?.merchantOrderId,
+          req_amount: payload?.amount,
+          utr_id: payload?.userSubmittedUtr || null,
+          idempotent: true,
+          message: 'PayIn is already being processed',
+        };
+      }
+    }
+
     conn = await getConnection();
     await beginTransaction(conn);
     const result = await _processPayInServiceInternal(
@@ -2346,12 +2445,19 @@ export const processPayInService = async (
     );
     await commit(conn);
     committed = true;
+
     return result;
   } catch (error) {
     if (conn && !committed) await rollback(conn);
     logger.error('Error processing PayIn:', error);
     throw error;
   } finally {
+    if (inflightKey) {
+      await deleteCachedData(
+        inflightKey,
+        'payin_process_idempotency_inflight',
+      );
+    }
     if (conn) conn.release();
   }
 };
@@ -3884,12 +3990,15 @@ const _verifyPayinsServiceInternal = async (
       'allow_razorpay',
       'allow_orvixpay',
       'allow_orvixpay1',
+      'allow_albecollect',
       'allow_vertexpay',
       'allow_payeasy',
       'allow_payeasy02',
       'allow_payeasy03',
       'allow_cps',
       'allow_tytl',
+      'allow_pennypay',
+      'allow_trustpay',
     ]);
     const enabledBanks = banks.filter((bank) => {
       const isPayInBank = ['PayIn', 'payIn'].includes(bank.bank_used_for);
@@ -3908,6 +4017,7 @@ const _verifyPayinsServiceInternal = async (
     const merchantIntent = merchant[0]?.config?.allow_intent;
     let cashfreeDetails = null;
     let selectedIntent = null;
+    let paytmdetails = null;
     if (merchantIntent && bankIntents.length > 0) {
       cashfreeDetails = await getCashfreeAllowByCompanyIdDao(payIn.company_id);
       const allowedIntents = bankIntents.filter(
@@ -3918,7 +4028,9 @@ const _verifyPayinsServiceInternal = async (
           allowedIntents[Math.floor(Math.random() * allowedIntents.length)];
       }
     }
-
+    else {
+   paytmdetails = await getCashfreeAllowByCompanyIdDao(payIn.company_id);
+    }
     const result = {
       expiryTime: payIn.expiration_date,
       amount: payIn.amount,
@@ -3955,6 +4067,10 @@ const _verifyPayinsServiceInternal = async (
         (selectedIntent === 'allow_orvixpay1' &&
           cashfreeDetails?.allow_orvixpay1) ||
         false,
+      allowAlbeCollect:
+        (selectedIntent === 'allow_albecollect' &&
+          cashfreeDetails?.allow_albecollect) ||
+        false,
       allowVertexPay:
         (selectedIntent === 'allow_vertexpay' &&
           cashfreeDetails?.allow_vertexpay) ||
@@ -3971,12 +4087,19 @@ const _verifyPayinsServiceInternal = async (
         (selectedIntent === 'allow_payeasy03' &&
           cashfreeDetails?.allow_payeasy03) ||
         false,
+      allowPennyPay:
+        (selectedIntent === 'allow_pennypay' &&
+          cashfreeDetails?.allow_pennypay) ||
+        false,
       allowCpsPay:
         (selectedIntent === 'allow_cps' && cashfreeDetails?.allow_cps) || false,
       allowTytl:
         (selectedIntent === 'allow_tytl' &&
-          cashfreeDetails?.allow_payin_tytl) ||
-        cashfreeDetails?.allow_tytl ||
+          cashfreeDetails?.allow_tytl) ||
+        false,
+      allowTrustPay:
+        (selectedIntent === 'allow_trustpay' &&
+          cashfreeDetails?.allow_trustpay) ||
         false,
       status: payIn.status,
       min_amount: merchant[0].min_payin,
@@ -3986,6 +4109,8 @@ const _verifyPayinsServiceInternal = async (
       is_bank: enabledBanks.some((bank) => bank.is_bank),
       redirect_url: payIn.config?.urls?.return,
       isAdmin: role === Role.ADMIN ? true : false,
+      is_paytm:paytmdetails?.is_paytm_enabled || false,
+      short_code: paytmdetails?.is_paytm_enabled ? payIn?.upi_short_code : null,
     };
     const response = {
       ...result,

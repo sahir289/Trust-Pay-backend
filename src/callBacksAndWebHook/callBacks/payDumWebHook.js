@@ -13,6 +13,7 @@ export const payDumTransactionStatusCallback = async (req, res) => {
   sendSuccess(res, {}, 'Webhook received successfully');
   const payload = req.body;
   const apitxnid = payload?.Response?.apitxnid;
+  logger.info('Webhook received paydum payload ', payload)
 
   try {
     if (!apitxnid || apitxnid === '') {
@@ -29,8 +30,8 @@ export const payDumTransactionStatusCallback = async (req, res) => {
       singleWithdrawData.status === Status.REJECTED
     ) {
       logger.info('Payout already processed', {
-        payoutId: singleWithdrawData.id,
-        status: singleWithdrawData.status,
+        payoutId: singleWithdrawData?.id,
+        status: singleWithdrawData?.status,
       });
       return;
     }
@@ -108,15 +109,17 @@ export const payDumTransactionStatusCallback = async (req, res) => {
 
     // Handle response based on ErrorCode
     let errorCode = payload.ErrorCode;
+    let statuscode = payload?.Response?.statuscode
 
     if (errorCode) {
-      if (errorCode === '0') {
+      if (errorCode === '0' && statuscode === 'TXN') {
         await handlePayoutUpdate(payload, true);
-      } else if (errorCode === 'TUP') {
+      } else if (errorCode === '0' && statuscode === 'TUP') {
         await handlePayoutUpdate(payload, false, true);
-      } else if (errorCode !== 'TUP' && errorCode !== '0') {
+      } else if (errorCode === '1' && statuscode === 'TXF') {
         await handlePayoutUpdate(payload, false);
       } else {
+        logger.error("Paydum payout callback error", payload.ErrorMessage)
         return res.status(400).send(payload.ErrorMessage);
       }
     }

@@ -157,7 +157,7 @@ const createBankBotResponseBulk = async (req, res) => {
   const payloads = req.body?.body; // Expecting an array
 
   if (!Array.isArray(payloads)) {
-    throw new ValidationError('body must be an array of payloads');
+    throw new BadRequestError('body must be an array of payloads');
   }
 
   if (payloads.length > BULK_PUBLISH_MAX_ITEMS) {

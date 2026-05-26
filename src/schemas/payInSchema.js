@@ -21,6 +21,14 @@ export const VALIDATE_PAYIN_SCHEMA = Joi.object({
   oneTimeUsed: Joi.boolean().optional(),
 });
 
+export const VALIDATE_GENERATE_PAYIN_URL_SCHEMA = Joi.object({
+  merchantTransactionId: Joi.string().label('Transaction Id').required(),
+  amount: Joi.number().positive().label('Amount').required(),
+  name: Joi.string().label('Name').optional(),
+  email: Joi.string().email().label('Email').optional(),
+  contactNumber: Joi.string().pattern(/^[0-9]{10}$/).label('Contact Number').optional(),
+});
+
 export const VALIDATE_ASSIGNED_BANT_TO_PAY = Joi.object({
   merchantOrderId: Joi.string().label('merchantOrderId').required(),
   amount: Joi.number().positive().label('amount').required(),

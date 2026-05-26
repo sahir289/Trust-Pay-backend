@@ -153,6 +153,8 @@ function config(Env) {
       payoutNotifyUrl: Env?.RUNSAFE_PAYOUT_NOTIFY_URL,
       privateKey: Env?.RUNSAFE_PRIVATE_KEY,
       publicKey: Env?.RUNSAFE_PUBLIC_KEY,
+      mchId: Env?.RUNSAFE_MCH_ID,
+      appId: Env?.RUNSAFE_APP_ID,
     },
     cps: {
       url: Env?.CPS_API_URL,
@@ -165,6 +167,10 @@ function config(Env) {
       secretKey: Env.TTYL_SECRET_KEY,
       NotifyUrl: Env?.TYTL_NOTIFY_URL,
       payinUrl : Env?.TYTL_PAYIN_URL,
+    },
+    vertexPay:{
+      url: Env?.VERTEX_API_PAYIN_UPI_INTENT_URL,
+      apiKey: Env?.VERTEX_API_KEY,
     },
     clickrr : {
       baseUrl: Env?.CLICKRR_BASE_API_URL,
@@ -206,6 +212,25 @@ function config(Env) {
       walletBalance: Env?.BSS_WALLET_BALANCE_API_URL,
       apiKey: Env?.BSS03_API_KEY,
       apiSecret: Env?.BSS03_API_SECRET,
+    },
+    albeCollect: {
+      url: Env?.ALBE_COLLECT_API_URL,
+      mid: Env?.ALBE_COLLECT_MID,
+      secretKey: Env?.ALBE_COLLECT_SECRET_KEY,
+    },
+    pennyPay: {
+      payouturl: Env?.PENNY_PAY_PAYOUT_URL,
+      secretKey: Env?.PENNY_PAY_X_API_KEY,
+      code: Env?.PENNY_PAY_CODE,
+      payinUrl: Env?.PENNY_PAY_PAYIN_URL,
+      walletBalanceUrl: Env?.PENNY_PAY_WALLET_BALANCE_URL,
+    },
+    trustPay: {
+      payouturl: Env?.TRUST_PAY_PAYOUT_URL,
+      secretKey: Env?.TRUST_PAY_X_API_KEY,
+      code: Env?.TRUST_PAY_CODE,
+      payinUrl: Env?.TRUST_PAY_PAYIN_URL,
+      walletBalanceUrl: Env?.TRUST_PAY_WALLET_BALANCE_URL,
     },
     controllerCacheTtls: {
       auth: {
@@ -333,6 +358,15 @@ function config(Env) {
     databaseUrl: Env?.DATABASE_URL,
     databaseWriterUrl: Env?.DATABASE_WRITER_URL,
     databaseReaderUrl: Env?.DATABASE_READER_URL,
+    // Optional: comma-separated list of postgresql reader *instance* endpoints
+    // (e.g. "postgresql://...instance-2...,postgresql://...instance-3...").
+    // When provided, the app round-robins SELECTs across each endpoint to
+    // avoid pinning all reader traffic to a single PostgreSQL reader instance.
+    // Falls back to databaseReaderUrl when unset.
+    databaseReaderUrls: (Env?.DATABASE_READER_URLS || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean),
     accessTokenSecretKey: Env?.ACCESS_TOKEN_SECRET_KEY,
     accessTokenExpireTime: 24 * 60 * 60, // in seconds
     reactFrontOrigin1: Env?.REACT_FRONT_ORIGIN_1,

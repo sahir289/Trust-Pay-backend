@@ -148,10 +148,10 @@ export const getImageContentFromOCr = async (image) => {
     const data = res.data?.data || {};
 
     return {
-      amount: data.amount?.replace(',', ''),
-      utr: data.transaction_id,
-      bankName: data.bank_name,
-      timeStamp: data.timestamp,
+      amount: String(data?.amount || '').replace(/,/g, ''),
+      utr: data?.transaction_id,
+      bankName: data?.bank_name,
+      timeStamp: data?.timestamp,
     };
   } catch (error) {
     logger.error('Error while fetching content from image', error.message);

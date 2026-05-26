@@ -715,9 +715,71 @@ const getBankAccountNickNameForPayinEsDao = async (bankId, conn = null) => {
 };
 const getMerchantBankDao = async (filters, conn = null) => {
   try {
-    const query = `SELECT * FROM  "${tableName.BANK_ACCOUNT}" WHERE 1=1`;
-    const [sql, parameters] = buildSelectQuery(query, filters);
-    const result = await executeQuery(sql, parameters, conn);
+    let queryParams = [];
+    let conditions = [];
+
+    if (filters?.config_merchants_contains) {
+
+      queryParams.push(
+        Array.isArray(filters.config_merchants_contains)
+          ? filters.config_merchants_contains
+          : [filters.config_merchants_contains]
+      );
+    
+      conditions.push(
+        `(ba.config->'merchants')::jsonb ?| $${queryParams.length}::text[]`
+      );
+    
+      delete filters.config_merchants_contains;
+    }
+
+    if (filters && Object.keys(filters).length > 0) {
+      Object.keys(filters).forEach((key) => {
+        const value = filters[key];
+
+        if (value !== null && value !== undefined && value !== '') {
+
+          if (Array.isArray(value)) {
+            conditions.push(
+              `ba."${key}" = ANY($${queryParams.length + 1})`
+            );
+
+            queryParams.push(value);
+
+          } else {
+
+            conditions.push(
+              `ba."${key}" = $${queryParams.length + 1}`
+            );
+
+            queryParams.push(value);
+          }
+        }
+      });
+    }
+
+    const query = `
+      SELECT
+        ba.id,
+        ba.user_id,
+        ba.nick_name,
+        ba.is_qr,
+        ba.is_bank,
+        ba.bank_used_for,
+        ba.is_enabled,
+        ba.min,
+        ba.max,
+        ba.acc_holder_name,
+        ba.acc_no,
+        ba.ifsc,
+        ba.bank_name,
+        upi_id,
+        ba.config
+      FROM "${tableName.BANK_ACCOUNT}" ba
+      ${conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''}
+    `;
+
+    const result = await executeQuery(query, queryParams, conn);
     return result.rows || [];
   } catch (error) {
     logger.error(error);
