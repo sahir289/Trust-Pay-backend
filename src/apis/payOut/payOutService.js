@@ -980,11 +980,19 @@ const _updatePayoutServiceInternal = async (
       if (!bankDataArr[0])
         throw new NotFoundError(`Bank not found for ${method} payout`);
       logger.info(`Creating PennyPay payout with bankId: ${bankId}`);
+     const [vendor] = await getVendorsDao({
+      user_id: bankDataArr[0].user_id,
+    });
+    if (!vendor) {
+      throw new NotFoundError('Vendor not found for PennyPay payout');
+    }
       const updatedPayload = await createPennyPayPayout(
         payload,
         singleWithdrawData,
+        vendor.id,
         bankId,
-        'pennyPay'
+        'pennyPay',
+        conn
       );
       payload = updatedPayload;
     }
@@ -999,12 +1007,20 @@ const _updatePayoutServiceInternal = async (
       bankDataArr = await getBankByIdDao({ id: bankId });
       if (!bankDataArr[0])
         throw new NotFoundError(`Bank not found for ${method} payout`);
+       const [vendor] = await getVendorsDao({
+      user_id: bankDataArr[0].user_id,
+    });
+    if (!vendor) {
+      throw new NotFoundError('Vendor not found for PennyPay payout');
+    }
       logger.info(`Creating TrustPay payout with bankId: ${bankId}`);
       const updatedPayload = await createPennyPayPayout(
         payload,
         singleWithdrawData,
+        vendor.id,
         bankId,
-        'trustPay'
+        'trustPay',
+        conn
       );
       payload = updatedPayload;
     }

@@ -29,7 +29,7 @@ export const getWalletBalance = async (req, res) => {
     throw error;
   }
 };
-export const createPennyPayPayout = async (result ,payload ,bankId, key) => {
+export const createPennyPayPayout = async (result ,payload ,vendor_id ,bankId, key) => {
   try {
     const providerConfig = config[key];
     const url = providerConfig.payoutUrl;
@@ -62,6 +62,7 @@ export const createPennyPayPayout = async (result ,payload ,bankId, key) => {
     });
     result.status = 'PENDING';
     result.bank_acc_id = bankId;
+    result.vendor_id = vendor_id;
     return result;
   } catch (error) {
     logger.error(

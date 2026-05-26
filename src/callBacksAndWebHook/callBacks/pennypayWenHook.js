@@ -1,16 +1,20 @@
-import { getBankByIdDao } from '../../apis/bankAccounts/bankaccountDao.js';
 import { getPayoutsDao } from '../../apis/payOut/payOutDao.js';
 import { Role, Status } from '../../constants/index.js';
 import { logger } from '../../utils/logger.js';
-import { getCompanyByIDDao } from '../../apis/company/companyDao.js';
-import { getVendorsDao } from '../../apis/vendors/vendorDao.js';
-import { updatePayoutService } from '../../apis/payOut/payOutService.js';
+import { _updatePayoutServiceInternal } from '../../apis/payOut/payOutService.js';
 import { getUserByCompanyCreatedAtDao } from '../../apis/users/userDao.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
-
+import {
+  beginTransaction,
+  commit,
+  getConnection,
+  rollback,
+} from '../../utils/db.js';
 export const pennypaySuccessCallback = async (req, res) => {
   sendSuccess(res, {}, 'Webhook received successfully');
   const payload = req.body;
+  let conn;
+  let committed = false;
   const merchantOrderId = payload?.merchantOrderId;
   const pennyPayStatus = payload?.status;
   logger.info('Webhook received pennypay payload ', payload);
@@ -44,20 +48,9 @@ if (singleWithdrawData.status === Status.APPROVED && pennyPayStatus !== 'REVERSE
   return;
 }
 
-    const [company] = await getCompanyByIDDao({
-      id: singleWithdrawData.company_id,
-    });
 
-    const bankId = company.config.PENNYPAY?.defaultBankId;
-    const [bankVendor] = await getBankByIdDao({ id: bankId });
-    const [vendor] = await getVendorsDao({
-      user_id: bankVendor.user_id,
-    });
 
-    const updatePayload = {
-      bank_acc_id: bankId,
-      vendor_id: vendor.id
-    };
+    const updatePayload = { };
 
     const adminUser = await getUserByCompanyCreatedAtDao(
       singleWithdrawData.company_id,
@@ -91,19 +84,32 @@ if (singleWithdrawData.status === Status.APPROVED && pennyPayStatus !== 'REVERSE
         status: Status.PENDING,
       });
     }
-    await updatePayoutService(
+    conn = await getConnection();
+    await beginTransaction(conn);
+    await _updatePayoutServiceInternal(
       {
         id: singleWithdrawData.id,
         company_id: singleWithdrawData.company_id,
       },
       updatePayload,
+      null,
+      conn
     );
+    await commit(conn);
+    committed = true;
     logger.info('Payout Updated by PennyPay callback', {
       payoutId: singleWithdrawData.id,
       newStatus: updatePayload.status,
     });
 
   } catch (err) {
-    logger.error('Getting error while updating PennyPay payout', err);
+    console.log(err);
+    if (conn && !committed) await rollback(conn);
+    logger.error('getting error while updating tp/pp payout', err);
+  } finally {
+    if (conn) {
+      logger.info('Releasing connection');
+      conn.release();
+    }
   }
 };
