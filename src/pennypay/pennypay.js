@@ -2,9 +2,31 @@ import axios from "axios";
 import {sendNewSuccess} from "../utils/responseHandlers.js";
 import { logger } from "../utils/logger.js";
 import config  from "../config/config.js";
+import { BadRequestError } from "../utils/appErrors.js";
+import { getCompanyByIDDao } from "../apis/company/companyDao.js";
 export const getWalletBalance = async (req, res) => {
   try {
+    const company_id = req.user?.company_id;
+    const [company] = await getCompanyByIDDao({ id: company_id });
+    if(!company) {
+        throw new BadRequestError('Company not found for the user');
+      }
     const {key} = req.query;
+    let secretKey, code;
+    if (key === 'pennyPay'){
+      secretKey = company?.config?.PENNY_PAY?.secretKey;
+      code = company?.config?.PENNY_PAY?.code;
+      if (!secretKey || !code) {
+        throw new BadRequestError('PennyPay configuration is missing for the company');
+      }
+    }
+    else {
+      secretKey = company?.config?.TRUST_PAY?.secretKey;
+      code = company?.config?.TRUST_PAY?.code;
+      if (!secretKey || !code) {
+        throw new BadRequestError('TrustPay configuration is missing for the company');
+      }
+    }
     const providerConfig = config[key];
     if (!providerConfig) throw new Error(`Configuration for key ${key} not found`);
     const url = providerConfig.walletBalanceUrl;
@@ -13,8 +35,8 @@ export const getWalletBalance = async (req, res) => {
       url,
       {
         headers: {
-          "x-api-key": providerConfig.secretKey,
-          code: providerConfig.code,
+          "x-api-key": secretKey,
+          code: code,
         },
       }
     );
@@ -29,15 +51,12 @@ export const getWalletBalance = async (req, res) => {
     throw error;
   }
 };
-export const createPennyPayPayout = async (result ,payload ,vendor_id ,bankId, key) => {
+export const createPennyPayPayout = async (result ,payload ,vendor_id ,bankId, key ,xApiKey, code) => {
   try {
     const providerConfig = config[key];
     const url = providerConfig.payoutUrl;
-    if (!url) throw new Error('PENNY_PAY_PAYOUT_URL is missing in .env');
-    const xApiKey = providerConfig.secretKey;
-    const code = providerConfig.code;
-    if (!code) throw new Error('CODE is missing in .env');
-    if (!xApiKey) throw new Error('X_API_KEY is missing in .env');
+    const notifyUrl = providerConfig.notifyUrlPayout;
+    if (!url) throw new BadRequestError('PENNY_PAY_PAYOUT_URL is missing in .env');
     const requestBody =  {
     user: payload?.user,
     merchant_order_id: payload?.merchant_order_id,
@@ -47,6 +66,8 @@ export const createPennyPayPayout = async (result ,payload ,vendor_id ,bankId, k
     acc_holder_name: payload?.user_bank_details?.account_holder_name,
     ifsc_code: payload?.user_bank_details?.ifsc_code,
     bank_name: payload?.user_bank_details?.bank_name,
+    notifyUrl: notifyUrl || payload?.config?.urls?.notify,
+    returnUrl: payload?.config?.urls?.return,
   };
   const response = await axios.post(url, requestBody, {
       headers: {
