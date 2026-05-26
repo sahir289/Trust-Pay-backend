@@ -19,7 +19,7 @@ export const createPennyPayTransaction = async (providerKey, deposit, amount) =>
     const baseUrl = providerConfig.payinUrl;
     if (!baseUrl) throw new Error(`Missing PennyPay payin url in config for ${providerKey}`);
     if (!secretKey) throw new Error(`Missing PennyPay secretKey in config for ${providerKey}`);
-    const formattedAmount = parseFloat(deposit.amount ?? amount).toFixed(2);
+    const formattedAmount = amount ?? deposit.amount;
     const code =  mcode;
     const user_id = deposit.user; 
     const ot = deposit.ot || 'y';
