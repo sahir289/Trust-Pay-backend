@@ -973,18 +973,34 @@ const _updatePayoutServiceInternal = async (
       logger.info(`Processing PennyPay payout for method: ${method}`);
       const [company] = await getCompanyByIDDao({ id: ids.company_id }, conn);
       if (!company) throw new NotFoundError('Company not found');
-      const bankId = company.config.PENNYPAY.defaultBankId;
+      const bankId = company.config.PENNY_PAY.defaultBankId;
       if (!bankId)
         throw new NotFoundError(`Default bank ID not found for ${method}`);
       bankDataArr = await getBankByIdDao({ id: bankId });
       if (!bankDataArr[0])
         throw new NotFoundError(`Bank not found for ${method} payout`);
       logger.info(`Creating PennyPay payout with bankId: ${bankId}`);
+     const [vendor] = await getVendorsDao({
+      user_id: bankDataArr[0].user_id,
+    });
+    if (!vendor) {
+      throw new NotFoundError('Vendor not found for PennyPay payout');
+    }
+      const xApiKey = company.config.PENNY_PAY.secretKey;
+      const code = company.config.PENNY_PAY.code;
+      if (!xApiKey || !code) {
+        throw new NotFoundError(
+          `PennyPay configuration missing for ${method} payout`,
+        );
+      }
       const updatedPayload = await createPennyPayPayout(
         payload,
         singleWithdrawData,
+        vendor.id,
         bankId,
-        'pennyPay'
+        'pennyPay',
+        xApiKey,
+        code
       );
       payload = updatedPayload;
     }
@@ -993,18 +1009,35 @@ const _updatePayoutServiceInternal = async (
       logger.info(`Processing TrustPay payout for method: ${method}`);
       const [company] = await getCompanyByIDDao({ id: ids.company_id }, conn);
       if (!company) throw new NotFoundError('Company not found');
-      const bankId = company.config.TRUSTPAY.defaultBankId;
+      const bankId = company.config.TRUST_PAY.defaultBankId;
       if (!bankId)
         throw new NotFoundError(`Default bank ID not found for ${method}`);
       bankDataArr = await getBankByIdDao({ id: bankId });
       if (!bankDataArr[0])
         throw new NotFoundError(`Bank not found for ${method} payout`);
+       const [vendor] = await getVendorsDao({
+      user_id: bankDataArr[0].user_id,
+    });
+    if (!vendor) {
+      throw new NotFoundError('Vendor not found for PennyPay payout');
+    }
       logger.info(`Creating TrustPay payout with bankId: ${bankId}`);
+       const xApiKey = company.config.TRUST_PAY.secretKey;
+      const code = company.config.TRUST_PAY.code;
+      if (!xApiKey || !code) {
+        throw new NotFoundError(
+          `Trustpay configuration missing for ${method} payout`,
+        );
+      }
       const updatedPayload = await createPennyPayPayout(
         payload,
         singleWithdrawData,
+        vendor.id,
         bankId,
-        'trustPay'
+        'trustPay',
+        xApiKey,
+        code
+        
       );
       payload = updatedPayload;
     }

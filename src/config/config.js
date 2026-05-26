@@ -219,16 +219,12 @@ function config(Env) {
       secretKey: Env?.ALBE_COLLECT_SECRET_KEY,
     },
     pennyPay: {
-      payouturl: Env?.PENNY_PAY_PAYOUT_URL,
-      secretKey: Env?.PENNY_PAY_X_API_KEY,
-      code: Env?.PENNY_PAY_CODE,
+      payoutUrl: Env?.PENNY_PAY_PAYOUT_URL,
       payinUrl: Env?.PENNY_PAY_PAYIN_URL,
       walletBalanceUrl: Env?.PENNY_PAY_WALLET_BALANCE_URL,
     },
     trustPay: {
-      payouturl: Env?.TRUST_PAY_PAYOUT_URL,
-      secretKey: Env?.TRUST_PAY_X_API_KEY,
-      code: Env?.TRUST_PAY_CODE,
+      payoutUrl: Env?.TRUST_PAY_PAYOUT_URL,
       payinUrl: Env?.TRUST_PAY_PAYIN_URL,
       walletBalanceUrl: Env?.TRUST_PAY_WALLET_BALANCE_URL,
     },
