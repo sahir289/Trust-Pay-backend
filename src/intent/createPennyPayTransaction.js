@@ -25,7 +25,6 @@ export const createPennyPayTransaction = async (providerKey, deposit, amount) =>
     const ot = deposit.ot || 'y';
     const merchant_order_id = deposit.merchant_order_id;
     const returnUrl = deposit.config?.urls?.return;
-    const notifyUrl =providerConfig?.notifyUrlPayin || deposit?.config?.urls?.notify;
     if (!code || !ot || !user_id || !merchant_order_id) {
       throw new Error('Missing required PennyPay params: code, ot, user_id, or merchant_order_id');
     }
@@ -36,7 +35,6 @@ export const createPennyPayTransaction = async (providerKey, deposit, amount) =>
       user_id,
       merchant_order_id
     });
-    if (notifyUrl) queryParams.append('notifyUrl', notifyUrl);
     if (returnUrl) queryParams.append('returnUrl', returnUrl);
     const endpoint = `${baseUrl}?${queryParams.toString()}`;
     const response = await axios.get(endpoint, {

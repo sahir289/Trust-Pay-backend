@@ -55,7 +55,6 @@ export const createPennyPayPayout = async (result ,payload ,vendor_id ,bankId, k
   try {
     const providerConfig = config[key];
     const url = providerConfig.payoutUrl;
-    const notifyUrl = providerConfig.notifyUrlPayout;
     if (!url) throw new BadRequestError('PENNY_PAY_PAYOUT_URL is missing in .env');
     const requestBody =  {
     user: payload?.user,
@@ -66,8 +65,6 @@ export const createPennyPayPayout = async (result ,payload ,vendor_id ,bankId, k
     acc_holder_name: payload?.user_bank_details?.account_holder_name,
     ifsc_code: payload?.user_bank_details?.ifsc_code,
     bank_name: payload?.user_bank_details?.bank_name,
-    notifyUrl: notifyUrl || payload?.config?.urls?.notify,
-    returnUrl: payload?.config?.urls?.return,
   };
   const response = await axios.post(url, requestBody, {
       headers: {

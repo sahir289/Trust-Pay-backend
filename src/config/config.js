@@ -219,18 +219,14 @@ function config(Env) {
       secretKey: Env?.ALBE_COLLECT_SECRET_KEY,
     },
     pennyPay: {
-      payouturl: Env?.PENNY_PAY_PAYOUT_URL,
+      payoutUrl: Env?.PENNY_PAY_PAYOUT_URL,
       payinUrl: Env?.PENNY_PAY_PAYIN_URL,
       walletBalanceUrl: Env?.PENNY_PAY_WALLET_BALANCE_URL,
-      notifyUrlPayout: Env?.PENNY_PAY_NOTIFY_URL_PAYOUT,
-      notifyUrlPayin: Env?.PENNY_PAY_NOTIFY_URL_PAYIN,
     },
     trustPay: {
-      payouturl: Env?.TRUST_PAY_PAYOUT_URL,
+      payoutUrl: Env?.TRUST_PAY_PAYOUT_URL,
       payinUrl: Env?.TRUST_PAY_PAYIN_URL,
       walletBalanceUrl: Env?.TRUST_PAY_WALLET_BALANCE_URL,
-      notifyUrlPayout: Env?.TRUST_PAY_NOTIFY_URL_PAYOUT,
-      notifyUrlPayin: Env?.TRUST_PAY_NOTIFY_URL_PAYIN,
     },
     controllerCacheTtls: {
       auth: {
