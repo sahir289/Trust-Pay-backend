@@ -12,16 +12,16 @@ const router = express.Router();
 router.use(isAuthenticated);
 
 /**
- * GET /settings/2fa-enforcement
+ * GET /v1/system-settings/2fa-enforcement
  * Fetches the current global 2FA enforcement status.
  */
 router.get('/2fa-enforcement', tryCatchHandler(get2FAEnforcementController));
 
 /**
- * PATCH /settings/2fa-enforcement
+ * POST /v1/system-settings/2fa-enforcement
  * Updates the global 2FA enforcement status.
- * Only SUPER_ADMIN can toggle this.
+ * Only ADMIN can toggle this.
  */
-router.patch('/2fa-enforcement', authorized([Role.SUPER_ADMIN]), tryCatchHandler(update2FAEnforcementController));
+router.post('/2fa-enforcement', authorized([Role.ADMIN]), tryCatchHandler(update2FAEnforcementController));
 
 export default router;
