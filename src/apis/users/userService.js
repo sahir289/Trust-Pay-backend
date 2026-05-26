@@ -341,13 +341,8 @@ const getUserByIdService = async (ids, role) => {
           : columns.USER;
     const result = await getUserByIdDao(ids);
 
-    const resultWithAdminId = result.map((u) => ({
-      ...u,
-      unique_admin_id: u.company_config?.unique_admin_id,
-    }));
-
-    const finalResult = filterResponse(resultWithAdminId, filterColumns, {
-      stripSensitive: false,
+    const finalResult = filterResponse(result, filterColumns, {
+      stripSensitive: true,
     });
     return finalResult;
   } catch (error) {
@@ -365,11 +360,8 @@ const getUsersByUserNameService = async (username, ids, role) => {
           ? vendorColumns.USER
           : columns.USER;
     const data = await getUsersByUserNameDao(ids, username);
-    if (data) {
-      data.unique_admin_id = data.company_config?.unique_admin_id;
-    }
     const finalResult = filterResponse(data, filterColumns, {
-      stripSensitive: false,
+      stripSensitive: true,
     });
     return finalResult;
   } catch (error) {

@@ -228,9 +228,9 @@ const loginService = async (
       tokenInfo,
       sessionId,
       user: filterResponse(
-        { ...user, unique_admin_id: user.company_config?.unique_admin_id },
+        user,
         columns.USER,
-        { stripSensitive: false },
+        { stripSensitive: true },
       ),
     };
   } catch (error) {
@@ -481,9 +481,9 @@ const _createLoginSession = async (user, config, clientIP) => {
       tokenInfo,
       sessionId,
       user: filterResponse(
-        { ...user, unique_admin_id: user.company_config?.unique_admin_id },
+        user,
         columns.USER,
-        { stripSensitive: false },
+        { stripSensitive: true },
       ),
     };
   } catch (error) {

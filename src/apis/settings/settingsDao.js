@@ -3,7 +3,7 @@ import { logger } from '../../utils/logger.js';
 
 export const getSettingDao = async (key) => {
   try {
-    const sql = `SELECT value FROM "SystemSettings" WHERE key = $1`;
+    const sql = `SELECT value FROM "SystemSettings" WHERE key = $1 AND is_obsolete = false`;
     const result = await executeQuery(sql, [key]);
     return result.rows[0]?.value || null;
   } catch (error) {
@@ -15,9 +15,9 @@ export const getSettingDao = async (key) => {
 export const updateSettingDao = async (key, value) => {
   try {
     const sql = `
-      INSERT INTO "SystemSettings" (key, value, updated_at)
-      VALUES ($1, $2, now())
-      ON CONFLICT (key) DO UPDATE SET value = $2, updated_at = now()
+      INSERT INTO "SystemSettings" (key, value)
+      VALUES ($1, $2)
+      ON CONFLICT (key) DO UPDATE SET value = $2
       RETURNING value
     `;
     const result = await executeQuery(sql, [key, JSON.stringify(value)]);
