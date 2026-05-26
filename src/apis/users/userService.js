@@ -19,6 +19,8 @@ import {
   getUsersBySearchDao,
   getAllUsersDao,
   updateUserByIDDao,
+  updateUser2FAStatusDao,
+  disableTwoFactorDao,
 } from './userDao.js';
 import { getDesignationDao } from '../designation/designationDao.js';
 import { getRoleDao } from '../roles/rolesDao.js';
@@ -339,7 +341,9 @@ const getUserByIdService = async (ids, role) => {
           : columns.USER;
     const result = await getUserByIdDao(ids);
 
-    const finalResult = filterResponse(result, filterColumns);
+    const finalResult = filterResponse(result, filterColumns, {
+      stripSensitive: true,
+    });
     return finalResult;
   } catch (error) {
     logger.error('error getting while getting user by id', error);
@@ -356,7 +360,9 @@ const getUsersByUserNameService = async (username, ids, role) => {
           ? vendorColumns.USER
           : columns.USER;
     const data = await getUsersByUserNameDao(ids, username);
-    const finalResult = filterResponse(data, filterColumns);
+    const finalResult = filterResponse(data, filterColumns, {
+      stripSensitive: true,
+    });
     return finalResult;
   } catch (error) {
     logger.error('error getting while fetching user', error);
@@ -721,6 +727,28 @@ const userUpdateService = async (ids, payload) => {
   }
 };
 
+const updateUser2FAService = async (id, isTwoFactorEnabled) => {
+  try {
+    return await updateUser2FAStatusDao(id, isTwoFactorEnabled);
+  } catch (error) {
+    logger.error('Error in updateUser2FAService:', error);
+    throw error;
+  }
+};
+
+const resetUser2FAService = async (targetUserId, adminId, adminUsername) => {
+  try {
+    const result = await disableTwoFactorDao(targetUserId);
+    if (result) {
+      logger.info(`[AUDIT] 2FA Reset: User ID ${targetUserId} had their 2FA reset by Admin ${adminUsername} (ID: ${adminId}) at ${new Date().toISOString()}`);
+    }
+    return result;
+  } catch (error) {
+    logger.error('Error in resetUser2FAService:', error);
+    throw error;
+  }
+};
+
 const sendMailService = async (payload) => {
   try {
     const { user_id } = payload;
@@ -753,5 +781,7 @@ export {
   createUserService,
   userUpdateService,
   sendMailService,
+  updateUser2FAService,
+  resetUser2FAService,
   _createUserServiceInternal,
 };

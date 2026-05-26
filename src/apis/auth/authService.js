@@ -40,6 +40,8 @@ import {
   deleteCachedData,
   setCachedData,
 } from '../../utils/redishashkey.js';
+import { filterResponse } from '../../helpers/index.js';
+import { columns } from '../../constants/index.js';
 import {
   createUserOtpDao,
   getUserOtpDao,
@@ -225,6 +227,11 @@ const loginService = async (
     return {
       tokenInfo,
       sessionId,
+      user: filterResponse(
+        user,
+        columns.USER,
+        { stripSensitive: true },
+      ),
     };
   } catch (error) {
     if (conn && !committed) await rollback(conn);
@@ -470,7 +477,15 @@ const _createLoginSession = async (user, config, clientIP) => {
 
     forceLogoutUser(user.id, null, sessionId);
 
-    return { tokenInfo, sessionId };
+    return {
+      tokenInfo,
+      sessionId,
+      user: filterResponse(
+        user,
+        columns.USER,
+        { stripSensitive: true },
+      ),
+    };
   } catch (error) {
     if (conn && !committed) await rollback(conn);
     throw error;

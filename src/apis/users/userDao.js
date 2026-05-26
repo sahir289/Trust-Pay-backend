@@ -164,7 +164,7 @@ const getAllUsersDao = async (
   }
 };
 
-export const getUsersBySearchDao = async (
+const getUsersBySearchDao = async (
   filters,
   searchTerms,
   pageNumber = 1,
@@ -364,11 +364,13 @@ const getUserByIdDao = async (ids, conn = null) => {
         u.created_at, 
         u.updated_at, 
         r.role, 
-        d.designation
+        d.designation,
+        c.config AS company_config
       FROM public."User" u
       LEFT JOIN public."Role" r ON u.role_id = r.id 
       LEFT JOIN public."Designation" d ON u.designation_id = d.id
-      WHERE u.is_obsolete = false
+      LEFT JOIN public."Company" c ON u.company_id = c.id
+      WHERE u.is_obsolete = false AND (c.is_obsolete = false OR c.id IS NULL)
     `;
 
     let queryParams = [];
@@ -624,20 +626,22 @@ const updateUserByIDDao = async (ids, data, conn = null) => {
   return await deleteUserDao(ids, data, conn);
 };
 
-export {
-  getUsersDao,
-  getAllUsersDao,
-  getUserByIdDao,
-  getUsersForCronDao,
-  getUsersByUserNameDao,
-  getAdminUserIdsDao,
-  getUserByCompanyCreatedAtDao,
-  getUserByRoleDao,
-  createUserDao,
-  updateUserDao,
-  getUserDao,
-  deleteUserDao,
-  updateUserByIDDao,
+const updateUser2FAStatusDao = async (userId, status, conn = null) => {
+  try {
+    const sql = `
+      UPDATE public."User"
+      SET is_two_factor_enabled = $1,
+          updated_at = NOW()
+      WHERE id = $2
+        AND is_obsolete = false
+      RETURNING id
+    `;
+    const result = await executeQuery(sql, [status, userId], conn);
+    return result.rows[0] || null;
+  } catch (error) {
+    logger.error('Error in updateUser2FAStatusDao:', error);
+    throw error;
+  }
 };
 
 /**
@@ -729,9 +733,24 @@ const disableTwoFactorDao = async (userId, conn = null) => {
 };
 
 export {
+  createUserDao,
+  getUserByIdDao,
+  getUsersByUserNameDao,
+  getUsersDao,
+  updateUserDao,
+  getUsersBySearchDao,
+  getAllUsersDao,
+  updateUserByIDDao,
+  updateUser2FAStatusDao,
+  getUserDao,
+  getUsersForCronDao,
+  getAdminUserIdsDao,
+  getUserByCompanyCreatedAtDao,
+  getUserByRoleDao,
   getTwoFactorByUsernameDao,
   saveTwoFactorSecretDao,
   enableTwoFactorDao,
   disableTwoFactorDao,
+  deleteUserDao,
 };
 
