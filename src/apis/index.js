@@ -28,6 +28,7 @@ import beneficiaryAccounts from './beneficiaryAccounts/index.js';
 import dashboardReport from './dashboardReport/index.js';
 import webhooks from './webhooks/index.js';
 import twoFactor from './twoFactor/index.js';
+import settings from './settings/index.js';
 import walletBalance from './walletBalance/index.js';
 import { getVersion } from '../../version.js';
 import { globalRateLimitMiddleware } from '../middlewares/rateLimiter.js';
@@ -70,6 +71,7 @@ router.use('/dashboardReport', dashboardReport);
 router.use('/webhook', webhooks);
 router.use('/walletBalance', walletBalance);
 router.use('/2fa', twoFactor);
+router.use('/settings', settings);
 
 // router.use('/notifications', notifications);
 

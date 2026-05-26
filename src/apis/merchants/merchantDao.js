@@ -67,7 +67,7 @@ export const getMerchantsCodeDao = async (
             ? `
               COALESCE(
                 json_agg(
-                  json_build_object(
+                   json_build_object(
                     'label', sm.code,
                     'value', sm.user_id,
                     'merchant_id', sm.id
@@ -381,6 +381,15 @@ export const getMerchantsDao = async (
       `;
     }
 
+    if (filters.active !== undefined) {
+      filters.is_enabled = filters.active === 'true' || filters.active === true;
+      delete filters.active;
+    }
+    if (filters.deleted !== undefined) {
+      filters.is_obsolete = filters.deleted === 'true' || filters.deleted === true;
+      delete filters.deleted;
+    }
+
     const [sql, queryParams] = buildSelectQuery(
       baseQuery,
       filters,
@@ -662,6 +671,15 @@ export const getAllMerchantsDao = async (
       `;
     }
 
+    if (filters.active !== undefined) {
+      filters.is_enabled = filters.active === 'true' || filters.active === true;
+      delete filters.active;
+    }
+    if (filters.deleted !== undefined) {
+      filters.is_obsolete = filters.deleted === 'true' || filters.deleted === true;
+      delete filters.deleted;
+    }
+
     const [sql, queryParams] = buildSelectQuery(
       baseQuery,
       filters,
@@ -784,6 +802,22 @@ export const getMerchantsBySearchDao = async (
         values.push(filters.user_id);
         paramIndex++;
       }
+    }
+
+    // Handle active filter (is_enabled)
+    if (filters.active !== undefined) {
+      const activeValue = filters.active === 'true' || filters.active === true;
+      queryText += ` AND "Merchant".is_enabled = $${paramIndex}`;
+      values.push(activeValue);
+      paramIndex += 1;
+    }
+
+    // Handle deleted filter (is_obsolete)
+    if (filters.deleted !== undefined) {
+      const deletedValue = filters.deleted === 'true' || filters.deleted === true;
+      queryText += ` AND "Merchant".is_obsolete = $${paramIndex}`;
+      values.push(deletedValue);
+      paramIndex += 1;
     }
 
     if (searchTerms.length > 0) {

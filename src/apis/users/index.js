@@ -8,9 +8,11 @@ import {
   updateUser,
   getUsersBySearch,
   sendMail,
+  toggleUser2FA,
+  resetUser2FA,
 } from './userController.js';
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
-import { AccessRoles } from '../../constants/index.js';
+import { AccessRoles, Role } from '../../constants/index.js';
 
 const router = express.Router();
 
@@ -313,6 +315,26 @@ router.post(
   '/send-mail',
   [isAuthenticated, authorized(AccessRoles.USER)],
   tryCatchHandler(sendMail),
+);
+
+/**
+ * PATCH /users/:id/2fa
+ * Allows Admin/Super Admin to enable or disable 2FA for a specific user.
+ */
+router.patch(
+  '/:id/2fa',
+  [isAuthenticated, authorized([Role.ADMIN, Role.SUPER_ADMIN])],
+  tryCatchHandler(toggleUser2FA),
+);
+
+/**
+ * POST /users/:id/2fa/reset
+ * Allows Admin/Super Admin to reset 2FA for a specific user.
+ */
+router.post(
+  '/:id/2fa/reset',
+  [isAuthenticated, authorized([Role.ADMIN, Role.SUPER_ADMIN])],
+  tryCatchHandler(resetUser2FA),
 );
 
 export default router;
