@@ -206,17 +206,17 @@ const sendMail = async (req, res) => {
 
 const toggleUser2FA = async (req, res) => {
   const { id } = req.params;
-  const { isTwoFactorEnabled } = req.body;
+  const { isTwoFactorRequired } = req.body;
   const { company_id } = req.user;
 
-  if (typeof isTwoFactorEnabled !== 'boolean') {
-    throw new BadRequestError('isTwoFactorEnabled must be a boolean');
+  if (typeof isTwoFactorRequired !== 'boolean') {
+    throw new BadRequestError('isTwoFactorRequired must be a boolean');
   }
 
-  await updateUser2FAService(id, isTwoFactorEnabled);
+  await updateUser2FAService(id, isTwoFactorRequired);
   await invalidateUsersCache(company_id);
 
-  return sendSuccess(res, { id, isTwoFactorEnabled }, 'User 2FA status updated successfully');
+  return sendSuccess(res, { id, isTwoFactorRequired }, 'User 2FA requirement updated successfully');
 };
 
 const resetUser2FA = async (req, res) => {
