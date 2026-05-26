@@ -51,7 +51,12 @@ const isAuthenticated = async (req, res, next) => {
     );
     if (cachedSession?.session_id === decoded.session_id) {
       applyAuthenticatedSession(req, decoded, cachedSession.session_id, cachedSession.is_two_factor_enabled);
-      return next();
+      
+      // APPLY 2FA ENFORCEMENT FOR CACHED SESSIONS
+      return enforce2FAMiddleware(req, res, (err) => {
+        if (err) return next(err);
+        next();
+      });
     }
 
     // Additional check: Verify session exists and is active in database
