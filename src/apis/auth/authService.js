@@ -57,6 +57,7 @@ import {
   createHash as createDeterministicHash,
 } from '../../utils/hashUtils.js';
 import { Role } from '../../constants/index.js';
+import { getSettingDao } from '../settings/settingsDao.js';
 
 const assertAdminLoginAccess = (user, config) => {
   if (user.designation !== Role.ADMIN || config.newPassword) {
@@ -152,6 +153,10 @@ const loginService = async (
       return firstLoginResponse;
     }
 
+    // Get the global 2FA enforcement setting
+    const twoFactorEnforcementSetting = await getSettingDao('two_factor_enforcement');
+    const isTwoFactorEnforced = twoFactorEnforcementSetting?.enabled || false;
+
     // If 2FA is enabled and this is a normal login (not a first-login password
     // change), do NOT issue a session yet. Return a short-lived pre-auth token
     // so the client can complete the second factor before getting full access.
@@ -226,12 +231,14 @@ const loginService = async (
 
     return {
       tokenInfo,
+      refreshToken: tokenInfo.refreshToken,
       sessionId,
       user: filterResponse(
         user,
         columns.USER,
         { stripSensitive: true },
       ),
+      two_factor_enforcement: isTwoFactorEnforced,
     };
   } catch (error) {
     if (conn && !committed) await rollback(conn);
@@ -477,14 +484,20 @@ const _createLoginSession = async (user, config, clientIP) => {
 
     forceLogoutUser(user.id, null, sessionId);
 
+    // Get the global 2FA enforcement setting
+    const twoFactorEnforcementSetting = await getSettingDao('two_factor_enforcement');
+    const isTwoFactorEnforced = twoFactorEnforcementSetting?.enabled || false;
+
     return {
       tokenInfo,
+      refreshToken: tokenInfo.refreshToken,
       sessionId,
       user: filterResponse(
         user,
         columns.USER,
         { stripSensitive: true },
       ),
+      two_factor_enforcement: isTwoFactorEnforced,
     };
   } catch (error) {
     if (conn && !committed) await rollback(conn);

@@ -53,6 +53,7 @@ const loginController = async (req, res) => {
     accessToken: data.tokenInfo.accessToken,
     sessionId: data.sessionId,
     user: data.user,
+    two_factor_enforcement: data.two_factor_enforcement,
   };
   return sendSuccess(res, token, 'login successfully');
 };
@@ -176,6 +177,7 @@ const verifyLoginOtpController = async (req, res) => {
     accessToken: data.tokenInfo.accessToken,
     sessionId: data.sessionId,
     user: data.user,
+    two_factor_enforcement: data.two_factor_enforcement,
   };
   return sendSuccess(res, token, 'login successfully');
 };

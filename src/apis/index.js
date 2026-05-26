@@ -71,7 +71,7 @@ router.use('/dashboardReport', dashboardReport);
 router.use('/webhook', webhooks);
 router.use('/walletBalance', walletBalance);
 router.use('/2fa', twoFactor);
-router.use('/settings', settings);
+router.use('/system-settings', settings);
 
 // router.use('/notifications', notifications);
 
