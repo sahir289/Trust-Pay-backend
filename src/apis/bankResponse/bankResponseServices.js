@@ -1569,9 +1569,9 @@ const getBankResponseBySearchService = async (
   try {
     // Search/filter requests should behave like full DB scans unless caller explicitly sends dates.
     // Only the plain default listing should get the fallback date window.
-    if (shouldApplyDefaultBankResponseDateWindow(payload)) {
-      payload = applyDefaultBankResponseDateWindow(payload);
-    }
+    // if (shouldApplyDefaultBankResponseDateWindow(payload)) {
+    //   payload = applyDefaultBankResponseDateWindow(payload);
+    // }
     const filterColumns =
       role === Role.MERCHANT
         ? merchantColumns.BANK_RESPONSE
