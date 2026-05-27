@@ -1715,7 +1715,7 @@ const _markPayoutPendingForUtrSlipMismatchInternal = async (
     const data = await updatePayoutDao(ids, updatePayload, conn);
 
     const responseObj = {
-      ...singleWithdrawData, updatePayload, slip: payload?.config?.slip
+      ...data, ...updatePayload, slip: payload?.config?.slip
     }
 
     emitTableEntryAsync(tableName.PAYOUT, responseObj)
