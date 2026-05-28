@@ -661,7 +661,7 @@ const confirm2FAService = async (userId, otpToken) => {
     // Invalidate all cached sessions for this user so the new 2FA status is reflected immediately
     // This forces re-authentication on next request, which will cache the updated status
     const sessions = await executeQuery(
-      `SELECT session_id FROM public."Login" WHERE user_id = $1 AND is_obsolete = false`,
+      `SELECT session_id FROM public."AccessToken" WHERE user_id = $1 AND is_obsolete = false`,
       [userId]
     );
     
@@ -712,7 +712,7 @@ const disable2FAService = async (userId, otpToken) => {
     
     // Invalidate all cached sessions for this user so the new 2FA status is reflected immediately
     const sessions = await executeQuery(
-      `SELECT session_id FROM public."Login" WHERE user_id = $1 AND is_obsolete = false`,
+      `SELECT session_id FROM public."AccessToken" WHERE user_id = $1 AND is_obsolete = false`,
       [userId]
     );
     
