@@ -57,7 +57,7 @@ import {
   createHash as createDeterministicHash,
 } from '../../utils/hashUtils.js';
 import { Role } from '../../constants/index.js';
-import { getSettingDao } from '../settings/settingsDao.js';
+import { get2FAEnforcementDao } from '../settings/settingsDao.js';
 
 const assertAdminLoginAccess = (user, config) => {
   if (user.designation !== Role.ADMIN || config.newPassword) {
@@ -153,11 +153,10 @@ const loginService = async (
       return firstLoginResponse;
     }
 
-    // Get the global 2FA enforcement setting
-    const twoFactorEnforcementSetting = await getSettingDao('two_factor_enforcement');
-    const isTwoFactorEnforced = twoFactorEnforcementSetting?.enabled || false;
+    // Get the company-level 2FA enforcement setting
+    const isTwoFactorEnforced = await get2FAEnforcementDao(user.company_id);
 
-    // If global 2FA enforcement is active and user doesn't have 2FA enabled,
+    // If company 2FA enforcement is active and user doesn't have 2FA enabled,
     // allow login but return a special flag indicating they must set up 2FA
     if (isTwoFactorEnforced && !user.is_two_factor_enabled && !isLoginSecondFlag) {
       // Create a limited session that only allows access to 2FA setup endpoints
@@ -181,7 +180,7 @@ const loginService = async (
       committed = true;
 
       logger.info(
-        `Limited session created for user: ${user.id} - 2FA setup required due to global enforcement`,
+        `Limited session created for user: ${user.id} - 2FA setup required due to company enforcement`,
       );
 
       await setCachedData(
@@ -551,9 +550,8 @@ const _createLoginSession = async (user, config, clientIP) => {
 
     forceLogoutUser(user.id, null, sessionId);
 
-    // Get the global 2FA enforcement setting
-    const twoFactorEnforcementSetting = await getSettingDao('two_factor_enforcement');
-    const isTwoFactorEnforced = twoFactorEnforcementSetting?.enabled || false;
+    // Get the company-level 2FA enforcement setting
+    const isTwoFactorEnforced = await get2FAEnforcementDao(user.company_id);
 
     return {
       tokenInfo,
