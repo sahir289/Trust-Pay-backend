@@ -19,7 +19,7 @@ export const update2FAEnforcementDao = async (company_id, enabled, conn = null) 
   try {
     const sql = `
       UPDATE "Company"
-      SET config = config || $1::json,
+      SET config = (config::jsonb || $1::jsonb)::json,
           updated_at = NOW()
       WHERE id = $2 AND is_obsolete = false
       RETURNING id, config
