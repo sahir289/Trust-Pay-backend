@@ -6,7 +6,7 @@ import config from './src/config/config.js';
 import { initializeSocket, shutdownSocket } from './src/utils/sockets.js';
 import { logger } from './src/utils/logger.js';
 import { closePool, checkDatabaseHealth, dbPoolMonitor } from './src/utils/db.js';
-import { startRabbitMQConsumers, stopRabbitMQ } from './src/rabbitmq/index.js';
+import { stopRabbitMQ } from './src/rabbitmq/index.js';
 import { closeRedis } from './src/utils/redisClient.js';
 // import { migrateUsersToES } from './src/elasticSearch/user/migrate.js';
 
@@ -14,7 +14,6 @@ const server = createServer(app);
 
 // Initialize Socket.IO with Redis adapter (async)
 initializeSocket(server);
-startRabbitMQConsumers()
 
 const PORT = config?.port || 8090;
 
