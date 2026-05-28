@@ -861,6 +861,11 @@ const _updatePayoutServiceInternal = async (
         approved_at: new Date().toISOString(),
       });
     }
+    else if (payload?.utr_id && payload.status == Status.APPROVED) {
+      Object.assign(payload, {
+        approved_at: new Date().toISOString()
+      });
+    }
     if (payload?.config?.rejected_reason) {
       Object.assign(payload, {
         status: Status.REJECTED,
