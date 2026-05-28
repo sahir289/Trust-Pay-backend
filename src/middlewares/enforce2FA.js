@@ -1,9 +1,9 @@
-import { getSettingDao } from '../apis/settings/settingsDao.js';
+import { get2FAEnforcementDao } from '../apis/settings/settingsDao.js';
 import { AuthenticationError } from '../utils/appErrors.js';
 import { logger } from '../utils/logger.js';
 
 /**
- * Middleware to enforce 2FA setup if global enforcement is enabled.
+ * Middleware to enforce 2FA setup if company-level enforcement is enabled.
  * Exempts 2FA setup/confirm routes to allow users to enable 2FA.
  * Blocks ALL other activities until user enables 2FA.
  */
@@ -23,18 +23,17 @@ export const enforce2FAMiddleware = async (req, res, next) => {
       return next();
     }
 
-    // Fetch the global 2FA enforcement setting (correct key: 'two_factor_enforcement')
-    const setting = await getSettingDao('two_factor_enforcement');
-    const isEnforced = setting?.enabled || false;
+    // Fetch the company-level 2FA enforcement setting
+    const isEnforced = await get2FAEnforcementDao(req.user.company_id);
 
-    // If global 2FA enforcement is enabled, check if user has 2FA enabled
+    // If company 2FA enforcement is enabled, check if user has 2FA enabled
     if (isEnforced) {
       const { is_two_factor_enabled } = req.user;
       
       if (!is_two_factor_enabled) {
-        logger.warn(`User ${req.user.user_name} (ID: ${req.user.user_id}) blocked: Global 2FA enforcement is active and user has not enabled 2FA.`);
+        logger.warn(`User ${req.user.user_name} (ID: ${req.user.user_id}) blocked: Company 2FA enforcement is active and user has not enabled 2FA.`);
         throw new AuthenticationError(
-          'Global 2FA enforcement is active. You must enable Two-Factor Authentication to access this resource. Please set up 2FA from your account settings.'
+          'Company 2FA enforcement is active. You must enable Two-Factor Authentication to access this resource. Please set up 2FA from your account settings.'
         );
       }
     }
