@@ -43,6 +43,8 @@ export const Method = {
   CPS: 'CPS',
   RUNSAFE_PAY: 'runsafe',
   PAYINFINTECH: 'PAYINFINTECH',
+  PENNYPAY: 'PENNYPAY',
+  TRUSTPAY: 'TRUSTPAY',
 };
 
 export const Type = {
@@ -137,10 +139,12 @@ export const columns = {
     'last_logout',
     'config',
     'is_two_factor_enabled',
+    'is_two_factor_required',
     'created_by',
     'updated_by',
     'created_at',
     'updated_at',
+    // 'unique_admin_id', // REMOVED: Should not be exposed in any API
   ],
   ROLE: ['id', 'role', 'created_at', 'updated_at'],
   COMPANY: ['id', 'first_name', 'last_name', 'email', 'contact_no', 'config'],
@@ -379,7 +383,9 @@ export const merchantColumns = {
     'user_name',
     'is_enabled',
     'is_two_factor_enabled',
+    'is_two_factor_required',
     'code',
+    // 'unique_admin_id', // REMOVED: Should not be exposed in any API
   ],
   SETTLEMENT: [
     'id',
@@ -482,7 +488,9 @@ export const vendorColumns = {
     'user_name',
     'code',
     'is_two_factor_enabled',
+    'is_two_factor_required',
     'created_at', //-- need bank details within date range
+    // 'unique_admin_id', // REMOVED: Should not be exposed in any API
   ],
   SETTLEMENT: [
     'id',

@@ -8,9 +8,11 @@ import {
   updateUser,
   getUsersBySearch,
   sendMail,
+  toggleUser2FA,
+  resetUser2FA,
 } from './userController.js';
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
-import { AccessRoles } from '../../constants/index.js';
+import { AccessRoles, Role } from '../../constants/index.js';
 
 const router = express.Router();
 
@@ -313,6 +315,29 @@ router.post(
   '/send-mail',
   [isAuthenticated, authorized(AccessRoles.USER)],
   tryCatchHandler(sendMail),
+);
+
+/**
+ * PATCH /users/:id/2fa
+ * Allows Admin/Super Admin to set 2FA requirement for a specific user.
+ * This sets is_two_factor_required flag (not is_two_factor_enabled).
+ * The user must complete actual 2FA setup (scan QR + verify OTP) themselves.
+ */
+router.patch(
+  '/:id/2fa',
+  [isAuthenticated, authorized([Role.ADMIN, Role.SUPER_ADMIN])],
+  tryCatchHandler(toggleUser2FA),
+);
+
+/**
+ * POST /users/:id/2fa/reset
+ * Allows any authenticated user with proper designation to reset 2FA for a specific user.
+ * Available for: ADMIN, TRANSACTIONS, SUB_MERCHANT, VENDOR_ADMIN, SUB_VENDOR, ADMIN_OPERATIONS and all other roles.
+ */
+router.post(
+  '/:id/2fa/reset',
+  [isAuthenticated, authorized(AccessRoles.ALL)],
+  tryCatchHandler(resetUser2FA),
 );
 
 export default router;

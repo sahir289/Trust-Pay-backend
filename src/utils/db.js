@@ -107,12 +107,26 @@ export const createPool = (connectionString, name) => {
     maxUses: parsePositiveInt(process.env.DB_POOL_MAX_USES, 1000),
   });
 
+  // Apply statement_timeout to reader connections so a single slow analytical
+  // query (e.g. deep OFFSET pagination) cannot monopolize a reader connection
+  // and exhaust the reader pool. Writers are left untouched to avoid killing
+  // legitimate long write transactions. Override via DB_READER_STATEMENT_TIMEOUT_MS.
+  const readerStatementTimeoutMs = parsePositiveInt(
+    process.env.DB_READER_STATEMENT_TIMEOUT_MS,
+    10000,
+  );
+
   pool.on('connect', async (client) => {
     try {
       await client.query("SET TIME ZONE 'Asia/Kolkata'");
+      if (!isWriter) {
+        await client.query(
+          `SET statement_timeout = ${readerStatementTimeoutMs}`,
+        );
+      }
     } catch (err) {
-      logger.error(`Failed to set timezone for ${name}:`, err);
-      throw err; // Reject the connection if timezone can't be set
+      logger.error(`Failed to initialize session for ${name}:`, err);
+      throw err; // Reject the connection if initialization fails
     }
   });
 

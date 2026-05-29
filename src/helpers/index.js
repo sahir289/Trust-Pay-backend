@@ -148,7 +148,7 @@ export const getImageContentFromOCr = async (image) => {
     const data = res.data?.data || {};
 
     return {
-      amount: data?.amount?.replace(',', ''),
+      amount: String(data?.amount || '').replace(/,/g, ''),
       utr: data?.transaction_id,
       bankName: data?.bank_name,
       timeStamp: data?.timestamp,
@@ -204,7 +204,7 @@ export async function streamToBuffer(stream) {
 //     return {};
 //   }
 
-export const filterResponse = (data, keys) => {
+export const filterResponse = (data, keys, options = { stripSensitive: true }) => {
   try {
     if (Array.isArray(data)) {
       logger.log('Data is an array');
@@ -213,11 +213,22 @@ export const filterResponse = (data, keys) => {
         const filteredItem = {};
         keys.forEach((key) => {
           if (Object.prototype.hasOwnProperty.call(item, key)) {
-            filteredItem[key] = item[key];
-          } 
-          // else {
-          //   logger.error(item, key, 'Key not found in object');
-          // }
+            let value = item[key];
+            // Strip sensitive unique_admin_id from config objects if enabled
+            if (
+              options.stripSensitive &&
+              (key === 'config' || key === 'company_config') &&
+              value &&
+              typeof value === 'object'
+            ) {
+              const newValue = { ...value };
+              delete newValue.unique_admin_id;
+              value = newValue;
+            }
+            filteredItem[key] = value;
+          } else {
+            logger.error(item, key, 'Key not found in object');
+          }
         });
         return filteredItem;
       });
@@ -225,11 +236,22 @@ export const filterResponse = (data, keys) => {
       const filteredItem = {};
       keys.forEach((key) => {
         if (Object.prototype.hasOwnProperty.call(data, key)) {
-          filteredItem[key] = data[key];
-        } 
-        // else {
-        //   logger.warn('Key not found in object');
-        // }
+          let value = data[key];
+          // Strip sensitive unique_admin_id from config objects if enabled
+          if (
+            options.stripSensitive &&
+            (key === 'config' || key === 'company_config') &&
+            value &&
+            typeof value === 'object'
+          ) {
+            const newValue = { ...value };
+            delete newValue.unique_admin_id;
+            value = newValue;
+          }
+          filteredItem[key] = value;
+        } else {
+          logger.warn('Key not found in object');
+        }
       });
       return filteredItem;
     } else {

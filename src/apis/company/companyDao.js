@@ -59,6 +59,10 @@ const getCompanyDetailsByIdDao = async (id, conn = null) => {
       config ->> 'allow_payeasy02' AS payeasy02_intent,
       config ->> 'allow_payeasy03' AS payeasy03_intent,
       config ->> 'allow_albecollect' AS albecollect_intent,
+      config ->> 'allow_pennypay' AS pennypay_intent,
+      config ->> 'allow_trustpay' AS trustpay_intent,
+      config ->> 'allow_payout_trustpay' AS allowtrustpay,
+      config ->> 'allow_payout_pennypay' AS allowpennypay,
       config ->> 'allowPayInFintech' AS allowPayInFintech
       FROM "${tableName.COMPANY}" WHERE 1 = 1`;
     const [sql, queryParams] = buildSelectQuery(baseQuery, id);
@@ -167,6 +171,8 @@ const getCashfreeAllowByCompanyIdDao = async (id, conn = null) => {
         COALESCE((config ->> 'allow_payeasy')::boolean, false) AS allow_payeasy,
         COALESCE((config ->> 'allow_payeasy02')::boolean, false) AS allow_payeasy02,
         COALESCE((config ->> 'allow_payeasy03')::boolean, false) AS allow_payeasy03,
+        COALESCE((config ->> 'allow_pennypay')::boolean, false) AS allow_pennypay,
+        COALESCE((config ->> 'allow_trustpay')::boolean, false) AS allow_trustpay,
         COALESCE((config ->> 'allow_paytm')::boolean, false) AS is_paytm_enabled
       FROM "${tableName.COMPANY}"
       WHERE id = $1

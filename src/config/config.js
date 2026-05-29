@@ -218,6 +218,16 @@ function config(Env) {
       mid: Env?.ALBE_COLLECT_MID,
       secretKey: Env?.ALBE_COLLECT_SECRET_KEY,
     },
+    pennyPay: {
+      payoutUrl: Env?.PENNY_PAY_PAYOUT_URL,
+      payinUrl: Env?.PENNY_PAY_PAYIN_URL,
+      walletBalanceUrl: Env?.PENNY_PAY_WALLET_BALANCE_URL,
+    },
+    trustPay: {
+      payoutUrl: Env?.TRUST_PAY_PAYOUT_URL,
+      payinUrl: Env?.TRUST_PAY_PAYIN_URL,
+      walletBalanceUrl: Env?.TRUST_PAY_WALLET_BALANCE_URL,
+    },
     controllerCacheTtls: {
       auth: {
         session: parsePositiveInt(Env?.AUTH_SESSION_CACHE_TTL_SEC, 30),

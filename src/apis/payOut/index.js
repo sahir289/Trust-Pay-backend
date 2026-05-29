@@ -42,9 +42,11 @@ import { vertexPayTransactionStatusCallback } from '../../callBacksAndWebHook/ca
 import { runsafeTransactionStatusCallback } from "../../callBacksAndWebHook/callBacks/runsafeWebHook.js"
 import { getRunsafePayWalletBalance } from '../../runsafe/runsafepay.js';
 import { payInFintechTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/payInFintechWebHook.js';
+import { pennypaySuccessCallback } from '../../callBacksAndWebHook/callBacks/pennypayWenHook.js';
 import {
   getPayInFintechWalletBalance,
 } from '../../payinfintech/payinfintech.js';
+import { getWalletBalance } from '../../pennypay/pennypay.js';
 const router = express.Router();
 
 /**
@@ -121,16 +123,23 @@ router.get(
   tryCatchHandler(getPayoutsBySearch),
 );
 router.get(
+  '/balance',
+  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  tryCatchHandler(getWalletBalance),
+);
+router.get(
   '/reports',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(getPayouts),
 );
-
 router.post(
   '/payinfintech-callback',
   tryCatchHandler(payInFintechTransactionStatusCallback),
 );
-
+router.post(
+  '/callback',
+  tryCatchHandler(pennypaySuccessCallback),
+);
 router.get(
   '/:id',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
