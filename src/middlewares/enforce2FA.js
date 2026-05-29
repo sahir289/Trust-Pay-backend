@@ -11,13 +11,18 @@ export const enforce2FAMiddleware = async (req, res, next) => {
   try {
     // Exempt routes that are part of the 2FA setup process and essential auth routes
     const EXEMPT_PATHS = [
-      '/v1/auth/2fa/setup',
-      '/v1/auth/2fa/confirm',
-      '/v1/auth/2fa/verify',
+      '/v1/2fa/setup',                       // actual 2FA setup endpoint
+      '/v1/2fa/confirm',                     // actual 2FA confirm endpoint
+      '/v1/2fa/disable',                     // allow disabling 2FA
+      '/v1/auth/2fa/verify',                 // 2FA login verification
+      '/v1/auth/verify-2fa',                 // alternative 2FA login verification
       '/v1/users/',                          // needed for profile fetch on load
       '/v1/system-settings/2fa-enforcement', // needed for frontend to check enforcement status
       '/v1/auth/logout',                     // allow logout
     ];
+
+    // Temporary debug log to identify blocked paths
+    console.log('[enforce2FA] checking:', req.originalUrl);
 
     // Check if current path is exempt
     const isExempt = EXEMPT_PATHS.some(path => req.originalUrl.includes(path));
