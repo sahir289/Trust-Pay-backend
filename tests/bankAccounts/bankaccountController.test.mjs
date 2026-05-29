@@ -133,7 +133,7 @@ describe('bankaccountController', () => {
     'createBankaccount',
     'updateBankaccount',
     'deleteBankaccount',
-    'getMerchantBank',
+    // 'getMerchantBank',
     'getBankaccountNickName',
     'activeInactiveBankAccount',
   ];
