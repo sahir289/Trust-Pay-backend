@@ -1,7 +1,6 @@
-import { createRequire } from 'module';
-const require = createRequire(import.meta.url);
-const pkg = require('./package.json');
 
-export const getVersion = (req, res) => {
+export const getVersion = async (req, res) => {
+  // Use dynamic import for ESM compatibility
+  const pkg = (await import('./package.json')).default;
   res.json({ version: pkg.version });
 };

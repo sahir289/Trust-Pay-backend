@@ -10,7 +10,7 @@ export default {
     "^.+\\.js$": ["babel-jest", { presets: ["@babel/preset-env"] }],
   },
   transformIgnorePatterns: [
-    "/node_modules/(?!(chalk|ansi-styles|supports-color|kleur|strip-ansi|ansi-regex|otplib|@scure/base|qrcode|@noble/hashes|@noble/curves|@noble/ed25519|@noble/secp256k1)/)"
+    "/node_modules/(?!(chalk|ansi-styles|supports-color|kleur|strip-ansi|ansi-regex|otplib|@scure/base|qrcode|@noble/hashes|@noble/curves|@noble/ed25519|@noble/secp256k1|nanoid)/)"
   ],
   moduleNameMapper: {},
   forceExit: true,

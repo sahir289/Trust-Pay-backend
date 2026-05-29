@@ -40,7 +40,9 @@ parentRouter.use('/v1', router);
 
 // Apply authorization middleware for specific routes
 router.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs));
-router.get('/version', getVersion);
+router.get('/version', async (req, res) => {
+	await getVersion(req, res);
+});
 router.use(globalRateLimitMiddleware);
 router.use('/payIn', payIn);
 router.use('/users', users);
