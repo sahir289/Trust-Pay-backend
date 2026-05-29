@@ -4,6 +4,7 @@ import {
   // AccessDeniedError,
   AuthenticationError,
   DbError,
+  ForbiddenError,
   InternalServerError,
 } from '../utils/appErrors.js';
 import { verifyToken } from '../utils/auth.js';
@@ -138,9 +139,10 @@ const isAuthenticated = async (req, res, next) => {
   } catch (error) {
     logger.error('Error in authentication middleware:', error);
     // Ensure all errors are passed to next() to prevent unhandled rejections
-    return next(error instanceof AuthenticationError || error instanceof InternalServerError 
-      ? error 
-      : new AuthenticationError(error.message));
+    if (error instanceof AuthenticationError || error instanceof InternalServerError || error instanceof ForbiddenError) {
+      return next(error);
+    }
+    return next(new AuthenticationError(error.message));
   }
 };
 
@@ -162,7 +164,10 @@ const authorized =
       next();
     } catch (error) {
       logger.error('Error in authorization middleware:', error);
-      next(new InternalServerError(error.message));
+      if (error instanceof AuthenticationError || error instanceof InternalServerError) {
+        return next(error);
+      }
+      return next(new InternalServerError(error.message));
     }
   };
 

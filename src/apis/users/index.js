@@ -175,7 +175,7 @@ router.get(
  */
 router.get(
   '/:id',
-  [isAuthenticated, authorized(AccessRoles.USER)],
+  [isAuthenticated, authorized(AccessRoles.ALL)],
   tryCatchHandler(getUserById),
 );
 

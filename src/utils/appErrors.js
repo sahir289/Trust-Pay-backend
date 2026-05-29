@@ -50,6 +50,14 @@ class AccessDeniedError extends HTTPClientError {
   }
 }
 
+class ForbiddenError extends HTTPClientError {
+  statusCode = 403;
+
+  constructor(message = 'Forbidden') {
+    super(message);
+  }
+}
+
 class NotFoundError extends HTTPClientError {
   statusCode = 404;
 
@@ -128,6 +136,7 @@ export {
   BadRequestError,
   AuthenticationError,
   AccessDeniedError,
+  ForbiddenError,
   NotFoundError,
   DuplicateDataError,
   DbError,
