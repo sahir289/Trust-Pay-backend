@@ -59,7 +59,7 @@ const getLoginDao = async (user_id, company_id, conn = null) => {
 const getSessionByIdDao = async (decodeToken, conn = null) => {
   try {
     let query = `
-      SELECT a.session_id, a.config, u.is_two_factor_enabled, u.user_name
+      SELECT a.session_id, a.config, u.is_two_factor_enabled, u.is_two_factor_exempt, u.user_name
       FROM "${tableName.ACCESS_TOKEN}" a
       JOIN "${tableName.USER}" u ON a.user_id = u.id
       WHERE a.user_id = $1 AND a.company_id = $2 AND a.is_obsolete = false AND u.is_obsolete = false

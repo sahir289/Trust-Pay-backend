@@ -31,7 +31,8 @@ export const enforce2FAMiddleware = async (req, res, next) => {
     const enforcementActive = await get2FAEnforcementDao(req.user.company_id);
 
     // If company 2FA enforcement is enabled, check if user has 2FA enabled
-    if (enforcementActive && !req.user.is_two_factor_enabled) {
+    // Skip enforcement if user is explicitly exempt
+    if (enforcementActive && !req.user.is_two_factor_enabled && !req.user.is_two_factor_exempt) {
       logger.warn(`User ${req.user.user_name} (ID: ${req.user.user_id}) blocked: Company 2FA enforcement is active and user has not enabled 2FA.`);
       throw new AuthenticationError(
         'Company 2FA enforcement is active. You must enable Two-Factor Authentication to access this resource. Please set up 2FA from your account settings.'

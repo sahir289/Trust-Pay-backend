@@ -80,6 +80,7 @@ const loginController = async (req, res) => {
     sessionId: data.sessionId,
     user: data.user,
     two_factor_enforcement: data.two_factor_enforcement,
+    must_setup_2fa: data.must_setup_2fa || false,
   };
   return sendSuccess(res, token, 'login successfully');
 };
@@ -204,6 +205,7 @@ const verifyLoginOtpController = async (req, res) => {
     sessionId: data.sessionId,
     user: data.user,
     two_factor_enforcement: data.two_factor_enforcement,
+    must_setup_2fa: data.must_setup_2fa || false,
   };
   return sendSuccess(res, token, 'login successfully');
 };
