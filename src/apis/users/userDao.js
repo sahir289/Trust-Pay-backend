@@ -214,6 +214,7 @@ const getUsersBySearchDao = async (
         "User".is_enabled,
         "User".is_two_factor_enabled,
         "User".is_two_factor_required,
+        "User".is_two_factor_exempt,
         "User".last_login,
         "User".last_logout,
         "User".config,
@@ -245,6 +246,7 @@ const getUsersBySearchDao = async (
         "User".is_enabled,
         "User".is_two_factor_enabled,
         "User".is_two_factor_required,
+        "User".is_two_factor_exempt,
         "User".last_login,
         "User".last_logout,
         "User".config,
@@ -362,6 +364,7 @@ const getUserByIdDao = async (ids, conn = null) => {
         u.config, 
         u.is_two_factor_enabled,
         u.is_two_factor_required,
+        u.is_two_factor_exempt,
         u.created_by, 
         u.updated_by, 
         u.created_at, 
@@ -455,6 +458,7 @@ const getUsersByUserNameDao = async (ids, username, conn = null) => {
         u.updated_at, 
         u.is_two_factor_enabled,
         u.is_two_factor_required,
+        u.is_two_factor_exempt,
         u.two_factor_secret,
         r.role, 
         d.designation,
@@ -649,6 +653,28 @@ const updateUser2FAStatusDao = async (userId, status, conn = null) => {
 };
 
 /**
+ * Updates the 2FA exemption status for a user.
+ * When exempt = true, user bypasses global 2FA enforcement.
+ */
+const updateUser2FAExemptionDao = async (userId, exempt, conn = null) => {
+  try {
+    const sql = `
+      UPDATE public."User"
+      SET is_two_factor_exempt = $1,
+          updated_at = NOW()
+      WHERE id = $2
+        AND is_obsolete = false
+      RETURNING id, user_name, is_two_factor_exempt
+    `;
+    const result = await executeQuery(sql, [exempt, userId], conn);
+    return result.rows[0] || null;
+  } catch (error) {
+    logger.error('Error in updateUser2FAExemptionDao:', error);
+    throw error;
+  }
+};
+
+/**
  * Returns only the fields needed for the 2FA second-step verification.
  */
 const getTwoFactorByUsernameDao = async (username, conn = null) => {
@@ -746,6 +772,7 @@ export {
   getAllUsersDao,
   updateUserByIDDao,
   updateUser2FAStatusDao,
+  updateUser2FAExemptionDao,
   getUserDao,
   getUsersForCronDao,
   getAdminUserIdsDao,

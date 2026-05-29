@@ -156,9 +156,13 @@ const loginService = async (
     // Get the company-level 2FA enforcement setting
     const isTwoFactorEnforced = await get2FAEnforcementDao(user.company_id);
 
+    // Compute must_setup_2fa: user must set up 2FA if enforcement is active,
+    // they don't have 2FA enabled, and they are not exempt
+    const must_setup_2fa = isTwoFactorEnforced && !user.is_two_factor_enabled && !user.is_two_factor_exempt;
+
     // If company 2FA enforcement is active and user doesn't have 2FA enabled,
     // allow login but return a special flag indicating they must set up 2FA
-    if (isTwoFactorEnforced && !user.is_two_factor_enabled && !isLoginSecondFlag) {
+    if (must_setup_2fa && !isLoginSecondFlag) {
       // Create a limited session that only allows access to 2FA setup endpoints
       const sessionId = generateUUID();
       const tokenInfo = generateUserToken(user, sessionId);
@@ -191,7 +195,8 @@ const loginService = async (
         }),
         { 
           session_id: sessionId,
-          is_two_factor_enabled: false
+          is_two_factor_enabled: false,
+          is_two_factor_exempt: user.is_two_factor_exempt
         },
         AUTH_SESSION_CACHE_TTL_SEC,
         'Auth session cache',
@@ -208,7 +213,7 @@ const loginService = async (
           columns.USER,
           { stripSensitive: true },
         ),
-        two_factor_enforcement: true,
+        two_factor_enforcement: isTwoFactorEnforced,
         must_setup_2fa: true, // Flag to indicate user MUST set up 2FA before accessing any other resources
       };
     }
@@ -282,7 +287,8 @@ const loginService = async (
       }),
       { 
         session_id: sessionId,
-        is_two_factor_enabled: user.is_two_factor_enabled
+        is_two_factor_enabled: user.is_two_factor_enabled,
+        is_two_factor_exempt: user.is_two_factor_exempt
       },
       AUTH_SESSION_CACHE_TTL_SEC,
       'Auth session cache',
@@ -302,6 +308,7 @@ const loginService = async (
         { stripSensitive: true },
       ),
       two_factor_enforcement: isTwoFactorEnforced,
+      must_setup_2fa: false, // User either has 2FA enabled or is exempt
     };
   } catch (error) {
     if (conn && !committed) await rollback(conn);
@@ -542,7 +549,8 @@ const _createLoginSession = async (user, config, clientIP) => {
       }),
       { 
         session_id: sessionId,
-        is_two_factor_enabled: user.is_two_factor_enabled
+        is_two_factor_enabled: user.is_two_factor_enabled,
+        is_two_factor_exempt: user.is_two_factor_exempt
       },
       AUTH_SESSION_CACHE_TTL_SEC,
       'Auth session cache',
@@ -552,6 +560,9 @@ const _createLoginSession = async (user, config, clientIP) => {
 
     // Get the company-level 2FA enforcement setting
     const isTwoFactorEnforced = await get2FAEnforcementDao(user.company_id);
+
+    // Compute must_setup_2fa for consistency
+    const must_setup_2fa = isTwoFactorEnforced && !user.is_two_factor_enabled && !user.is_two_factor_exempt;
 
     return {
       tokenInfo,
@@ -563,6 +574,7 @@ const _createLoginSession = async (user, config, clientIP) => {
         { stripSensitive: true },
       ),
       two_factor_enforcement: isTwoFactorEnforced,
+      must_setup_2fa,
     };
   } catch (error) {
     if (conn && !committed) await rollback(conn);

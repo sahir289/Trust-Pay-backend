@@ -9,6 +9,7 @@ import {
   getUsersBySearch,
   sendMail,
   toggleUser2FA,
+  toggleUser2FAExemption,
   resetUser2FA,
 } from './userController.js';
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
@@ -338,6 +339,18 @@ router.post(
   '/:id/2fa/reset',
   [isAuthenticated, authorized(AccessRoles.ALL)],
   tryCatchHandler(resetUser2FA),
+);
+
+/**
+ * PATCH /users/:id/2fa-exemption
+ * Allows Admin/Super Admin to toggle 2FA enforcement exemption for a specific user.
+ * When exempt = true, user bypasses global 2FA enforcement even if company-level enforcement is enabled.
+ * Body: { exempt: boolean }
+ */
+router.patch(
+  '/:id/2fa-exemption',
+  [isAuthenticated, authorized([Role.ADMIN, Role.SUPER_ADMIN])],
+  tryCatchHandler(toggleUser2FAExemption),
 );
 
 export default router;

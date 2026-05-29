@@ -127,6 +127,8 @@ export const columns = {
     'id',
     'role_id',
     'designation_id',
+    'role',
+    'designation',
     'first_name',
     'last_name',
     'email',
@@ -140,6 +142,7 @@ export const columns = {
     'config',
     'is_two_factor_enabled',
     'is_two_factor_required',
+    'is_two_factor_exempt',
     'created_by',
     'updated_by',
     'created_at',
@@ -384,6 +387,7 @@ export const merchantColumns = {
     'is_enabled',
     'is_two_factor_enabled',
     'is_two_factor_required',
+    'is_two_factor_exempt',
     'code',
     // 'unique_admin_id', // REMOVED: Should not be exposed in any API
   ],
@@ -489,6 +493,7 @@ export const vendorColumns = {
     'code',
     'is_two_factor_enabled',
     'is_two_factor_required',
+    'is_two_factor_exempt',
     'created_at', //-- need bank details within date range
     // 'unique_admin_id', // REMOVED: Should not be exposed in any API
   ],
