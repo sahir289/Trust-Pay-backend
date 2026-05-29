@@ -69,8 +69,10 @@ if (singleWithdrawData.status === Status.APPROVED && pennyPayStatus !== 'REVERSE
       Object.assign(updatePayload, {
         status: Status.REJECTED,
         rejected_at: new Date().toISOString(),
+        config: {...singleWithdrawData.config,
+         rejected_reason:'Transaction Rejected by Provider'
+        }
       });
-      updatePayload.config.rejected_reason = payload?.message || 'Transaction Rejected by Bank';
     } 
     else if (pennyPayStatus === 'REVERSED') {
       Object.assign(updatePayload, {
