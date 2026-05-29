@@ -6,7 +6,6 @@ import { Role } from '../constants/index.js';
 /**
  * Middleware to enforce 2FA setup if company-level enforcement is enabled.
  * Exempts 2FA setup/confirm routes to allow users to enable 2FA.
- * Exempts specific roles from 2FA enforcement (e.g., SUPER_ADMIN, BOT).
  * Blocks ALL other activities until user enables 2FA.
  */
 export const enforce2FAMiddleware = async (req, res, next) => {
