@@ -900,6 +900,9 @@ const _updatePayoutServiceInternal = async (
     if(singleWithdrawData.status === Status.APPROVED && payload.status !== Status.REVERSED ){
       throw new BadRequestError('Payout Already Approved');
     }
+    if(singleWithdrawData.status !== Status.INITIATED && payload.vendor_id === null ){
+      throw new BadRequestError('Payout Already Processed, cannot update vendor');
+    }
 
     const previousStatus = singleWithdrawData.status;
     let earlyReturnResult = null;
@@ -1681,6 +1684,12 @@ const _markPayoutPendingForUtrSlipMismatchInternal = async (
     const singleWithdrawData = singleWithdrawDataArr[0];
     if (!singleWithdrawData) {
       throw new NotFoundError('Payout not found!');
+    }
+    if(singleWithdrawData.status === Status.APPROVED){
+      throw new BadRequestError('Payout Already Approved');
+    }
+    if(singleWithdrawData.status !== Status.INITIATED && payload.vendor_id === null ){
+      throw new BadRequestError('Payout Already Processed, cannot update vendor');
     }
     const bankAccId = payload.bank_acc_id || singleWithdrawData.bank_acc_id;
     const reason = 'UTR does not match with slip UTR';
