@@ -55,9 +55,7 @@ const isAuthenticated = async (req, res, next) => {
       'Auth session cache',
     );
 
-    // Validate session ID and ensure the cache entry contains the is_two_factor_exempt field.
-    // If the field is missing (undefined), the cache is stale and requires a fresh DB lookup.
-    if (cachedSession?.session_id === decoded.session_id && cachedSession.is_two_factor_exempt !== undefined) {
+    if (cachedSession?.session_id === decoded.session_id) {
       applyAuthenticatedSession(
         req, 
         decoded, 

@@ -16,7 +16,7 @@ import { CREATE_USER_SCHEMA } from '../../schemas/userSchema.js';
 import { logger } from '../../utils/logger.js';
 import { getUsersContactDao } from './userDao.js';
 import { generateCacheKey } from '../../utils/redishashkey.js';
-import redisClient from '../../utils/redisClient.js';
+
 import {
   normalizeQueryForCache,
   readJsonCache,
@@ -249,23 +249,7 @@ const toggleUser2FAExemption = async (req, res) => {
   // Invalidate user cache to ensure fresh data on next request
   await invalidateUsersCache(company_id);
 
-  // After DB update, before sending response:
-  const userId = id;
-  try {
-    const pattern = `auth:session:*:${userId}:*`;
-    const keys = await redisClient.keys(pattern);
-    
-    console.log(`[2FA-EXEMPTION] Invalidating sessions for user ${userId}, found keys:`, keys);
-    
-    if (keys.length > 0) {
-      await redisClient.del(keys);
-      console.log(`[2FA-EXEMPTION] Deleted ${keys.length} session cache keys`);
-    } else {
-      console.log(`[2FA-EXEMPTION] WARNING: No session keys found for pattern: ${pattern}`);
-    }
-  } catch (err) {
-    console.error('[2FA-EXEMPTION] Cache invalidation failed:', err);
-  }
+
 
   return sendSuccess(
     res, 
