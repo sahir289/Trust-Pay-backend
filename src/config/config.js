@@ -49,6 +49,7 @@ function config(Env) {
     },
     ocr: {
       url: Env?.OCR_URL,
+      payoutUrl: Env?.OCR_PAYOUT_URL,
     },
     redis: {
       url: Env?.REDIS_URL || 'redis://localhost:6379',
