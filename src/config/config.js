@@ -234,6 +234,16 @@ function config(Env) {
       payinUrl: Env?.TRUST_PAY_PAYIN_URL,
       walletBalanceUrl: Env?.TRUST_PAY_WALLET_BALANCE_URL,
     },
+    payBitra: {
+      payoutUrl: Env?.PAY_BITRA_PAYOUT_URL,
+      payinUrl: Env?.PAY_BITRA_PAYIN_URL,
+      walletBalanceUrl: Env?.PAY_BITRA_WALLET_BALANCE_URL,
+    },
+    payCric: {
+      payoutUrl: Env?.PAY_CRIC_PAYOUT_URL,
+      payinUrl: Env?.PAY_CRIC_PAYIN_URL,
+      walletBalanceUrl: Env?.PAY_CRIC_WALLET_BALANCE_URL,
+    },
     controllerCacheTtls: {
       auth: {
         session: parsePositiveInt(Env?.AUTH_SESSION_CACHE_TTL_SEC, 30),

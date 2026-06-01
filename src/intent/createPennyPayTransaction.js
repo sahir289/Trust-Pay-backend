@@ -7,13 +7,18 @@ export const createPennyPayTransaction = async (providerKey, deposit, amount) =>
     const providerConfig = config[providerKey];
     const [company] = await getCompanyByIDDao({ id: deposit.company_id });
     let secretKey, mcode;
-    if(providerKey === 'pennyPay') {
-     secretKey = company?.config?.PENNY_PAY?.secretKey;
+    if (providerKey === 'pennyPay') {
+      secretKey = company?.config?.PENNY_PAY?.secretKey;
       mcode = company?.config?.PENNY_PAY?.code;
-    }
-    else {
+    } else if (providerKey === 'trustPay') {
       secretKey = company?.config?.TRUST_PAY?.secretKey;
       mcode = company?.config?.TRUST_PAY?.code;
+    } else if (providerKey === 'payBitra') {
+      secretKey = company?.config?.PAY_BITRA?.secretKey;
+      mcode = company?.config?.PAY_BITRA?.code;
+    } else if (providerKey === 'payCric') {
+      secretKey = company?.config?.PAY_CRIC?.secretKey;
+      mcode = company?.config?.PAY_CRIC?.code;
     }
     if (!providerConfig) throw new Error(`Invalid provider: ${providerKey}`);
     const baseUrl = providerConfig.payinUrl;
