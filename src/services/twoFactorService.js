@@ -1,9 +1,10 @@
+
 import { generateSecret, verifySync } from 'otplib';
 import { TOTP } from '@otplib/totp';
 import qrcode from 'qrcode';
 import { logger } from '../utils/logger.js';
 
-export const APP_NAME = process.env.APP_NAME || 'Application';
+const APP_NAME = 'TrustPay';
 
 /**
  * Generates a TOTP secret and a QR code data URL for the given username.
