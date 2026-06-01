@@ -45,6 +45,8 @@ export const Method = {
   PAYINFINTECH: 'PAYINFINTECH',
   PENNYPAY: 'PENNYPAY',
   TRUSTPAY: 'TRUSTPAY',
+  PAYBITRA: 'PAYBITRA',
+  PAYCRIC: 'PAYCRIC',
 };
 
 export const Type = {
