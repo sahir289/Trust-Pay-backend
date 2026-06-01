@@ -1,4 +1,5 @@
-import { generateSecret, generateURI, verifySync } from 'otplib';
+import { generateSecret, verifySync } from 'otplib';
+import { TOTP } from '@otplib/totp';
 import qrcode from 'qrcode';
 import { logger } from '../utils/logger.js';
 
@@ -13,8 +14,14 @@ const APP_NAME = 'TrustPay';
  */
 const generateSetup = async (username) => {
   try {
+    // Validate username to prevent "undefined" or "null" in QR code
+    if (!username || username === 'undefined' || username === 'null') {
+      throw new Error('Invalid username provided for 2FA setup');
+    }
+    
     const secret = generateSecret();
-    const otpAuthUrl = generateURI({ secret, account: username, issuer: APP_NAME });
+    const totp = new TOTP();
+    const otpAuthUrl = totp.toURI({ label: username, issuer: APP_NAME, secret });
     const qrCodeDataUrl = await qrcode.toDataURL(otpAuthUrl);
     return { secret, qrCodeDataUrl };
   } catch (error) {
@@ -32,8 +39,7 @@ const generateSetup = async (username) => {
  */
 const verifyTotpToken = (token, secret) => {
   try {
-    const result = verifySync({ token, secret });
-    return result ? result.valid === true : false;
+    return verifySync({ token, secret });
   } catch (error) {
     logger.error('Error verifying 2FA token:', error);
     return false;

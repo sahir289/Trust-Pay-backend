@@ -634,7 +634,13 @@ const verifyLoginOtpService = async (preAuthToken, otpToken, clientIP) => {
  */
 const setup2FAService = async (userId, userName) => {
   try {
-    const { secret, qrCodeDataUrl } = await generateSetup(userName);
+    // Ensure we have a valid account identifier for the QR code
+    // Fall back to userId if userName is undefined/null
+    const accountIdentifier = userName || `user_${userId}`;
+    // console.log('[2FA DEBUG] setup2FAService | userId:', userId, '| userName:', JSON.stringify(userName));
+    // console.log('[2FA DEBUG] accountIdentifier:', JSON.stringify(accountIdentifier));
+    
+    const { secret, qrCodeDataUrl } = await generateSetup(accountIdentifier);
     await saveTwoFactorSecretDao(userId, secret);
     return { qrCodeDataUrl, secret };
   } catch (error) {
