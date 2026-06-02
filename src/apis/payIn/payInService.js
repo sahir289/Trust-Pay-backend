@@ -1080,6 +1080,14 @@ export const payInIntentGenerateOrderService = async (
         const order = await createPennyPayTransaction('trustPay', payIn, amount);
         return order?.url;
       },
+      payBitra: async () => {
+        const order = await createPennyPayTransaction('payBitra', payIn, amount);
+        return order?.url;
+      },
+      payCric: async () => {
+        const order = await createPennyPayTransaction('payCric', payIn, amount);
+        return order?.url;
+      },
       albeCollect: async () => {
         const order = await createAlbeCollectTransaction('albeCollect', payIn, amount);
         return order?.data?.paymentLink || null;
@@ -3999,6 +4007,8 @@ const _verifyPayinsServiceInternal = async (
       'allow_tytl',
       'allow_pennypay',
       'allow_trustpay',
+      'allow_paybitra',
+      'allow_paycric',
     ]);
     const enabledBanks = banks.filter((bank) => {
       const isPayInBank = ['PayIn', 'payIn'].includes(bank.bank_used_for);
@@ -4091,15 +4101,23 @@ const _verifyPayinsServiceInternal = async (
         (selectedIntent === 'allow_pennypay' &&
           cashfreeDetails?.allow_pennypay) ||
         false,
+      allowTrustPay:
+        (selectedIntent === 'allow_trustpay' &&
+          cashfreeDetails?.allow_trustpay) ||
+        false,
+      allowPayBitra:
+        (selectedIntent === 'allow_paybitra' &&
+          cashfreeDetails?.allow_paybitra) ||
+        false,
+      allowPayCric:
+        (selectedIntent === 'allow_paycric' &&
+          cashfreeDetails?.allow_paycric) ||
+        false,
       allowCpsPay:
         (selectedIntent === 'allow_cps' && cashfreeDetails?.allow_cps) || false,
       allowTytl:
         (selectedIntent === 'allow_tytl' &&
           cashfreeDetails?.allow_tytl) ||
-        false,
-      allowTrustPay:
-        (selectedIntent === 'allow_trustpay' &&
-          cashfreeDetails?.allow_trustpay) ||
         false,
       status: payIn.status,
       min_amount: merchant[0].min_payin,

@@ -19,12 +19,23 @@ export const getWalletBalance = async (req, res) => {
       if (!secretKey || !code) {
         throw new BadRequestError('PennyPay configuration is missing for the company');
       }
-    }
-    else {
+    } else if (key === 'trustPay') {
       secretKey = company?.config?.TRUST_PAY?.secretKey;
       code = company?.config?.TRUST_PAY?.code;
       if (!secretKey || !code) {
         throw new BadRequestError('TrustPay configuration is missing for the company');
+      }
+    } else if (key === 'payBitra') {
+      secretKey = company?.config?.PAY_BITRA?.secretKey;
+      code = company?.config?.PAY_BITRA?.code;
+      if (!secretKey || !code) {
+        throw new BadRequestError('PayBitra configuration is missing for the company');
+      }
+    } else if (key === 'payCric') {
+      secretKey = company?.config?.PAY_CRIC?.secretKey;
+      code = company?.config?.PAY_CRIC?.code;
+      if (!secretKey || !code) {
+        throw new BadRequestError('PayCric configuration is missing for the company');
       }
     }
     const providerConfig = config[key];
@@ -55,7 +66,7 @@ export const createPennyPayPayout = async (result ,payload ,vendor_id ,bankId, k
   try {
     const providerConfig = config[key];
     const url = providerConfig.payoutUrl;
-    if (!url) throw new BadRequestError('PENNY_PAY_PAYOUT_URL is missing in .env');
+    if (!url) throw new BadRequestError(`Payout URL is missing in .env for provider ${key}`);
     const requestBody =  {
     user: payload?.user,
     merchant_order_id: payload?.merchant_order_id,

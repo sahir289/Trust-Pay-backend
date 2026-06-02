@@ -1026,7 +1026,7 @@ const _updatePayoutServiceInternal = async (
       user_id: bankDataArr[0].user_id,
     });
     if (!vendor) {
-      throw new NotFoundError('Vendor not found for PennyPay payout');
+      throw new NotFoundError('Vendor not found for TrustPay payout');
     }
       logger.info(`Creating TrustPay payout with bankId: ${bankId}`);
        const xApiKey = company.config.TRUST_PAY.secretKey;
@@ -1044,7 +1044,78 @@ const _updatePayoutServiceInternal = async (
         'trustPay',
         xApiKey,
         code
-        
+      );
+      payload = updatedPayload;
+    }
+     else if (payload?.config?.method === Method.PAYBITRA) {
+      const method = payload.config.method;
+      logger.info(`Processing PayBitra payout for method: ${method}`);
+      const [company] = await getCompanyByIDDao({ id: ids.company_id }, conn);
+      if (!company) throw new NotFoundError('Company not found');
+      const bankId = company.config.PAY_BITRA?.defaultBankId;
+      if (!bankId)
+        throw new NotFoundError(`Default bank ID not found for ${method}`);
+      bankDataArr = await getBankByIdDao({ id: bankId });
+      if (!bankDataArr[0])
+        throw new NotFoundError(`Bank not found for ${method} payout`);
+      const [vendor] = await getVendorsDao({
+        user_id: bankDataArr[0].user_id,
+      });
+      if (!vendor) {
+        throw new NotFoundError('Vendor not found for PayBitra payout');
+      }
+      logger.info(`Creating PayBitra payout with bankId: ${bankId}`);
+      const xApiKey = company.config.PAY_BITRA?.secretKey;
+      const code = company.config.PAY_BITRA?.code;
+      if (!xApiKey || !code) {
+        throw new NotFoundError(
+          `PayBitra configuration missing for ${method} payout`,
+        );
+      }
+      const updatedPayload = await createPennyPayPayout(
+        payload,
+        singleWithdrawData,
+        vendor.id,
+        bankId,
+        'payBitra',
+        xApiKey,
+        code
+      );
+      payload = updatedPayload;
+    }
+     else if (payload?.config?.method === Method.PAYCRIC) {
+      const method = payload.config.method;
+      logger.info(`Processing PayCric payout for method: ${method}`);
+      const [company] = await getCompanyByIDDao({ id: ids.company_id }, conn);
+      if (!company) throw new NotFoundError('Company not found');
+      const bankId = company.config.PAY_CRIC?.defaultBankId;
+      if (!bankId)
+        throw new NotFoundError(`Default bank ID not found for ${method}`);
+      bankDataArr = await getBankByIdDao({ id: bankId });
+      if (!bankDataArr[0])
+        throw new NotFoundError(`Bank not found for ${method} payout`);
+      const [vendor] = await getVendorsDao({
+        user_id: bankDataArr[0].user_id,
+      });
+      if (!vendor) {
+        throw new NotFoundError('Vendor not found for PayCric payout');
+      }
+      logger.info(`Creating PayCric payout with bankId: ${bankId}`);
+      const xApiKey = company.config.PAY_CRIC?.secretKey;
+      const code = company.config.PAY_CRIC?.code;
+      if (!xApiKey || !code) {
+        throw new NotFoundError(
+          `PayCric configuration missing for ${method} payout`,
+        );
+      }
+      const updatedPayload = await createPennyPayPayout(
+        payload,
+        singleWithdrawData,
+        vendor.id,
+        bankId,
+        'payCric',
+        xApiKey,
+        code
       );
       payload = updatedPayload;
     }
