@@ -897,7 +897,7 @@ const _updatePayoutServiceInternal = async (
     if (!singleWithdrawData) {
       throw new NotFoundError('Payout not found!');
     }
-    if(singleWithdrawData.status === Status.APPROVED && payload.status !== Status.REVERSED ){
+    if(singleWithdrawData.status === Status.APPROVED && payload.status !== Status.REVERSED && !payload.utr_id){
       throw new BadRequestError('Payout Already Approved');
     }
     if(singleWithdrawData.status !== Status.INITIATED && payload.vendor_id === null ){
