@@ -94,11 +94,16 @@ export const createPennyPayPayout = async (result ,payload ,vendor_id ,bankId, k
     result.vendor_id = vendor_id;
     return result;
   } catch (error) {
-    logger.error(
-      'PennyPay payout error:',
-      error?.response?.data || error?.message || error,
-    );
-    throw error;
-  }
+  const errorMessage =
+    error?.response?.data?.error?.message ||
+    error?.response?.data?.message ||
+    error?.message ||
+    'Payout failed';
+  logger.error(`${key} payout error:`, {
+    message: errorMessage,
+    response: error?.response?.data,
+  });
+  throw new BadRequestError(errorMessage);
+}
 };
 

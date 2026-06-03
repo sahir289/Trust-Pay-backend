@@ -2,6 +2,7 @@ import axios from 'axios';
 import { logger } from '../utils/logger.js';
 import config from '../config/config.js';
 import { getCompanyByIDDao } from '../apis/company/companyDao.js';
+import { BadRequestError } from '../utils/appErrors.js';
 export const createPennyPayTransaction = async (providerKey, deposit, amount) => {
   try {
     const providerConfig = config[providerKey];
@@ -62,10 +63,15 @@ export const createPennyPayTransaction = async (providerKey, deposit, amount) =>
       url: payInUrl
     };
   } catch (error) {
-    logger.error(`Error creating ${providerKey} transaction:`, {
-      depositId: deposit?.id,
-      error: error.response?.data || error.message || error,
-    });
-    throw error;
+    const errorMessage =
+    error?.response?.data?.error?.message ||
+    error?.response?.data?.message ||
+    error?.message ||
+    'Payout failed';
+  logger.error(`${providerKey} payout error:`, {
+    message: errorMessage,
+    response: error?.response?.data,
+  });
+  throw new BadRequestError(errorMessage);
   }
 };
