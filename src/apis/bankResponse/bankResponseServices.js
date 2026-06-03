@@ -42,7 +42,6 @@ import {
   updateVendorDao,
   getVendorsBankReponseDao,
 } from '../vendors/vendorDao.js';
-import { newTableEntry } from '../../utils/sockets.js';
 import {
   columns,
   merchantColumns,
@@ -63,12 +62,12 @@ import {
   rollback,
 } from '../../utils/db.js';
 import { filterResponse } from '../../helpers/index.js';
-// import { notifyNewTableEntry } from '../../utils/sockets.js';
 import { _updateBankaccountInternal } from '../bankAccounts/bankaccountServices.js';
 import PDFParser from 'pdf2json';
 import { calculateDuration } from '../../helpers/index.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import { trackVendorsNetBalance } from '../../utils/trackVendorsNetBalance.js';
+import { emitTableEntryAsync } from '../../utils/socket/sessionUtils.js';
 // import { acquireUTRLock } from '../../utils/advisoryLock.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 
@@ -143,11 +142,6 @@ const applyBankResponseTxTimeouts = async (conn) => {
   );
 };
 
-const emitTableEntryAsync = (table, payload) => {
-  void newTableEntry(table, payload).catch((error) => {
-    logger.error(`Failed to emit socket table entry for ${table}:`, error);
-  });
-};
 
 const runPostCommitTasks = (tasks, context) => {
   if (!Array.isArray(tasks) || tasks.length === 0) {
@@ -1569,9 +1563,9 @@ const getBankResponseBySearchService = async (
   try {
     // Search/filter requests should behave like full DB scans unless caller explicitly sends dates.
     // Only the plain default listing should get the fallback date window.
-    if (shouldApplyDefaultBankResponseDateWindow(payload)) {
-      payload = applyDefaultBankResponseDateWindow(payload);
-    }
+    // if (shouldApplyDefaultBankResponseDateWindow(payload)) {
+    //   payload = applyDefaultBankResponseDateWindow(payload);
+    // }
     const filterColumns =
       role === Role.MERCHANT
         ? merchantColumns.BANK_RESPONSE
@@ -1903,7 +1897,7 @@ const _resetBankResponseServiceInternal = async (id, userData, conn = null) => {
       updated_at: new Date().toISOString(),
       company_id: company_id,
     };
-    await newTableEntry(tableName.BANK_RESPONSE, results);
+    await emitTableEntryAsync(tableName.BANK_RESPONSE, results);
     // Only emit PAYIN socket if a payin was actually updated and all required data is available
     if (typeof amount === 'number' && !isNaN(amount) && payInData?.length) {
       // Re-fetch updated payin and related data
@@ -1942,7 +1936,7 @@ const _resetBankResponseServiceInternal = async (id, userData, conn = null) => {
           amount: botRes.amount || 0,
         },
       };
-      await newTableEntry(tableName.PAYIN, obj);
+      await emitTableEntryAsync(tableName.PAYIN, obj);
     }
     return results;
   } catch (error) {

@@ -164,7 +164,7 @@ const getAllUsersDao = async (
   }
 };
 
-export const getUsersBySearchDao = async (
+const getUsersBySearchDao = async (
   filters,
   searchTerms,
   pageNumber = 1,
@@ -213,6 +213,8 @@ export const getUsersBySearchDao = async (
         "User".code,
         "User".is_enabled,
         "User".is_two_factor_enabled,
+        "User".is_two_factor_required,
+        "User".is_two_factor_exempt,
         "User".last_login,
         "User".last_logout,
         "User".config,
@@ -243,6 +245,8 @@ export const getUsersBySearchDao = async (
         "User".code,
         "User".is_enabled,
         "User".is_two_factor_enabled,
+        "User".is_two_factor_required,
+        "User".is_two_factor_exempt,
         "User".last_login,
         "User".last_logout,
         "User".config,
@@ -359,16 +363,20 @@ const getUserByIdDao = async (ids, conn = null) => {
         u.last_logout, 
         u.config, 
         u.is_two_factor_enabled,
+        u.is_two_factor_required,
+        u.is_two_factor_exempt,
         u.created_by, 
         u.updated_by, 
         u.created_at, 
         u.updated_at, 
         r.role, 
-        d.designation
+        d.designation,
+        c.config AS company_config
       FROM public."User" u
       LEFT JOIN public."Role" r ON u.role_id = r.id 
       LEFT JOIN public."Designation" d ON u.designation_id = d.id
-      WHERE u.is_obsolete = false
+      LEFT JOIN public."Company" c ON u.company_id = c.id
+      WHERE u.is_obsolete = false AND (c.is_obsolete = false OR c.id IS NULL)
     `;
 
     let queryParams = [];
@@ -449,6 +457,8 @@ const getUsersByUserNameDao = async (ids, username, conn = null) => {
         u.created_at, 
         u.updated_at, 
         u.is_two_factor_enabled,
+        u.is_two_factor_required,
+        u.is_two_factor_exempt,
         u.two_factor_secret,
         r.role, 
         d.designation,
@@ -624,20 +634,44 @@ const updateUserByIDDao = async (ids, data, conn = null) => {
   return await deleteUserDao(ids, data, conn);
 };
 
-export {
-  getUsersDao,
-  getAllUsersDao,
-  getUserByIdDao,
-  getUsersForCronDao,
-  getUsersByUserNameDao,
-  getAdminUserIdsDao,
-  getUserByCompanyCreatedAtDao,
-  getUserByRoleDao,
-  createUserDao,
-  updateUserDao,
-  getUserDao,
-  deleteUserDao,
-  updateUserByIDDao,
+const updateUser2FAStatusDao = async (userId, status, conn = null) => {
+  try {
+    const sql = `
+      UPDATE public."User"
+      SET is_two_factor_required = $1,
+          updated_at = NOW()
+      WHERE id = $2
+        AND is_obsolete = false
+      RETURNING id
+    `;
+    const result = await executeQuery(sql, [status, userId], conn);
+    return result.rows[0] || null;
+  } catch (error) {
+    logger.error('Error in updateUser2FAStatusDao:', error);
+    throw error;
+  }
+};
+
+/**
+ * Updates the 2FA exemption status for a user.
+ * When exempt = true, user bypasses global 2FA enforcement.
+ */
+const updateUser2FAExemptionDao = async (userId, exempt, conn = null) => {
+  try {
+    const sql = `
+      UPDATE public."User"
+      SET is_two_factor_exempt = $1,
+          updated_at = NOW()
+      WHERE id = $2
+        AND is_obsolete = false
+      RETURNING id, user_name, is_two_factor_exempt
+    `;
+    const result = await executeQuery(sql, [exempt, userId], conn);
+    return result.rows[0] || null;
+  } catch (error) {
+    logger.error('Error in updateUser2FAExemptionDao:', error);
+    throw error;
+  }
 };
 
 /**
@@ -729,9 +763,25 @@ const disableTwoFactorDao = async (userId, conn = null) => {
 };
 
 export {
+  createUserDao,
+  getUserByIdDao,
+  getUsersByUserNameDao,
+  getUsersDao,
+  updateUserDao,
+  getUsersBySearchDao,
+  getAllUsersDao,
+  updateUserByIDDao,
+  updateUser2FAStatusDao,
+  updateUser2FAExemptionDao,
+  getUserDao,
+  getUsersForCronDao,
+  getAdminUserIdsDao,
+  getUserByCompanyCreatedAtDao,
+  getUserByRoleDao,
   getTwoFactorByUsernameDao,
   saveTwoFactorSecretDao,
   enableTwoFactorDao,
   disableTwoFactorDao,
+  deleteUserDao,
 };
 

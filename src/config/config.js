@@ -49,6 +49,7 @@ function config(Env) {
     },
     ocr: {
       url: Env?.OCR_URL,
+      payoutUrl: Env?.OCR_PAYOUT_URL,
     },
     redis: {
       url: Env?.REDIS_URL || 'redis://localhost:6379',
@@ -217,6 +218,26 @@ function config(Env) {
       url: Env?.ALBE_COLLECT_API_URL,
       mid: Env?.ALBE_COLLECT_MID,
       secretKey: Env?.ALBE_COLLECT_SECRET_KEY,
+    },
+    pennyPay: {
+      payoutUrl: Env?.PENNY_PAY_PAYOUT_URL,
+      payinUrl: Env?.PENNY_PAY_PAYIN_URL,
+      walletBalanceUrl: Env?.PENNY_PAY_WALLET_BALANCE_URL,
+    },
+    trustPay: {
+      payoutUrl: Env?.TRUST_PAY_PAYOUT_URL,
+      payinUrl: Env?.TRUST_PAY_PAYIN_URL,
+      walletBalanceUrl: Env?.TRUST_PAY_WALLET_BALANCE_URL,
+    },
+    payBitra: {
+      payoutUrl: Env?.PAY_BITRA_PAYOUT_URL,
+      payinUrl: Env?.PAY_BITRA_PAYIN_URL,
+      walletBalanceUrl: Env?.PAY_BITRA_WALLET_BALANCE_URL,
+    },
+    payCric: {
+      payoutUrl: Env?.PAY_CRIC_PAYOUT_URL,
+      payinUrl: Env?.PAY_CRIC_PAYIN_URL,
+      walletBalanceUrl: Env?.PAY_CRIC_WALLET_BALANCE_URL,
     },
     controllerCacheTtls: {
       auth: {

@@ -8,6 +8,9 @@ import {
   userUpdateService,
   getUsersBySearchService,
   sendMailService,
+  updateUser2FAService,
+  toggleUser2FAExemptionService,
+  resetUser2FAService,
 } from './userService.js';
 import { CREATE_USER_SCHEMA } from '../../schemas/userSchema.js';
 import { logger } from '../../utils/logger.js';
@@ -202,6 +205,56 @@ const sendMail = async (req, res) => {
   );
 };
 
+const toggleUser2FA = async (req, res) => {
+  const { id } = req.params;
+  const { isTwoFactorRequired } = req.body;
+  const { company_id } = req.user;
+
+  if (typeof isTwoFactorRequired !== 'boolean') {
+    throw new BadRequestError('isTwoFactorRequired must be a boolean');
+  }
+
+  await updateUser2FAService(id, isTwoFactorRequired);
+  await invalidateUsersCache(company_id);
+
+  return sendSuccess(res, { id, isTwoFactorRequired }, 'User 2FA requirement updated successfully');
+};
+
+const resetUser2FA = async (req, res) => {
+  const { id } = req.params;
+  const { user_id: adminId, user_name: adminUsername, company_id } = req.user;
+
+  await resetUser2FAService(id, adminId, adminUsername);
+  await invalidateUsersCache(company_id);
+
+  return sendSuccess(res, {}, '2FA has been reset. User must re-enroll on next login.');
+};
+
+const toggleUser2FAExemption = async (req, res) => {
+  const { id } = req.params;
+  const { exempt } = req.body;
+  const { company_id } = req.user;
+
+  if (typeof exempt !== 'boolean') {
+    throw new BadRequestError('exempt must be a boolean');
+  }
+
+  const result = await toggleUser2FAExemptionService(id, exempt);
+  
+  if (!result) {
+    throw new BadRequestError('User not found or update failed');
+  }
+
+  // Invalidate user cache to ensure fresh data on next request
+  await invalidateUsersCache(company_id);
+
+  return sendSuccess(
+    res, 
+    { id: result.id, user_name: result.user_name, is_two_factor_exempt: result.is_two_factor_exempt }, 
+    `User 2FA exemption ${exempt ? 'granted' : 'revoked'} successfully`
+  );
+};
+
 export {
   getUsers,
   getUsersBySearch,
@@ -210,4 +263,7 @@ export {
   createUser,
   updateUser,
   sendMail,
+  toggleUser2FA,
+  toggleUser2FAExemption,
+  resetUser2FA,
 };

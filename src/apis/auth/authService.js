@@ -40,6 +40,8 @@ import {
   deleteCachedData,
   setCachedData,
 } from '../../utils/redishashkey.js';
+import { filterResponse } from '../../helpers/index.js';
+import { columns } from '../../constants/index.js';
 import {
   createUserOtpDao,
   getUserOtpDao,
@@ -55,6 +57,7 @@ import {
   createHash as createDeterministicHash,
 } from '../../utils/hashUtils.js';
 import { Role } from '../../constants/index.js';
+import { get2FAEnforcementDao } from '../settings/settingsDao.js';
 
 const assertAdminLoginAccess = (user, config) => {
   if (user.designation !== Role.ADMIN || config.newPassword) {
@@ -150,6 +153,71 @@ const loginService = async (
       return firstLoginResponse;
     }
 
+    // Get the company-level 2FA enforcement setting
+    const isTwoFactorEnforced = await get2FAEnforcementDao(user.company_id);
+
+    // Compute must_setup_2fa: user must set up 2FA if enforcement is active,
+    // they don't have 2FA enabled, and they are not exempt
+    const must_setup_2fa = isTwoFactorEnforced && !user.is_two_factor_enabled && !user.is_two_factor_exempt;
+
+    // If company 2FA enforcement is active and user doesn't have 2FA enabled,
+    // allow login but return a special flag indicating they must set up 2FA
+    if (must_setup_2fa && !isLoginSecondFlag) {
+      // Create a limited session that only allows access to 2FA setup endpoints
+      const sessionId = generateUUID();
+      const tokenInfo = generateUserToken(user, sessionId);
+      const hashedToken = createDeterministicHash(tokenInfo.refreshToken);
+      const newConfig = buildLoginSessionConfig(
+        config,
+        clientIP,
+        tokenInfo,
+        hashedToken,
+      );
+
+      conn = await getConnection();
+      await beginTransaction(conn);
+
+      await deleteUserSessionsDao(user.id, user.company_id, null, conn);
+      await addLoginDao(user.id, newConfig, user.company_id, sessionId, conn);
+
+      await commit(conn);
+      committed = true;
+
+      logger.info(
+        `Limited session created for user: ${user.id} - 2FA setup required due to company enforcement`,
+      );
+
+      await setCachedData(
+        buildAuthSessionCacheKey({
+          user_id: user.id,
+          company_id: user.company_id,
+          session_id: sessionId,
+        }),
+        { 
+          session_id: sessionId,
+          is_two_factor_enabled: false,
+          is_two_factor_exempt: user.is_two_factor_exempt
+        },
+        AUTH_SESSION_CACHE_TTL_SEC,
+        'Auth session cache',
+      );
+
+      forceLogoutUser(user.id, null, sessionId);
+
+      return {
+        tokenInfo,
+        refreshToken: tokenInfo.refreshToken,
+        sessionId,
+        user: filterResponse(
+          user,
+          columns.USER,
+          { stripSensitive: true },
+        ),
+        two_factor_enforcement: isTwoFactorEnforced,
+        must_setup_2fa: true, // Flag to indicate user MUST set up 2FA before accessing any other resources
+      };
+    }
+
     // If 2FA is enabled and this is a normal login (not a first-login password
     // change), do NOT issue a session yet. Return a short-lived pre-auth token
     // so the client can complete the second factor before getting full access.
@@ -158,7 +226,11 @@ const loginService = async (
         user_id: user.id,
         user_name: user.user_name,
       });
-      return { twoFactorRequired: true, preAuthToken };
+      return { 
+        twoFactorRequired: true, 
+        preAuthToken,
+        two_factor_enforcement: isTwoFactorEnforced
+      };
     }
 
     // Proceed with session and token generation for non-first login
@@ -213,7 +285,11 @@ const loginService = async (
         company_id: user.company_id,
         session_id: sessionId,
       }),
-      { session_id: sessionId },
+      { 
+        session_id: sessionId,
+        is_two_factor_enabled: user.is_two_factor_enabled,
+        is_two_factor_exempt: user.is_two_factor_exempt
+      },
       AUTH_SESSION_CACHE_TTL_SEC,
       'Auth session cache',
     );
@@ -224,7 +300,15 @@ const loginService = async (
 
     return {
       tokenInfo,
+      refreshToken: tokenInfo.refreshToken,
       sessionId,
+      user: filterResponse(
+        user,
+        columns.USER,
+        { stripSensitive: true },
+      ),
+      two_factor_enforcement: isTwoFactorEnforced,
+      must_setup_2fa: false, // User either has 2FA enabled or is exempt
     };
   } catch (error) {
     if (conn && !committed) await rollback(conn);
@@ -463,14 +547,35 @@ const _createLoginSession = async (user, config, clientIP) => {
         company_id: user.company_id,
         session_id: sessionId,
       }),
-      { session_id: sessionId },
+      { 
+        session_id: sessionId,
+        is_two_factor_enabled: user.is_two_factor_enabled,
+        is_two_factor_exempt: user.is_two_factor_exempt
+      },
       AUTH_SESSION_CACHE_TTL_SEC,
       'Auth session cache',
     );
 
     forceLogoutUser(user.id, null, sessionId);
 
-    return { tokenInfo, sessionId };
+    // Get the company-level 2FA enforcement setting
+    const isTwoFactorEnforced = await get2FAEnforcementDao(user.company_id);
+
+    // Compute must_setup_2fa for consistency
+    const must_setup_2fa = isTwoFactorEnforced && !user.is_two_factor_enabled && !user.is_two_factor_exempt;
+
+    return {
+      tokenInfo,
+      refreshToken: tokenInfo.refreshToken,
+      sessionId,
+      user: filterResponse(
+        user,
+        columns.USER,
+        { stripSensitive: true },
+      ),
+      two_factor_enforcement: isTwoFactorEnforced,
+      must_setup_2fa,
+    };
   } catch (error) {
     if (conn && !committed) await rollback(conn);
     throw error;
@@ -545,7 +650,7 @@ const setup2FAService = async (userId, userName) => {
 const confirm2FAService = async (userId, otpToken) => {
   try {
     const result = await executeQuery(
-      `SELECT two_factor_secret
+      `SELECT two_factor_secret, company_id
        FROM public."User"
        WHERE id = $1 AND is_obsolete = false`,
       [userId],
@@ -564,6 +669,25 @@ const confirm2FAService = async (userId, otpToken) => {
     }
 
     await enableTwoFactorDao(userId);
+    
+    // Invalidate all cached sessions for this user so the new 2FA status is reflected immediately
+    // This forces re-authentication on next request, which will cache the updated status
+    const sessions = await executeQuery(
+      `SELECT session_id FROM public."AccessToken" WHERE user_id = $1 AND is_obsolete = false`,
+      [userId]
+    );
+    
+    for (const session of sessions.rows) {
+      const cacheKey = buildAuthSessionCacheKey({
+        user_id: userId,
+        company_id: row.company_id,
+        session_id: session.session_id,
+      });
+      await deleteCachedData(cacheKey, 'Auth session cache - 2FA enabled');
+    }
+    
+    logger.info(`2FA enabled for user ${userId}, cache invalidated for all sessions`);
+    
     return true;
   } catch (error) {
     logger.error('Error in confirm2FAService:', error);
@@ -577,7 +701,7 @@ const confirm2FAService = async (userId, otpToken) => {
 const disable2FAService = async (userId, otpToken) => {
   try {
     const result = await executeQuery(
-      `SELECT is_two_factor_enabled, two_factor_secret
+      `SELECT is_two_factor_enabled, two_factor_secret, company_id
        FROM public."User"
        WHERE id = $1 AND is_obsolete = false`,
       [userId],
@@ -597,6 +721,24 @@ const disable2FAService = async (userId, otpToken) => {
     }
 
     await disableTwoFactorDao(userId);
+    
+    // Invalidate all cached sessions for this user so the new 2FA status is reflected immediately
+    const sessions = await executeQuery(
+      `SELECT session_id FROM public."AccessToken" WHERE user_id = $1 AND is_obsolete = false`,
+      [userId]
+    );
+    
+    for (const session of sessions.rows) {
+      const cacheKey = buildAuthSessionCacheKey({
+        user_id: userId,
+        company_id: row.company_id,
+        session_id: session.session_id,
+      });
+      await deleteCachedData(cacheKey, 'Auth session cache - 2FA disabled');
+    }
+    
+    logger.info(`2FA disabled for user ${userId}, cache invalidated for all sessions`);
+    
     return true;
   } catch (error) {
     logger.error('Error in disable2FAService:', error);

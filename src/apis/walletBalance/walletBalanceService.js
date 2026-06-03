@@ -1,12 +1,11 @@
 import { NotFoundError } from '../../utils/appErrors.js';
-import { getMerchantsByCodeAndApiKeyDao } from '../merchants/merchantDao.js';
+import { getMerchantsBalance } from '../merchants/merchantDao.js';
 import { getLatestNetBalanceByMerchantUserIdDao } from './walletBalanceDao.js';
 
 export const getWalletBalanceService = async ({ code, xApiKey }) => {
     try {
   // Merchant auth -> fetch merchant/user_id
-  const merchantArr = await getMerchantsByCodeAndApiKeyDao(code, xApiKey);
-  const merchant = merchantArr?.[0];
+  const merchant = await getMerchantsBalance(code, xApiKey);
 
   if (!merchant) {
     throw new NotFoundError('Invalid merchant code or API key');

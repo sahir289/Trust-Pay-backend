@@ -195,12 +195,17 @@ const logOutUser = async (userId, sessionId = null) => {
     chalk.bold.cyan(`Emitting ${eventName} for ${userId}${sessionLabel}`),
   );
 
+  const payload = {
+    userId,
+    sessionId,
+  };
+
   if (socketRuntime.ioInstance) {
-    socketRuntime.ioInstance.to(getUserRoom(userId)).emit(eventName, userId);
+    socketRuntime.ioInstance.to(getUserRoom(userId)).emit(eventName, payload);
     return;
   }
 
-  await emitOrBridgeSocketEvent(eventName, userId);
+  await emitOrBridgeSocketEvent(eventName, payload);
 };
 
 const notifyBankResponseAccessUpdate = async (

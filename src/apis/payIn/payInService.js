@@ -157,7 +157,7 @@ import { createCpsPaymentTransaction } from '../../intent/createCpsIntentTransac
 import { createtytlPaymentTransaction } from '../../intent/createtytlPayIntentTransaction.js';
 import { createPayeasyTransaction } from '../../intent/createPayeasyIntentTransaction.js';
 import { createAlbeCollectTransaction } from '../../intent/createAlbeCollectIntentTransaction.js';
-
+import { createPennyPayTransaction } from '../../intent/createPennyPayTransaction.js';
 const PAYIN_IDEMPOTENCY_INFLIGHT_TTL_SEC = Number(
   process.env.PAYIN_IDEMPOTENCY_INFLIGHT_TTL_SEC || 60,
 );
@@ -1070,6 +1070,22 @@ export const payInIntentGenerateOrderService = async (
           payIn,
           amount,
         );
+        return order?.url;
+      },
+      pennyPay: async () => {
+        const order = await createPennyPayTransaction('pennyPay', payIn, amount);
+        return order?.url;
+      },
+      trustPay: async () => {
+        const order = await createPennyPayTransaction('trustPay', payIn, amount);
+        return order?.url;
+      },
+      payBitra: async () => {
+        const order = await createPennyPayTransaction('payBitra', payIn, amount);
+        return order?.url;
+      },
+      payCric: async () => {
+        const order = await createPennyPayTransaction('payCric', payIn, amount);
         return order?.url;
       },
       albeCollect: async () => {
@@ -3989,6 +4005,10 @@ const _verifyPayinsServiceInternal = async (
       'allow_payeasy03',
       'allow_cps',
       'allow_tytl',
+      'allow_pennypay',
+      'allow_trustpay',
+      'allow_paybitra',
+      'allow_paycric',
     ]);
     const enabledBanks = banks.filter((bank) => {
       const isPayInBank = ['PayIn', 'payIn'].includes(bank.bank_used_for);
@@ -4021,7 +4041,6 @@ const _verifyPayinsServiceInternal = async (
     else {
    paytmdetails = await getCashfreeAllowByCompanyIdDao(payIn.company_id);
     }
-
     const result = {
       expiryTime: payIn.expiration_date,
       amount: payIn.amount,
@@ -4078,12 +4097,27 @@ const _verifyPayinsServiceInternal = async (
         (selectedIntent === 'allow_payeasy03' &&
           cashfreeDetails?.allow_payeasy03) ||
         false,
+      allowPennyPay:
+        (selectedIntent === 'allow_pennypay' &&
+          cashfreeDetails?.allow_pennypay) ||
+        false,
+      allowTrustPay:
+        (selectedIntent === 'allow_trustpay' &&
+          cashfreeDetails?.allow_trustpay) ||
+        false,
+      allowPayBitra:
+        (selectedIntent === 'allow_paybitra' &&
+          cashfreeDetails?.allow_paybitra) ||
+        false,
+      allowPayCric:
+        (selectedIntent === 'allow_paycric' &&
+          cashfreeDetails?.allow_paycric) ||
+        false,
       allowCpsPay:
         (selectedIntent === 'allow_cps' && cashfreeDetails?.allow_cps) || false,
       allowTytl:
         (selectedIntent === 'allow_tytl' &&
-          cashfreeDetails?.allow_payin_tytl) ||
-        cashfreeDetails?.allow_tytl ||
+          cashfreeDetails?.allow_tytl) ||
         false,
       status: payIn.status,
       min_amount: merchant[0].min_payin,
