@@ -1392,7 +1392,7 @@ export const getPayinsWithoutHistoryDao = async (
         p.merchant_order_id,
         p.user,
         p.is_notified,
-        p.config AS payin_details,
+        (p.config::jsonb - 'assigned_bank') AS payin_details,
         json_build_object(
           'merchant_code', m.code,
           'dispute', m.dispute_enabled,
@@ -1798,7 +1798,7 @@ export const getPayinsWithHistoryDao = async (
         p.merchant_order_id,
         p.user,
         p.is_notified,
-        p.config AS payin_details,
+        (p.config::jsonb - 'assigned_bank') AS payin_details,
         json_build_object(
           'merchant_code', m.code,
           'dispute', m.dispute_enabled,
