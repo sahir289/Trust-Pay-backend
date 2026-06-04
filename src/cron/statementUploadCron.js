@@ -61,12 +61,8 @@ const checkStatementUploads = async (timezone = 'Asia/Kolkata') => {
     const now = moment().tz(timezone);
     const nowISO = now.toISOString();
 
-    console.log(nowISO, 'Time');
-
     // Get all banks pending statement upload
     const pendingBanks = await getPendingStatementUploadBanksDao();
-
-    console.log('Pending Banks:', pendingBanks.length);
 
     if (pendingBanks.length === 0) {
       logger.info('[STATEMENT CRON] No pending banks found');
