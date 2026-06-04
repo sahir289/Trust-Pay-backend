@@ -367,7 +367,7 @@ const generateAndSendPendingStatementCSV = async (pendingBanks, companyId) => {
 
     const telegramChatId =
       companyConfig?.telegramStatementNotUploadNotificationChatId ||
-      process.env.TELEGRAM_STATEMENT_NOT_UPLOAD_NOTIFICATION_CHAT_ID;
+      config?.telegramStatementNotUploadNotificationChatId;
     const telegramBotToken =
       companyConfig?.telegramBotToken || config?.telegramBotToken;
 
