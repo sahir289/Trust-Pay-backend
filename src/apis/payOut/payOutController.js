@@ -38,6 +38,7 @@ import { streamToBase64 } from '../../helpers/index.js';
 import { s3 } from '../../helpers/Aws.js';
 import config from '../../config/config.js';
 import { getImageContentFromOCrForPayout } from '../../helpers/index.js';
+import { publishBulkPayoutCreate } from '../../rabbitmq/producer.js';
 // import config from '../../config/config.js';
 // import { BadRequestError } from '../../utils/appErrors.js';
 
@@ -104,91 +105,30 @@ const createPayout = async (req, res) => {
 };
 
 const createBulkPayout = async (req, res) => {
-  const payouts = req.body?.payouts;
-
-  if (!Array.isArray(payouts) || payouts.length === 0) {
-    throw new ValidationError('payouts array is required');
+  if (!req.file) {
+    throw new ValidationError('Excel file is required');
   }
 
-  const { company_id, role, user_id } = req.user;
+  const payload = {
+    fileKey: req.file.key,
+    fileUrl: req.file.location,
+    bucket: req.file.bucket,
 
-  const results = [];
-  const errors = [];
+    companyId: req.user.company_id,
+    role: req.user.role,
+    userId: req.user.user_id,
+    fileName: req.file.originalname,
+    createdBy: req.user.user_id,
+    updatedBy: req.user.user_id,
+  };
 
-  for (let i = 0; i < payouts.length; i++) {
-    try {
-      const payload = { ...payouts[i] };
-
-      const fromUI = payload.fromUi || false;
-      delete payload.fromUi;
-
-      const joiValidation = PAYOUT_DETAILS_SCHEMA.validate(payload);
-
-      if (joiValidation.error) {
-        errors.push({
-          row: i + 1,
-          error: joiValidation.error.details?.[0]?.message,
-        });
-        continue;
-      }
-
-      if (!payload.user_id && !payload.user) {
-        errors.push({
-          row: i + 1,
-          error: 'user_id is required',
-        });
-        continue;
-      }
-
-      payload.user = payload.user_id || payload.user;
-      delete payload.user_id;
-
-      payload.company_id = company_id;
-      payload.created_by = user_id;
-      payload.updated_by = user_id;
-
-      const result = await createPayoutService(
-        req.headers,
-        payload,
-        role,
-        fromUI,
-      );
-
-      if (result.status === 400 || result.status === 404) {
-        errors.push({
-          row: i + 1,
-          error: result.message,
-        });
-        continue;
-      }
-
-      results.push({
-        row: i + 1,
-        merchantOrderId: result.merchant_order_id,
-        payoutId: result.id,
-        amount: result.amount,
-      });
-    } catch (error) {
-      errors.push({
-        row: i + 1,
-        error: error.message,
-      });
-    }
-  }
-
-  await invalidatePayoutCache(company_id);
+  await publishBulkPayoutCreate(payload);
 
   return sendNewSuccess(
     res,
-    {
-      total: payouts.length,
-      successCount: results.length,
-      failedCount: errors.length,
-      success: results,
-      failed: errors,
-    },
-    'Bulk payout processed successfully',
-    201,
+    {},
+    'Bulk payout queued successfully',
+    202,
   );
 };
 

@@ -186,6 +186,7 @@ router.post(
 router.post(
   '/create-bulk-payout',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  multerUpload.single('file'),
   tryCatchHandler(createBulkPayout),
 );
 
