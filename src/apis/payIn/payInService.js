@@ -818,6 +818,12 @@ export const assignedBankToPayInUrlService = async (
       status: Status.ASSIGNED,
       bank_acc_id: selectedBankDetails.id,
       duration: duration,
+      config:{...payIn.config,
+          assigned_bank: {
+            acc_no: selectedBankDetails?.acc_no,
+            upi_id: selectedBankDetails?.upi_id,
+          },
+      }
     });
 
     const vendors = await getVendorsDao({
