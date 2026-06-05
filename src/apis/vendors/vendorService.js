@@ -463,10 +463,11 @@ const _deleteVendorServiceInternal = async (ids, updated_by, conn) => {
       const payloadBank = {
         config: {
           is_freeze: false,
-          is_intent: false,
+          is_intent: "off",
           is_phonepay: false,
           is_staticQR: false,
           isFromDeletedParent: true,
+          merchants:[]
         },
         is_qr: false,
         is_bank: false,
