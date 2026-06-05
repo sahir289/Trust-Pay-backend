@@ -2,6 +2,7 @@ import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
 import {
   createPayout,
+  createBulkPayout,
   deletePayout,
   getPayouts,
   updatePayout,
@@ -180,6 +181,12 @@ router.post(
   // [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   checkPayoutApiKey,
   tryCatchHandler(createPayout),
+);
+
+router.post(
+  '/create-bulk-payout',
+  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  tryCatchHandler(createBulkPayout),
 );
 
 router.post(

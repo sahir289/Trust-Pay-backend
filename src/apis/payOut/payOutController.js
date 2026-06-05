@@ -103,6 +103,95 @@ const createPayout = async (req, res) => {
   }
 };
 
+const createBulkPayout = async (req, res) => {
+  const payouts = req.body?.payouts;
+
+  if (!Array.isArray(payouts) || payouts.length === 0) {
+    throw new ValidationError('payouts array is required');
+  }
+
+  const { company_id, role, user_id } = req.user;
+
+  const results = [];
+  const errors = [];
+
+  for (let i = 0; i < payouts.length; i++) {
+    try {
+      const payload = { ...payouts[i] };
+
+      const fromUI = payload.fromUi || false;
+      delete payload.fromUi;
+
+      const joiValidation = PAYOUT_DETAILS_SCHEMA.validate(payload);
+
+      if (joiValidation.error) {
+        errors.push({
+          row: i + 1,
+          error: joiValidation.error.details?.[0]?.message,
+        });
+        continue;
+      }
+
+      if (!payload.user_id && !payload.user) {
+        errors.push({
+          row: i + 1,
+          error: 'user_id is required',
+        });
+        continue;
+      }
+
+      payload.user = payload.user_id || payload.user;
+      delete payload.user_id;
+
+      payload.company_id = company_id;
+      payload.created_by = user_id;
+      payload.updated_by = user_id;
+
+      const result = await createPayoutService(
+        req.headers,
+        payload,
+        role,
+        fromUI,
+      );
+
+      if (result.status === 400 || result.status === 404) {
+        errors.push({
+          row: i + 1,
+          error: result.message,
+        });
+        continue;
+      }
+
+      results.push({
+        row: i + 1,
+        merchantOrderId: result.merchant_order_id,
+        payoutId: result.id,
+        amount: result.amount,
+      });
+    } catch (error) {
+      errors.push({
+        row: i + 1,
+        error: error.message,
+      });
+    }
+  }
+
+  await invalidatePayoutCache(company_id);
+
+  return sendNewSuccess(
+    res,
+    {
+      total: payouts.length,
+      successCount: results.length,
+      failedCount: errors.length,
+      success: results,
+      failed: errors,
+    },
+    'Bulk payout processed successfully',
+    201,
+  );
+};
+
 const getPayoutsById = async (req, res) => {
   const joiValidation = VALIDATE_PAYOUT_BY_ID.validate(req.params);
   if (joiValidation.error) {
@@ -372,6 +461,7 @@ const createRupeeFlowBulkPayoutController = async (req, res) => {
 
 export {
   createPayout,
+  createBulkPayout,
   getPayoutsBySearch,
   checkPayOutStatus,
   getPayouts,
