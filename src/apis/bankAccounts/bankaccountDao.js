@@ -800,10 +800,33 @@ export const getMerchantLinkBankDao = async (filters, conn = null) => {
       config
     FROM "${tableName.BANK_ACCOUNT}"
     WHERE is_obsolete = false
-     AND (config::jsonb->'merchants') @> to_jsonb(ARRAY[$1])
-    ORDER BY created_at DESC;
   `;
-    const result = await executeQuery(query, [filters.config_merchants_contains], conn);
+
+  const params = [];
+  let index = 1;
+
+  if (filters.id) {
+    query += ` AND id = $${index}`;
+    params.push(filters.id);
+    index++;
+  }
+
+  if (filters.config_merchants_contains) {
+    query += `
+      AND (config::jsonb->'merchants')
+      @> to_jsonb(ARRAY[$${index}])
+    `;
+    params.push(filters.config_merchants_contains);
+    index++;
+  }
+
+  query += ` ORDER BY created_at DESC`;
+
+  const result = await executeQuery(
+    query,
+    params,
+    conn,
+  );
     return result.rows;
   } catch (error) {
     logger.error('Error getting bank account payin:', error.message);
