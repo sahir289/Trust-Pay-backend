@@ -1402,6 +1402,7 @@ export const getPayinsWithoutHistoryDao = async (
     } else if (role === 'VENDOR') {
       commissionSelect = `
         p.payin_vendor_commission,
+        p.config->'assigned_bank'->>'upi_id' AS upi_id,
         COALESCE((p.config->>'actual_vendor_commission')::numeric, 0) AS actual_vendor_commission,
         COALESCE((p.config->>'brokerage_commission')::numeric, 0) AS brokerage_commission,
         v.code AS vendor_code`;
@@ -1415,6 +1416,7 @@ export const getPayinsWithoutHistoryDao = async (
           'notify_url', m.config->>'notify_url'
         ) AS merchant_details,
         p.merchant_order_id,
+        p.config->'assigned_bank'->>'upi_id' AS upi_id,
         p.config AS payin_details,
         p.payin_vendor_commission,
         COALESCE((p.config->>'actual_vendor_commission')::numeric, 0) AS actual_vendor_commission,
@@ -1538,6 +1540,12 @@ export const getPayinsWithoutHistoryDao = async (
       queryParams.push(...statusArray);
       paramIndex += statusArray.length;
       delete filters.status;
+    }
+    if(filters.upi_id){
+      conditions.push(`p.config->'assigned_bank'->>'upi_id' = $${paramIndex}`);
+      queryParams.push(filters.upi_id.trim());
+      paramIndex++;
+      delete filters.upi_id;
     }
     if (filters.user_submitted_utr && filters.user_submitted_utr.trim()) {
       conditions.push(`
@@ -1808,6 +1816,7 @@ export const getPayinsWithHistoryDao = async (
     } else if (role === 'VENDOR') {
       commissionSelect = `
         p.payin_vendor_commission,
+        p.config->'assigned_bank'->>'upi_id' AS upi_id,
         COALESCE((p.config->>'actual_vendor_commission')::numeric, 0) AS actual_vendor_commission,
         COALESCE((p.config->>'brokerage_commission')::numeric, 0) AS brokerage_commission,
         v.code AS vendor_code`;
@@ -1821,6 +1830,7 @@ export const getPayinsWithHistoryDao = async (
           'notify_url', m.config->>'notify_url'
         ) AS merchant_details,
         p.merchant_order_id,
+        p.config->'assigned_bank'->>'upi_id' AS upi_id,
         p.config AS payin_details,
         p.payin_vendor_commission,
         COALESCE((p.config->>'actual_vendor_commission')::numeric, 0) AS actual_vendor_commission,
@@ -1967,6 +1977,12 @@ export const getPayinsWithHistoryDao = async (
       queryParams.push(...statusArray);
       paramIndex += statusArray.length;
       delete filters.status;
+    }
+     if(filters.upi_id){
+      conditions.push(`p.config->'assigned_bank'->>'upi_id' = $${paramIndex}`);
+      queryParams.push(filters.upi_id.trim());
+      paramIndex++;
+      delete filters.upi_id;
     }
     if (filters.user_submitted_utr && filters.user_submitted_utr.trim()) {
       conditions.push(`
