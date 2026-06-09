@@ -9,6 +9,7 @@ import {
   getMerchantsService,
   getMerchantsServiceCode,
   updateMerchantService,
+  migrateMerchantService
 } from './merchantService.js';
 import {
   VALIDATE_UPDATE_MERCHANT_STATUS,
@@ -273,7 +274,27 @@ const updateMerchant = async (req, res) => {
     'Merchant updated successfully',
   );
 };
+const migrateMerchant = async (req, res) => {
+  const {
+    source_merchant_id,
+    target_merchant_id,
+  } = req.body;
 
+  const { company_id, user_id, role, user_name } = req.user;
+  const merchant = await migrateMerchantService(
+    {
+      source_merchant_id,
+      target_merchant_id,
+      updated_by: user_id,
+    },
+  );
+  await invalidateMerchantsCache(company_id);
+  return sendSuccess(
+    res,
+    { updated_by: user_name },
+    'Merchant credentials migrated successfully',
+  );
+};
 const deleteMerchant = async (req, res) => {
   const { role } = req.user;
   if (!req.params) {
@@ -305,4 +326,5 @@ export {
   getMerchantsById,
   getMerchantCodes,
   getMerchantByCode,
+  migrateMerchant
 };
