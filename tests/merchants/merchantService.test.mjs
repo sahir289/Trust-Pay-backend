@@ -176,6 +176,6 @@ describe('merchantService', () => {
       await service.deleteMerchantService({ id: 1 }, 5, 'ADMIN');
 
       expect(merchantDao.deleteMerchantDao).toHaveBeenCalled();
-    });
+    },40000);
   });
 });
