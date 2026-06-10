@@ -43,7 +43,6 @@ import { deleteUserDao } from '../users/userDao.js';
 import { getSessionByUserIdDao } from '../auth/authDao.js';
 import { forceLogoutUser } from '../../utils/sockets.js';
 import { generateUUID } from '../../utils/generateUUID.js';
-import { nanoid } from 'nanoid';
 import { getLatestNetBalanceByMerchantUserIdDao } from '../walletBalance/walletBalanceDao.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 // Create Merchant Service
