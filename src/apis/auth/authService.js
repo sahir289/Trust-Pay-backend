@@ -84,9 +84,14 @@ const getFirstLoginResponse = (user, isLoginSecondFlag) => {
   };
 };
 
-const buildLoginSessionConfig = (config, clientIP, tokenInfo, hashedToken) => ({
+const buildLoginSessionConfig = (config, clientIP, tokenInfo, hashedToken, ua) => ({
   user_info: {
     user_ip: clientIP,
+    browser: ua.browser.name,
+    browser_version: ua.browser.version,
+    os: ua.os.name,
+    os_version: ua.os.version,
+    device_type: ua.device.type || 'desktop',
     user_location: config.user_location || {},
     hostname: os.hostname(),
     os_platform: os.platform(),
@@ -128,6 +133,7 @@ const prepareLoginData = async (user, config) => {
 const loginService = async (
   config,
   clientIP,
+  ua
   // retryCount = 0
 ) => {
   let conn;
@@ -172,6 +178,7 @@ const loginService = async (
         clientIP,
         tokenInfo,
         hashedToken,
+        ua
       );
 
       conn = await getConnection();
@@ -243,6 +250,7 @@ const loginService = async (
       clientIP,
       tokenInfo,
       hashedToken,
+      ua
     );
 
     conn = await getConnection();
@@ -514,7 +522,7 @@ const getUserRoleService = async (userName) => {
 // Internal helper: creates a DB session and returns token info.
 // Used by both loginService (non-2FA path) and verifyLoginOtpService.
 // ---------------------------------------------------------------------------
-const _createLoginSession = async (user, config, clientIP) => {
+const _createLoginSession = async (user, config, clientIP, ua) => {
   let conn;
   let committed = false;
   try {
@@ -526,6 +534,7 @@ const _createLoginSession = async (user, config, clientIP) => {
       clientIP,
       tokenInfo,
       hashedToken,
+      ua
     );
 
     conn = await getConnection();
@@ -587,7 +596,7 @@ const _createLoginSession = async (user, config, clientIP) => {
 // ---------------------------------------------------------------------------
 // 2FA: second step of the login flow (called after OTP is submitted)
 // ---------------------------------------------------------------------------
-const verifyLoginOtpService = async (preAuthToken, otpToken, clientIP) => {
+const verifyLoginOtpService = async (preAuthToken, otpToken, clientIP, ua) => {
   try {
     // 1. Validate the pre-auth token
     const decoded = verifyPreAuthToken(preAuthToken);
@@ -615,6 +624,7 @@ const verifyLoginOtpService = async (preAuthToken, otpToken, clientIP) => {
       user,
       { user_location: {} },
       clientIP,
+      ua
     );
     return result;
   } catch (error) {

@@ -556,7 +556,6 @@ export const  getMerchantsBalance = async (
     `;
     const params = [cleanCode, cleanApiKey];
     const result = await executeQuery(query, params, conn);
-    console.log(result.rows[0]);
     return result?.rows[0] ?? {};
   } catch (error) {
     logger.error('Error in getMerchantsByCodeAndApiKeyDao:', error);

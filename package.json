@@ -80,6 +80,7 @@
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
     "swagger-ui-themes": "^3.0.1",
+    "ua-parser-js": "^2.0.10",
     "uuid": "^11.1.0",
     "uuidv4": "^6.2.13",
     "winston": "^3.17.0",

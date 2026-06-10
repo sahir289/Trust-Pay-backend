@@ -7,6 +7,7 @@ import {
   getUsersService,
   userUpdateService,
   getUsersBySearchService,
+  getUsersInfoBySearchService,
   sendMailService,
   updateUser2FAService,
   toggleUser2FAExemptionService,
@@ -99,6 +100,44 @@ const getUsersBySearch = async (req, res) => {
     limit,
     designation,
     user_id,
+  );
+
+  await writeJsonCache(cacheKey, data, controllerCacheTtls.users.search);
+
+  return sendSuccess(res, data, 'getUsers successfully');
+};
+
+const getUsersInfoBySearch = async (req, res) => {
+  const { role, company_id } = req.user;
+  const { page, limit, startDate, endDate } = req.query;
+  const cacheKey = `users-info:read:${company_id}:search:${generateCacheKey(
+    {
+      company_id,
+      role,
+      page,
+      limit,
+      startDate,
+      endDate,
+      query: normalizeQueryForCache(req.query),
+    },
+    'users-info-search',
+  )}`;
+
+  const cached = await readJsonCache(cacheKey, 'Users-info search cache');
+  if (shouldServeCachedResponse(cached, req.query)) {
+    return sendSuccess(res, cached, 'getUsersInfo successfully');
+  }
+
+  const data = await getUsersInfoBySearchService(
+    {
+      company_id,
+      ...req.query,
+    },
+    role,
+    page,
+    limit,
+    startDate,
+    endDate,
   );
 
   await writeJsonCache(cacheKey, data, controllerCacheTtls.users.search);
@@ -258,6 +297,7 @@ const toggleUser2FAExemption = async (req, res) => {
 export {
   getUsers,
   getUsersBySearch,
+  getUsersInfoBySearch,
   getUserById,
   getUsersByUserName,
   createUser,

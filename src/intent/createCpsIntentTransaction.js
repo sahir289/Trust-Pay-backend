@@ -51,7 +51,6 @@ export const createCpsPaymentTransaction = async (
               'Content-Type': 'application/json',
             },
     });
-    console.log(response.data, "responseeeee");
     logger.info(`${providerKey} transaction created:`, {
       requestBody,
       response: response.data,

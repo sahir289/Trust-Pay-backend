@@ -32,7 +32,6 @@ export const initiateRunsafePayPayout = async (
   payload,
   company_id,
 ) => {
-  console.log('Initiating runsafe payout with payload:', payload)
 
   const providerConfig = config['runsafe'];
   const payoutNotifyUrl = providerConfig.payoutNotifyUrl;
