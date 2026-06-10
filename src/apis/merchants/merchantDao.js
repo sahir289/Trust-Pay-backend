@@ -48,6 +48,7 @@ export const getMerchantsCodeDao = async (
   includeOnlyMerchants = false,
   excludeDisabledMerchant = false,
   conn = null,
+  allow_intent = null,
 ) => {
   try {
     //includeSubMerchants  convert string to boolean
@@ -56,6 +57,9 @@ export const getMerchantsCodeDao = async (
     }
     if (includeOnlyMerchants) {
       includeOnlyMerchants = includeOnlyMerchants.toLowerCase() === 'true';
+    }
+    if (typeof allow_intent === 'string') {
+      allow_intent = allow_intent.toLowerCase() === 'true';
     }
     let sql = `
       SELECT 
@@ -96,6 +100,15 @@ export const getMerchantsCodeDao = async (
     `;
     if (excludeDisabledMerchant) {
       sql += ` AND m.is_enabled = TRUE `;
+    }
+    if (allow_intent === true) {
+      sql += ` AND (m.config ->> 'allow_intent')::boolean = TRUE `;
+    } 
+    else if (allow_intent === false) {
+      sql += ` AND (
+        (m.config ->> 'allow_intent') IS NULL OR 
+        (m.config ->> 'allow_intent')::boolean = FALSE
+      ) `;
     }
     const queryParams = [];
     let paramIndex = 1;
@@ -318,6 +331,35 @@ export const getMerchantForNotifyDao = async (
     return result.rows || [];
   } catch (error) {
     logger.error('Error in getMerchantForNotifyDao:', error);
+    throw error;
+  }
+};
+export const getMerchantForMigrateDao = async (
+  filters = {},
+  conn = null,
+) => {
+  try {
+    const sql = `
+      SELECT
+        id,
+        min_payin,
+        max_payin,
+        min_payout,
+        max_payout,
+        payin_commission,
+        payout_commission,
+        code,
+        config
+      FROM "Merchant"
+      WHERE is_obsolete = false
+        AND id = $1
+      LIMIT 1
+    `;
+    const params = [filters.id];
+    const result = await executeQuery(sql, params, conn);
+    return result.rows?.[0] || null;
+  } catch (error) {
+    logger.error('Error in getMerchantForMigrateDao:', error);
     throw error;
   }
 };
@@ -948,6 +990,17 @@ export const updateMerchantDao = async (ids, data, conn = null) => {
     conn,
   );
 };
+
+export const migrateMerchantDao = async (ids, data, conn = null) => {
+  try {
+  const [sql, params] = buildUpdateQuery(tableName.MERCHANT, data, ids);
+    const result = await executeQuery(sql, params, conn);
+    return result;
+} catch (error) {
+    logger.error('Error in migrateMerchantDao:', error)
+    throw error  ;
+}
+}
 
 export const deleteMerchantDao = async (
   ids,
