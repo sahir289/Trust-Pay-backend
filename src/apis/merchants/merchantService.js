@@ -44,6 +44,7 @@ import { getSessionByUserIdDao } from '../auth/authDao.js';
 import { forceLogoutUser } from '../../utils/sockets.js';
 import { generateUUID } from '../../utils/generateUUID.js';
 import { nanoid } from 'nanoid';
+import { getLatestNetBalanceByMerchantUserIdDao } from '../walletBalance/walletBalanceDao.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 // Create Merchant Service
 
@@ -442,6 +443,12 @@ const migrateMerchantService = async (ids) => {
     await beginTransaction(conn);
     const sourceData = await getMerchantForMigrateDao({id:ids.source_merchant_id},conn);
     const targetData = await getMerchantForMigrateDao({id:ids.target_merchant_id},conn);
+    const targetCalculation = await getLatestNetBalanceByMerchantUserIdDao(targetData.user_id, conn);
+    if (targetCalculation && targetCalculation !== 0) {
+  throw new BadRequestError(
+    'Cannot migrate. Please ensure the target merchant net balance is zero.'
+  );
+}
     if(!targetData || targetData.length === 0){
       throw new NotFoundError('Target Merchant not found');
     }
