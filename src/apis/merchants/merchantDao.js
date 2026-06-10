@@ -342,6 +342,7 @@ export const getMerchantForMigrateDao = async (
     const sql = `
       SELECT
         id,
+        user_id,
         min_payin,
         max_payin,
         min_payout,
