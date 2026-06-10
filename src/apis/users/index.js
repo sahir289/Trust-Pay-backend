@@ -7,6 +7,7 @@ import {
   getUsersByUserName,
   updateUser,
   getUsersBySearch,
+  getUsersInfoBySearch,
   sendMail,
   toggleUser2FA,
   toggleUser2FAExemption,
@@ -65,6 +66,12 @@ router.get(
   '/',
   [isAuthenticated, authorized(AccessRoles.USER)],
   tryCatchHandler(getUsersBySearch),
+);
+
+router.get(
+  '/info',
+  [isAuthenticated, authorized(AccessRoles.USER_INFO)],
+  tryCatchHandler(getUsersInfoBySearch),
 );
 /**
  * @swagger

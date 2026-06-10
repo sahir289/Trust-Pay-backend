@@ -371,7 +371,6 @@ const _createPayoutServiceInternal = async (
       const getRunsafeWalletBalance = await getRunsafePayWalletBalance({
         company_id: payload.company_id,
       });
-      console.log(getRunsafeWalletBalance, "getRunsafeWalletBalance")
       let updatedData;
       if (Number(payoutAmount) < Number(runsafe_auto_approval_limit)) {
         if (

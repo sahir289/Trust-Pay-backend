@@ -33,9 +33,6 @@ const requestBody = {
     // (required if isKYCNeeded is 0)
 };
 
-// Print request body for reference
-console.log("requestBody", requestBody);
-
 // Convert request body to JSON
 const raw = JSON.stringify(requestBody);
 

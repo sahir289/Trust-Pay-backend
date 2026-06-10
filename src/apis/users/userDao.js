@@ -347,6 +347,142 @@ const getUsersBySearchDao = async (
     throw error;
   }
 };
+
+const getUsersInfoBySearchDao = async (
+  filters = {},
+  searchTerms,
+  page,
+  pageSize,
+  startDate,
+  endDate,
+  sortBy,
+  sortOrder,
+  conn = null,
+) => {
+  let query = `
+SELECT
+  at.id,
+  at.user_id,
+  u.user_name,
+  at.company_id,
+  at.session_id,
+  at.config->'user_info'->>'user_ip' AS user_ip,
+  at.config->'user_info'->'user_location'->>'latitude' AS latitude,
+  at.config->'user_info'->'user_location'->>'longitude' AS longitude,
+  at.config->'user_info'->'user_location'->'proxy'->>'isVpn' AS is_vpn,
+  at.config->'user_info'->'user_location'->'proxy'->'raw'->>'country' AS country,
+  at.config->'user_info'->'user_location'->'proxy'->'raw'->>'city' AS city,
+  at.config->'user_info'->'user_location'->>'role' AS role,
+  at.config->'user_info'->'user_location'->'proxy'->'raw'->>'provider' AS provider,
+  at.is_obsolete,
+  at.created_at,
+  at.updated_at
+FROM public."AccessToken" at
+LEFT JOIN public."User" u
+  ON at.user_id = u.id
+WHERE at.is_obsolete = false
+  `;
+
+  const params = [];
+  let index = 1;
+
+  if (filters.id) {
+    query += ` AND at.id = $${index++}`;
+    params.push(filters.id);
+  }
+
+  if (filters.user_id) {
+    query += ` AND at.user_id = $${index++}`;
+    params.push(filters.user_id);
+  }
+
+  if (filters.user_name) {
+    query += ` AND u.user_name = $${index++}`;
+    params.push(filters.user_name);
+  }
+
+  if (filters.company_id) {
+    query += ` AND at.company_id = $${index++}`;
+    params.push(filters.company_id);
+  }
+
+  if (filters.session_id) {
+    query += ` AND at.session_id = $${index++}`;
+    params.push(filters.session_id);
+  }
+
+  if (filters.is_obsolete !== undefined) {
+    query += ` AND at.is_obsolete = $${index++}`;
+    params.push(filters.is_obsolete);
+  }
+
+  if (searchTerms?.length > 0) {
+    const searchConditions = [];
+  
+    for (const term of searchTerms) {
+      searchConditions.push(`
+        (
+          u.user_name ILIKE $${index}
+          OR at.config->'user_info'->>'user_ip' ILIKE $${index}
+        )
+      `);
+  
+      params.push(`%${term}%`);
+      index++;
+    }
+  
+    if (searchConditions.length) {
+      query += ` AND (${searchConditions.join(' OR ')})`;
+    }
+  }
+
+
+  const validatedPageSize = Math.min(
+    Math.max(parseInt(pageSize) || 10, 1),
+    100,
+  );
+  
+  const validatedPageNumber = Math.max(
+    parseInt(page) || 1,
+    1,
+  );
+  
+  const offset = (validatedPageNumber - 1) * validatedPageSize;
+
+  if (startDate && endDate) {
+    query += ` AND at.created_at BETWEEN $${index++} AND $${index++}`;
+    params.push(
+      `${startDate} 00:00:00`,
+      `${endDate} 23:59:59.999`
+    );
+  } else if (startDate) {
+    query += ` AND at.created_at >= $${index++}`;
+    params.push(`${startDate} 00:00:00`);
+  } else if (endDate) {
+    query += ` AND at.created_at <= $${index++}`;
+    params.push(`${endDate} 23:59:59.999`);
+  }
+  
+  if (sortBy && sortOrder) {
+    query += ` ORDER BY ${sortBy} ${sortOrder}`;
+  } else {
+    query += ` ORDER BY at.created_at DESC`;
+  }
+  
+  query += ` LIMIT $${index++} OFFSET $${index++}`;
+  
+  params.push(validatedPageSize);
+  params.push(offset);
+
+  const result = await executeQuery(
+    query,
+    params,
+    conn,
+  );
+
+  return result.rows;
+};
+
 const getUserByIdDao = async (ids, conn = null) => {
   try {
     let baseQuery = `
@@ -769,6 +905,7 @@ export {
   getUsersDao,
   updateUserDao,
   getUsersBySearchDao,
+  getUsersInfoBySearchDao,
   getAllUsersDao,
   updateUserByIDDao,
   updateUser2FAStatusDao,

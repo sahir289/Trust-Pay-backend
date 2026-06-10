@@ -294,14 +294,14 @@ export const createPayInFintechPayout = async (
     // const orderId = await generatePayInFintechOrderId();
 
     // DEBUG: log singleWithdrawData shape to find the correct account holder name field
-    console.log('PayInFintech: singleWithdrawData keys', JSON.stringify({
-      account_name: singleWithdrawData.account_name,
-      name: singleWithdrawData.name,
-      user_bank_details: singleWithdrawData.user_bank_details,
-      user: singleWithdrawData.user,
-      beneficiary_name: singleWithdrawData.beneficiary_name,
-      holder_name: singleWithdrawData.holder_name,
-    }, null, 2));
+    // console.log('PayInFintech: singleWithdrawData keys', JSON.stringify({
+    //   account_name: singleWithdrawData.account_name,
+    //   name: singleWithdrawData.name,
+    //   user_bank_details: singleWithdrawData.user_bank_details,
+    //   user: singleWithdrawData.user,
+    //   beneficiary_name: singleWithdrawData.beneficiary_name,
+    //   holder_name: singleWithdrawData.holder_name,
+    // }, null, 2));
 
     // Map fields from the internal payout record
     const payoutData = {

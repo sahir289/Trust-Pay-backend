@@ -108,7 +108,6 @@ export const createOnePayPaymentTransaction = async (
     }
 
     const sign = generateSign(body , providerConfig.privateKey);
-    console.log("Generated sign:", sign);
     const requestBody = { ...body, sign };
 
     const response = await axios.post(`${providerConfig.url}`, requestBody, {
