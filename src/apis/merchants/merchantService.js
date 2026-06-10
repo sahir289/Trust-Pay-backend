@@ -330,6 +330,7 @@ const getMerchantsServiceCode = async (
   includeSubMerchants,
   includeOnlyMerchants,
   excludeDisabledMerchant,
+  allow_intent
 ) => {
   try {
     let userIdFilter = Array.isArray(user_id)
@@ -382,6 +383,8 @@ const getMerchantsServiceCode = async (
       includeSubMerchants,
       includeOnlyMerchants,
       excludeDisabledMerchant,
+      null,
+      allow_intent
     );
     return codes;
   } catch (error) {
