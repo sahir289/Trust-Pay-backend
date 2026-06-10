@@ -466,7 +466,7 @@ const migrateMerchantService = async (ids) => {
       private: generateUUID(),
     };
     await migrateMerchantDao({id:ids.source_merchant_id},{
-      code: nanoid(5),
+      code: sourceData.code + '_migrated',
       config: sourceConfig,
       updated_by: ids.updated_by,
     },conn);
