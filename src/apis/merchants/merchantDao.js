@@ -48,6 +48,7 @@ export const getMerchantsCodeDao = async (
   includeOnlyMerchants = false,
   excludeDisabledMerchant = false,
   conn = null,
+  allow_intent = null,
 ) => {
   try {
     //includeSubMerchants  convert string to boolean
@@ -56,6 +57,9 @@ export const getMerchantsCodeDao = async (
     }
     if (includeOnlyMerchants) {
       includeOnlyMerchants = includeOnlyMerchants.toLowerCase() === 'true';
+    }
+    if (typeof allow_intent === 'string') {
+      allow_intent = allow_intent.toLowerCase() === 'true';
     }
     let sql = `
       SELECT 
@@ -96,6 +100,15 @@ export const getMerchantsCodeDao = async (
     `;
     if (excludeDisabledMerchant) {
       sql += ` AND m.is_enabled = TRUE `;
+    }
+    if (allow_intent === true) {
+      sql += ` AND (m.config ->> 'allow_intent')::boolean = TRUE `;
+    } 
+    else if (allow_intent === false) {
+      sql += ` AND (
+        (m.config ->> 'allow_intent') IS NULL OR 
+        (m.config ->> 'allow_intent')::boolean = FALSE
+      ) `;
     }
     const queryParams = [];
     let paramIndex = 1;

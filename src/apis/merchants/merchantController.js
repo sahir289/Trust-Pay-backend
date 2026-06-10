@@ -184,7 +184,7 @@ const getMerchantsBySearch = async (req, res) => {
 
 const getMerchantCodes = async (req, res) => {
   const { company_id, role, user_id, designation } = req.user;
-  const { includeSubMerchants, includeOnlyMerchants, excludeDisabledMerchant } = req.query;
+  const { includeSubMerchants, includeOnlyMerchants, excludeDisabledMerchant, allow_intent } = req.query;
   const filters = { company_id };
   const cacheKey = `merchants:read:${company_id}:codes:${generateCacheKey(
     {
@@ -195,6 +195,7 @@ const getMerchantCodes = async (req, res) => {
       includeSubMerchants,
       includeOnlyMerchants,
       excludeDisabledMerchant,
+      allow_intent,
     },
     'merchants-codes',
   )}`;
@@ -213,6 +214,7 @@ const getMerchantCodes = async (req, res) => {
     includeSubMerchants,
     includeOnlyMerchants,
     excludeDisabledMerchant,
+    allow_intent
   );
   await writeJsonCache(cacheKey, data, controllerCacheTtls.merchants.codes);
   logger.log('get Merchants successfully');
