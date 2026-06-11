@@ -1280,6 +1280,34 @@ const getBankaccountDaoBatch = async (ids = [], conn = null) => {
     throw error;
   }
 };
+export const updateBankAccountBalanceDao = async (
+  filters,
+  data,
+  conn = null,
+) => {
+  try {
+    const specialFields = {};
+    Object.keys(data).forEach((el) => {
+      specialFields[el] = '+'; 
+    });
+
+    const [sql, params] = buildUpdateQuery(
+      tableName.BANK_ACCOUNT,
+      data,
+      filters,
+      specialFields,
+    );
+
+    const result = conn
+      ? await conn.query(sql, params)
+      : await executeQuery(sql, params, conn);
+
+    return result.rows[0];
+  } catch (error) {
+    logger.error('Error updating bank account balance:', error);
+    throw error;
+  }
+};
 
 export {
   getBankaccountDao,
