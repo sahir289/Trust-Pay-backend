@@ -23,6 +23,7 @@ import {
   updateUser2FAStatusDao,
   updateUser2FAExemptionDao,
   disableTwoFactorDao,
+  getAllUsersNameDao,
 } from './userDao.js';
 import { getDesignationDao } from '../designation/designationDao.js';
 import { getRoleDao } from '../roles/rolesDao.js';
@@ -173,6 +174,19 @@ const getUsersService = async (
     );
   } catch (error) {
     logger.error('error getting while fetching user', error);
+    throw error;
+  }
+};
+
+const getUsersNameService = async (
+  ids,
+) => {
+  try {
+    return await getAllUsersNameDao(
+      ids,
+    );
+  } catch (error) {
+    logger.error('error getting while fetching user-names', error);
     throw error;
   }
 };
@@ -829,6 +843,7 @@ const toggleUser2FAExemptionService = async (userId, exempt) => {
 
 export {
   getUsersService,
+  getUsersNameService,
   getUserByIdService,
   getUsersBySearchService,
   getUsersInfoBySearchService,
