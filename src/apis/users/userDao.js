@@ -164,6 +164,22 @@ const getAllUsersDao = async (
   }
 };
 
+const getAllUsersNameDao = async (
+  filters,
+  conn = null,
+) => {
+  try {
+    const sql = `SELECT id, user_name FROM public."User" WHERE is_obsolete = false AND company_id = $1`;
+    const queryParams = [filters.company_id];
+
+    const result = await executeQuery(sql, queryParams, conn);
+    return result.rows;
+  } catch (error) {
+    logger.error('Error in get Users Dao:', error);
+    throw error;
+  }
+};
+
 const getUsersBySearchDao = async (
   filters,
   searchTerms,
@@ -367,6 +383,11 @@ SELECT
   at.company_id,
   at.session_id,
   at.config->'user_info'->>'user_ip' AS user_ip,
+  at.config->'user_info'->>'browser' AS browser,
+  at.config->'user_info'->>'os' AS os,
+  at.config->'user_info'->>'device_type' AS device_type,
+  at.config->'user_info'->>'browser_version' AS browser_version,
+  at.config->'user_info'->>'os_version' AS os_version,
   at.config->'user_info'->'user_location'->>'latitude' AS latitude,
   at.config->'user_info'->'user_location'->>'longitude' AS longitude,
   at.config->'user_info'->'user_location'->'proxy'->>'isVpn' AS is_vpn,
@@ -397,8 +418,15 @@ WHERE at.is_obsolete = false
   }
 
   if (filters.user_name) {
-    query += ` AND u.user_name = $${index++}`;
-    params.push(filters.user_name);
+    const userIds = filters.user_name
+      .split(',')
+      .map((id) => id.trim())
+      .filter(Boolean);
+  
+    if (userIds.length > 0) {
+      query += ` AND at.user_id = ANY($${index++})`;
+      params.push(userIds);
+    }
   }
 
   if (filters.company_id) {
@@ -903,6 +931,7 @@ export {
   getUserByIdDao,
   getUsersByUserNameDao,
   getUsersDao,
+  getAllUsersNameDao,
   updateUserDao,
   getUsersBySearchDao,
   getUsersInfoBySearchDao,

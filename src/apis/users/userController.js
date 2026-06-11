@@ -2,6 +2,7 @@ import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import {
   createUserService,
+  getUsersNameService,
   getUserByIdService,
   getUsersByUserNameService,
   getUsersService,
@@ -67,6 +68,32 @@ const getUsers = async (req, res) => {
   await writeJsonCache(cacheKey, data, controllerCacheTtls.users.list);
 
   return sendSuccess(res, data, 'getUsers successfully');
+};
+
+const getUsersnames = async (req, res) => {
+  const {company_id} = req.user;
+  const cacheKey = `usersname:read:${company_id}:list:${generateCacheKey(
+    {
+      company_id,
+      query: normalizeQueryForCache(req.query),
+    },
+    'usersname-list',
+  )}`;
+
+  const cached = await readJsonCache(cacheKey, 'Users-name list cache');
+  if (shouldServeCachedResponse(cached, req.query)) {
+    return sendSuccess(res, cached, 'getUsersName successfully');
+  }
+
+  const data = await getUsersNameService(
+    {
+      company_id
+    },
+  );
+
+  await writeJsonCache(cacheKey, data, controllerCacheTtls.users.list);
+
+  return sendSuccess(res, data, 'getUsersname successfully');
 };
 
 const getUsersBySearch = async (req, res) => {
@@ -296,6 +323,7 @@ const toggleUser2FAExemption = async (req, res) => {
 
 export {
   getUsers,
+  getUsersnames,
   getUsersBySearch,
   getUsersInfoBySearch,
   getUserById,
