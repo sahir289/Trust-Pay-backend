@@ -58,7 +58,9 @@ describe('merchantDao', () => {
       
       await merchantDao.createMerchantDao(data);
       
+      // We can check if the buildInsertQuery was called with the correct table and data
       expect(db.buildInsertQuery).toHaveBeenCalledWith('Merchant', expect.any(Object));
+      // We can also check if executeQuery was called with the built SQL and values
       expect(db.executeQuery).toHaveBeenCalled();
     });
 
@@ -66,6 +68,7 @@ describe('merchantDao', () => {
       db.buildInsertQuery.mockReturnValue(['INSERT...', []]);
       db.executeQuery.mockRejectedValue(new Error('DB error'));
       
+      // We expect the DAO to throw an error when executeQuery fails
       await expect(merchantDao.createMerchantDao({})).rejects.toThrow();
     });
   });
@@ -75,7 +78,7 @@ describe('merchantDao', () => {
       db.executeQuery.mockResolvedValue({ rows: [{ code: 'TEST' }] });
       
       await merchantDao.getMerchantForEsDao(1);
-      
+      // We can check if executeQuery was called to fetch merchant for ES
       expect(db.executeQuery).toHaveBeenCalled();
     });
   });
@@ -85,13 +88,13 @@ describe('merchantDao', () => {
       db.executeQuery.mockResolvedValue({ rows: [{ label: 'TEST' }] });
       
       await merchantDao.getMerchantsCodeDao({ company_id: 1 });
-      
+      // We can check if executeQuery was called to fetch merchants code
       expect(db.executeQuery).toHaveBeenCalled();
     });
 
     it('should handle errors', async () => {
       db.executeQuery.mockRejectedValue(new Error('Query failed'));
-      
+      // We expect the DAO to throw an error when executeQuery fails
       await expect(merchantDao.getMerchantsCodeDao({})).rejects.toThrow();
     });
   });
@@ -101,13 +104,13 @@ describe('merchantDao', () => {
       db.executeQuery.mockResolvedValue({ rows: [{ id: 1 }] });
       
       await merchantDao.getMerchantByUserIdDao(5);
-      
+      // We can check if executeQuery was called to fetch merchant by user ID
       expect(db.executeQuery).toHaveBeenCalled();
     });
 
     it('should handle errors', async () => {
       db.executeQuery.mockRejectedValue(new Error('Query failed'));
-      
+      // We expect the DAO to throw an error when executeQuery fails
       await expect(merchantDao.getMerchantByUserIdDao(5)).rejects.toThrow();
     });
   });

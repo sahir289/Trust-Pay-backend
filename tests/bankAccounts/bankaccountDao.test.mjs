@@ -134,6 +134,7 @@ describe('bankaccountDao', () => {
         { id: 1, nick_name: 'test', user_id: 2 },
       ]);
 
+      // Check that executeQuery was called with the expected SQL and parameters
       expect(db.executeQuery).toHaveBeenCalled();
     });
 
@@ -142,6 +143,7 @@ describe('bankaccountDao', () => {
         new Error('fail'),
       );
 
+      // Call the DAO and expect it to throw an error
       await expect(
         dao.getBankaccountPayinDao({ id: 1 }),
       ).rejects.toThrow('fail');

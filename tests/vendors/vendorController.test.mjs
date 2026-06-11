@@ -111,9 +111,13 @@ describe('vendorController', () => {
       
       await controller.createVendor(req, res);
       
+      // This test confirms that the function executes without error and attempts to create a vendor with the correct data
       expect(schemas.VALIDATE_VENDOR_SCHEMA.validate).toHaveBeenCalledWith(req.body);
+      // We check that the service is called with the correct parameters, including user context
       expect(vendorService.createVendorService).toHaveBeenCalled();
+      // After creating a vendor, we expect the cache to be invalidated to ensure fresh data on subsequent requests
       expect(cacheUtils.invalidateCompanyCacheByPrefix).toHaveBeenCalled();
+      // Finally, we confirm that a success response is sent back to the client
       expect(responseHandlers.sendSuccess).toHaveBeenCalled();
     });
 
@@ -127,6 +131,7 @@ describe('vendorController', () => {
       };
       const res = {};
       
+      // This test ensures that if the input data fails validation, the controller correctly throws an error and does not proceed with vendor creation
       await expect(controller.createVendor(req, res)).rejects.toThrow();
     });
 
@@ -140,6 +145,7 @@ describe('vendorController', () => {
       };
       const res = {};
       
+      // This test simulates a scenario where the service layer encounters an error during vendor creation. We want to ensure that the controller properly propagates this error instead of crashing or sending an incorrect response.
       await expect(controller.createVendor(req, res)).rejects.toThrow('Service error');
     });
   });
@@ -160,8 +166,11 @@ describe('vendorController', () => {
       
       await controller.getVendors(req, res);
       
+      // This test verifies that when there is no cached data available, the controller correctly calls the service to fetch vendors, writes the result to cache, and sends a success response.
       expect(vendorService.getVendorsService).toHaveBeenCalled();
+      // We check that the cache is written with the new data, which is important for performance on subsequent requests.
       expect(cacheUtils.writeJsonCache).toHaveBeenCalled();
+      // Finally, we confirm that the response handler is called to send a success response back to the client with the fetched vendor data.
       expect(responseHandlers.sendSuccess).toHaveBeenCalled();
     });
 
@@ -178,7 +187,9 @@ describe('vendorController', () => {
       
       await controller.getVendors(req, res);
       
+      // This test ensures that if cached data is available and deemed valid, the controller serves this data directly without calling the service layer, which is crucial for performance optimization.
       expect(vendorService.getVendorsService).not.toHaveBeenCalled();
+      // We also check that the response handler is called with the cached data, confirming that the controller correctly serves cached responses when appropriate.
       expect(responseHandlers.sendSuccess).toHaveBeenCalledWith(
         res,
         cachedData,
@@ -203,7 +214,9 @@ describe('vendorController', () => {
       
       await controller.getVendorsBySearch(req, res);
       
+      // This test confirms that the search functionality works correctly when there is no cached data. It checks that the service is called to perform the search, the results are written to cache for future requests, and a success response is sent back to the client with the search results.
       expect(vendorService.getVendorsBySearchService).toHaveBeenCalled();
+      // We verify that the cache is updated with the new search results, which is important for improving performance on subsequent identical search requests.
       expect(responseHandlers.sendSuccess).toHaveBeenCalled();
     });
 
@@ -220,6 +233,7 @@ describe('vendorController', () => {
       
       await controller.getVendorsBySearch(req, res);
       
+      // This test ensures that if cached search results are available and valid, the controller serves these results directly without calling the service layer, which is crucial for performance optimization during search operations.
       expect(vendorService.getVendorsBySearchService).not.toHaveBeenCalled();
     });
   });
@@ -240,7 +254,9 @@ describe('vendorController', () => {
       
       await controller.getVendorCodes(req, res);
       
+      // This test verifies that the controller correctly fetches vendor codes from the service when there is no cached data, writes the results to cache for future requests, and sends a success response back to the client with the fetched vendor codes.
       expect(vendorService.getVendorsCodeService).toHaveBeenCalled();
+      // We check that the cache is updated with the new vendor codes, which is important for improving performance on subsequent requests for vendor codes.
       expect(responseHandlers.sendSuccess).toHaveBeenCalled();
     });
 
@@ -256,7 +272,7 @@ describe('vendorController', () => {
       const res = {};
       
       await controller.getVendorCodes(req, res);
-      
+      // This test ensures that if cached vendor codes are available and valid, the controller serves these codes directly without calling the service layer, which is crucial for performance optimization when fetching vendor codes.
       expect(vendorService.getVendorsCodeService).not.toHaveBeenCalled();
     });
   });
@@ -277,7 +293,9 @@ describe('vendorController', () => {
       
       await controller.updateVendor(req, res);
       
+      // This test confirms that the update functionality works correctly when valid input is provided. It checks that the controller validates the input, calls the service to perform the update, invalidates the cache to ensure fresh data on subsequent requests, and sends a success response back to the client with the updated vendor information.
       expect(vendorService.updateVendorService).toHaveBeenCalled();
+      // We verify that the cache is invalidated after the update, which is important for ensuring that subsequent requests receive the most up-to-date vendor information.
       expect(responseHandlers.sendSuccess).toHaveBeenCalled();
     });
 
@@ -294,7 +312,7 @@ describe('vendorController', () => {
       const res = {};
       
       await controller.updateVendor(req, res);
-      
+      // This test specifically checks that the controller validates the request body using the appropriate schema before proceeding with the update operation. It ensures that the validation function is called with the correct input, which is crucial for maintaining data integrity and preventing invalid updates.
       expect(schemas.VALIDATE_UPDATE_VENDOR_STATUS.validate).toHaveBeenCalledWith(req.body);
     });
   });
@@ -313,8 +331,11 @@ describe('vendorController', () => {
       
       await controller.deleteVendor(req, res);
       
+      // This test confirms that the delete functionality works correctly when a valid vendor ID is provided. It checks that the controller validates the input, calls the service to perform the deletion, invalidates the cache to ensure fresh data on subsequent requests, and sends a success response back to the client confirming the deletion.
       expect(vendorService.deleteVendorService).toHaveBeenCalled();
+      // We verify that the cache is invalidated after the deletion, which is important for ensuring that subsequent requests do not return data for the deleted vendor.
       expect(cacheUtils.invalidateCompanyCacheByPrefix).toHaveBeenCalled();
+      // Finally, we confirm that a success response is sent back to the client, indicating that the vendor was deleted successfully.
       expect(responseHandlers.sendSuccess).toHaveBeenCalled();
     });
 
@@ -328,6 +349,7 @@ describe('vendorController', () => {
       };
       const res = {};
       
+      // This test ensures that if the vendor ID provided for deletion fails validation, the controller correctly throws an error and does not proceed with the deletion operation.
       await expect(controller.deleteVendor(req, res)).rejects.toThrow();
     });
   });
@@ -345,7 +367,9 @@ describe('vendorController', () => {
       
       await controller.linkVendor(req, res);
       
+      // This test confirms that the link vendor functionality works correctly when valid input is provided. It checks that the controller calls the service to perform the linking operation, invalidates the cache to ensure fresh data on subsequent requests, and sends a success response back to the client confirming the linking of the vendor and sub-vendor.
       expect(vendorService.linkVendorService).toHaveBeenCalled();
+      // We verify that the cache is invalidated after linking, which is important for ensuring that subsequent requests reflect the new vendor relationships.
       expect(responseHandlers.sendSuccess).toHaveBeenCalled();
     });
   });
@@ -363,7 +387,9 @@ describe('vendorController', () => {
       
       await controller.unlinkVendor(req, res);
       
+      // This test confirms that the unlink vendor functionality works correctly when valid input is provided. It checks that the controller calls the service to perform the unlinking operation, invalidates the cache to ensure fresh data on subsequent requests, and sends a success response back to the client confirming the unlinking of the vendor and sub-vendor.
       expect(vendorService.unlinkVendorService).toHaveBeenCalled();
+      // We verify that the cache is invalidated after unlinking, which is important for ensuring that subsequent requests reflect the updated vendor relationships.
       expect(responseHandlers.sendSuccess).toHaveBeenCalled();
     });
   });
@@ -381,7 +407,9 @@ describe('vendorController', () => {
       
       await controller.transferVendor(req, res);
       
+      // This test confirms that the transfer vendor functionality works correctly when valid input is provided. It checks that the controller calls the service to perform the transfer operation, invalidates the cache to ensure fresh data on subsequent requests, and sends a success response back to the client confirming the transfer of the sub-vendor from the current vendor to the new vendor.
       expect(vendorService.transferVendorService).toHaveBeenCalled();
+      // We verify that the cache is invalidated after the transfer, which is important for ensuring that subsequent requests reflect the updated vendor relationships.
       expect(responseHandlers.sendSuccess).toHaveBeenCalled();
     });
   });

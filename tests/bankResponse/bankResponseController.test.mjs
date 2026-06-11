@@ -106,13 +106,20 @@ describe('bankResponseController', () => {
 
       await controllers.getBankResponse(req, res);
 
+      // Check that service was called with correct params (if any)
       expect(getBankResponseServiceMock).toHaveBeenCalled();
+
+      // Check that sendSuccess was called with correct params
       expect(sendSuccessMock).toHaveBeenCalled();
+
+      // Check that response was sent with correct data
       expect(res._sent.data).toEqual([{ id: 1 }]);
     });
 
     it('should throw if service fails', async () => {
       getBankResponseServiceMock.mockRejectedValue(new Error('fail'));
+
+      // Check that error is thrown
       await expect(controllers.getBankResponse(req, res)).rejects.toThrow('fail');
     });
   });
@@ -144,13 +151,20 @@ describe('bankResponseController', () => {
 
       await controllers.getClaimResponse(req, res);
 
+      // Check that service was called with correct params (if any)
       expect(getClaimResponseServiceMock).toHaveBeenCalled();
+
+      // Check that sendSuccess was called with correct params
       expect(sendSuccessMock).toHaveBeenCalled();
+
+      // Check that response was sent with correct data
       expect(res._sent.data).toEqual([{ id: 2 }]);
     });
 
     it('should throw if service fails', async () => {
       getClaimResponseServiceMock.mockRejectedValue(new Error('fail'));
+
+      // Check that error is thrown
       await expect(controllers.getClaimResponse(req, res)).rejects.toThrow('fail');
     });
   });
@@ -190,13 +204,20 @@ describe('bankResponseController', () => {
 
       await controllers.getBankResponseBySearch(req, res);
 
+      // Check that service was called with correct params (if any)
       expect(getBankResponseBySearchServiceMock).toHaveBeenCalled();
+
+      // Check that sendSuccess was called with correct params
       expect(sendSuccessMock).toHaveBeenCalled();
+
+      // Check that response was sent with correct data
       expect(res._sent.data).toEqual([{ id: 3 }]);
     });
 
     it('should throw if service fails', async () => {
       getBankResponseBySearchServiceMock.mockRejectedValue(new Error('fail'));
+
+      // Check that error is thrown
       await expect(controllers.getBankResponseBySearch(req, res)).rejects.toThrow('fail');
     });
   });
@@ -235,8 +256,13 @@ describe('bankResponseController', () => {
 
       await controllers.createBankResponse(req, res);
 
+      // Check that service was called with correct params (if any)
       expect(publishBankResponseMock).toHaveBeenCalled();
+
+      // Check that sendSuccess was called with correct params
       expect(sendSuccessMock).toHaveBeenCalled();
+
+      // Check that response was sent with correct data
       expect(res._sent.data).toEqual({ id: 4 });
     });
 
@@ -245,6 +271,7 @@ describe('bankResponseController', () => {
         error: { details: [{ message: 'err' }] },
       });
 
+      // Check that validation error is thrown
       await expect(controllers.createBankResponse(req, res)).rejects.toThrow();
     });
   });
@@ -279,8 +306,13 @@ describe('bankResponseController', () => {
 
       await controllers.createBankBotResponse(req, res);
 
+      // Check that service was called with correct params (if any)
       expect(publishBankResponseMock).toHaveBeenCalled();
+
+      // Check that sendSuccess was called with correct params
       expect(sendSuccessMock).toHaveBeenCalled();
+
+      // Check that response was sent with correct data
       expect(res._sent.data).toEqual({ id: 5 });
     });
 
@@ -289,6 +321,7 @@ describe('bankResponseController', () => {
         error: { details: [{ message: 'err' }] },
       });
 
+      // Check that validation error is thrown
       await expect(controllers.createBankBotResponse(req, res)).rejects.toThrow();
     });
   });
@@ -329,13 +362,20 @@ describe('bankResponseController', () => {
     it('should publish bulk and send success', async () => {
       await controllers.createBankBotResponseBulk(req, res);
 
+      // Check that service was called with correct params (if any)
       expect(publishBankResponseBotBulkMock).toHaveBeenCalled();
+
+      // Check that sendSuccess was called with correct params
       expect(sendSuccessMock).toHaveBeenCalled();
+
+      // Check that response was sent with correct data
       expect(res._sent.data.published).toBeDefined();
     });
 
     it('should throw if body is not array', async () => {
       req.body.body = 'notArray';
+
+      // Check that validation error is thrown
       await expect(
         controllers.createBankBotResponseBulk(req, res)
       ).rejects.toThrow();
@@ -380,8 +420,13 @@ describe('bankResponseController', () => {
 
       await controllers.updateBankResponse(req, res);
 
+      // Check that service was called with correct params (if any)
       expect(updateBankResponseServiceMock).toHaveBeenCalled();
+
+      // Check that sendSuccess was called with correct params
       expect(sendSuccessMock).toHaveBeenCalled();
+
+      // Check that response was sent with correct data
       expect(res._sent.data.id).toEqual(1);
     });
 
@@ -390,6 +435,7 @@ describe('bankResponseController', () => {
         error: { details: [{ message: 'err' }] },
       });
 
+      // Check that validation error is thrown
       await expect(controllers.updateBankResponse(req, res)).rejects.toThrow();
     });
   });
@@ -430,13 +476,20 @@ describe('bankResponseController', () => {
 
       await controllers.getBankMessage(req, res);
 
+      // Check that service was called with correct params (if any)
       expect(getBankMessageServicesMock).toHaveBeenCalled();
+
+      // Check that sendSuccess was called with correct params
       expect(sendSuccessMock).toHaveBeenCalled();
+
+      // Check that response was sent with correct data
       expect(res._sent.data).toEqual([{ id: 6 }]);
     });
 
     it('should throw if service fails', async () => {
       getBankMessageServicesMock.mockRejectedValue(new Error('fail'));
+
+      // Check that error is thrown
       await expect(controllers.getBankMessage(req, res)).rejects.toThrow('fail');
     });
   });
@@ -479,8 +532,13 @@ describe('bankResponseController', () => {
 
       await controllers.resetBankResponseController(req, res);
 
+      // Check that service was called with correct params (if any)
       expect(resetBankResponseServiceMock).toHaveBeenCalled();
+
+      // Check that sendSuccess was called with correct params
       expect(sendSuccessMock).toHaveBeenCalled();
+
+      // Check that response was sent with correct data
       expect(res._sent.data.message).toEqual('reset');
     });
 
@@ -489,6 +547,7 @@ describe('bankResponseController', () => {
         error: { details: [{ message: 'err' }] },
       });
 
+      // Check that validation error is thrown
       await expect(controllers.resetBankResponseController(req, res)).rejects.toThrow();
     });
   });

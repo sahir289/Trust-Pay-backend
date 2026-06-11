@@ -161,7 +161,10 @@ describe('authController', () => {
 
       await controllers.loginController(req, res);
 
+      // Check if cookie was set and response was sent correctly
       expect(res.cookie).toHaveBeenCalled();
+
+      // Check the response sent by sendSuccess
       expect(res._sent.token).toEqual({
         accessToken: 'token',
         sessionId: 'session',
@@ -174,6 +177,7 @@ describe('authController', () => {
         error: { details: [{ message: 'validation error' }] },
       });
 
+      // Call the controller and expect it to throw a ValidationError
       await expect(
         controllers.loginController(req, res),
       ).rejects.toThrow(appErrors.ValidationError);
@@ -193,6 +197,7 @@ describe('authController', () => {
 
       await controllers.loginController(req, res);
 
+      // Check the response sent by sendSuccess
       expect(res._sent.data).toEqual({ isLoginFirst: true });
       expect(res._sent.msg).toBe("user's first login");
     });
@@ -212,6 +217,7 @@ describe('authController', () => {
 
       await controllers.loginController(req, res);
 
+      // Check the response sent by sendSuccess
       expect(res._sent.data).toEqual({
         twoFactorRequired: true,
         preAuthToken: 'preAuth',
@@ -239,6 +245,7 @@ describe('authController', () => {
     it('should throw error if no refreshToken', async () => {
       req.cookies = {};
 
+      // Call the controller and expect it to throw a BadRequestError
       await expect(
         controllers.refreshTokenController(req, res),
       ).rejects.toThrow(appErrors.BadRequestError);
@@ -264,6 +271,7 @@ describe('authController', () => {
 
       await controllers.refreshTokenController(req, res);
 
+      // Check if response was sent correctly
       expect(responseHandlers.sendSuccess).toHaveBeenCalled();
       expect(res._sent.token).toEqual({
         accessToken: 'newAccessToken',

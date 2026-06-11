@@ -92,8 +92,11 @@ describe('payoutController', () => {
       const { req, res } = mockReqRes({ body: { user_id: 1 } });
       req.user = { company_id: 1, role: 'MERCHANT', user_id: 1 };
       await controllerModule.createPayout(req, res);
+      // We expect the controller to validate the request, call the service to create a payout, and send a success response when the input is valid
       expect(schema.PAYOUT_DETAILS_SCHEMA.validate).toHaveBeenCalled();
+      // We expect the controller to call the createPayoutService with the correct parameters
       expect(payoutService.createPayoutService).toHaveBeenCalled();
+      // We expect the controller to send a success response with the created payout details
       expect(responseHandlers.sendNewSuccess).toHaveBeenCalled();
     });
     it('should send error if status is 400/404', async () => {
@@ -102,6 +105,7 @@ describe('payoutController', () => {
       const { req, res } = mockReqRes({ body: { user_id: 1 } });
       req.user = { company_id: 1, role: 'MERCHANT', user_id: 1 };
       await controllerModule.createPayout(req, res);
+      // We expect the controller to send an error response when the service returns a status of 400 or 404
       expect(responseHandlers.sendError).toHaveBeenCalled();
     });
   });
@@ -112,8 +116,11 @@ describe('payoutController', () => {
       payoutService.getPayoutsService.mockResolvedValue({ id: 1 });
       const { req, res } = mockReqRes({ params: { id: 1 }, user: { company_id: 1, role: 'MERCHANT' } });
       await controllerModule.getPayoutsById(req, res);
+      // We expect the controller to validate the request, call the service to get payout details by ID, and send a success response when the input is valid
       expect(schema.VALIDATE_PAYOUT_BY_ID.validate).toHaveBeenCalled();
+      // We expect the controller to call the getPayoutsService with the correct parameters
       expect(payoutService.getPayoutsService).toHaveBeenCalled();
+      // We expect the controller to send a success response with the payout details
       expect(responseHandlers.sendSuccess).toHaveBeenCalled();
     });
   });
@@ -123,7 +130,9 @@ describe('payoutController', () => {
       payoutService.getPayoutsService.mockResolvedValue({ totalCount: 1, payout: [] });
       const { req, res } = mockReqRes({ user: { company_id: 1, role: 'MERCHANT', user_id: 1, designation: 'MERCHANT' }, query: { page: 1, limit: 10, sortOrder: 'asc' } });
       await controllerModule.getPayouts(req, res);
+      // We expect the controller to call the service to get a list of payouts and send a success response
       expect(payoutService.getPayoutsService).toHaveBeenCalled();
+      // We expect the controller to send a success response with the list of payouts and total count
       expect(responseHandlers.sendSuccess).toHaveBeenCalled();
     });
   });
@@ -133,7 +142,9 @@ describe('payoutController', () => {
       payoutService.getPayoutsBySearchService.mockResolvedValue([]);
       const { req, res } = mockReqRes({ user: { company_id: 1, role: 'MERCHANT', user_id: 1, designation: 'MERCHANT' }, query: { search: '', page: 1, limit: 10 } });
       await controllerModule.getPayoutsBySearch(req, res);
+      // We expect the controller to call the service to get a list of payouts based on the search criteria and send a success response
       expect(payoutService.getPayoutsBySearchService).toHaveBeenCalled();
+      // We expect the controller to send a success response with the list of payouts matching the search criteria
       expect(responseHandlers.sendSuccess).toHaveBeenCalled();
     });
   });
@@ -144,8 +155,11 @@ describe('payoutController', () => {
       payoutService.updatePayoutService.mockResolvedValue({ id: 1 });
       const { req, res } = mockReqRes({ params: { id: 1 }, body: {}, user: { company_id: 1, role: 'MERCHANT', user_id: 1, user_name: 'test' } });
       await controllerModule.updatePayout(req, res);
+      // We expect the controller to validate the request, call the service to update payout details, and send a success response when the input is valid
       expect(schema.UPDATE_DETAILS_SCHEMA.validate).toHaveBeenCalled();
+      // We expect the controller to call the updatePayoutService with the correct parameters
       expect(payoutService.updatePayoutService).toHaveBeenCalled();
+      // We expect the controller to send a success response with the updated payout details
       expect(responseHandlers.sendSuccess).toHaveBeenCalled();
     });
   });
@@ -156,8 +170,11 @@ describe('payoutController', () => {
       payoutService.deletePayoutService.mockResolvedValue();
       const { req, res } = mockReqRes({ params: { id: 1 }, user: { company_id: 1, user_id: 1, role: 'MERCHANT' } });
       await controllerModule.deletePayout(req, res);
+      // We expect the controller to validate the request, call the service to delete a payout by ID, and send a success response when the input is valid
       expect(schema.VALIDATE_PAYOUT_BY_ID.validate).toHaveBeenCalled();
+      // We expect the controller to call the deletePayoutService with the correct parameters
       expect(payoutService.deletePayoutService).toHaveBeenCalled();
+      // We expect the controller to send a success response confirming the deletion of the payout
       expect(responseHandlers.sendSuccess).toHaveBeenCalled();
     });
   });
@@ -168,8 +185,11 @@ describe('payoutController', () => {
       payoutService.checkPayOutStatusService.mockResolvedValue({ status: 200 });
       const { req, res } = mockReqRes({ body: {}, headers: {} });
       await controllerModule.checkPayOutStatus(req, res);
+      // We expect the controller to validate the request, call the service to check payout status, and send a success response when the input is valid and status is 200
       expect(schema.VALIDATE_CHECK_PAY_OUT_STATUS.validate).toHaveBeenCalled();
+      // We expect the controller to call the checkPayOutStatusService with the correct parameters
       expect(payoutService.checkPayOutStatusService).toHaveBeenCalled();
+      // We expect the controller to send a success response confirming the payout status
       expect(responseHandlers.sendNewSuccess).toHaveBeenCalled();
     });
     it('should send error if status is 400/404', async () => {
@@ -177,6 +197,7 @@ describe('payoutController', () => {
       payoutService.checkPayOutStatusService.mockResolvedValue({ status: 400, message: 'err' });
       const { req, res } = mockReqRes({ body: {}, headers: {} });
       await controllerModule.checkPayOutStatus(req, res);
+      // We expect the controller to send an error response when the service returns a status of 400 or 404
       expect(responseHandlers.sendError).toHaveBeenCalled();
     });
   });
@@ -187,8 +208,11 @@ describe('payoutController', () => {
       payoutService.assignedPayoutService.mockResolvedValue([1,2]);
       const { req, res } = mockReqRes({ params: { id: 1 }, body: { payouts_ids: [1,2] }, user: { user_id: 1, user_name: 'test', company_id: 1 } });
       await controllerModule.assignedPayout(req, res);
+      // We expect the controller to validate the request, call the service to assign payouts to a vendor, and send a success response when the input is valid
       expect(schema.ASSIGNED_VENDOR_SCHEMA.validate).toHaveBeenCalled();
+      // We expect the controller to call the assignedPayoutService with the correct parameters
       expect(payoutService.assignedPayoutService).toHaveBeenCalled();
+      // We expect the controller to send a success response confirming the assignment of payouts to the vendor
       expect(responseHandlers.sendSuccess).toHaveBeenCalled();
     });
   });
@@ -199,8 +223,11 @@ describe('payoutController', () => {
       payoutService.createTataPayBulkPayoutService.mockResolvedValue({ data: [], message: 'ok' });
       const { req, res } = mockReqRes({ body: { payoutEntries: [], payoutIds: [] }, user: { company_id: 1, user_id: 1 } });
       await controllerModule.createTataPayBulkPayoutController(req, res);
+      // We expect the controller to validate the request, call the service to create a TataPay bulk payout, and send a success response when the input is valid
       expect(schema.TATAPAY_BULK_PAYOUT_SCHEMA.validate).toHaveBeenCalled();
+      // We expect the controller to call the createTataPayBulkPayoutService with the correct parameters
       expect(payoutService.createTataPayBulkPayoutService).toHaveBeenCalled();
+      // We expect the controller to send a success response confirming the creation of the TataPay bulk payout
       expect(responseHandlers.sendSuccess).toHaveBeenCalled();
     });
   });
@@ -211,8 +238,11 @@ describe('payoutController', () => {
       payoutService.createRupeeFlowBulkPayoutService.mockResolvedValue({ data: [], message: 'ok' });
       const { req, res } = mockReqRes({ body: { payoutEntries: [], payoutIds: [] }, user: { company_id: 1, user_id: 1 } });
       await controllerModule.createRupeeFlowBulkPayoutController(req, res);
+      // We expect the controller to validate the request, call the service to create a RupeeFlow bulk payout, and send a success response when the input is valid
       expect(schema.RUPEEFLOW_BULK_PAYOUT_SCHEMA.validate).toHaveBeenCalled();
+      // We expect the controller to call the createRupeeFlowBulkPayoutService with the correct parameters
       expect(payoutService.createRupeeFlowBulkPayoutService).toHaveBeenCalled();
+      // We expect the controller to send a success response confirming the creation of the RupeeFlow bulk payout
       expect(responseHandlers.sendSuccess).toHaveBeenCalled();
     });
   });

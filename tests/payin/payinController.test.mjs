@@ -190,13 +190,16 @@ describe('payinController', () => {
       payinService.generatePayInUrlByHashService.mockResolvedValue({ status: 200 });
       const { req, res } = mockReqRes();
       await controllerModule.generateHashForPayIn(req, res);
+      // We can check if the service was called to generate the hash
       expect(payinService.generatePayInUrlByHashService).toHaveBeenCalled();
+      // We can check if the success response handler was called
       expect(responseHandlers.sendSuccess).toHaveBeenCalled();
     });
     it('should send error if status is 400/404', async () => {
       payinService.generatePayInUrlByHashService.mockResolvedValue({ status: 400, message: 'err' });
       const { req, res } = mockReqRes();
       await controllerModule.generateHashForPayIn(req, res);
+      // We can check if the error response handler was called with the error message
       expect(responseHandlers.sendError).toHaveBeenCalled();
     });
   });
@@ -221,13 +224,18 @@ describe('payinController', () => {
         user: { company_id: 1 },
       });
       await controllerModule.generatePayInUrl(req, res);
+      // We can check if the payload validation was called
       expect(schema.ASSIGN_PAYIN_SCHEMA.validate).toHaveBeenCalled();
+      // We can check if the merchant was fetched for admin role
       expect(merchantDao.getMerchantsByCodeDao).toHaveBeenCalled();
+      // We can check if the service was called to generate the pay-in URL
       expect(payinService.generatePayInUrlService).toHaveBeenCalled();
+      // We can check if the success response handler was called with the generated URL data
       expect(responseHandlers.sendNewSuccess).toHaveBeenCalled();
     });
     it('should throw BadRequestError if merchant_order_id contains /', async () => {
       const { req, res } = mockReqRes({ query: { merchant_order_id: 'bad/id' } });
+      // We can check if the controller throws a BadRequestError for invalid merchant_order_id
       await expect(controllerModule.generatePayInUrl(req, res)).rejects.toThrow();
     });
   });
@@ -238,8 +246,11 @@ describe('payinController', () => {
       payinService.verifyPayinsService.mockResolvedValue({});
       const { req, res } = mockReqRes({ params: { merchantOrderId: 'order123' }, user: { user_location: 'loc' } });
       await controllerModule.validatePayInUrl(req, res);
+      // We can check if the payload validation was called
       expect(schema.VALIDATE_PAYIN_SCHEMA.validate).toHaveBeenCalled();
+      // We can check if the service was called to verify the pay-in URL
       expect(payinService.verifyPayinsService).toHaveBeenCalled();
+      // We can check if the success response handler was called with the verification result
       expect(responseHandlers.sendSuccess).toHaveBeenCalled();
     });
   });
@@ -250,8 +261,11 @@ describe('payinController', () => {
       payinService.generateUpiUrlService.mockResolvedValue({});
       const { req, res } = mockReqRes({ body: { foo: 'bar' } });
       await controllerModule.generateUpiUrl(req, res);
+      // We can check if the payload validation was called
       expect(schema.VALIDATE_GENERATE_PAYIN_URL_SCHEMA.validate).toHaveBeenCalled();
+      // We can check if the service was called to generate the UPI URL
       expect(payinService.generateUpiUrlService).toHaveBeenCalled();
+      // We can check if the success response handler was called with the generated UPI URL data
       expect(responseHandlers.sendSuccess).toHaveBeenCalled();
     });
   });
@@ -262,8 +276,11 @@ describe('payinController', () => {
       payinService.assignedBankToPayInUrlService.mockResolvedValue({});
       const { req, res } = mockReqRes({ params: { merchantOrderId: 'id' }, body: { amount: 1, type: 't', roleToken: 'rt' }, user: { company_id: 1 } });
       await controllerModule.assignedBankToPayInUrl(req, res);
+      // We can check if the payload validation was called
       expect(schema.VALIDATE_ASSIGNED_BANT_TO_PAY.validate).toHaveBeenCalled();
+      // We can check if the service was called to assign the bank to the pay-in URL
       expect(payinService.assignedBankToPayInUrlService).toHaveBeenCalled();
+      // We can check if the success response handler was called with the assignment result
       expect(responseHandlers.sendSuccess).toHaveBeenCalled();
     });
   });
@@ -274,8 +291,11 @@ describe('payinController', () => {
       payinService.expirePayInUrlService.mockResolvedValue();
       const { req, res } = mockReqRes({ params: { payInId: 'id' }, user: { company_id: 1 } });
       await controllerModule.expirePayInUrl(req, res);
+      // We can check if the payload validation was called
       expect(schema.VALIDATE_EXPIRE_PAY_IN_URL.validate).toHaveBeenCalled();
+      // We can check if the service was called to expire the pay-in URL
       expect(payinService.expirePayInUrlService).toHaveBeenCalled();
+      // We can check if the success response handler was called after expiring the URL
       expect(responseHandlers.sendSuccess).toHaveBeenCalled();
     });
   });
@@ -286,8 +306,11 @@ describe('payinController', () => {
       payinService.checkPayInStatusService.mockResolvedValue({ status: 200 });
       const { req, res } = mockReqRes({ body: { payinId: 1, merchantCode: 'c', merchantOrderId: 'o' }, headers: { 'x-api-key': 'k' } });
       await controllerModule.checkPayInStatus(req, res);
+      // We can check if the payload validation was called
       expect(schema.VALIDATE_CHECK_PAY_IN_STATUS.validate).toHaveBeenCalled();
+      // We can check if the service was called to check the pay-in status
       expect(payinService.checkPayInStatusService).toHaveBeenCalled();
+      // We can check if the success response handler was called with the status result
       expect(responseHandlers.sendNewSuccess).toHaveBeenCalled();
     });
     it('should send error if status is 400/404', async () => {
@@ -295,6 +318,7 @@ describe('payinController', () => {
       payinService.checkPayInStatusService.mockResolvedValue({ status: 400, message: 'err' });
       const { req, res } = mockReqRes({ body: { payinId: 1, merchantCode: 'c', merchantOrderId: 'o' }, headers: { 'x-api-key': 'k' } });
       await controllerModule.checkPayInStatus(req, res);
+      // We can check if the error response handler was called
       expect(responseHandlers.sendError).toHaveBeenCalled();
     });
   });
@@ -305,8 +329,11 @@ describe('payinController', () => {
       payinService.payInIntentGenerateOrderService.mockResolvedValue({});
       const { req, res } = mockReqRes({ params: { merchantOrderId: 'id' }, body: { amount: 1, Razorpay: true } });
       await controllerModule.payInIntentGenerateOrder(req, res);
+      // We can check if the payload validation was called
       expect(schema.VALIDATE_PAY_IN_INTENT_GENERATE_ORDER.validate).toHaveBeenCalled();
+      // We can check if the service was called to generate the order
       expect(payinService.payInIntentGenerateOrderService).toHaveBeenCalled();
+      // We can check if the success response handler was called with the generated order data
       expect(responseHandlers.sendSuccess).toHaveBeenCalled();
     });
   });
@@ -317,7 +344,9 @@ describe('payinController', () => {
       razorpay.verifyRazorPaySignature.mockResolvedValue({});
       const { req, res } = mockReqRes({ body: { razorpay_payment_id: 'pid', razorpay_order_id: 'oid', razorpay_signature: 'sig' } });
       await controllerModule.verifyPayinsrazorpay(req, res);
+      // We can check if the Razorpay signature verification was called with the correct parameters
       expect(razorpay.verifyRazorPaySignature).toHaveBeenCalled();
+      // We can check if the success response handler was called after verification
       expect(responseHandlers.sendSuccess).toHaveBeenCalled();
     });
   });
@@ -328,8 +357,11 @@ describe('payinController', () => {
       payinService.updatePaymentNotificationStatusService.mockResolvedValue({});
       const { req, res } = mockReqRes({ params: { payInId: 'id' }, body: { type: 't' }, user: { company_id: 1 } });
       await controllerModule.updatePaymentNotificationStatus(req, res);
+      // We can check if the payload validation was called
       expect(schema.VALIDATE_UPDATE_PAYMENT_NOTIFICATION_STATUS.validate).toHaveBeenCalled();
+      // We can check if the service was called to update the payment notification status
       expect(payinService.updatePaymentNotificationStatusService).toHaveBeenCalled();
+      // We can check if the success response handler was called after updating the payment notification status
       expect(responseHandlers.sendSuccess).toHaveBeenCalled();
     });
   });
@@ -340,8 +372,11 @@ describe('payinController', () => {
       payinService.updateDepositStatusService.mockResolvedValue({});
       const { req, res } = mockReqRes({ params: { merchantOrderId: 'id' }, body: { nick_name: 'nick' }, user: { company_id: 1, user_id: 2 } });
       await controllerModule.updateDepositStatus(req, res);
+      // We can check if the payload validation was called
       expect(schema.VALIDATE_UPDATE_DEPOSIT_SERVICE_STATUS.validate).toHaveBeenCalled();
+      // We can check if the service was called to update the deposit status
       expect(payinService.updateDepositStatusService).toHaveBeenCalled();
+      // We can check if the success response handler was called after updating the deposit status
       expect(responseHandlers.sendSuccess).toHaveBeenCalled();
     });
   });
@@ -352,8 +387,11 @@ describe('payinController', () => {
       payinService.resetDepositService.mockResolvedValue({});
       const { req, res } = mockReqRes({ body: { merchant_order_id: 'id' }, user: { company_id: 1, user_id: 2 } });
       await controllerModule.resetDeposit(req, res);
+      // We can check if the payload validation was called
       expect(schema.VALIDATE_RESET_DEPOSIT.validate).toHaveBeenCalled();
+      // We can check if the service was called to reset the deposit
       expect(payinService.resetDepositService).toHaveBeenCalled();
+      // We can check if the success response handler was called after resetting the deposit
       expect(responseHandlers.sendSuccess).toHaveBeenCalled();
     });
   });
@@ -363,7 +401,9 @@ describe('payinController', () => {
       payinService.getPayinsBySearchService.mockResolvedValue({});
       const { req, res } = mockReqRes({ user: { company_id: 1, role: 'r', user_id: 2, designation: 'd' }, query: { search: 's', page: 1, limit: 10 } });
       await controllerModule.getPayinsBySearch(req, res);
+      // We can check if the service was called to get pay-ins by search
       expect(payinService.getPayinsBySearchService).toHaveBeenCalled();
+      // We can check if the success response handler was called with the search results
       expect(responseHandlers.sendSuccess).toHaveBeenCalled();
     });
   });
@@ -373,7 +413,9 @@ describe('payinController', () => {
       payinService.getPayinsSummaryService.mockResolvedValue({});
       const { req, res } = mockReqRes({ user: { company_id: 1 } });
       await controllerModule.getPayinsSummary(req, res);
+      // We can check if the service was called to get the pay-ins summary
       expect(payinService.getPayinsSummaryService).toHaveBeenCalled();
+      // We can check if the success response handler was called with the summary data
       expect(responseHandlers.sendSuccess).toHaveBeenCalled();
     });
   });
@@ -385,8 +427,11 @@ describe('payinController', () => {
       producer.publishPayInProcess.mockResolvedValue();
       const { req, res } = mockReqRes({ body: { foo: 'bar' }, params: { merchantOrderId: 'id' } });
       await controllerModule.processPayIn(req, res);
+      // We can check if the payload validation was called
       expect(schema.VALIDATE_PROCESS_PAYIN.validate).toHaveBeenCalled();
+      // We can check if the service was called to publish the pay-in process message
       expect(producer.publishPayInProcess).toHaveBeenCalled();
+      // We can check if the success response handler was called after publishing the message
       expect(responseHandlers.sendSuccess).toHaveBeenCalled();
     });
   });
@@ -398,8 +443,11 @@ describe('payinController', () => {
       producer.publishPayInProcess.mockResolvedValue();
       const { req, res } = mockReqRes({ body: { foo: 'bar' }, params: { merchantOrderId: 'id' } });
       await controllerModule.processPayInH2H(req, res);
+      // We can check if the payload validation was called
       expect(schema.VALIDATE_PROCESS_PAYIN.validate).toHaveBeenCalled();
+      // We can check if the service was called to publish the pay-in process message
       expect(producer.publishPayInProcess).toHaveBeenCalled();
+      // We can check if the success response handler was called after publishing the message
       expect(responseHandlers.sendSuccess).toHaveBeenCalled();
     });
   });
@@ -410,8 +458,11 @@ describe('payinController', () => {
       payinService.processPayInService.mockResolvedValue({});
       const { req, res } = mockReqRes({ body: { code: 'c' }, params: { merchantOrderId: 'id' }, user: { company_id: 1 } });
       await controllerModule.processPayInIMGUTR(req, res);
+      // We can check if the payload validation was called
       expect(schema.VALIDATE_PROCESS_PAYIN.validate).toHaveBeenCalled();
+      // We can check if the service was called to process the pay-in with image and UTR
       expect(payinService.processPayInService).toHaveBeenCalled();
+      // We can check if the success response handler was called after processing the pay-in
       expect(responseHandlers.sendSuccess).toHaveBeenCalled();
     });
   });
@@ -421,13 +472,16 @@ describe('payinController', () => {
       payinService.telegramResponseService.mockResolvedValue();
       const { req, res } = mockReqRes({ body: { message: { foo: 'bar' } } });
       await controllerModule.telegramOCR(req, res);
+      // We can check if the success response handler was called
       expect(responseHandlers.sendSuccess).toHaveBeenCalled();
+      // We can check if the telegramResponseService was called to process the OCR result
       expect(payinService.telegramResponseService).toHaveBeenCalled();
     });
     it('should log error if message is missing or not object', async () => {
       const logger = await import('../../src/utils/logger.js');
       const { req, res } = mockReqRes({ body: { message: null } });
       await controllerModule.telegramOCR(req, res);
+      // We can check if the logger was called to log the error
       expect(logger.logger.error).toHaveBeenCalled();
     });
   });
@@ -443,16 +497,22 @@ describe('payinController', () => {
       const { req, res } = mockReqRes({ body: {}, params: {}, file: { key: 'filekey' }, user: { company_id: 1 } });
       req.file = { key: 'filekey' };
       await controllerModule.processPayInByImage(req, res);
+      // We can check if the payload validation was called
       expect(schema.PROCESS_PAYIN_IMAGE.validate).toHaveBeenCalled();
+      // We can check if the AWS S3 getObject was called to fetch the image
       expect(aws.s3.send).toHaveBeenCalled();
+      // We can check if the helper was called to convert the image stream to base64
       expect(helpers.streamToBase64).toHaveBeenCalled();
+      // We can check if the service was called to process the pay-in by image with the base64 data
       expect(payinService.processPayInByImageService).toHaveBeenCalled();
+      // We can check if the success response handler was called after processing the pay-in
       expect(responseHandlers.sendSuccess).toHaveBeenCalled();
     });
     it('should throw BadRequestError if file is missing', async () => {
       schema.PROCESS_PAYIN_IMAGE.validate.mockReturnValue({});
       const { req, res } = mockReqRes({ body: {}, params: {} });
       req.file = undefined;
+      // We can check if the controller throws a BadRequestError for missing file
       await expect(controllerModule.processPayInByImage(req, res)).rejects.toThrow();
     });
   });
@@ -463,8 +523,11 @@ describe('payinController', () => {
       payinService.disputeDuplicateTransactionService.mockResolvedValue({});
       const { req, res } = mockReqRes({ body: {}, params: {}, user: { company_id: 1, user_id: 2 } });
       await controllerModule.disputeDuplicateTransaction(req, res);
+      // We can check if the payload validation was called
       expect(schema.VALIDATE_DISPUTE_DUPLICATE_TRANSACTION.validate).toHaveBeenCalled();
+      // We can check if the service was called to dispute the duplicate transaction
       expect(payinService.disputeDuplicateTransactionService).toHaveBeenCalled();
+      // We can check if the success response handler was called after disputing the transaction
       expect(responseHandlers.sendSuccess).toHaveBeenCalled();
     });
   });
@@ -474,7 +537,9 @@ describe('payinController', () => {
       payinService.updateUtrPayinService.mockResolvedValue({ id: 1 });
       const { req, res } = mockReqRes({ params: { id: 1 }, body: { utr: 'utr' }, user: { user_id: 2, user_name: 'uname', company_id: 3 } });
       await controllerModule.updateUtrPayins(req, res);
+      // We can check if the service was called to update the UTR pay-in
       expect(payinService.updateUtrPayinService).toHaveBeenCalled();
+      // We can check if the success response handler was called after updating the UTR pay-in
       expect(responseHandlers.sendSuccess).toHaveBeenCalled();
     });
   });
@@ -484,7 +549,9 @@ describe('payinController', () => {
       payinService.checkPendingPayinStatusService.mockResolvedValue({});
       const { req, res } = mockReqRes({ user: { user_name: 'uname', user_id: 2, company_id: 3 } });
       await controllerModule.checkPendingPayinStatus(req, res);
+      // We can check if the service was called to check pending pay-in status
       expect(payinService.checkPendingPayinStatusService).toHaveBeenCalled();
+      // We can check if the success response handler was called after checking the status
       expect(responseHandlers.sendSuccess).toHaveBeenCalled();
     });
   });
@@ -495,8 +562,11 @@ describe('payinController', () => {
       payinService.telegramCheckUTRService.mockResolvedValue({ merchantOrderId: 'id' });
       const { req, res } = mockReqRes({ body: { utr: 'utr', merchantOrderId: 'id' }, user: { company_id: 1, user_id: 2, designation: 'd' } });
       await controllerModule.telegramCheckUTR(req, res);
+      // We can check if the payload validation was called
       expect(schema.VALIDATE_CHECK_UTR.validate).toHaveBeenCalled();
+      // We can check if the service was called to check the UTR via Telegram
       expect(payinService.telegramCheckUTRService).toHaveBeenCalled();
+      // We can check if the success response handler was called after checking the UTR
       expect(responseHandlers.sendSuccess).toHaveBeenCalled();
     });
   });
@@ -507,8 +577,11 @@ describe('payinController', () => {
       payinService.updatePayInService.mockResolvedValue({});
       const { req, res } = mockReqRes({ params: { merchant_order_id: 'id' }, body: {}, user: { user_id: 2, company_id: 3 } });
       await controllerModule.updatePayIn(req, res);
+      // We can check if the payload validation was called
       expect(schema.VALIDATE_UPDATE_PAYIN_SCHEMA.validate).toHaveBeenCalled();
+      // We can check if the service was called to update the pay-in
       expect(payinService.updatePayInService).toHaveBeenCalled();
+      // We can check if the success response handler was called after updating the pay-in
       expect(responseHandlers.sendSuccess).toHaveBeenCalled();
     });
   });

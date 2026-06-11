@@ -138,6 +138,7 @@ describe('bankResponseServices (Extreme Automation-Grade)', () => {
     it('should apply default date window if needed', async () => {
       alwaysMockBankaccountCheck();
 
+      // Call the service without date parameters
       await services.getBankResponseService(
         {},
         'ADMIN',
@@ -151,6 +152,7 @@ describe('bankResponseServices (Extreme Automation-Grade)', () => {
         realUserId
       );
 
+      // Should have called the DAO with default date window parameters
       expect(dao.getBankResponseDaoAll).toHaveBeenCalled();
     });
 
@@ -162,6 +164,7 @@ describe('bankResponseServices (Extreme Automation-Grade)', () => {
       const loggerModule = await import('../../src/utils/logger.js');
       const errorSpy = jest.spyOn(loggerModule.logger, 'error');
 
+      // Should throw the error and log it
       await expect(
         services.getBankResponseService(
           {},
@@ -177,6 +180,7 @@ describe('bankResponseServices (Extreme Automation-Grade)', () => {
         )
       ).rejects.toThrow('fail');
 
+      // Should have logged the error
       expect(errorSpy).toHaveBeenCalled();
       errorSpy.mockRestore();
     });
@@ -190,10 +194,12 @@ describe('bankResponseServices (Extreme Automation-Grade)', () => {
         claimed24h: { amount: 100 },
       });
 
+      // Should return the claim response data as-is
       const result = await services.getClaimResponseService({
         company_id: '2cb29af7-21c1-442a-969f-a90e06c772ca',
       });
 
+      // Should return the claim response data as-is
       expect(result).toEqual({
         claimed24h: { amount: 100 },
       });
@@ -206,6 +212,7 @@ describe('bankResponseServices (Extreme Automation-Grade)', () => {
 
       dao.getBankMessageDao.mockResolvedValueOnce([{ id: 1 }]);
 
+      // Call the service with valid parameters and expect it to return the mocked data
       const result = await services.getBankMessageServices(
         'f98bd07f-2514-4035-a6f6-7ac83388586e',
         '2024-01-01',
@@ -216,6 +223,7 @@ describe('bankResponseServices (Extreme Automation-Grade)', () => {
         10
       );
 
+      // Should return the bank messages data as-is
       expect(result).toEqual([{ id: 1 }]);
     });
   });
@@ -231,6 +239,7 @@ describe('Detailed and remaining service functions', () => {
       .spyOn(services, 'createBankResponseService')
       .mockResolvedValue({ message: 'Entry created successfully' });
 
+    // Call the service with valid parameters
     const result = await services.createBankResponseService(
       '1000 undefined UTR999 f98bd07f-2514-4035-a6f6-7ac83388586e',
       '2cb29af7-21c1-442a-969f-a90e06c772ca',
@@ -238,6 +247,7 @@ describe('Detailed and remaining service functions', () => {
       'Shadow'
     );
 
+    // Should return success message indicating entry creation
     expect(result.message).toMatch(/Entry created successfully/);
     services.createBankResponseService.mockRestore();
   });
@@ -247,6 +257,7 @@ describe('Detailed and remaining service functions', () => {
       .spyOn(services, 'resetBankResponseService')
       .mockResolvedValue({ message: 'Bot response reset successful' });
 
+    // Call the service with valid parameters and expect it to return the mocked success message
     const result = await services.resetBankResponseService(
       'f98bd07f-2514-4035-a6f6-7ac83388586e',
       {
@@ -256,6 +267,7 @@ describe('Detailed and remaining service functions', () => {
       }
     );
 
+    // Should return success message indicating reset was successful
     expect(result.message).toMatch(/reset successful/);
     services.resetBankResponseService.mockRestore();
   });
@@ -265,6 +277,7 @@ describe('Detailed and remaining service functions', () => {
       .spyOn(services, 'createBankResponseService')
       .mockRejectedValue(new Error('fail'));
 
+    // Call the service with invalid parameters and expect it to throw an error
     await expect(
       services.createBankResponseService('bad', '', '', '')
     ).rejects.toThrow('fail');

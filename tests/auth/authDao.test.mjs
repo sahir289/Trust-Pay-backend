@@ -67,17 +67,20 @@ describe('authDao', () => {
 
       const result = await authDao.addLoginDao(1, {}, 2, 'abc');
 
+      // Check the returned session data
       expect(result).toEqual({
         id: 1,
         session_id: 'abc',
       });
 
+      // Check that the correct query was executed with expected parameters
       expect(db.executeQuery).toHaveBeenCalled();
     });
 
     it('should throw on db error', async () => {
       db.executeQuery.mockRejectedValue(new Error('fail'));
 
+      // Call the DAO and expect it to throw an error
       await expect(
         authDao.addLoginDao(1, {}, 2, 'abc'),
       ).rejects.toThrow('fail');

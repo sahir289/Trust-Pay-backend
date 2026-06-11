@@ -121,7 +121,7 @@ describe('merchantController', () => {
       const res = {};
       
       await controller.createMerchant(req, res);
-      
+      // We can check if the service was called with the expected payload
       expect(merchantService.createMerchantService).toHaveBeenCalled();
     });
 
@@ -135,7 +135,7 @@ describe('merchantController', () => {
         user: { company_id: 1, user_id: 5, role: 'ADMIN', designation: 'Admin' },
       };
       const res = {};
-      
+      // We expect the controller to throw an error due to validation failure
       await expect(controller.createMerchant(req, res)).rejects.toThrow();
     });
   });
@@ -154,7 +154,7 @@ describe('merchantController', () => {
       const res = {};
       
       await controller.getMerchants(req, res);
-      
+      // We can check if the service was called to fetch merchants
       expect(merchantService.getMerchantsService).toHaveBeenCalled();
     });
 
@@ -170,7 +170,7 @@ describe('merchantController', () => {
       const res = {};
       
       await controller.getMerchants(req, res);
-      
+      // We expect the service not to be called since cache should be served
       expect(merchantService.getMerchantsService).not.toHaveBeenCalled();
     });
   });
@@ -189,7 +189,7 @@ describe('merchantController', () => {
       const res = {};
       
       await controller.getMerchantByCode(req, res);
-      
+      // We can check if the service was called to fetch merchant by code
       expect(merchantService.getMerchantsByCodeService).toHaveBeenCalled();
     });
   });
@@ -208,7 +208,7 @@ describe('merchantController', () => {
       const res = {};
       
       await controller.getMerchantsBySearch(req, res);
-      
+      // We can check if the service was called to search merchants
       expect(merchantService.getMerchantsBySearchService).toHaveBeenCalled();
     });
   });
@@ -227,7 +227,7 @@ describe('merchantController', () => {
       const res = {};
       
       await controller.updateMerchant(req, res);
-      
+      // We can check if the service was called with the expected payload
       expect(merchantService.updateMerchantService).toHaveBeenCalled();
     });
   });;
@@ -244,7 +244,7 @@ describe('merchantController', () => {
       const res = {};
       
       await controller.deleteMerchant(req, res);
-      
+      // We can check if the service was called to delete the merchant
       expect(merchantService.deleteMerchantService).toHaveBeenCalled();
     });
   });

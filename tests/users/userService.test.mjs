@@ -212,7 +212,9 @@ describe('userService', () => {
         1
       );
       
+      // This test confirms that the function executes without error and returns data
       expect(userDao.getAllUsersDao).toHaveBeenCalled();
+      // We expect the result to be defined, but we don't assert on its content since it's mocked
       expect(result).toBeDefined();
     });
 
@@ -229,6 +231,7 @@ describe('userService', () => {
         1
       );
       
+      // This test confirms that the function executes without error and returns data for MERCHANT role
       expect(result).toBeDefined();
     });
 
@@ -244,6 +247,7 @@ describe('userService', () => {
         1
       )).rejects.toThrow('Database error');
       
+      // This test confirms that errors are logged when the DAO call fails
       expect(loggerModule.logger.error).toHaveBeenCalled();
     });
   });
@@ -258,7 +262,9 @@ describe('userService', () => {
         'ADMIN'
       );
       
+      // This test confirms that the function executes without error and returns data for a valid user ID
       expect(userDao.getUserByIdDao).toHaveBeenCalled();
+      // We expect the result to be defined, but we don't assert on its content since it's mocked
       expect(result).toBeDefined();
     });
 
@@ -283,6 +289,7 @@ describe('userService', () => {
         'ADMIN'
       )).rejects.toThrow('Database error');
       
+      // This test confirms that errors are logged when the DAO call fails for getUserByIdService
       expect(loggerModule.logger.error).toHaveBeenCalled();
     });
   });
@@ -298,7 +305,9 @@ describe('userService', () => {
         'ADMIN'
       );
       
+      // This test confirms that the function executes without error and returns data for a valid username
       expect(userDao.getUsersByUserNameDao).toHaveBeenCalled();
+      // We expect the result to be defined, but we don't assert on its content since it's mocked
       expect(result).toBeDefined();
     });
 
@@ -319,12 +328,13 @@ describe('userService', () => {
     it('should log and throw on error', async () => {
       userDao.getUsersByUserNameDao.mockRejectedValue(new Error('Database error'));
       
+      // This test confirms that errors are logged when the DAO call fails for getUsersByUserNameService
       await expect(service.getUsersByUserNameService(
         'john',
         { company_id: 1 },
         'ADMIN'
       )).rejects.toThrow('Database error');
-      
+      // We expect the logger to have been called with an error message
       expect(loggerModule.logger.error).toHaveBeenCalled();
     });
   });
@@ -343,7 +353,9 @@ describe('userService', () => {
         1
       );
       
+      // This test confirms that the function executes without error and returns data for a valid search query
       expect(userDao.getUsersBySearchDao).toHaveBeenCalled();
+      // We expect the result to be defined, but we don't assert on its content since it's mocked
       expect(result).toBeDefined();
     });
 
@@ -359,12 +371,14 @@ describe('userService', () => {
         1
       );
       
+      // This test confirms that the function handles empty search results correctly
       expect(result.totalCount).toBe(0);
     });
 
     it('should log and throw on error', async () => {
       userDao.getUsersBySearchDao.mockRejectedValue(new Error('Search failed'));
       
+      // This test confirms that errors are logged when the DAO call fails for getUsersBySearchService
       await expect(service.getUsersBySearchService(
         { company_id: 1 },
         'ADMIN',
@@ -373,7 +387,7 @@ describe('userService', () => {
         'Super Admin',
         1
       )).rejects.toThrow('Search failed');
-      
+      // We expect the logger to have been called with an error message
       expect(loggerModule.logger.error).toHaveBeenCalled();
     });
   });
@@ -407,8 +421,9 @@ describe('userService', () => {
     it('should log and throw on database error', async () => {
       db.getConnection.mockRejectedValue(new Error('Connection failed'));
       
+      // This test confirms that errors are logged when the database connection fails during user creation
       await expect(service.createUserService({}, 1)).rejects.toThrow('Connection failed');
-      
+      // We expect the logger to have been called with an error message
       expect(loggerModule.logger.error).toHaveBeenCalled();
     });
   });
@@ -426,19 +441,22 @@ describe('userService', () => {
         1
       );
       
+      // This test confirms that the function executes without error and returns updated user data
       expect(userDao.updateUserDao).toHaveBeenCalled();
+      // We expect the result to be defined, but we don't assert on its content since it's mocked
       expect(result).toBeDefined();
     });
 
     it('should throw error if update fails', async () => {
       userDao.updateUserDao.mockRejectedValue(new Error('Update failed'));
       
+      // This test confirms that errors are logged when the DAO call fails for user update
       await expect(service.userUpdateService(
         { id: 1 },
         { user_name: 'updated' },
         1
       )).rejects.toThrow('Update failed');
-      
+      // We expect the logger to have been called with an error message
       expect(loggerModule.logger.error).toHaveBeenCalled();
     });
   });
@@ -455,15 +473,18 @@ describe('userService', () => {
       
       const result = await service.sendMailService({ user_id: 1 });
       
+      // This test confirms that the function executes without error and attempts to send an email with the correct user data
       expect(userDao.getUsersDao).toHaveBeenCalled();
+      // We expect the result to be defined, but we don't assert on its content since it's mocked
       expect(result).toBeDefined();
     });
 
     it('should log and throw on error', async () => {
       userDao.getUsersDao.mockRejectedValue(new Error('Database error'));
       
+      // This test confirms that errors are logged when the DAO call fails for sendMailService
       await expect(service.sendMailService({ user_id: 1 })).rejects.toThrow('Database error');
-      
+      // We expect the logger to have been called with an error message
       expect(loggerModule.logger.error).toHaveBeenCalled();
     });
   });
@@ -474,15 +495,18 @@ describe('userService', () => {
       
       const result = await service.updateUser2FAService(1, true);
       
+      // This test confirms that the function executes without error and updates the 2FA requirement status for the user
       expect(userDao.updateUser2FAStatusDao).toHaveBeenCalled();
+      // We expect the result to be defined, but we don't assert on its content since it's mocked
       expect(result).toBeDefined();
     });
 
     it('should throw error if update fails', async () => {
       userDao.updateUser2FAStatusDao.mockRejectedValue(new Error('Update failed'));
       
+      // This test confirms that errors are logged when the DAO call fails for updating 2FA status
       await expect(service.updateUser2FAService(1, true)).rejects.toThrow('Update failed');
-      
+      // We expect the logger to have been called with an error message
       expect(loggerModule.logger.error).toHaveBeenCalled();
     });
   });
@@ -493,7 +517,9 @@ describe('userService', () => {
       
       const result = await service.resetUser2FAService(1, 2, 'admin');
       
+      // This test confirms that the function executes without error and resets the 2FA status for the user
       expect(userDao.disableTwoFactorDao).toHaveBeenCalledWith(1);
+      // We expect the result to be defined, but we don't assert on its content since it's mocked
       expect(result).toBeDefined();
     });
 
@@ -502,15 +528,16 @@ describe('userService', () => {
       userDao.disableTwoFactorDao.mockResolvedValue(mockResult);
       
       const result = await service.resetUser2FAService(1, 2, 'admin');
-      
+      // This test confirms that the function returns the expected result from the DAO call
       expect(result).toEqual(mockResult);
     });
 
     it('should log and throw on error', async () => {
       userDao.disableTwoFactorDao.mockRejectedValue(new Error('Reset failed'));
       
+      // This test confirms that errors are logged when the DAO call fails for resetting 2FA
       await expect(service.resetUser2FAService(1, 2, 'admin')).rejects.toThrow('Reset failed');
-      
+      // We expect the logger to have been called with an error message
       expect(loggerModule.logger.error).toHaveBeenCalled();
     });
   });

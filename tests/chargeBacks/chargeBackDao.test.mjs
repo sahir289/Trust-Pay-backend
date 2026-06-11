@@ -83,14 +83,19 @@ describe('chargeBackDao', () => {
       db.buildInsertQuery.mockReturnValue(['SQL', []]);
       db.executeQuery.mockResolvedValue({ rows: [{ id: 1, merchant_order_id: 'order123' }] });
       const result = await dao.createChargeBackDao({ merchant_order_id: 'order123', amount: 1000 }, mockConn());
+      // Verify that buildInsertQuery was called with correct parameters
       expect(db.buildInsertQuery).toHaveBeenCalled();
+      // Verify that executeQuery was called with the SQL and values from buildInsertQuery
       expect(db.executeQuery).toHaveBeenCalled();
+      // Verify that the result is the expected inserted entry
       expect(result).toEqual({ id: 1, merchant_order_id: 'order123' });
     });
     it('should log and throw on error', async () => {
       db.buildInsertQuery.mockReturnValue(['SQL', []]);
       db.executeQuery.mockRejectedValue(new Error('insert failed'));
+      // Verify that the function throws the expected error and logs it
       await expect(dao.createChargeBackDao({ merchant_order_id: 'order123' }, mockConn())).rejects.toThrow('insert failed');
+      // Verify that the error was logged
       expect(loggerModule.logger.error).toHaveBeenCalled();
     });
   });
@@ -99,18 +104,24 @@ describe('chargeBackDao', () => {
     it('should select and return rows', async () => {
       db.executeQuery.mockResolvedValue({ rows: [{ id: 1, status: 'COMPLETED' }] });
       const result = await dao.getChargebackByIdDao({ id: 1 }, mockConn());
+      // Verify that executeQuery was called with correct SQL and parameters
       expect(db.executeQuery).toHaveBeenCalled();
+      // Verify that the result is an array of chargebacks with expected data
       expect(Array.isArray(result)).toBe(true);
+      // Verify that the first entry in the result matches the expected chargeback
       expect(result[0]).toEqual({ id: 1, status: 'COMPLETED' });
     });
     it('should log and throw on error', async () => {
       db.executeQuery.mockRejectedValue(new Error('select failed'));
+      // Verify that the function throws the expected error and logs it
       await expect(dao.getChargebackByIdDao({ id: 1 }, mockConn())).rejects.toThrow('select failed');
+      // Verify that the error was logged
       expect(loggerModule.logger.error).toHaveBeenCalled();
     });
     it('should return empty array if no results', async () => {
       db.executeQuery.mockResolvedValue({ rows: [] });
       const result = await dao.getChargebackByIdDao({ id: 999 }, mockConn());
+      // Verify that the result is an empty array when no chargebacks are found
       expect(result).toEqual([]);
     });
   });
@@ -128,11 +139,14 @@ describe('chargeBackDao', () => {
         'ADMIN',
         mockConn()
       );
+      // Verify that executeQuery was called with correct SQL and parameters
       expect(db.executeQuery).toHaveBeenCalled();
+      // Verify that the result is an array of chargebacks
       expect(Array.isArray(result)).toBe(true);
     });
     it('should log and throw on error', async () => {
       db.executeQuery.mockRejectedValue(new Error('query failed'));
+      // Verify that the function throws the expected error and logs it
       await expect(dao.getChargeBackDao(
         { company_id: 1 },
         1,
@@ -143,6 +157,7 @@ describe('chargeBackDao', () => {
         'ADMIN',
         mockConn()
       )).rejects.toThrow('query failed');
+      // Verify that the error was logged
       expect(loggerModule.logger.error).toHaveBeenCalled();
     });
     it('should handle search filters', async () => {
@@ -158,6 +173,7 @@ describe('chargeBackDao', () => {
         'ADMIN',
         mockConn()
       );
+      // Verify that executeQuery was called and the result is an array of chargebacks
       expect(Array.isArray(result)).toBe(true);
     });
     it('should handle date range filters', async () => {
@@ -173,6 +189,7 @@ describe('chargeBackDao', () => {
         'ADMIN',
         mockConn()
       );
+      // Verify that executeQuery was called and the result is an array of chargebacks
       expect(Array.isArray(result)).toBe(true);
     });
     it('should handle bank_name filter', async () => {
@@ -187,6 +204,7 @@ describe('chargeBackDao', () => {
         'ADMIN',
         mockConn()
       );
+      // Verify that executeQuery was called and the result is an array of chargebacks
       expect(Array.isArray(result)).toBe(true);
     });
     it('should handle MERCHANT role', async () => {
@@ -201,6 +219,7 @@ describe('chargeBackDao', () => {
         'MERCHANT',
         mockConn()
       );
+      // Verify that executeQuery was called and the result is an array of chargebacks
       expect(Array.isArray(result)).toBe(true);
     });
     it('should handle VENDOR role', async () => {
@@ -215,6 +234,7 @@ describe('chargeBackDao', () => {
         'VENDOR',
         mockConn()
       );
+      // Verify that executeQuery was called and the result is an array of chargebacks
       expect(Array.isArray(result)).toBe(true);
     });
   });
@@ -232,7 +252,9 @@ describe('chargeBackDao', () => {
         'ADMIN',
         mockConn()
       );
+      // Verify that executeQuery was called with correct SQL and parameters
       expect(db.executeQuery).toHaveBeenCalled();
+      // Verify that the result is an array of chargebacks
       expect(Array.isArray(result)).toBe(true);
     });
     it('should log and throw on error', async () => {
@@ -247,6 +269,7 @@ describe('chargeBackDao', () => {
         'ADMIN',
         mockConn()
       )).rejects.toThrow('query failed');
+      // Verify that the error was logged
       expect(loggerModule.logger.error).toHaveBeenCalled();
     });
     it('should handle different sort orders', async () => {
@@ -261,6 +284,7 @@ describe('chargeBackDao', () => {
         'ADMIN',
         mockConn()
       );
+      // Verify that executeQuery was called with correct SQL and parameters for created_at sorting
       expect(db.executeQuery).toHaveBeenCalled();
     });
   });
@@ -280,9 +304,13 @@ describe('chargeBackDao', () => {
         ['test'],
         mockConn()
       );
+      // Verify that executeQuery was called for both count and search queries
       expect(db.executeQuery).toHaveBeenCalled();
+      // Verify that the result has totalCount, totalPages, and chargeBacks properties
       expect(result).toHaveProperty('totalCount');
+      // totalCount should match the mocked count value
       expect(result).toHaveProperty('totalPages');
+      // totalPages should be calculated based on totalCount and pageSize
       expect(result).toHaveProperty('chargeBacks');
     });
     it('should log and throw on error', async () => {
@@ -298,6 +326,7 @@ describe('chargeBackDao', () => {
         ['test'],
         mockConn()
       )).rejects.toThrow('search failed');
+      // Verify that the error was logged
       expect(loggerModule.logger.error).toHaveBeenCalled();
     });
     it('should handle multiple search terms', async () => {
@@ -314,6 +343,7 @@ describe('chargeBackDao', () => {
         ['test1', 'test2'],
         mockConn()
       );
+      // Verify that the result has chargeBacks property
       expect(result).toHaveProperty('chargeBacks');
     });
     it('should handle bank_name filter in search', async () => {
@@ -330,6 +360,7 @@ describe('chargeBackDao', () => {
         [],
         mockConn()
       );
+      // Verify that the result has chargeBacks property
       expect(result).toHaveProperty('chargeBacks');
     });
     it('should handle utr filter in search', async () => {
@@ -346,6 +377,7 @@ describe('chargeBackDao', () => {
         [],
         mockConn()
       );
+      // Verify that the result has chargeBacks property
       expect(result).toHaveProperty('chargeBacks');
     });
     it('should handle date filter in search', async () => {
@@ -363,6 +395,7 @@ describe('chargeBackDao', () => {
         [],
         mockConn()
       );
+      // Verify that the result has chargeBacks property
       expect(result).toHaveProperty('chargeBacks');
     });
   });
@@ -372,20 +405,26 @@ describe('chargeBackDao', () => {
       db.buildUpdateQuery.mockReturnValue(['SQL', []]);
       db.executeQuery.mockResolvedValue({ rows: [{ id: 1, status: 'RESOLVED' }] });
       const result = await dao.updateChargeBackDao(1, { status: 'RESOLVED' }, mockConn());
+      // Verify that buildUpdateQuery was called with correct parameters
       expect(db.buildUpdateQuery).toHaveBeenCalled();
+      // Verify that executeQuery was called with the SQL and values from buildUpdateQuery
       expect(db.executeQuery).toHaveBeenCalled();
+      // Verify that the result is the expected updated entry
       expect(result).toEqual({ id: 1, status: 'RESOLVED' });
     });
     it('should log and throw on error', async () => {
       db.buildUpdateQuery.mockReturnValue(['SQL', []]);
       db.executeQuery.mockRejectedValue(new Error('update failed'));
+      // Verify that the function throws the expected error and logs it
       await expect(dao.updateChargeBackDao(1, { status: 'RESOLVED' }, mockConn())).rejects.toThrow('update failed');
+      // Verify that the error was logged
       expect(loggerModule.logger.error).toHaveBeenCalled();
     });
     it('should handle multiple field updates', async () => {
       db.buildUpdateQuery.mockReturnValue(['SQL', []]);
       db.executeQuery.mockResolvedValue({ rows: [{ id: 1, status: 'RESOLVED', amount: 5000 }] });
       const result = await dao.updateChargeBackDao(1, { status: 'RESOLVED', amount: 5000 }, mockConn());
+      // Verify that the result includes all updated fields
       expect(result).toEqual({ id: 1, status: 'RESOLVED', amount: 5000 });
     });
   });
@@ -395,20 +434,26 @@ describe('chargeBackDao', () => {
       db.buildUpdateQuery.mockReturnValue(['SQL', []]);
       db.executeQuery.mockResolvedValue({ rows: [{ id: 1, is_obsolete: true }] });
       const result = await dao.deleteChargeBackDao(1, { is_obsolete: true }, mockConn());
+      // Verify that buildUpdateQuery was called with correct parameters
       expect(db.buildUpdateQuery).toHaveBeenCalled();
+      // Verify that executeQuery was called with the SQL and values from buildUpdateQuery
       expect(db.executeQuery).toHaveBeenCalled();
+      // Verify that the result is the expected deleted entry
       expect(result).toEqual({ id: 1, is_obsolete: true });
     });
     it('should log and throw on error', async () => {
       db.buildUpdateQuery.mockReturnValue(['SQL', []]);
       db.executeQuery.mockRejectedValue(new Error('delete failed'));
+      // Verify that the function throws the expected error and logs it
       await expect(dao.deleteChargeBackDao(1, { is_obsolete: true }, mockConn())).rejects.toThrow('delete failed');
+      // Verify that the error was logged
       expect(loggerModule.logger.error).toHaveBeenCalled();
     });
     it('should mark entry as obsolete', async () => {
       db.buildUpdateQuery.mockReturnValue(['SQL', []]);
       db.executeQuery.mockResolvedValue({ rows: [{ id: 1, is_obsolete: true }] });
       const result = await dao.deleteChargeBackDao(1, { is_obsolete: true, updated_by: 2 }, mockConn());
+      // Verify that the result has is_obsolete property set to true
       expect(result.is_obsolete).toBe(true);
     });
   });
@@ -417,22 +462,28 @@ describe('chargeBackDao', () => {
     it('should return true if chargeback exists', async () => {
       db.executeQuery.mockResolvedValue({ rows: [{ 1: 1 }] });
       const result = await dao.chargeBackExistsByPayinIdDao(1, mockConn());
+      // Verify that executeQuery was called with correct SQL and parameters
       expect(db.executeQuery).toHaveBeenCalled();
+      // Verify that the result is true when chargeback exists
       expect(result).toBe(true);
     });
     it('should return false if chargeback does not exist', async () => {
       db.executeQuery.mockResolvedValue({ rows: [] });
       const result = await dao.chargeBackExistsByPayinIdDao(999, mockConn());
+      // Verify that the result is false when chargeback does not exist
       expect(result).toBe(false);
     });
     it('should log and throw on error', async () => {
       db.executeQuery.mockRejectedValue(new Error('existence check failed'));
+      // Verify that the function throws the expected error and logs it
       await expect(dao.chargeBackExistsByPayinIdDao(1, mockConn())).rejects.toThrow('existence check failed');
+      // Verify that the error was logged
       expect(loggerModule.logger.error).toHaveBeenCalled();
     });
     it('should use correct SQL query', async () => {
       db.executeQuery.mockResolvedValue({ rows: [{ 1: 1 }] });
       await dao.chargeBackExistsByPayinIdDao(123, mockConn());
+      // Verify that executeQuery was called with SQL containing payin_id and correct parameters
       expect(db.executeQuery).toHaveBeenCalledWith(
         expect.stringContaining('payin_id'),
         expect.arrayContaining([123]),

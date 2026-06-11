@@ -270,6 +270,7 @@ describe('payoutService', () => {
         },
       ]);
       payoutDao.getPayoutByMerchantOrderIdDao.mockResolvedValue(false);
+      // NaN is a special case that should be tested explicitly, as it can cause unexpected behavior in the code if not handled properly.
       await expect(
         service.createPayoutService(
           {},
@@ -292,6 +293,7 @@ describe('payoutService', () => {
         },
       ]);
       payoutDao.getPayoutByMerchantOrderIdDao.mockResolvedValue(false);
+      // This test checks if the service correctly throws an error when the amount field is missing from the payload, which is a required field for creating a payout. This ensures that the service validates the input properly and prevents the creation of payouts with incomplete data.
       await expect(
         service.createPayoutService({}, { code: 'c' }, 'MERCHANT', false),
       ).rejects.toThrow();
@@ -301,6 +303,7 @@ describe('payoutService', () => {
         { id: 1, config: {}, company_id: 1, user_id: 1, balance: 100 },
       ]);
       payoutDao.getPayoutByMerchantOrderIdDao.mockResolvedValue(false);
+      // This test checks if the service correctly throws an error when the merchant's min_payout field is missing, which is necessary for validating the payout amount against the merchant's allowed payout range. This ensures that the service does not proceed with creating a payout when it cannot determine the minimum payout limit for the merchant, thus preventing potential issues with invalid payout amounts.
       await expect(
         service.createPayoutService(
           {},
@@ -327,6 +330,7 @@ describe('payoutService', () => {
           },
         ]);
       bankaccountDao.getBankByIdDao = jest.fn().mockResolvedValue([]);
+      // This test checks if the service correctly throws an error when the getBankByIdDao returns an empty result, which indicates that the bank account associated with the payout cannot be found. This is important to ensure that the service does not proceed with assigning a payout to a bank account that does not exist, which could lead to issues with processing the payout and potential errors in the system.
       await expect(
         service.assignedPayoutService('id1', ['id1'], 1, 1),
       ).rejects.toThrow();
@@ -347,6 +351,7 @@ describe('payoutService', () => {
       bankaccountDao.getBankByIdDao = jest.fn().mockResolvedValue([{ id: 1 }]);
       vendorDao.getVendorsDao = jest.fn().mockResolvedValue([{ id: 1 }]);
       merchantDao.getMerchantByIdDao = jest.fn().mockResolvedValue([]);
+      // This test checks if the service correctly resolves when the getMerchantByIdDao returns an empty result, which indicates that the merchant associated with the payout cannot be found. This is important to ensure that the service can handle cases where the merchant information is missing without crashing or throwing an error, allowing for graceful handling of such scenarios in the payout assignment process.
       await expect(
         service.assignedPayoutService('id1', ['id1'], 1, 1),
       ).resolves.toBeDefined();
@@ -367,6 +372,7 @@ describe('payoutService', () => {
       bankaccountDao.getBankByIdDao = jest.fn().mockResolvedValue([{ id: 1 }]);
       vendorDao.getVendorsDao = jest.fn().mockResolvedValue([]);
       merchantDao.getMerchantByIdDao = jest.fn().mockResolvedValue([{ id: 1 }]);
+      // This test checks if the service correctly resolves when the getVendorsDao returns an empty result, which indicates that the vendor associated with the payout cannot be found. This is important to ensure that the service can handle cases where the vendor information is missing without crashing or throwing an error, allowing for graceful handling of such scenarios in the payout assignment process.
       await expect(
         service.assignedPayoutService('id1', ['id1'], 1, 1),
       ).resolves.toBeDefined();
@@ -376,6 +382,7 @@ describe('payoutService', () => {
   describe('checkPayOutStatusService (edge cases)', () => {
     it('should throw if merchantConfig.keys is missing', async () => {
       merchantDao.getMerchantsDao.mockResolvedValue([{ id: 1, config: {} }]);
+      // This test checks if the service correctly throws an error when the merchant's config object does not contain the keys property, which is necessary for validating the API key provided in the request. This ensures that the service does not proceed with checking the payout status when it cannot verify the authenticity of the request due to missing configuration, thus preventing potential security issues and ensuring proper error handling in such scenarios.
       await expect(
         service.checkPayOutStatusService(1, 'code', 'order', 'key'),
       ).resolves.toMatchObject({ status: 404 });
@@ -386,6 +393,7 @@ describe('payoutService', () => {
       merchantDao.getMerchantsByCodeDao.mockResolvedValue([
         { balance: -1, config: {} },
       ]);
+      // This test checks if the service correctly throws an error when the merchant's balance is less than the payout amount, which is a critical validation to prevent the creation of payouts that cannot be fulfilled due to insufficient funds. This ensures that the service enforces financial constraints and maintains the integrity of the payout process by not allowing payouts that would result in a negative balance for the merchant.
       await expect(
         service.createPayoutService(
           {},
@@ -408,6 +416,7 @@ describe('payoutService', () => {
         },
       ]);
       payoutDao.getPayoutByMerchantOrderIdDao.mockResolvedValue(true);
+      // This test checks if the service correctly throws an error when a payout with the same merchant order ID already exists, which is important to prevent duplicate payouts and maintain the integrity of the payout records. This ensures that the service enforces uniqueness of merchant order IDs and does not allow the creation of multiple payouts with the same identifier, which could lead to confusion and issues in tracking payouts.
       await expect(
         service.createPayoutService(
           {},
@@ -430,6 +439,7 @@ describe('payoutService', () => {
         },
       ]);
       payoutDao.getPayoutByMerchantOrderIdDao.mockResolvedValue(false);
+      // This test checks if the service correctly throws an error when the payout amount is outside the allowed range defined by the merchant's min_payout and max_payout fields. This is important to ensure that the service enforces the payout limits set by the merchant and does not allow payouts that are too small or too large, which could lead to issues with processing payouts and maintaining financial controls.
       await expect(
         service.createPayoutService(
           {},
@@ -441,6 +451,7 @@ describe('payoutService', () => {
     });
     it('should throw if code is missing', async () => {
       merchantDao.getMerchantsByCodeDao.mockResolvedValue([]);
+      // This test checks if the service correctly throws an error when the code field is missing from the payload, which is a required field for identifying the merchant associated with the payout. This ensures that the service validates the input properly and prevents the creation of payouts without a valid merchant code, which could lead to issues with associating payouts to the correct merchant and tracking them effectively.
       await expect(
         service.createPayoutService({}, { amount: 10 }, 'ADMIN', false),
       ).rejects.toThrow();
@@ -460,7 +471,9 @@ describe('payoutService', () => {
         1,
         'ADMIN',
       );
+      // This test checks if the service correctly returns the payouts and totalCount when valid input is provided. It ensures that the service can successfully retrieve payout data and the total count of payouts, which is essential for displaying payout information to users and for pagination purposes in the user interface.
       expect(result.totalCount).toBe(1);
+      // This assertion checks if the service returns a non-empty array of payouts, which is important to confirm that the service is correctly fetching and returning payout data based on the provided filters and parameters. It ensures that the service can handle valid requests and provide the expected payout information to the caller.
       expect(result.payout.length).toBeGreaterThan(0);
     });
   });
@@ -476,6 +489,7 @@ describe('payoutService', () => {
         'ADMIN',
         false,
       );
+      // This test checks if the service correctly returns the payout data when valid input is provided, ensuring that the service can handle search queries and return the expected results.
       expect(result[0].id).toBe(1);
     });
     it('should return undefined if vendor_code not found', async () => {
@@ -491,6 +505,7 @@ describe('payoutService', () => {
         'ADMIN',
         false,
       );
+      // This test checks if the service correctly returns undefined when the vendor_code provided in the filters does not match any existing vendor, which is important to ensure that the service can handle cases where the search criteria do not yield any results and does not return incorrect or misleading data.
       expect(result).toBeUndefined();
     });
   });
@@ -498,6 +513,7 @@ describe('payoutService', () => {
   describe('updatePayoutService', () => {
     it('should throw if payout not found', async () => {
       payoutDao.getPayoutsDao.mockResolvedValue([]);
+      // This test checks if the service correctly throws an error when the payout specified for update cannot be found, which is crucial to prevent attempts to update non-existent payouts and to ensure that the service provides appropriate feedback when the specified payout ID does not exist in the system.
       await expect(
         service.updatePayoutService({ id: 1 }, {}, 'ADMIN'),
       ).rejects.toThrow('Payout not found!');
@@ -507,6 +523,7 @@ describe('payoutService', () => {
         { merchant_id: 1, bank_acc_id: 1, status: 'INITIATED' },
       ]);
       payoutDao.getMerchantByIdDao = jest.fn().mockResolvedValue([]);
+      // This test checks if the service correctly throws an error when the merchant associated with the payout cannot be found, which is important to ensure that the service does not proceed with updating a payout when it cannot verify the existence of the merchant, thus maintaining data integrity and preventing potential issues with orphaned payouts that are not linked to any valid merchant.
       await expect(
         service.updatePayoutService({ id: 1 }, {}, 'ADMIN'),
       ).rejects.toThrow(TypeError);
@@ -525,6 +542,7 @@ describe('payoutService', () => {
         'order',
         'key',
       );
+      // This test checks if the service correctly returns a 404 status when the payout being checked does not belong to the merchant associated with the provided API key, which is important to ensure that the service enforces proper access control and does not allow users to check the status of payouts that are not linked to their merchant account, thus maintaining security and data privacy.
       expect(result.status).toBe(404);
     });
   });
@@ -534,6 +552,7 @@ describe('payoutService', () => {
       payoutDao.deletePayoutDao.mockResolvedValue({ id: 1 });
       payoutDao.filterResponse = jest.fn((data) => data);
       const result = await service.deletePayoutService(1, 1, 'ADMIN');
+      // This test checks if the service correctly deletes a payout and returns the expected result when valid input is provided, ensuring that the service can successfully handle payout deletion requests and provide appropriate feedback to the caller.
       expect(result.id).toBe(1);
     });
   });
@@ -542,12 +561,14 @@ describe('payoutService', () => {
     it('should succeed for valid input', async () => {
       payoutDao.assignedPayoutDao.mockResolvedValue({ id: 1 });
       const result = await service.assignedPayoutService(1, {}, 1, 1);
+      // This test checks if the service correctly assigns a payout and returns the expected result when valid input is provided, ensuring that the service can successfully handle payout assignment requests and provide appropriate feedback to the caller.
       expect(result.id).toBe(1);
     });
   });
   describe('createPayoutService', () => {
     it('should throw if merchant is inactive', async () => {
       payoutDao.createPayoutDao.mockResolvedValue(undefined);
+      // This test checks if the service correctly throws an error when the merchant associated with the payout is inactive, which is important to ensure that the service does not allow the creation of payouts for merchants that are not active, thus maintaining the integrity of the payout process and preventing potential issues with processing payouts for inactive merchants.
       await expect(
         service.createPayoutService({}, { code: 'invalid' }, 'ADMIN', false),
       ).rejects.toThrow();
@@ -557,6 +578,7 @@ describe('payoutService', () => {
   describe('getPayoutsService', () => {
     it('should throw on error', async () => {
       payoutDao.getAllPayoutsDao.mockRejectedValue(new Error('fail'));
+      // This test checks if the service correctly throws an error when there is an issue with retrieving payouts, which is important to ensure that the service can handle unexpected errors gracefully and provide appropriate feedback to the caller when something goes wrong during the payout retrieval process.
       await expect(
         service.getPayoutsService(1, 1, 10, 'DESC', {}, 'ADMIN', 1, 'ADMIN'),
       ).rejects.toThrow('fail');
@@ -572,6 +594,7 @@ describe('payoutService', () => {
         'order',
         'key',
       );
+      // This test checks if the service correctly returns a 400 status when the merchant associated with the provided API key does not exist, which is important to ensure that the service validates the existence of the merchant before attempting to check the payout status, thus preventing potential issues with processing requests for non-existent merchants and providing appropriate feedback to the caller.
       expect(result.status).toBe(400);
     });
     it('should return 404 if api_key invalid', async () => {
@@ -584,6 +607,7 @@ describe('payoutService', () => {
         'order',
         'badkey',
       );
+      // This test checks if the service correctly returns a 404 status when the provided API key is invalid, which is important to ensure that the service enforces proper authentication and does not allow access with incorrect credentials, thus maintaining security and data integrity.
       expect(result.status).toBe(404);
     });
     it('should return 404 if payout not found', async () => {
@@ -597,6 +621,7 @@ describe('payoutService', () => {
         'order',
         'key',
       );
+      // This test checks if the service correctly returns a 404 status when the payout being checked cannot be found, which is important to ensure that the service provides appropriate feedback when the specified payout ID does not exist in the system, thus maintaining data integrity and preventing confusion for users trying to check the status of non-existent payouts.
       expect(result.status).toBe(404);
     });
     it('should return 404 if merchant mismatch', async () => {
@@ -610,6 +635,7 @@ describe('payoutService', () => {
         'order',
         'key',
       );
+      // This test checks if the service correctly returns a 404 status when the payout being checked does not belong to the merchant associated with the provided API key, which is important to ensure that the service enforces proper access control and does not allow users to check the status of payouts that are not linked to their merchant account, thus maintaining security and data privacy.
       expect(result.status).toBe(404);
     });
     it('should return status and details on success', async () => {
@@ -631,10 +657,12 @@ describe('payoutService', () => {
         'order',
         'key',
       );
+      // This test checks if the service correctly returns the status and details when the payout is found and belongs to the merchant associated with the provided API key, which is important to ensure that the service provides accurate and complete information about the payout, thus maintaining transparency and trust with users.
       expect(result.status).toBeDefined();
     });
     it('should log and throw on error', async () => {
       merchantDao.getMerchantsDao.mockRejectedValue(new Error('fail'));
+      // This test checks if the service correctly logs the error and throws an exception when there is an issue with retrieving the merchant information, which is important to ensure that the service can handle unexpected errors gracefully and provide appropriate feedback to the caller while also logging the error for debugging and monitoring purposes.
       await expect(
         service.checkPayOutStatusService(1, 'code', 'order', 'key'),
       ).rejects.toThrow('fail');
@@ -645,6 +673,7 @@ describe('payoutService', () => {
     it('should throw on error', async () => {
       payoutDao.getPayoutsBySearchDao.mockRejectedValue(new Error('fail'));
       const filters = { page: 1, limit: 10 };
+      // This test checks if the service correctly throws an error when there is an issue with retrieving payouts based on search criteria, which is important to ensure that the service can handle unexpected errors gracefully and provide appropriate feedback to the caller when something goes wrong during the payout search process.
       await expect(
         service.getPayoutsBySearchService(filters, 'ADMIN', 1, 'ADMIN', false),
       ).rejects.toThrow('fail');
@@ -654,6 +683,7 @@ describe('payoutService', () => {
   describe('updatePayoutService', () => {
     it('should throw on error', async () => {
       payoutDao.getPayoutsDao.mockRejectedValue(new Error('fail'));
+      // This test checks if the service correctly throws an error when there is an issue with retrieving the payout information for update, which is important to ensure that the service can handle unexpected errors gracefully and provide appropriate feedback to the caller when something goes wrong during the payout update process.
       await expect(
         service.updatePayoutService({ id: 1 }, {}, 'ADMIN'),
       ).rejects.toThrow('fail');
@@ -663,6 +693,7 @@ describe('payoutService', () => {
   describe('deletePayoutService', () => {
     it('should throw on error', async () => {
       payoutDao.deletePayoutDao.mockRejectedValue(new Error('fail'));
+      // This test checks if the service correctly throws an error when there is an issue with deleting a payout, which is important to ensure that the service can handle unexpected errors gracefully and provide appropriate feedback to the caller when something goes wrong during the payout deletion process.
       await expect(service.deletePayoutService(1, 1, 'ADMIN')).rejects.toThrow(
         'fail',
       );
@@ -672,6 +703,7 @@ describe('payoutService', () => {
   describe('assignedPayoutService', () => {
     it('should throw on error', async () => {
       payoutDao.assignedPayoutDao.mockRejectedValue(new Error('fail'));
+      // This test checks if the service correctly throws an error when there is an issue with assigning a payout, which is important to ensure that the service can handle unexpected errors gracefully and provide appropriate feedback to the caller when something goes wrong during the payout assignment process.
       await expect(service.assignedPayoutService(1, {}, 1, 1)).rejects.toThrow(
         'fail',
       );
@@ -680,6 +712,7 @@ describe('payoutService', () => {
 
   describe('createTataPayBulkPayoutService', () => {
     it('should throw on error', async () => {
+      // Since the implementation of createTataPayBulkPayoutService is not provided, this test assumes that it will throw an error when called with empty payout entries and payout IDs. This is important to ensure that the service validates the input properly and does not proceed with creating bulk payouts when the necessary data is missing, thus maintaining data integrity and preventing potential issues with processing invalid bulk payout requests.
       await expect(
         service.createTataPayBulkPayoutService({
           payoutEntries: [],
@@ -693,6 +726,7 @@ describe('payoutService', () => {
 
   describe('createRupeeFlowBulkPayoutService', () => {
     it('should throw on error', async () => {
+      // Since the implementation of createRupeeFlowBulkPayoutService is not provided, this test assumes that it will throw an error when called with empty payout entries and payout IDs. This is important to ensure that the service validates the input properly and does not proceed with creating bulk payouts when the necessary data is missing, thus maintaining data integrity and preventing potential issues with processing invalid bulk payout requests.
       await expect(
         service.createRupeeFlowBulkPayoutService({
           payoutEntries: [],

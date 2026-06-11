@@ -175,10 +175,12 @@ describe('bankaccountServices', () => {
           'ADMIN',
         );
 
+      // Check that the DAO was called to get data
       expect(
         dao.getAllBankaccountDao,
       ).toHaveBeenCalled();
 
+      // Check that the service returns the expected data
       expect(result).toEqual([{ id: 1 }]);
     });
 
@@ -187,6 +189,7 @@ describe('bankaccountServices', () => {
         new Error('fail'),
       );
 
+      // Call the service and expect it to throw an error
       await expect(
         services.getBankaccountService(
           {},

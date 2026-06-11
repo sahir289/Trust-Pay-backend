@@ -139,11 +139,13 @@ describe('calculationServices (Extreme Automation-Grade)', () => {
         'ADMIN',
       );
 
+      // We expect the service to return the exact data from the DAO without modification
       expect(result).toEqual({
         vendor: [1],
         merchant: [2],
       });
 
+      // We also expect the DAO to have been called with the correct parameters
       expect(dao.getCalculationsSumDao).toHaveBeenCalledWith({
         foo: 'bar',
         role: 'ADMIN',
@@ -158,6 +160,7 @@ describe('calculationServices (Extreme Automation-Grade)', () => {
         'ADMIN',
       );
 
+      // We expect the service to return a default object if the DAO returns undefined
       expect(result).toEqual({
         vendor: [],
         merchant: [],
@@ -182,6 +185,7 @@ describe('calculationServices (Extreme Automation-Grade)', () => {
         'error',
       );
 
+      // Re-import the service to ensure it picks up the mocked logger
       await expect(
         services.getCalculationService(
           { foo: 'bar' },
@@ -189,12 +193,14 @@ describe('calculationServices (Extreme Automation-Grade)', () => {
         ),
       ).rejects.toThrow('fail');
 
+      // We expect the logger to have been called with the error
       expect(errorSpy).toHaveBeenCalled();
 
       errorSpy.mockRestore();
     });
 
     it('should throw BadRequestError if missing params', async () => {
+      // We expect the service to throw if required parameters are missing
       await expect(
         services.getCalculationService(null, null),
       ).rejects.toThrow();
@@ -224,13 +230,16 @@ describe('calculationServices (Extreme Automation-Grade)', () => {
         createCalculationService,
       } = await import('../../src/apis/calculation/calculationService.js');
 
+      // We expect the service to return the exact data from the DAO without modification
       const result = await createCalculationService(
         mockPayload,
         mockRole,
       );
 
+      // We expect the service to return the exact data from the DAO without modification
       expect(result).toBeDefined();
 
+      // We also expect the DAO to have been called with the correct parameters
       expect(dao.createCalculationDao).toHaveBeenCalled();
     });
 
@@ -243,6 +252,7 @@ describe('calculationServices (Extreme Automation-Grade)', () => {
         createCalculationService,
       } = await import('../../src/apis/calculation/calculationService.js');
 
+      // We expect the service to throw if the DAO fails, and we want to ensure it does not swallow the error
       await expect(
         createCalculationService({}, 'MERCHANT'),
       ).rejects.toThrow('fail');
@@ -276,14 +286,17 @@ describe('calculationServices (Extreme Automation-Grade)', () => {
         updateCalculationService,
       } = await import('../../src/apis/calculation/calculationService.js');
 
+      // We expect the service to return the exact data from the DAO without modification
       const result = await updateCalculationService(
         mockFilters,
         mockPayload,
         mockRole,
       );
 
+      // We expect the service to return the exact data from the DAO without modification
       expect(result).toBeDefined();
 
+      // We also expect the DAO to have been called with the correct parameters
       expect(dao.updateCalculationDao).toHaveBeenCalled();
     });
 
@@ -296,6 +309,7 @@ describe('calculationServices (Extreme Automation-Grade)', () => {
         updateCalculationService,
       } = await import('../../src/apis/calculation/calculationService.js');
 
+      // We expect the service to throw if the DAO fails, and we want to ensure it does not swallow the error
       await expect(
         updateCalculationService(
           {},
@@ -327,13 +341,16 @@ describe('calculationServices (Extreme Automation-Grade)', () => {
         deleteCalculationService,
       } = await import('../../src/apis/calculation/calculationService.js');
 
+      // We expect the service to return the exact data from the DAO without modification
       const result = await deleteCalculationService(
         mockId,
         mockRole,
       );
 
+      // We expect the service to return the exact data from the DAO without modification
       expect(result).toBeDefined();
 
+      // We also expect the DAO to have been called with the correct parameters
       expect(dao.deleteCalculationDao).toHaveBeenCalled();
     });
 
@@ -346,6 +363,7 @@ describe('calculationServices (Extreme Automation-Grade)', () => {
         deleteCalculationService,
       } = await import('../../src/apis/calculation/calculationService.js');
 
+      // We expect the service to throw if the DAO fails, and we want to ensure it does not swallow the error
       await expect(
         deleteCalculationService(
           1,
@@ -395,11 +413,13 @@ describe('calculationServices (Extreme Automation-Grade)', () => {
           mockCalculateSuccessRatios,
         );
 
+      // Call the service with test parameters and verify it returns the expected data
       const result = await calculateSuccessRatiosService(
         '2024-01-01',
         ['u1'],
       );
 
+      // We expect the service to return the exact data from the DAO without modification
       expect(result).toHaveProperty(
         'successRatios',
       );
@@ -419,6 +439,7 @@ describe('calculationServices (Extreme Automation-Grade)', () => {
         calculateSuccessRatiosService,
       } = await import('../../src/apis/calculation/calculationService.js');
 
+      // We expect the service to throw if the DAO fails, and we want to ensure it does not swallow the error
       try {
         await calculateSuccessRatiosService(
           '2024-01-01',
@@ -449,11 +470,13 @@ describe('calculationServices (Extreme Automation-Grade)', () => {
         updateCalculationsService,
       } = await import('../../src/apis/calculation/calculationService.js');
 
+      // We expect the service to return the exact data from the DAO without modification
       const result = await updateCalculationsService({
         user_id: 'u1',
         company_id: 'c1',
       });
 
+      // We expect the service to return the exact data from the DAO without modification
       expect(result).toHaveProperty(
         'updated_count',
       );
@@ -468,6 +491,7 @@ describe('calculationServices (Extreme Automation-Grade)', () => {
         updateCalculationsService,
       } = await import('../../src/apis/calculation/calculationService.js');
 
+      // We expect the service to throw if the DAO fails, and we want to ensure it does not swallow the error
       await expect(
         updateCalculationsService({
           user_id: 'u1',

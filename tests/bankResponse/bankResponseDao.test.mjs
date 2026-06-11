@@ -145,6 +145,7 @@ describe('bankResponseDao (Extreme Automation-Grade)', () => {
         null
       );
 
+      // Only the first row should be returned
       expect(result).toEqual({ id: 1 });
     });
 
@@ -161,6 +162,7 @@ describe('bankResponseDao (Extreme Automation-Grade)', () => {
         null
       );
 
+      // Should return undefined if no rows found
       expect(result).toBeUndefined();
     });
 
@@ -169,10 +171,12 @@ describe('bankResponseDao (Extreme Automation-Grade)', () => {
 
       const errorSpy = jest.spyOn(logger.logger, 'error');
 
+      // Should throw the error and log it
       await expect(
         dao.getBankResponseDao({}, new Date(), new Date(), 0, 10, [], null)
       ).rejects.toThrow('fail');
 
+      // Should have logged the error
       expect(errorSpy).toHaveBeenCalled();
       errorSpy.mockRestore();
     });
@@ -181,11 +185,15 @@ describe('bankResponseDao (Extreme Automation-Grade)', () => {
   describe('getCheckBankResponseDao', () => {
     it('should return true if rows found', async () => {
       db.executeQuery.mockResolvedValue({ rows: [{}] });
+
+      // Should return true if at least one row is found
       expect(await dao.getCheckBankResponseDao({})).toBe(true);
     });
 
     it('should return false if no rows', async () => {
       db.executeQuery.mockResolvedValue({ rows: [] });
+
+      // Should return false if no rows are found
       expect(await dao.getCheckBankResponseDao({})).toBe(false);
     });
 
@@ -194,8 +202,10 @@ describe('bankResponseDao (Extreme Automation-Grade)', () => {
 
       const errorSpy = jest.spyOn(logger.logger, 'error');
 
+      // Should throw the error and log it
       await expect(dao.getCheckBankResponseDao({})).rejects.toThrow('fail');
 
+      // Should have logged the error
       expect(errorSpy).toHaveBeenCalled();
       errorSpy.mockRestore();
     });
@@ -205,12 +215,14 @@ describe('bankResponseDao (Extreme Automation-Grade)', () => {
     it('should return rows', async () => {
       db.executeQuery.mockResolvedValue({ rows: [{ id: 1 }] });
 
+      // Should return the rows as-is for creation
       expect(await dao.getForCreateBankResponseDao({})).toEqual([{ id: 1 }]);
     });
 
     it('should return empty array if no rows', async () => {
       db.executeQuery.mockResolvedValue({ rows: [] });
 
+      // Should return empty array if no rows are found
       expect(await dao.getForCreateBankResponseDao({})).toEqual([]);
     });
   });
@@ -222,6 +234,7 @@ describe('bankResponseDao (Extreme Automation-Grade)', () => {
 
       const result = await dao.updateBotResponseDao(1, { foo: 'bar' });
 
+      // Should have built the update query with correct parameters
       expect(result).toEqual({ id: 1 });
     });
 
@@ -230,6 +243,7 @@ describe('bankResponseDao (Extreme Automation-Grade)', () => {
         throw new Error('fail');
       });
 
+      // Should throw the error from buildUpdateQuery
       await expect(
         dao.updateBotResponseDao(1, { foo: 'bar' })
       ).rejects.toThrow('fail');
@@ -250,7 +264,10 @@ describe('bankResponseDao (Extreme Automation-Grade)', () => {
         toStatus: '/freezed',
       });
 
+      // Should have updated 2 rows and returned their ids
       expect(result.updatedCount).toBe(2);
+
+      // Should have returned the updated ids
       expect(result.updatedIds).toEqual([1, 2]);
     });
   });

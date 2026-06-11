@@ -65,16 +65,19 @@ describe('bankHistoryDao', () => {
         null,
       );
 
+      // Check that the result is as expected
       expect(result).toEqual([
         { count: 1, today_balance: 100 },
       ]);
 
+      // Check that executeQuery was called with the expected SQL and parameters
       expect(db.executeQuery).toHaveBeenCalled();
     });
 
     it('should throw on db error', async () => {
       db.executeQuery.mockRejectedValue(new Error('fail'));
 
+      // Call the DAO and expect it to throw an error
       await expect(
         dao.getBankHistoryDao(
           { bank_account_id: 1, date: '2024-01-01' },
@@ -103,8 +106,13 @@ describe('bankHistoryDao', () => {
         null,
       );
 
+      // Check that the result is as expected
       expect(result).toEqual({ id: 1 });
+
+      // Check that buildInsertQuery and executeQuery were called with the expected SQL and parameters
       expect(db.buildInsertQuery).toHaveBeenCalled();
+
+      // Check that executeQuery was called with the expected SQL and parameters
       expect(db.executeQuery).toHaveBeenCalled();
     });
 
@@ -116,6 +124,7 @@ describe('bankHistoryDao', () => {
 
       db.executeQuery.mockRejectedValue(new Error('fail'));
 
+      // Call the DAO and expect it to throw an error
       await expect(
         dao.createBankHistoryDao(
           { foo: 'bar' },

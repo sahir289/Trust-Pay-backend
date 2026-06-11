@@ -119,7 +119,9 @@ describe('userController', () => {
 
       await controller.getUsers(req, res);
 
+      // Verify service call and response
       expect(userService.getUsersService).toHaveBeenCalled();
+      // Verify cache write with correct key and data
       expect(responseHandlers.sendSuccess).toHaveBeenCalledWith(res, mockData, 'getUsers successfully');
     });
 
@@ -135,6 +137,7 @@ describe('userController', () => {
 
       await controller.getUsers(req, res);
 
+      // Verify that service is not called and cached data is returned
       expect(responseHandlers.sendSuccess).toHaveBeenCalledWith(res, cachedData, 'getUsers successfully');
     });
 
@@ -148,17 +151,20 @@ describe('userController', () => {
 
       await controller.getUsers(req, res);
 
+      // Verify that service is called and empty array is returned
       expect(responseHandlers.sendSuccess).toHaveBeenCalledWith(res, [], 'getUsers successfully');
     });
 
     it('should handle error', async () => {
       userService.getUsersService.mockRejectedValue(new Error('Database error'));
 
+      // Mock req and res objects with necessary properties
       const { req, res } = mockReqRes({
         query: { page: 1, limit: 10 },
         user: { role: 'ADMIN', company_id: 1, user_id: 1, designation: 'Super Admin' },
       });
 
+      // Call the controller method and expect it to throw an error
       try {
         await controller.getUsers(req, res);
       } catch (error) {
@@ -179,7 +185,9 @@ describe('userController', () => {
 
       await controller.getUsersBySearch(req, res);
 
+      // Verify service call and response with correct data
       expect(userService.getUsersBySearchService).toHaveBeenCalled();
+      // Verify that the response contains the expected data
       expect(responseHandlers.sendSuccess).toHaveBeenCalledWith(res, mockData, 'getUsers successfully');
     });
 
@@ -193,6 +201,7 @@ describe('userController', () => {
 
       await controller.getUsersBySearch(req, res);
 
+      // Verify that service is called and empty results are returned
       expect(responseHandlers.sendSuccess).toHaveBeenCalled();
     });
 
@@ -224,10 +233,12 @@ describe('userController', () => {
 
       await controller.getUserById(req, res);
 
+      // Verify service call with correct parameters and response
       expect(userService.getUserByIdService).toHaveBeenCalledWith(
         { role_id: 2, designation_id: 3, company_id: 1, id: '1' },
         'ADMIN'
       );
+      // Verify that the response contains the expected user data
       expect(responseHandlers.sendSuccess).toHaveBeenCalledWith(res, mockUser, 'getting User by id successfully');
     });
 
@@ -259,7 +270,9 @@ describe('userController', () => {
 
       await controller.getUsersByUserName(req, res);
 
+      // Verify service call and response with correct data
       expect(userService.getUsersByUserNameService).toHaveBeenCalled();
+      // Verify that the response contains the expected user data
       expect(responseHandlers.sendSuccess).toHaveBeenCalled();
     });
 
@@ -289,7 +302,9 @@ describe('userController', () => {
 
       await controller.createUser(req, res);
 
+      // Verify service call and response with correct data
       expect(userService.createUserService).toHaveBeenCalled();
+      // Verify that the response contains the expected user data
       expect(responseHandlers.sendSuccess).toHaveBeenCalled();
     });
 
@@ -321,7 +336,9 @@ describe('userController', () => {
 
       await controller.updateUser(req, res);
 
+      // Verify service call and response with correct data
       expect(userService.userUpdateService).toHaveBeenCalled();
+      // Verify that the response contains the expected updated user data
       expect(responseHandlers.sendSuccess).toHaveBeenCalled();
     });
 
@@ -351,7 +368,9 @@ describe('userController', () => {
 
       await controller.sendMail(req, res);
 
+      // Verify service call and response with correct data
       expect(userService.sendMailService).toHaveBeenCalled();
+      // Verify that the response indicates success
       expect(responseHandlers.sendSuccess).toHaveBeenCalled();
     });
 
@@ -381,7 +400,9 @@ describe('userController', () => {
 
       await controller.toggleUser2FA(req, res);
 
+      // Verify service call with correct parameters and response
       expect(userService.updateUser2FAService).toHaveBeenCalledWith('1', true);
+      // Verify that the response indicates success
       expect(responseHandlers.sendSuccess).toHaveBeenCalled();
     });
 
@@ -411,7 +432,9 @@ describe('userController', () => {
 
       await controller.resetUser2FA(req, res);
 
+      // Verify service call with correct parameters and response
       expect(userService.resetUser2FAService).toHaveBeenCalledWith('1', 2, 'admin');
+      // Verify that the response indicates success
       expect(responseHandlers.sendSuccess).toHaveBeenCalled();
     });
 

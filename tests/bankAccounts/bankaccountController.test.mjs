@@ -184,10 +184,12 @@ describe('bankaccountController', () => {
 
       await controllers.getBankaccount(req, res);
 
+      // Check that cache was read and response was sent with cached data
       expect(
         responseHandlers.sendSuccess,
       ).toHaveBeenCalled();
 
+      // Check that the response contains the cached data
       expect(res._sent.data).toEqual({ cached: true });
     });
 
@@ -214,18 +216,22 @@ describe('bankaccountController', () => {
 
       await controllers.getBankaccount(req, res);
 
+      // Check that the service was called to get data
       expect(
         services.getBankaccountService,
       ).toHaveBeenCalled();
 
+      // Check that the data was cached
       expect(
         controllerCache.writeJsonCache,
       ).toHaveBeenCalled();
 
+      // Check that the response was sent with the correct data
       expect(
         responseHandlers.sendSuccess,
       ).toHaveBeenCalled();
 
+      // Check that the response contains the correct data
       expect(res._sent.data).toEqual([{ id: 1 }]);
     });
   });

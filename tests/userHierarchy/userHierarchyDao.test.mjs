@@ -58,8 +58,11 @@ describe('userHierarchyDao', () => {
       
       const result = await userHierarchyDao.createUserHierarchyDao(mockData);
       
+      // Validate that insert query was built with correct data
       expect(db.buildInsertQuery).toHaveBeenCalledWith('UserHierarchy', mockData);
+      // Validate that query was executed with correct parameters
       expect(db.executeQuery).toHaveBeenCalled();
+      // Validate that the result is as expected
       expect(result).toEqual(mockResult);
     });
 
@@ -70,9 +73,11 @@ describe('userHierarchyDao', () => {
       db.buildInsertQuery.mockReturnValue(['INSERT INTO...', [mockData]]);
       db.executeQuery.mockRejectedValue(error);
       
+      // Validate that error is thrown and logged
       await expect(userHierarchyDao.createUserHierarchyDao(mockData)).rejects.toThrow(
         'Insert failed',
       );
+      // Validate that error was logged
       expect(logger.logger.error).toHaveBeenCalled();
     });
 
@@ -86,7 +91,9 @@ describe('userHierarchyDao', () => {
       
       const result = await userHierarchyDao.createUserHierarchyDao(mockData, mockConn);
       
+      // Validate that query was executed with connection
       expect(db.executeQuery).toHaveBeenCalledWith('INSERT INTO...', [mockData], mockConn);
+      // Validate that the result is as expected
       expect(result).toEqual(mockResult);
     });
   });
@@ -101,8 +108,11 @@ describe('userHierarchyDao', () => {
       
       const result = await userHierarchyDao.getUserHierarchysDashBoardReportDao(mockFilters);
       
+      // Validate that select query was built with correct filters
       expect(db.buildSelectQuery).toHaveBeenCalled();
+      // Validate that query was executed with correct parameters
       expect(db.executeQuery).toHaveBeenCalled();
+      // Validate that the result is as expected
       expect(result).toEqual(mockResult);
     });
 
@@ -114,6 +124,7 @@ describe('userHierarchyDao', () => {
       
       const result = await userHierarchyDao.getUserHierarchysDashBoardReportDao(mockFilters);
       
+      // Validate that null rows are handled and empty array is returned
       expect(result).toEqual([]);
     });
 
@@ -123,9 +134,11 @@ describe('userHierarchyDao', () => {
       db.buildSelectQuery.mockReturnValue(['SELECT config FROM...', []]);
       db.executeQuery.mockRejectedValue(error);
       
+      // Validate that error is thrown and logged
       await expect(
         userHierarchyDao.getUserHierarchysDashBoardReportDao({}),
       ).rejects.toThrow('Query failed');
+      // Validate that error was logged
       expect(logger.logger.error).toHaveBeenCalled();
     });
   });
@@ -153,6 +166,7 @@ describe('userHierarchyDao', () => {
         [],
       );
       
+      // Validate that select query was built with correct filters and pagination
       expect(db.buildSelectQuery).toHaveBeenCalledWith(
         expect.stringContaining('SELECT'),
         mockFilters,
@@ -161,6 +175,7 @@ describe('userHierarchyDao', () => {
         null,
         null,
       );
+      // Validate that query was executed with correct parameters
       expect(result).toEqual(mockResult);
     });
 
@@ -174,7 +189,9 @@ describe('userHierarchyDao', () => {
       
       const result = await userHierarchyDao.getUserHierarchysDao(mockFilters, 1, 10);
       
+      // Validate that search filters were built and included in the query
       expect(searchBuilder.buildSearchFilterObj).toHaveBeenCalled();
+      // Validate that select query was built with search filters
       expect(result).toEqual(mockResult);
     });
 
@@ -194,7 +211,8 @@ describe('userHierarchyDao', () => {
         null,
         customColumns,
       );
-      
+    
+      // Validate that select query was built with custom columns
       expect(db.buildSelectQuery).toHaveBeenCalledWith(
         expect.stringContaining(customColumns.join(', ')),
         mockFilters,
@@ -203,6 +221,7 @@ describe('userHierarchyDao', () => {
         null,
         null,
       );
+      // Validate that the result is as expected
       expect(result).toEqual(mockResult);
     });
 
@@ -222,12 +241,14 @@ describe('userHierarchyDao', () => {
         [],
         mockConn,
       );
-      
+   
+      // Validate that query was executed with connection
       expect(db.executeQuery).toHaveBeenCalledWith(
         expect.any(String),
         expect.any(Array),
         mockConn,
       );
+      // Validate that the result is as expected
       expect(result).toEqual(mockResult);
     });
 
@@ -237,9 +258,11 @@ describe('userHierarchyDao', () => {
       db.buildSelectQuery.mockReturnValue(['SELECT * FROM...', []]);
       db.executeQuery.mockRejectedValue(error);
       
+      // Validate that error is thrown and logged
       await expect(
         userHierarchyDao.getUserHierarchysDao({ company_id: 1 }, 1, 10),
       ).rejects.toThrow('Query failed');
+      // Validate that error was logged
       expect(logger.logger.error).toHaveBeenCalled();
     });
   });
@@ -254,9 +277,12 @@ describe('userHierarchyDao', () => {
       db.executeQuery.mockResolvedValue({ rows: [mockResult] });
       
       const result = await userHierarchyDao.updateUserHierarchyDao(mockId, mockData);
-      
+    
+      // Validate that update query was built with correct data and ID
       expect(db.buildUpdateQuery).toHaveBeenCalledWith('UserHierarchy', mockData, mockId);
+      // Validate that query was executed with correct parameters
       expect(db.executeQuery).toHaveBeenCalled();
+      // Validate that the result is as expected
       expect(result).toEqual(mockResult);
     });
 
@@ -268,6 +294,7 @@ describe('userHierarchyDao', () => {
       
       const result = await userHierarchyDao.updateUserHierarchyDao({ id: 1 }, { config: {} });
       
+      // Validate that the result is as expected
       expect(result).toEqual(mockResult);
     });
 
@@ -284,6 +311,7 @@ describe('userHierarchyDao', () => {
         mockConn,
       );
       
+      // Validate that query was executed with connection
       expect(db.executeQuery).toHaveBeenCalledWith(
         expect.any(String),
         expect.any(Array),
@@ -296,7 +324,8 @@ describe('userHierarchyDao', () => {
       
       db.buildUpdateQuery.mockReturnValue(['UPDATE...', []]);
       db.executeQuery.mockRejectedValue(error);
-      
+    
+      // Validate that error is thrown and logged
       await expect(
         userHierarchyDao.updateUserHierarchyDao({ id: 1 }, { config: {} }),
       ).rejects.toThrow('Update failed');
@@ -315,8 +344,11 @@ describe('userHierarchyDao', () => {
       
       const result = await userHierarchyDao.deleteUserHierarchyDao(mockId, mockData);
       
+      // Validate that update query was built to mark as obsolete
       expect(db.buildUpdateQuery).toHaveBeenCalledWith('UserHierarchy', mockData, mockId);
+      // Validate that query was executed with correct parameters
       expect(db.executeQuery).toHaveBeenCalled();
+      // Validate that the result is as expected
       expect(result).toEqual(mockResult);
     });
 
@@ -331,6 +363,7 @@ describe('userHierarchyDao', () => {
         { is_obsolete: true },
       );
       
+      // Validate that the result indicates the record is marked as obsolete
       expect(result.is_obsolete).toBe(true);
     });
 
@@ -347,6 +380,7 @@ describe('userHierarchyDao', () => {
         mockConn,
       );
       
+      // Validate that query was executed with connection
       expect(db.executeQuery).toHaveBeenCalledWith(
         expect.any(String),
         expect.any(Array),
@@ -360,9 +394,11 @@ describe('userHierarchyDao', () => {
       db.buildUpdateQuery.mockReturnValue(['UPDATE...', []]);
       db.executeQuery.mockRejectedValue(error);
       
+      // Validate that error is thrown and logged
       await expect(
         userHierarchyDao.deleteUserHierarchyDao({ id: 1 }, { is_obsolete: true }),
       ).rejects.toThrow('Delete failed');
+      // Validate that error was logged
       expect(logger.logger.error).toHaveBeenCalled();
     });
   });
@@ -375,7 +411,9 @@ describe('userHierarchyDao', () => {
       
       const result = await userHierarchyDao.getUserHierarchyVendor(1);
       
+      // Validate that query was executed with correct user ID
       expect(db.executeQuery).toHaveBeenCalled();
+      // Validate that the result is as expected
       expect(result).toEqual(mockConfig);
     });
 
@@ -384,6 +422,7 @@ describe('userHierarchyDao', () => {
       
       const result = await userHierarchyDao.getUserHierarchyVendor(999);
       
+      // Validate that empty object is returned when no hierarchy is found
       expect(result).toEqual({});
     });
 
@@ -395,6 +434,7 @@ describe('userHierarchyDao', () => {
       
       await userHierarchyDao.getUserHierarchyVendor(1, mockConn);
       
+      // Validate that query was executed with connection and correct user ID
       expect(db.executeQuery).toHaveBeenCalledWith(
         expect.stringContaining('user_id = $1'),
         [1],
@@ -406,7 +446,9 @@ describe('userHierarchyDao', () => {
       const error = new Error('Query failed');
       db.executeQuery.mockRejectedValue(error);
       
+      // Validate that error is thrown and logged
       await expect(userHierarchyDao.getUserHierarchyVendor(1)).rejects.toThrow('Query failed');
+      // Validate that error was logged
       expect(logger.logger.error).toHaveBeenCalled();
     });
   });
@@ -424,7 +466,9 @@ describe('userHierarchyDao', () => {
         5,
       );
       
+      // Validate that query was executed with correct parameters
       expect(db.executeQuery).toHaveBeenCalled();
+      // Validate that the result is as expected
       expect(result).toEqual(mockResult);
     });
 
@@ -436,6 +480,7 @@ describe('userHierarchyDao', () => {
       
       await userHierarchyDao.updateUserHierarchyVendor(1, mockConfig, 5);
       
+      // Validate that query was executed with updated_by parameter
       expect(db.executeQuery).toHaveBeenCalledWith(
         expect.stringContaining('UserHierarchy'),
         [mockConfig, 5, 1],
@@ -451,6 +496,7 @@ describe('userHierarchyDao', () => {
       
       await userHierarchyDao.updateUserHierarchyVendor(1, {}, 5, mockConn);
       
+      // Validate that query was executed with connection and correct parameters
       expect(db.executeQuery).toHaveBeenCalledWith(
         expect.any(String),
         expect.any(Array),
@@ -462,9 +508,11 @@ describe('userHierarchyDao', () => {
       const error = new Error('Update failed');
       db.executeQuery.mockRejectedValue(error);
       
+      // Validate that error is thrown and logged
       await expect(
         userHierarchyDao.updateUserHierarchyVendor(1, {}, 5),
       ).rejects.toThrow('Update failed');
+      // Validate that error was logged
       expect(logger.logger.error).toHaveBeenCalled();
     });
   });

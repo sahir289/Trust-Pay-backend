@@ -122,7 +122,7 @@ describe('merchantService', () => {
       merchantDao.createMerchantDao.mockResolvedValue({ id: 1, user_id: 1, company_id: 1, created_by: 1, updated_by: 1 });
 
       await service.createMerchantService({ code: 'TEST', role_id: 1, role: 'MERCHANT', designation: 'MERCHANT' });
-
+      // We can check if the DAO was called to create the merchant
       expect(merchantDao.createMerchantDao).toHaveBeenCalled();
     });
   });
@@ -132,7 +132,7 @@ describe('merchantService', () => {
       merchantDao.getAllMerchantsDao.mockResolvedValue([{ id: 1 }]);
 
       await service.getMerchantsService({}, 'ADMIN', 1, 10, 'ADMIN', 1);
-
+      // We can check if the DAO was called to fetch merchants
       expect(merchantDao.getAllMerchantsDao).toHaveBeenCalled();
     }, 10000);
   });
@@ -142,7 +142,7 @@ describe('merchantService', () => {
       merchantDao.getMerchantByCodeDao.mockResolvedValue([{ id: 1 }]);
 
       await service.getMerchantsByCodeService('TEST');
-
+      // We can check if the DAO was called to fetch merchant by code
       expect(merchantDao.getMerchantByCodeDao).toHaveBeenCalled();
     });
   });
@@ -154,7 +154,7 @@ describe('merchantService', () => {
       });
 
       await service.getMerchantsBySearchService({}, 'ADMIN');
-
+      // We can check if the DAO was called to search merchants
       expect(merchantDao.getMerchantsBySearchDao).toHaveBeenCalled();
     });
   });
@@ -164,7 +164,7 @@ describe('merchantService', () => {
       merchantDao.updateMerchantDao.mockResolvedValue({ id: 1 });
 
       await service.updateMerchantService({ id: 1 }, {}, 'ADMIN');
-
+      // We can check if the DAO was called to update the merchant
       expect(merchantDao.updateMerchantDao).toHaveBeenCalled();
     });
   });
@@ -174,7 +174,7 @@ describe('merchantService', () => {
       merchantDao.deleteMerchantDao.mockResolvedValue({ id: 1 });
 
       await service.deleteMerchantService({ id: 1 }, 5, 'ADMIN');
-
+      // We can check if the DAO was called to delete the merchant
       expect(merchantDao.deleteMerchantDao).toHaveBeenCalled();
     },40000);
   });

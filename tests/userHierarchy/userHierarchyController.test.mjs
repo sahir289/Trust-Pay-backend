@@ -100,13 +100,17 @@ describe('userHierarchyController', () => {
       
       await controller.createUserHierarchy(req, res);
       
+      // Validate that schema validation was called with correct data
       expect(schemas.VALIDATE_USER_HIERARCHY_SCHEMA.validate).toHaveBeenCalledWith(req.body);
+      // Validate that service was called with correct parameters
       expect(userHierarchyService.createUserHierarchyService).toHaveBeenCalled();
+      // Validate that cache invalidation was called with correct parameters
       expect(cacheUtils.invalidateCompanyCacheByPrefix).toHaveBeenCalledWith(
         1,
         'userHierarchy:read:',
         'UserHierarchy cache',
       );
+      // Validate that response handler was called with correct parameters
       expect(responseHandlers.sendSuccess).toHaveBeenCalled();
     });
 
@@ -120,6 +124,7 @@ describe('userHierarchyController', () => {
       };
       const res = {};
       
+      // Validate that it throws the correct error message
       await expect(controller.createUserHierarchy(req, res)).rejects.toThrow('Invalid schema');
     });
 
@@ -135,6 +140,7 @@ describe('userHierarchyController', () => {
       };
       const res = {};
       
+      // Validate that it throws the correct error message when service fails
       await expect(controller.createUserHierarchy(req, res)).rejects.toThrow('Service error');
     });
   });
@@ -155,8 +161,11 @@ describe('userHierarchyController', () => {
       
       await controller.getUserHierarchys(req, res);
       
+      // Validate that cache was checked and service was called when cache is not served
       expect(userHierarchyService.getUserHierarchyService).toHaveBeenCalled();
+      // Validate that cache was written with correct parameters
       expect(cacheUtils.writeJsonCache).toHaveBeenCalled();
+      // Validate that response handler was called with correct parameters
       expect(responseHandlers.sendSuccess).toHaveBeenCalled();
     });
 
@@ -173,8 +182,11 @@ describe('userHierarchyController', () => {
       
       await controller.getUserHierarchys(req, res);
       
+      // Validate that cache was read and checked for serving
       expect(cacheUtils.readJsonCache).toHaveBeenCalled();
+      // Validate that it checked if it should serve cached response
       expect(cacheUtils.shouldServeCachedResponse).toHaveBeenCalled();
+      // Validate that response handler was called with cached data
       expect(responseHandlers.sendSuccess).toHaveBeenCalledWith(
         res,
         cachedData,
@@ -197,6 +209,7 @@ describe('userHierarchyController', () => {
       };
       const res = {};
       
+      // Validate that it throws the correct error message when service fails
       await expect(controller.getUserHierarchys(req, res)).rejects.toThrow('Fetch failed');
     });
   });
@@ -219,8 +232,11 @@ describe('userHierarchyController', () => {
       
       await controller.getUserHierarchysById(req, res);
       
+      // Validate that schema validation was called with correct data
       expect(schemas.VALIDATE_USER_HIERARCHY_BY_ID.validate).toHaveBeenCalledWith(req.params);
+      // Validate that cache was checked and service was called when cache is not served
       expect(userHierarchyService.getUserHierarchyService).toHaveBeenCalled();
+      // Validate that cache was written with correct parameters
       expect(responseHandlers.sendSuccess).toHaveBeenCalled();
     });
 
@@ -234,6 +250,7 @@ describe('userHierarchyController', () => {
       };
       const res = {};
       
+      // Validate that it throws the correct error message when id validation fails
       await expect(controller.getUserHierarchysById(req, res)).rejects.toThrow('Invalid id');
     });
 
@@ -252,11 +269,13 @@ describe('userHierarchyController', () => {
       
       await controller.getUserHierarchysById(req, res);
       
+      // Validate that cache was read and checked for serving
       expect(responseHandlers.sendSuccess).toHaveBeenCalledWith(
         res,
         cachedData,
         'UserHierarchy fetched successfully',
       );
+      // Should not call service when serving from cache
       expect(userHierarchyService.getUserHierarchyService).not.toHaveBeenCalled();
     });
   });
@@ -277,10 +296,15 @@ describe('userHierarchyController', () => {
       
       await controller.updateUserHierarchy(req, res);
       
+      // Validate that schema validations were called with correct data
       expect(schemas.VALIDATE_USER_HIERARCHY_BY_ID.validate).toHaveBeenCalledWith(req.params);
+      // Validate that update schema validation was called with correct data
       expect(schemas.VALIDATE_UPDATE_USER_HIERARCHY_STATUS.validate).toHaveBeenCalledWith(req.body);
+      // Validate that service was called with correct parameters
       expect(userHierarchyService.updateUserHierarchyService).toHaveBeenCalled();
+      // Validate that cache invalidation was called with correct parameters
       expect(cacheUtils.invalidateCompanyCacheByPrefix).toHaveBeenCalled();
+      // Validate that response handler was called with correct parameters
       expect(responseHandlers.sendSuccess).toHaveBeenCalled();
     });
 
@@ -295,6 +319,7 @@ describe('userHierarchyController', () => {
       };
       const res = {};
       
+      // Validate that it throws the correct error message when id validation fails
       await expect(controller.updateUserHierarchy(req, res)).rejects.toThrow('Invalid id');
     });
 
@@ -311,7 +336,8 @@ describe('userHierarchyController', () => {
         user: { company_id: 1, user_id: 5, role: 'ADMIN' },
       };
       const res = {};
-      
+   
+      // Validate that it throws the correct error message when body validation fails
       await expect(controller.updateUserHierarchy(req, res)).rejects.toThrow('Invalid body');
     });
 
@@ -329,6 +355,7 @@ describe('userHierarchyController', () => {
       };
       const res = {};
       
+      // Validate that it throws the correct error message when service fails
       await expect(controller.updateUserHierarchy(req, res)).rejects.toThrow('Update failed');
     });
   });
@@ -346,10 +373,14 @@ describe('userHierarchyController', () => {
       const res = {};
       
       await controller.deleteUserHierarchy(req, res);
-      
+   
+      // Validate that schema validation was called with correct data
       expect(schemas.VALIDATE_DELETE_USER_HIERARCHY.validate).toHaveBeenCalledWith(req.params);
+      // Validate that service was called with correct parameters
       expect(userHierarchyService.deleteUserHierarchyService).toHaveBeenCalled();
+      // Validate that cache invalidation was called with correct parameters
       expect(cacheUtils.invalidateCompanyCacheByPrefix).toHaveBeenCalled();
+      // Validate that response handler was called with correct parameters
       expect(responseHandlers.sendSuccess).toHaveBeenCalled();
     });
 
@@ -365,6 +396,7 @@ describe('userHierarchyController', () => {
       };
       const res = {};
       
+      // Validate that it throws the correct error message when id validation fails
       await expect(controller.deleteUserHierarchy(req, res)).rejects.toThrow('Invalid id');
     });
 
@@ -380,6 +412,7 @@ describe('userHierarchyController', () => {
       };
       const res = {};
       
+      // Validate that it throws the correct error message when service fails
       await expect(controller.deleteUserHierarchy(req, res)).rejects.toThrow('Delete failed');
     });
   });

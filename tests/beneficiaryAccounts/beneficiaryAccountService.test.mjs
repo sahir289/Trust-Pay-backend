@@ -97,7 +97,11 @@ describe('beneficiaryAccountService', () => {
       userHierarchyDao.getUserHierarchysDao.mockResolvedValue([{ config: { siblings: { sub_merchants: [2, 3] } } }]);
       beneficiaryDao.getBeneficiaryAccountDaoAll.mockResolvedValue([{ id: 1, acc_no: '1234567890' }]);
       const result = await service.getBeneficiaryAccountService({}, 'MERCHANT', 1, 10, 1, 'MERCHANT', 1);
+
+      // Should return the fetched accounts for the merchant and its sub-merchants
       expect(result).toEqual(expect.arrayContaining([expect.objectContaining({ id: 1 })]));
+
+      // Should call the DAO method to fetch accounts
       expect(beneficiaryDao.getBeneficiaryAccountDaoAll).toHaveBeenCalled();
     });
 
@@ -105,6 +109,8 @@ describe('beneficiaryAccountService', () => {
       userDao.getUserByCompanyCreatedAtDao.mockResolvedValue({ id: 5 });
       beneficiaryDao.getBeneficiaryAccountDaoAll.mockResolvedValue([]);
       await service.getBeneficiaryAccountService({}, 'VENDOR', 1, 10, 1, 'VENDOR', 1);
+
+      // Should call the DAO method to fetch accounts for the vendor
       expect(beneficiaryDao.getBeneficiaryAccountDaoAll).toHaveBeenCalled();
     });
 
@@ -112,12 +118,16 @@ describe('beneficiaryAccountService', () => {
       roleDao.getRoleDao.mockResolvedValue([{ id: 2, role: 'VENDOR' }]);
       beneficiaryDao.getBeneficiaryAccountDaoAll.mockResolvedValue([]);
       await service.getBeneficiaryAccountService({ beneficiary_role: 'VENDOR' }, 'ADMIN', 1, 10, 1, 'ADMIN', 1);
+
+      // Should call the DAO method with the beneficiary_role filter applied
       expect(roleDao.getRoleDao).toHaveBeenCalled();
     });
 
     it('should handle settlement flag', async () => {
       beneficiaryDao.getBeneficiaryAccountDaoAll.mockResolvedValue([]);
       await service.getBeneficiaryAccountService({ forSettlementFlag: 'true' }, 'ADMIN', 1, 10, 1, 'ADMIN', 1);
+
+      // Should call the DAO method with the settlement flag filter applied
       expect(beneficiaryDao.getBeneficiaryAccountDaoAll).toHaveBeenCalled();
     });
   });
@@ -139,7 +149,13 @@ describe('beneficiaryAccountService', () => {
         'MERCHANT',
         1,
       );
+
+      // Should return the search results      expect(result).toEqual(expect.objectContaining({ totalCount: 1, bankAccounts: expect.arrayContaining([expect.objectContaining({ id: 1 })]) }));
+
+      // Should call the DAO method to perform the search
       expect(result.totalCount).toBe(1);
+
+      // Should call the DAO method with the search term
       expect(beneficiaryDao.getBeneficiaryAccountBySearchDao).toHaveBeenCalled();
     });
 
@@ -159,11 +175,15 @@ describe('beneficiaryAccountService', () => {
         'ADMIN',
         1,
       );
+
+      // Should return the search results for multiple terms
       expect(result.totalCount).toBe(2);
     });
 
     it('should log and throw on database error', async () => {
       beneficiaryDao.getBeneficiaryAccountBySearchDao.mockRejectedValue(new Error('DB error'));
+
+      // Should log the error and throw it
       await expect(
         service.getBeneficiaryAccountBySearchService(
           { search: 'John' },
@@ -175,6 +195,9 @@ describe('beneficiaryAccountService', () => {
           1,
         ),
       ).rejects.toThrow('DB error');
+
+      // Should call logger.error with the error message
+      expect(logger.logger.error).toHaveBeenCalled();
     });
   });
 
@@ -190,9 +213,17 @@ describe('beneficiaryAccountService', () => {
         { acc_no: '1234567890', user_id: 1, created_by: 1, company_id: 1 },
         1,
       );
+
+      // Should return the created account details
       expect(result).toBeDefined();
+
+      // Should call the DAO method to create the account
       expect(db.beginTransaction).toHaveBeenCalled();
+
+      // Should call the DAO method to create the account
       expect(db.commit).toHaveBeenCalled();
+
+      // Should release the database connection
       expect(conn.release).toHaveBeenCalled();
     });
 
@@ -207,6 +238,8 @@ describe('beneficiaryAccountService', () => {
         { acc_no: '9876543210', user_id: 1, created_by: 1, company_id: 1 },
         1,
       );
+
+      // Should call the DAO method to create the vendor account with the correct config
       expect(beneficiaryDao.createBeneficiaryAccountDao).toHaveBeenCalled();
     });
 
@@ -216,13 +249,19 @@ describe('beneficiaryAccountService', () => {
       userDao.getUserByIdDao.mockResolvedValue([{ id: 1, role: 'MERCHANT' }]);
       roleDao.getRoleDao.mockResolvedValue([{ id: 2, role: 'MERCHANT' }]);
       beneficiaryDao.getBeneficiaryAccountDao.mockResolvedValue([{ id: 999 }]);
+
+      // Should throw an error if the account number already exists
       await expect(
         service.createBeneficiaryAccountService(
           { acc_no: '1234567890', user_id: 1, created_by: 1, company_id: 1 },
           1,
         ),
       ).rejects.toThrow('Beneficiary account already exists');
+
+      // Should rollback the transaction and release the connection on error
       expect(db.rollback).toHaveBeenCalled();
+
+      // Should release the database connection
       expect(conn.release).toHaveBeenCalled();
     });
 
@@ -230,8 +269,14 @@ describe('beneficiaryAccountService', () => {
       const conn = mockConn();
       db.getConnection.mockResolvedValue(conn);
       userDao.getUserByIdDao.mockRejectedValue(new Error('User not found'));
+
+      // Should log the error and throw it
       await expect(service.createBeneficiaryAccountService({}, 1)).rejects.toThrow('User not found');
+
+      // Should call logger.error with the error message
       expect(db.rollback).toHaveBeenCalled();
+
+      // Should release the database connection
       expect(conn.release).toHaveBeenCalled();
     });
   });
@@ -247,8 +292,14 @@ describe('beneficiaryAccountService', () => {
         { id: 1, company_id: 1 },
         { acc_holder_name: 'Jane Updated', updated_by: 1 },
       );
+
+      // Should return the updated account details
       expect(result).toBeDefined();
+
+      // Should call the DAO method to update the account
       expect(db.beginTransaction).toHaveBeenCalled();
+
+      // Should call the DAO method to update the account
       expect(db.commit).toHaveBeenCalled();
     });
 
@@ -256,9 +307,13 @@ describe('beneficiaryAccountService', () => {
       const conn = mockConn();
       db.getConnection.mockResolvedValue(conn);
       beneficiaryDao.checkBeneficiaryAccountExistsDao.mockResolvedValue(true);
+
+      // Should throw an error if the new account number already exists
       await expect(
         service.updateBeneficiaryAccountService({ id: 1, company_id: 1 }, { acc_no: '9999999999' }),
       ).rejects.toThrow('Beneficiary account no. already exists');
+
+      // Should rollback the transaction on error
       expect(db.rollback).toHaveBeenCalled();
     });
 
@@ -267,9 +322,13 @@ describe('beneficiaryAccountService', () => {
       db.getConnection.mockResolvedValue(conn);
       beneficiaryDao.checkBeneficiaryAccountExistsDao.mockResolvedValue(false);
       beneficiaryDao.getBeneficiaryAccountDao.mockResolvedValue([]);
+
+      // Should throw an error if the account to update is not found
       await expect(
         service.updateBeneficiaryAccountService({ id: 999, company_id: 1 }, {}),
       ).rejects.toThrow('Beneficiary account not found');
+
+      // Should rollback the transaction on error
       expect(db.rollback).toHaveBeenCalled();
     });
   });
@@ -280,8 +339,14 @@ describe('beneficiaryAccountService', () => {
       db.getConnection.mockResolvedValue(conn);
       beneficiaryDao.deleteBeneficiaryDao.mockResolvedValue({ id: 1, is_obsolete: true });
       const result = await service.deleteBeneficiaryAccountService({ id: 1, company_id: 1 });
+
+      // Should return the deleted account details
       expect(result).toBeDefined();
+
+      // Should call the DAO method to delete the account
       expect(db.beginTransaction).toHaveBeenCalled();
+
+      // Should call the DAO method to delete the account
       expect(db.commit).toHaveBeenCalled();
     });
 
@@ -289,8 +354,14 @@ describe('beneficiaryAccountService', () => {
       const conn = mockConn();
       db.getConnection.mockResolvedValue(conn);
       beneficiaryDao.deleteBeneficiaryDao.mockRejectedValue(new Error('Delete failed'));
+
+      // Should log the error and throw it
       await expect(service.deleteBeneficiaryAccountService({ id: 1, company_id: 1 })).rejects.toThrow('Delete failed');
+
+      // Should rollback the transaction on error
       expect(db.rollback).toHaveBeenCalled();
+
+      // Should release the database connection
       expect(conn.release).toHaveBeenCalled();
     });
   });
@@ -302,7 +373,11 @@ describe('beneficiaryAccountService', () => {
         bankNames: [{ label: 'ICICI Bank', value: 1 }],
       });
       const result = await service.getBeneficiaryAccountServiceByBankName(1, 'Personal', 'VENDOR', 1, 'VENDOR');
+
+      // Should return the bank names for the given type and role
       expect(result.totalCount).toBe(2);
+
+      // Should return the bank names in the expected format
       expect(result.bankNames).toHaveLength(1);
     });
 
@@ -313,6 +388,8 @@ describe('beneficiaryAccountService', () => {
         bankNames: [{ label: 'Bank', value: 1 }],
       });
       await service.getBeneficiaryAccountServiceByBankName(1, 'Personal', 'VENDOR', 1, 'VENDOR_OPERATIONS');
+
+      // Should call the DAO method to fetch bank names for the vendor operations role
       expect(beneficiaryDao.getBeneficiaryAccountDaoByBankName).toHaveBeenCalled();
     });
   });

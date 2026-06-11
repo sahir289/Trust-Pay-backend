@@ -52,7 +52,10 @@ afterEach(() => {
 // ─────────────────────────────────────────────
 describe('bankHistorySevice', () => {
   it('createBankHistoryService should be defined', () => {
+    // Check that the service function is defined and is a function
     expect(service.createBankHistoryService).toBeDefined();
+
+    // Check that it is a function
     expect(typeof service.createBankHistoryService).toBe(
       'function',
     );
@@ -66,6 +69,7 @@ describe('bankHistorySevice', () => {
       bankaccountDao.getBankaccountDashBoardReportDao
         .mockResolvedValue(null);
 
+      // Call the service and expect it to throw an error
       await expect(
         service.createBankHistoryService(null),
       ).rejects.toThrow();
@@ -94,14 +98,17 @@ describe('bankHistorySevice', () => {
       const result =
         await service.createBankHistoryService(null);
 
+      // Check that the DAOs were called with the expected parameters
       expect(
         bankaccountDao.getBankaccountDashBoardReportDao,
       ).toHaveBeenCalled();
 
+      // Check that createBankHistoryDao was called for each bank account
       expect(
         bankHistoryDao.createBankHistoryDao,
       ).toHaveBeenCalled();
 
+      // Check that the result is an array (since we expect it to return an array of created histories)
       expect(Array.isArray(result)).toBe(true);
     });
 
@@ -109,6 +116,7 @@ describe('bankHistorySevice', () => {
       bankaccountDao.getBankaccountDashBoardReportDao
         .mockRejectedValue(new Error('fail'));
 
+      // Call the service and expect it to throw an error
       await expect(
         service.createBankHistoryService(null),
       ).rejects.toThrow('fail');

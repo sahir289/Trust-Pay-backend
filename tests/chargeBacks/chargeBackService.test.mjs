@@ -193,7 +193,9 @@ describe('chargeBackService', () => {
 
       await service.createChargeBackService(payload, payinDetails, 'ADMIN', 1, 2);
 
+      // Verify chargeback creation and balance update
       expect(chargeBackDao.createChargeBackDao).toHaveBeenCalled();
+      // Verify balance update for vendor
       expect(db.commit).toHaveBeenCalled();
     });
 
@@ -209,6 +211,7 @@ describe('chargeBackService', () => {
         },
       ];
 
+      // Expect the service to throw an error about missing merchant calculations
       await expect(
         service.createChargeBackService(payload, payinDetails, 'ADMIN', 1, 2),
       ).rejects.toThrow('Merchant calculations not found');
@@ -227,6 +230,7 @@ describe('chargeBackService', () => {
         },
       ];
 
+      // Expect the service to throw an error about missing vendor calculations
       await expect(
         service.createChargeBackService(payload, payinDetails, 'ADMIN', 1, 2),
       ).rejects.toThrow('Vendor calculations not found');
@@ -241,6 +245,7 @@ describe('chargeBackService', () => {
       const payload = { merchant_order_id: 'order123', amount: 1000 };
       const payinDetails = [{ payin_id: 1, merchant_user_id: 10, vendor_user_id: 20 }];
 
+      // Expect the service to throw an error about connection failure
       await expect(
         service.createChargeBackService(payload, payinDetails, 'ADMIN', 1, 2),
       ).rejects.toThrow();
@@ -261,7 +266,9 @@ describe('chargeBackService', () => {
         2,
       );
 
+      // Verify that the DAO method was called and the result is an array
       expect(chargeBackDao.getAllChargeBackDao).toHaveBeenCalled();
+      // Verify that the result is an array of chargebacks
       expect(Array.isArray(result)).toBe(true);
     });
 
@@ -281,16 +288,20 @@ describe('chargeBackService', () => {
         1,
       );
 
+      // Verify that the DAO method was called and the result is an array
       expect(chargeBackDao.getAllChargeBackDao).toHaveBeenCalled();
+      // Verify that the result is an array of chargebacks
       expect(Array.isArray(result)).toBe(true);
     });
 
     it('should log error on exception', async () => {
       chargeBackDao.getAllChargeBackDao.mockRejectedValue(new Error('fetch failed'));
 
+      // Expect the service to throw an error about fetch failure
       await expect(
         service.getChargeBacksService({ company_id: 1 }, 'ADMIN', 1, 10, 2),
       ).rejects.toThrow();
+      // Verify that the error was logged
       expect(loggerModule.logger.error).toHaveBeenCalled();
     });
   });
@@ -314,8 +325,11 @@ describe('chargeBackService', () => {
         [],
       );
 
+      // Verify that the DAO method was called and the result has expected properties
       expect(chargeBackDao.getChargeBacksBySearchDao).toHaveBeenCalled();
+      // Verify that the result has totalCount and chargeBacks properties
       expect(result).toHaveProperty('totalCount');
+      // Verify that the result has chargeBacks property which is an array
       expect(result).toHaveProperty('chargeBacks');
     });
 
@@ -324,6 +338,7 @@ describe('chargeBackService', () => {
         new Error('search failed'),
       );
 
+      // Expect the service to throw an error about search failure
       await expect(
         service.getChargeBacksBySearchService(
           { company_id: 1 },
@@ -333,6 +348,7 @@ describe('chargeBackService', () => {
           2,
         ),
       ).rejects.toThrow();
+      // Verify that the error was logged
       expect(loggerModule.logger.error).toHaveBeenCalled();
     });
   });
@@ -371,7 +387,9 @@ describe('chargeBackService', () => {
         'ADMIN',
       );
 
+      // Verify that the DAO method was called and the chargeback was updated
       expect(chargeBackDao.updateChargeBackDao).toHaveBeenCalled();
+      // Verify that the transaction was committed
       expect(db.commit).toHaveBeenCalled();
     });
 
@@ -385,6 +403,7 @@ describe('chargeBackService', () => {
           'ADMIN',
         ),
       ).rejects.toThrow();
+      // Verify that the error was logged
       expect(loggerModule.logger.error).toHaveBeenCalled();
     });
   });
@@ -399,7 +418,9 @@ describe('chargeBackService', () => {
         'ADMIN',
       );
 
+      // Verify that the DAO method was called and the chargeback was marked as obsolete
       expect(chargeBackDao.deleteChargeBackDao).toHaveBeenCalled();
+      // Verify that the result is defined and has expected properties
       expect(result).toBeDefined();
     });
 
@@ -408,6 +429,7 @@ describe('chargeBackService', () => {
         new Error('delete failed'),
       );
 
+      // Expect the service to throw an error about delete failure
       await expect(
         service.deleteChargeBackService(
           { id: 1, company_id: 1 },
@@ -415,6 +437,7 @@ describe('chargeBackService', () => {
           'ADMIN',
         ),
       ).rejects.toThrow();
+      // Verify that the error was logged
       expect(loggerModule.logger.error).toHaveBeenCalled();
     });
   });
@@ -449,7 +472,9 @@ describe('chargeBackService', () => {
         { config: { user_ip: '192.168.1.1', userId: 'user1', merchant_user_id: 10 } },
       );
 
+      // Verify that the DAO method was called and the user was blocked
       expect(chargeBackDao.updateChargeBackDao).toHaveBeenCalled();
+      // Verify that the transaction was committed
       expect(db.commit).toHaveBeenCalled();
     });
 
@@ -482,19 +507,23 @@ describe('chargeBackService', () => {
         { config: { user_ip: '192.168.1.1', userId: 'user1', merchant_user_id: 10 } },
       );
 
+      // Verify that the DAO method was called and the user was unblocked
       expect(chargeBackDao.updateChargeBackDao).toHaveBeenCalled();
+      // Verify that the transaction was committed
       expect(db.commit).toHaveBeenCalled();
     });
 
     it('should log error on exception', async () => {
       db.getConnection.mockRejectedValue(new Error('connection failed'));
 
+      // Expect the service to throw an error about connection failure
       await expect(
         service.blockChargebackUserService(
           { id: 1, company_id: 1 },
           { config: { user_ip: '192.168.1.1', userId: 'user1', merchant_user_id: 10 } },
         ),
       ).rejects.toThrow();
+      // Verify that the error was logged
       expect(loggerModule.logger.error).toHaveBeenCalled();
     });
   });

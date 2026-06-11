@@ -87,14 +87,20 @@ describe('userHierarchyService', () => {
       
       const result = await service.createUserHierarchyService(mockPayload, 'ADMIN');
       
+      // Validate that transaction was started and committed, and DAO was called with correct parameters
       expect(db.getConnection).toHaveBeenCalled();
+      // Validate that transaction was started
       expect(db.beginTransaction).toHaveBeenCalled();
+      // Validate that DAO was called with connection and payload
       expect(userHierarchyDao.createUserHierarchyDao).toHaveBeenCalledWith(
         mockPayload,
         mockConn,
       );
+      // Validate that transaction was committed and connection was released
       expect(db.commit).toHaveBeenCalled();
+      // Validate that connection was released
       expect(mockConn.release).toHaveBeenCalled();
+      // Validate that the result is as expected
       expect(result).toEqual(mockResult);
     });
 
@@ -109,12 +115,16 @@ describe('userHierarchyService', () => {
         new Error('Insert failed'),
       );
       
+      // Validate that error is thrown, transaction is rolled back, and error is logged
       await expect(
         service.createUserHierarchyService(mockPayload, 'ADMIN'),
       ).rejects.toThrow('Insert failed');
       
+      // Validate that transaction was rolled back and connection was released
       expect(db.rollback).toHaveBeenCalledWith(mockConn);
+      // Validate that connection was released
       expect(mockConn.release).toHaveBeenCalled();
+      // Validate that error was logged
       expect(loggerModule.logger.error).toHaveBeenCalled();
     });
 
@@ -131,6 +141,7 @@ describe('userHierarchyService', () => {
       
       await service.createUserHierarchyService(mockPayload, 'MERCHANT');
       
+      // Validate that merchant columns filter was applied
       expect(filterResponse.filterResponse).toHaveBeenCalledWith(
         mockResult,
         constants.merchantColumns.USER_HIERARCHY,
@@ -150,6 +161,7 @@ describe('userHierarchyService', () => {
       
       await service.createUserHierarchyService(mockPayload, 'ADMIN');
       
+      // Validate that default columns filter was applied for ADMIN role
       expect(filterResponse.filterResponse).toHaveBeenCalledWith(
         mockResult,
         constants.columns.USER_HIERARCHY,
@@ -159,10 +171,12 @@ describe('userHierarchyService', () => {
     it('should handle connection errors', async () => {
       db.getConnection.mockRejectedValue(new Error('Connection error'));
       
+      // Validate that error is thrown and logged when connection fails
       await expect(
         service.createUserHierarchyService({}, 'ADMIN'),
       ).rejects.toThrow('Connection error');
       
+      // Validate that error was logged
       expect(loggerModule.logger.error).toHaveBeenCalled();
     });
   });
@@ -179,6 +193,7 @@ describe('userHierarchyService', () => {
       
       const result = await service.getUserHierarchyService(mockFilters, 'ADMIN', 1, 10);
       
+      // Validate that DAO was called with correct parameters and result is as expected
       expect(userHierarchyDao.getUserHierarchysDao).toHaveBeenCalledWith(
         mockFilters,
         1,
@@ -187,6 +202,7 @@ describe('userHierarchyService', () => {
         null,
         constants.columns.USER_HIERARCHY,
       );
+      // Validate that the result is as expected
       expect(result).toEqual(mockResult);
     });
 
@@ -196,6 +212,7 @@ describe('userHierarchyService', () => {
       
       await service.getUserHierarchyService({}, 'ADMIN', '2', '20');
       
+      // Validate that pagination parameters are parsed and passed correctly to DAO
       expect(userHierarchyDao.getUserHierarchysDao).toHaveBeenCalledWith(
         {},
         2,
@@ -212,6 +229,7 @@ describe('userHierarchyService', () => {
       
       await service.getUserHierarchyService({}, 'ADMIN', null, null);
       
+      // Validate that default pagination values are used when parameters are not provided
       expect(userHierarchyDao.getUserHierarchysDao).toHaveBeenCalledWith(
         {},
         1,
@@ -228,6 +246,7 @@ describe('userHierarchyService', () => {
       
       await service.getUserHierarchyService({}, 'MERCHANT', 1, 10);
       
+      // Validate that merchant columns filter was applied for MERCHANT role
       expect(userHierarchyDao.getUserHierarchysDao).toHaveBeenCalledWith(
         {},
         1,
@@ -241,10 +260,12 @@ describe('userHierarchyService', () => {
     it('should handle fetch errors', async () => {
       userHierarchyDao.getUserHierarchysDao.mockRejectedValue(new Error('Fetch failed'));
       
+      // Validate that error is thrown and logged when fetch fails
       await expect(
         service.getUserHierarchyService({}, 'ADMIN', 1, 10),
       ).rejects.toThrow('Fetch failed');
       
+      // Validate that error was logged
       expect(loggerModule.logger.error).toHaveBeenCalled();
     });
   });
@@ -264,15 +285,21 @@ describe('userHierarchyService', () => {
       
       const result = await service.updateUserHierarchyService(mockId, mockPayload, 'ADMIN');
       
+      // Validate that transaction was started and committed, and DAO was called with correct parameters
       expect(db.getConnection).toHaveBeenCalled();
+      // Validate that transaction was started
       expect(db.beginTransaction).toHaveBeenCalled();
+      // Validate that DAO was called with connection and payload
       expect(userHierarchyDao.updateUserHierarchyDao).toHaveBeenCalledWith(
         mockId,
         mockPayload,
         mockConn,
       );
+      // Validate that transaction was committed and connection was released
       expect(db.commit).toHaveBeenCalled();
+      // Validate that connection was released
       expect(mockConn.release).toHaveBeenCalled();
+      // Validate that the result is as expected
       expect(result).toEqual(mockResult);
     });
 
@@ -288,12 +315,16 @@ describe('userHierarchyService', () => {
         new Error('Update failed'),
       );
       
+      // Validate that error is thrown, transaction is rolled back, and error is logged
       await expect(
         service.updateUserHierarchyService(mockId, mockPayload, 'ADMIN'),
       ).rejects.toThrow('Update failed');
       
+      // Validate that transaction was rolled back and connection was released
       expect(db.rollback).toHaveBeenCalledWith(mockConn);
+      // Validate that connection was released
       expect(mockConn.release).toHaveBeenCalled();
+      // Validate that error was logged
       expect(loggerModule.logger.error).toHaveBeenCalled();
     });
 
@@ -311,6 +342,7 @@ describe('userHierarchyService', () => {
       
       await service.updateUserHierarchyService(mockId, mockPayload, 'MERCHANT');
       
+      // Validate that merchant columns filter was applied for MERCHANT role
       expect(filterResponse.filterResponse).toHaveBeenCalledWith(
         mockResult,
         constants.merchantColumns.USER_HIERARCHY,
@@ -320,10 +352,12 @@ describe('userHierarchyService', () => {
     it('should handle connection errors', async () => {
       db.getConnection.mockRejectedValue(new Error('Connection error'));
       
+      // Validate that error is thrown and logged when connection fails
       await expect(
         service.updateUserHierarchyService({ id: 1 }, {}, 'ADMIN'),
       ).rejects.toThrow('Connection error');
       
+      // Validate that error was logged
       expect(loggerModule.logger.error).toHaveBeenCalled();
     });
   });
@@ -342,15 +376,21 @@ describe('userHierarchyService', () => {
       
       const result = await service.deleteUserHierarchyService(mockIds, 5, 'ADMIN');
       
+      // Validate that transaction was started and committed, and DAO was called with correct parameters
       expect(db.getConnection).toHaveBeenCalled();
+      // Validate that transaction was started
       expect(db.beginTransaction).toHaveBeenCalled();
+      // Validate that DAO was called with connection and correct parameters to mark as obsolete
       expect(userHierarchyDao.deleteUserHierarchyDao).toHaveBeenCalledWith(
         mockIds,
         { is_obsolete: true, updated_by: 5 },
         mockConn,
       );
+      // Validate that transaction was committed and connection was released
       expect(db.commit).toHaveBeenCalled();
+      // Validate that connection was released
       expect(mockConn.release).toHaveBeenCalled();
+      // Validate that the result is as expected
       expect(result).toEqual(mockResult);
     });
 
@@ -367,6 +407,7 @@ describe('userHierarchyService', () => {
       
       await service.deleteUserHierarchyService(mockIds, 10, 'ADMIN');
       
+      // Validate that DAO was called with parameters to mark as obsolete and include updated_by
       expect(userHierarchyDao.deleteUserHierarchyDao).toHaveBeenCalledWith(
         mockIds,
         { is_obsolete: true, updated_by: 10 },
@@ -385,12 +426,16 @@ describe('userHierarchyService', () => {
         new Error('Delete failed'),
       );
       
+      // Validate that error is thrown, transaction is rolled back, and error is logged
       await expect(
         service.deleteUserHierarchyService(mockIds, 5, 'ADMIN'),
       ).rejects.toThrow('Delete failed');
       
+      // Validate that transaction was rolled back and connection was released
       expect(db.rollback).toHaveBeenCalledWith(mockConn);
+      // Validate that connection was released
       expect(mockConn.release).toHaveBeenCalled();
+      // Validate that error was logged
       expect(loggerModule.logger.error).toHaveBeenCalled();
     });
 
@@ -407,6 +452,7 @@ describe('userHierarchyService', () => {
       
       await service.deleteUserHierarchyService(mockIds, 5, 'MERCHANT');
       
+      // Validate that merchant columns filter was applied for MERCHANT role
       expect(filterResponse.filterResponse).toHaveBeenCalledWith(
         mockResult,
         constants.merchantColumns.USER_HIERARCHY,
@@ -416,10 +462,12 @@ describe('userHierarchyService', () => {
     it('should handle connection errors', async () => {
       db.getConnection.mockRejectedValue(new Error('Connection error'));
       
+      // Validate that error is thrown and logged when connection fails
       await expect(
         service.deleteUserHierarchyService({ id: 1 }, 5, 'ADMIN'),
       ).rejects.toThrow('Connection error');
       
+      // Validate that error was logged
       expect(loggerModule.logger.error).toHaveBeenCalled();
     });
   });

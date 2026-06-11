@@ -111,6 +111,8 @@ describe('beneficiaryAccountController', () => {
       const { req, res } = mockReqRes();
       service.getBeneficiaryAccountService.mockResolvedValue([{ id: 1, acc_no: '1234567890' }]);
       await controller.getBeneficiaryAccount(req, res);
+
+      // Should call the service with correct parameters
       expect(service.getBeneficiaryAccountService).toHaveBeenCalled();
     });
 
@@ -119,6 +121,8 @@ describe('beneficiaryAccountController', () => {
       req.query = { page: 2, limit: 25 };
       service.getBeneficiaryAccountService.mockResolvedValue([]);
       await controller.getBeneficiaryAccount(req, res);
+
+      // Should call the service with pagination parameters
       expect(service.getBeneficiaryAccountService).toHaveBeenCalled();
     });
   });
@@ -133,6 +137,8 @@ describe('beneficiaryAccountController', () => {
         bankAccounts: [{ id: 1 }],
       });
       await controller.getBeneficiaryAccountBySearch(req, res);
+
+      // Should call the search service with correct parameters
       expect(service.getBeneficiaryAccountBySearchService).toHaveBeenCalled();
     });
 
@@ -145,6 +151,8 @@ describe('beneficiaryAccountController', () => {
         bankAccounts: [],
       });
       await controller.getBeneficiaryAccountBySearch(req, res);
+
+      // Should call the search service with pagination parameters
       expect(service.getBeneficiaryAccountBySearchService).toHaveBeenCalled();
     });
   });
@@ -158,6 +166,8 @@ describe('beneficiaryAccountController', () => {
         bankNames: [{ label: 'ICICI Bank', value: 1 }],
       });
       await controller.getBeneficiaryAccountByBankName(req, res);
+
+      // Should call the bank name service with correct parameters
       expect(service.getBeneficiaryAccountServiceByBankName).toHaveBeenCalled();
     });
 
@@ -169,6 +179,8 @@ describe('beneficiaryAccountController', () => {
         bankNames: [],
       });
       await controller.getBeneficiaryAccountByBankName(req, res);
+
+      // Should call the bank name service with different account type
       expect(service.getBeneficiaryAccountServiceByBankName).toHaveBeenCalled();
     });
   });
@@ -179,6 +191,8 @@ describe('beneficiaryAccountController', () => {
       req.params = { id: 1 };
       service.getBeneficiaryAccountService.mockResolvedValue([{ id: 1, acc_no: '1234567890' }]);
       await controller.getBeneficiaryAccountById(req, res);
+
+      // Should call the service with correct account id from params
       expect(service.getBeneficiaryAccountService).toHaveBeenCalled();
     });
 
@@ -187,6 +201,8 @@ describe('beneficiaryAccountController', () => {
       req.params = { id: 123 };
       service.getBeneficiaryAccountService.mockResolvedValue([{ id: 123, acc_no: '1234567890' }]);
       await controller.getBeneficiaryAccountById(req, res);
+
+      // Should call the service with different account id from params
       expect(service.getBeneficiaryAccountService).toHaveBeenCalled();
     });
   });
@@ -197,6 +213,8 @@ describe('beneficiaryAccountController', () => {
       req.body = { acc_no: '9876543210', acc_holder_name: 'Jane', ifsc: 'HDFC0001234', bank_name: 'HDFC' };
       service.createBeneficiaryAccountService.mockResolvedValue({ id: 1, acc_no: '9876543210' });
       await controller.createBeneficiaryAccount(req, res);
+
+      // Should call the create service with correct parameters from body
       expect(service.createBeneficiaryAccountService).toHaveBeenCalled();
     });
 
@@ -206,6 +224,8 @@ describe('beneficiaryAccountController', () => {
       service.createBeneficiaryAccountService.mockResolvedValue({ id: 1 });
       await controller.createBeneficiaryAccount(req, res);
       const callArgs = service.createBeneficiaryAccountService.mock.calls[0][0];
+
+      // Should pass company_id from req.user to service for creating beneficiary account
       expect(callArgs.company_id).toBe(1);
     });
   });
@@ -217,6 +237,8 @@ describe('beneficiaryAccountController', () => {
       req.body = { acc_holder_name: 'Jane Updated' };
       service.updateBeneficiaryAccountService.mockResolvedValue({ id: 1 });
       await controller.updateBeneficiaryAccount(req, res);
+
+      // Should call the update service with correct account id from params and update data from body
       expect(service.updateBeneficiaryAccountService).toHaveBeenCalled();
     });
 
@@ -227,6 +249,8 @@ describe('beneficiaryAccountController', () => {
       service.updateBeneficiaryAccountService.mockResolvedValue({ id: 1 });
       await controller.updateBeneficiaryAccount(req, res);
       const callArgs = service.updateBeneficiaryAccountService.mock.calls[0][0];
+
+      // Should pass company_id from req.user to service for updating beneficiary account
       expect(callArgs.company_id).toBe(1);
     });
   });
@@ -237,6 +261,8 @@ describe('beneficiaryAccountController', () => {
       req.params = { id: 1 };
       service.deleteBeneficiaryAccountService.mockResolvedValue({ id: 1 });
       await controller.deleteBeneficiaryAccount(req, res);
+
+      // Should call the delete service with correct account id from params
       expect(service.deleteBeneficiaryAccountService).toHaveBeenCalled();
     });
 
@@ -246,6 +272,8 @@ describe('beneficiaryAccountController', () => {
       service.deleteBeneficiaryAccountService.mockResolvedValue({ id: 1 });
       await controller.deleteBeneficiaryAccount(req, res);
       const callArgs = service.deleteBeneficiaryAccountService.mock.calls[0][0];
+
+      // Should pass company_id from req.user to service for deleting beneficiary account
       expect(callArgs.company_id).toBe(1);
     });
 
@@ -254,6 +282,8 @@ describe('beneficiaryAccountController', () => {
       req.params = { id: 1 };
       service.deleteBeneficiaryAccountService.mockResolvedValue({ id: 1 });
       await controller.deleteBeneficiaryAccount(req, res);
+
+      // Should invalidate cache for beneficiary accounts after deletion
       expect(handlers.sendSuccess).toHaveBeenCalled();
     });
   });

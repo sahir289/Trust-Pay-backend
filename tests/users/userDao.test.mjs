@@ -71,19 +71,24 @@ describe('userDao', () => {
     it('should return true when contact exists', async () => {
       db.executeQuery.mockResolvedValue({ rows: [{ id: 1 }] });
       const result = await dao.getUsersContactDao(1, '9876543210', mockConn());
+      // Verify that the service call was made and the result is correct
       expect(db.executeQuery).toHaveBeenCalled();
+      // The actual return value depends on the implementation of getUsersContactDao
       expect(result).toBe(true);
     });
 
     it('should return false when contact does not exist', async () => {
       db.executeQuery.mockResolvedValue({ rows: [] });
       const result = await dao.getUsersContactDao(1, '9876543210', mockConn());
+      // Verify that the service call was made and the result is correct
       expect(result).toBe(false);
     });
 
     it('should log and throw on error', async () => {
       db.executeQuery.mockRejectedValue(new Error('query failed'));
+      // Verify that the error is logged and thrown
       await expect(dao.getUsersContactDao(1, '9876543210', mockConn())).rejects.toThrow('query failed');
+      // Verify that the error was logged
       expect(loggerModule.logger.error).toHaveBeenCalled();
     });
   });
@@ -93,19 +98,24 @@ describe('userDao', () => {
       const mockUser = { user_name: 'john_doe', code: 'JD001', role: 'ADMIN', designation: 'Super Admin' };
       db.executeQuery.mockResolvedValue({ rows: [mockUser] });
       const result = await dao.getUsersNameDao(1, mockConn());
+      // Verify that the service call was made and the result is correct
       expect(db.executeQuery).toHaveBeenCalled();
+      // The actual return value depends on the implementation of getUsersNameDao
       expect(result).toEqual(mockUser);
     });
 
     it('should return null if user not found', async () => {
       db.executeQuery.mockResolvedValue({ rows: [] });
       const result = await dao.getUsersNameDao(999, mockConn());
+      // Verify that the service call was made and the result is correct
       expect(result).toBeNull();
     });
 
     it('should log and throw on error', async () => {
       db.executeQuery.mockRejectedValue(new Error('query failed'));
+      // Verify that the error is logged and thrown
       await expect(dao.getUsersNameDao(1, mockConn())).rejects.toThrow('query failed');
+      // Verify that the error was logged
       expect(loggerModule.logger.error).toHaveBeenCalled();
     });
   });
@@ -126,9 +136,13 @@ describe('userDao', () => {
         mockConn()
       );
       
+      // Verify that the service calls were made and the result is correct
       expect(db.buildJoinQuery).toHaveBeenCalled();
+      // The actual return value depends on the implementation of getUsersDao
       expect(db.buildSelectQuery).toHaveBeenCalled();
+      // The actual return value depends on the implementation of getUsersDao
       expect(db.executeQuery).toHaveBeenCalled();
+      // The actual return value depends on the implementation of getUsersDao
       expect(Array.isArray(result)).toBe(true);
     });
 
@@ -147,6 +161,7 @@ describe('userDao', () => {
         mockConn()
       )).rejects.toThrow('query failed');
       
+      // Verify that the error was logged
       expect(loggerModule.logger.error).toHaveBeenCalled();
     });
 
@@ -165,6 +180,7 @@ describe('userDao', () => {
         mockConn()
       );
       
+      // Verify that the search filter was built and applied correctly
       expect(searchBuilder.buildSearchFilterObj).toHaveBeenCalled();
     });
   });
@@ -185,7 +201,9 @@ describe('userDao', () => {
         mockConn()
       );
       
+      // Verify that the service calls were made and the result is correct
       expect(db.executeQuery).toHaveBeenCalled();
+      // The actual return value depends on the implementation of getAllUsersDao
       expect(Array.isArray(result)).toBe(true);
     });
 
@@ -203,7 +221,8 @@ describe('userDao', () => {
         [],
         mockConn()
       )).rejects.toThrow('query failed');
-      
+     
+      // Verify that the error was logged
       expect(loggerModule.logger.error).toHaveBeenCalled();
     });
   });
@@ -223,9 +242,13 @@ describe('userDao', () => {
         mockConn()
       );
       
+      // Verify that the service calls were made and the result is correct
       expect(db.executeQuery).toHaveBeenCalled();
+      // The actual return value depends on the implementation of getUsersBySearchDao
       expect(result.totalCount).toBe(10);
+      // The actual return value depends on the implementation of getUsersBySearchDao
       expect(result.totalPages).toBeDefined();
+      // The actual return value depends on the implementation of getUsersBySearchDao
       expect(Array.isArray(result.Users)).toBe(true);
     });
 
@@ -243,7 +266,9 @@ describe('userDao', () => {
         mockConn()
       );
       
+      // Verify that the service calls were made and the result is correct
       expect(result.totalCount).toBe(0);
+      // The actual return value depends on the implementation of getUsersBySearchDao
       expect(result.Users.length).toBe(0);
     });
 
@@ -259,6 +284,7 @@ describe('userDao', () => {
         mockConn()
       )).rejects.toThrow('query failed');
       
+      // Verify that the error was logged
       expect(loggerModule.logger.error).toHaveBeenCalled();
     });
   });
@@ -270,8 +296,11 @@ describe('userDao', () => {
       
       const result = await dao.createUserDao({ user_name: 'newuser', email: 'new@example.com' }, mockConn());
       
+      // Verify that the service calls were made and the result is correct
       expect(db.buildInsertQuery).toHaveBeenCalled();
+      // The actual return value depends on the implementation of createUserDao
       expect(db.executeQuery).toHaveBeenCalled();
+      // The actual return value depends on the implementation of createUserDao
       expect(result).toEqual({ id: 1, user_name: 'newuser', email: 'new@example.com' });
     });
 
@@ -279,7 +308,9 @@ describe('userDao', () => {
       db.buildInsertQuery.mockReturnValue(['SQL', []]);
       db.executeQuery.mockRejectedValue(new Error('insert failed'));
       
+      // Verify that the error is logged and thrown
       await expect(dao.createUserDao({ user_name: 'newuser' }, mockConn())).rejects.toThrow('insert failed');
+      // Verify that the error was logged
       expect(loggerModule.logger.error).toHaveBeenCalled();
     });
   });
@@ -291,8 +322,11 @@ describe('userDao', () => {
       
       const result = await dao.getUserByIdDao({ id: 1 }, mockConn());
       
+      // Verify that the service call was made and the result is correct
       expect(db.executeQuery).toHaveBeenCalled();
+      // The actual return value depends on the implementation of getUserByIdDao
       expect(Array.isArray(result)).toBe(true);
+      // The actual return value depends on the implementation of getUserByIdDao
       expect(result).toEqual([mockUser]);
     });
 
@@ -300,14 +334,16 @@ describe('userDao', () => {
       db.executeQuery.mockResolvedValue({ rows: [], rowCount: 0 });
       
       const result = await dao.getUserByIdDao({ id: 999 }, mockConn());
-      
+      // Verify that the service call was made and the result is correct
       expect(result).toEqual([]);
     });
 
     it('should log and throw on error', async () => {
       db.executeQuery.mockRejectedValue(new Error('query failed'));
       
+      // Verify that the error is logged and thrown
       await expect(dao.getUserByIdDao({ id: 1 }, mockConn())).rejects.toThrow('query failed');
+      // Verify that the error was logged
       expect(loggerModule.logger.error).toHaveBeenCalled();
     });
   });
@@ -318,7 +354,9 @@ describe('userDao', () => {
       
       const result = await dao.getUsersByUserNameDao({ company_id: 1 }, 'john_doe', mockConn());
       
+      // Verify that the service call was made and the result is correct
       expect(db.executeQuery).toHaveBeenCalled();
+      // The actual return value depends on the implementation of getUsersByUserNameDao
       expect(result).toEqual({ id: 1, user_name: 'john_doe' });
     });
 
@@ -326,14 +364,15 @@ describe('userDao', () => {
       db.executeQuery.mockResolvedValue({ rows: [], rowCount: 0 });
       
       const result = await dao.getUsersByUserNameDao({ company_id: 1 }, 'nonexistent', mockConn());
-      
+      // Verify that the service call was made and the result is correct
       expect(result).toBeNull();
     });
 
     it('should log and throw on error', async () => {
       db.executeQuery.mockRejectedValue(new Error('query failed'));
-      
+      // Verify that the error is logged and thrown
       await expect(dao.getUsersByUserNameDao({ company_id: 1 }, 'john', mockConn())).rejects.toThrow('query failed');
+      // Verify that the error was logged
       expect(loggerModule.logger.error).toHaveBeenCalled();
     });
   });
@@ -349,8 +388,11 @@ describe('userDao', () => {
         mockConn()
       );
       
+      // Verify that the service calls were made and the result is correct
       expect(db.buildUpdateQuery).toHaveBeenCalled();
+      // The actual return value depends on the implementation of updateUserDao
       expect(db.executeQuery).toHaveBeenCalled();
+      // The actual return value depends on the implementation of updateUserDao
       expect(result).toEqual({ id: 1, user_name: 'updated_user' });
     });
 
@@ -358,12 +400,14 @@ describe('userDao', () => {
       db.buildUpdateQuery.mockReturnValue(['SQL', []]);
       db.executeQuery.mockRejectedValue(new Error('update failed'));
       
+      // Verify that the error is logged and thrown
       await expect(dao.updateUserDao(
         { id: 1 },
         { user_name: 'updated' },
         mockConn()
       )).rejects.toThrow('update failed');
       
+      // Verify that the error was logged
       expect(loggerModule.logger.error).toHaveBeenCalled();
     });
   });
@@ -378,14 +422,17 @@ describe('userDao', () => {
         mockConn()
       );
       
+      // Verify that the service calls were made and the result is correct
       expect(db.executeQuery).toHaveBeenCalled();
+      // The actual return value depends on the implementation of updateUserByIDDao
       expect(Array.isArray(result)).toBe(true);
     });
 
     it('should log and throw on error', async () => {
       db.executeQuery.mockRejectedValue(new Error('update failed'));
-      
+      // Verify that the error is logged and thrown
       await expect(dao.updateUserByIDDao({ id: 1 }, { user_name: 'updated' }, mockConn())).rejects.toThrow('update failed');
+      // Verify that the error was logged
       expect(loggerModule.logger.error).toHaveBeenCalled();
     });
   });
@@ -400,7 +447,9 @@ describe('userDao', () => {
         mockConn()
       );
       
+      // Verify that the service calls were made and the result is correct
       expect(db.executeQuery).toHaveBeenCalled();
+      // The actual return value depends on the implementation of updateUser2FAStatusDao
       expect(result).toEqual({ id: 1 });
     });
 
@@ -408,14 +457,15 @@ describe('userDao', () => {
       db.executeQuery.mockResolvedValue({ rows: [] });
       
       const result = await dao.updateUser2FAStatusDao(999, true, mockConn());
-      
+      // Verify that the service call was made and the result is correct
       expect(result).toBeNull();
     });
 
     it('should log and throw on error', async () => {
       db.executeQuery.mockRejectedValue(new Error('update failed'));
-      
+      // Verify that the error is logged and thrown
       await expect(dao.updateUser2FAStatusDao(1, true, mockConn())).rejects.toThrow('update failed');
+      // Verify that the error was logged
       expect(loggerModule.logger.error).toHaveBeenCalled();
     });
   });
@@ -426,8 +476,11 @@ describe('userDao', () => {
       
       const result = await dao.getUserDao({ id: 1 }, mockConn());
       
+      // Verify that the service call was made and the result is correct
       expect(db.executeQuery).toHaveBeenCalled();
+      // The actual return value depends on the implementation of getUserDao
       expect(Array.isArray(result)).toBe(true);
+      // The actual return value depends on the implementation of getUserDao
       expect(result).toEqual([{ id: 1, user_name: 'john' }]);
     });
 
@@ -436,13 +489,16 @@ describe('userDao', () => {
       
       const result = await dao.getUserDao({ id: 999 }, mockConn());
       
+      // Verify that the service call was made and the result is correct
       expect(result).toEqual([]);
     });
 
     it('should log and throw on error', async () => {
       db.executeQuery.mockRejectedValue(new Error('query failed'));
       
+      // Verify that the error is logged and thrown
       await expect(dao.getUserDao({ id: 1 }, mockConn())).rejects.toThrow('query failed');
+      // Verify that the error was logged
       expect(loggerModule.logger.error).toHaveBeenCalled();
     });
   });
@@ -453,14 +509,17 @@ describe('userDao', () => {
       
       const result = await dao.deleteUserDao({ id: 1 }, { is_obsolete: true }, mockConn());
       
+      // Verify that the service calls were made and the result is correct
       expect(db.executeQuery).toHaveBeenCalled();
+      // The actual return value depends on the implementation of deleteUserDao
       expect(Array.isArray(result)).toBe(true);
     });
 
     it('should log and throw on error', async () => {
       db.executeQuery.mockRejectedValue(new Error('delete failed'));
-      
+      // Verify that the error is logged and thrown
       await expect(dao.deleteUserDao({ id: 1 }, { is_obsolete: true }, mockConn())).rejects.toThrow('delete failed');
+      // Verify that the error was logged
       expect(loggerModule.logger.error).toHaveBeenCalled();
     });
   });

@@ -74,6 +74,7 @@ describe('settlementController', () => {
       controllerCache.shouldServeCachedResponse.mockReturnValue(true);
       const { req, res } = mockReqRes({ params: { id: uuid }, user: { company_id: 2, role: 'ADMIN' }, query: {} });
       await controllerModule.getSettlementControllerById(req, res);
+      // No service call should be made
       expect(responseHandlers.sendSuccess).toHaveBeenCalledWith(res, 'cached', 'got settlement');
     });
     it('should call service and write cache if not cached', async () => {
@@ -83,8 +84,11 @@ describe('settlementController', () => {
       controllerCache.writeJsonCache.mockResolvedValue();
       const { req, res } = mockReqRes({ params: { id: uuid }, user: { company_id: 2, role: 'ADMIN' }, query: {} });
       await controllerModule.getSettlementControllerById(req, res);
+      // Service call should be made
       expect(services.getSettlementServiceById).toHaveBeenCalled();
+      // Cache should be written
       expect(controllerCache.writeJsonCache).toHaveBeenCalled();
+      // Response should be sent with service data
       expect(responseHandlers.sendSuccess).toHaveBeenCalledWith(res, 'data', 'got settlement');
     });
   });
@@ -95,6 +99,7 @@ describe('settlementController', () => {
       controllerCache.shouldServeCachedResponse.mockReturnValue(true);
       const { req, res } = mockReqRes({ user: { company_id: 2, user_id: 3, role: 'ADMIN', designation: 'ADMIN' }, query: {} });
       await controllerModule.getSettlementController(req, res);
+      // No service call should be made
       expect(responseHandlers.sendSuccess).toHaveBeenCalledWith(res, 'cached', 'Settlements retrieved successfully');
     });
     it('should call service and write cache if not cached', async () => {
@@ -104,8 +109,11 @@ describe('settlementController', () => {
       controllerCache.writeJsonCache.mockResolvedValue();
       const { req, res } = mockReqRes({ user: { company_id: 2, user_id: 3, role: 'ADMIN', designation: 'ADMIN' }, query: {} });
       await controllerModule.getSettlementController(req, res);
+      // Service call should be made
       expect(services.getSettlementService).toHaveBeenCalled();
+      // Cache should be written
       expect(controllerCache.writeJsonCache).toHaveBeenCalled();
+      // Response should be sent with service data
       expect(responseHandlers.sendSuccess).toHaveBeenCalledWith(res, ['item'], 'Settlements retrieved successfully');
     });
     it('should handle empty result', async () => {
@@ -115,6 +123,7 @@ describe('settlementController', () => {
       controllerCache.writeJsonCache.mockResolvedValue();
       const { req, res } = mockReqRes({ user: { company_id: 2, user_id: 3, role: 'ADMIN', designation: 'ADMIN' }, query: {} });
       await controllerModule.getSettlementController(req, res);
+      // Response should be sent with empty result
       expect(responseHandlers.sendSuccess).toHaveBeenCalledWith(res, [], 'No settlements found');
     });
   });
@@ -125,6 +134,7 @@ describe('settlementController', () => {
       controllerCache.shouldServeCachedResponse.mockReturnValue(true);
       const { req, res } = mockReqRes({ user: { company_id: 2, user_id: 3, role: 'ADMIN', designation: 'ADMIN' }, query: {} });
       await controllerModule.getSettlementsBySearch(req, res);
+      // No service call should be made
       expect(responseHandlers.sendSuccess).toHaveBeenCalledWith(res, 'cached', 'Settlements retrieved successfully');
     });
     it('should call service and write cache if not cached', async () => {
@@ -134,8 +144,11 @@ describe('settlementController', () => {
       controllerCache.writeJsonCache.mockResolvedValue();
       const { req, res } = mockReqRes({ user: { company_id: 2, user_id: 3, role: 'ADMIN', designation: 'ADMIN' }, query: {} });
       await controllerModule.getSettlementsBySearch(req, res);
+      // Service call should be made
       expect(services.getSettlementsBySearchService).toHaveBeenCalled();
+      // Cache should be written
       expect(controllerCache.writeJsonCache).toHaveBeenCalled();
+      // Response should be sent with service data
       expect(responseHandlers.sendSuccess).toHaveBeenCalledWith(res, ['item'], 'Settlements retrieved successfully');
     });
     it('should handle empty result', async () => {
@@ -145,6 +158,7 @@ describe('settlementController', () => {
       controllerCache.writeJsonCache.mockResolvedValue();
       const { req, res } = mockReqRes({ user: { company_id: 2, user_id: 3, role: 'ADMIN', designation: 'ADMIN' }, query: {} });
       await controllerModule.getSettlementsBySearch(req, res);
+      // Response should be sent with empty result
       expect(responseHandlers.sendSuccess).toHaveBeenCalledWith(res, [], 'No settlements found');
     });
   });
@@ -156,7 +170,9 @@ describe('settlementController', () => {
       const companyUuid = '550e8400-e29b-41d4-a716-446655440002';
       const { req, res } = mockReqRes({ body: { amount: 100, method: 'BANK', wallet_balance: '0' }, user: { company_id: companyUuid, user_id: userUuid, user_name: 'test', designation: 'ADMIN', role: 'ADMIN' } });
       await controllerModule.createSettlementController(req, res);
+      // Service call should be made
       expect(services.createSettlementService).toHaveBeenCalled();
+      // Response should be sent with service data
       expect(responseHandlers.sendSuccess).toHaveBeenCalledWith(res, { id: uuid, created_by: 'test' }, 'Created Settlement Successfully');
     });
   });
@@ -168,7 +184,9 @@ describe('settlementController', () => {
       const companyUuid = '550e8400-e29b-41d4-a716-446655440002';
       const { req, res } = mockReqRes({ params: { id: uuid }, body: { config: {} }, user: { company_id: companyUuid, user_id: userUuid, user_name: 'test', role: 'ADMIN' } });
       await controllerModule.updateSettlementController(req, res);
+      // Service call should be made
       expect(services.updateSettlementService).toHaveBeenCalled();
+      // Response should be sent with service data
       expect(responseHandlers.sendSuccess).toHaveBeenCalledWith(res, { id: uuid, updated_by: 'test' }, 'Updated settlement');
     });
   });
@@ -178,7 +196,9 @@ describe('settlementController', () => {
       services.deleteSettlementService.mockResolvedValue({ id: uuid });
       const { req, res } = mockReqRes({ params: { id: uuid }, user: { company_id: 2, user_id: 3, user_name: 'test', role: 'ADMIN' } });
       await controllerModule.deleteSettlementController(req, res);
+      // Service call should be made
       expect(services.deleteSettlementService).toHaveBeenCalled();
+      // Response should be sent with service data
       expect(responseHandlers.sendSuccess).toHaveBeenCalledWith(res, { id: uuid, deleted_by: 'test' }, 'Deleted settlement Successfully');
     });
   });
@@ -197,6 +217,7 @@ describe('settlementController', () => {
       controllerCache.readJsonCache.mockResolvedValue('cached');
       controllerCache.shouldServeCachedResponse.mockReturnValue(true);
       await controllerModule.getSettlementController(req, res);
+      // No service call should be made
       expect(responseHandlers.sendSuccess).toHaveBeenCalledWith(res, 'cached', 'Settlements retrieved successfully');
     });
 
@@ -206,8 +227,11 @@ describe('settlementController', () => {
       services.getSettlementService.mockResolvedValue(['item']);
       controllerCache.writeJsonCache.mockResolvedValue();
       await controllerModule.getSettlementController(req, res);
+      // Service call should be made
       expect(services.getSettlementService).toHaveBeenCalled();
+      // Cache should be written
       expect(controllerCache.writeJsonCache).toHaveBeenCalled();
+      // Response should be sent with service data
       expect(responseHandlers.sendSuccess).toHaveBeenCalledWith(res, ['item'], 'Settlements retrieved successfully');
     });
 
@@ -217,6 +241,7 @@ describe('settlementController', () => {
       services.getSettlementService.mockResolvedValue([]);
       controllerCache.writeJsonCache.mockResolvedValue();
       await controllerModule.getSettlementController(req, res);
+      // Response should be sent with empty result
       expect(responseHandlers.sendSuccess).toHaveBeenCalledWith(res, [], 'No settlements found');
     });
   });
@@ -235,6 +260,7 @@ describe('settlementController', () => {
       controllerCache.readJsonCache.mockResolvedValue('cached');
       controllerCache.shouldServeCachedResponse.mockReturnValue(true);
       await controllerModule.getSettlementsBySearch(req, res);
+      // Response should be sent with empty result
       expect(responseHandlers.sendSuccess).toHaveBeenCalledWith(res, 'cached', 'Settlements retrieved successfully');
     });
 
@@ -244,8 +270,11 @@ describe('settlementController', () => {
       services.getSettlementsBySearchService.mockResolvedValue(['item']);
       controllerCache.writeJsonCache.mockResolvedValue();
       await controllerModule.getSettlementsBySearch(req, res);
+      // Service call should be made
       expect(services.getSettlementsBySearchService).toHaveBeenCalled();
+      // Cache should be written
       expect(controllerCache.writeJsonCache).toHaveBeenCalled();
+      // Response should be sent with service data
       expect(responseHandlers.sendSuccess).toHaveBeenCalledWith(res, ['item'], 'Settlements retrieved successfully');
     });
 
@@ -255,6 +284,7 @@ describe('settlementController', () => {
       services.getSettlementsBySearchService.mockResolvedValue([]);
       controllerCache.writeJsonCache.mockResolvedValue();
       await controllerModule.getSettlementsBySearch(req, res);
+      // Response should be sent with empty result
       expect(responseHandlers.sendSuccess).toHaveBeenCalledWith(res, [], 'No settlements found');
     });
   });
@@ -274,7 +304,9 @@ describe('settlementController', () => {
     it('should call service and send success', async () => {
       services.createSettlementService.mockResolvedValue({ id: uuid });
       await controllerModule.createSettlementController(req, res);
+      // Service call should be made
       expect(services.createSettlementService).toHaveBeenCalled();
+      // Response should be sent with service data
       expect(responseHandlers.sendSuccess).toHaveBeenCalledWith(res, { id: uuid, created_by: 'test' }, 'Created Settlement Successfully');
     });
   });
@@ -294,7 +326,9 @@ describe('settlementController', () => {
     it('should call service and send success', async () => {
       services.updateSettlementService.mockResolvedValue({ id: uuid });
       await controllerModule.updateSettlementController(req, res);
+      // Service call should be made
       expect(services.updateSettlementService).toHaveBeenCalled();
+      // Response should be sent with service data
       expect(responseHandlers.sendSuccess).toHaveBeenCalledWith(res, { id: uuid, updated_by: 'test' }, 'Updated settlement');
     });
   });
@@ -312,7 +346,9 @@ describe('settlementController', () => {
     it('should call service and send success', async () => {
       services.deleteSettlementService.mockResolvedValue({ id: uuid });
       await controllerModule.deleteSettlementController(req, res);
+      // Service call should be made
       expect(services.deleteSettlementService).toHaveBeenCalled();
+      // Response should be sent with service data
       expect(responseHandlers.sendSuccess).toHaveBeenCalledWith(res, { id: uuid, deleted_by: 'test' }, 'Deleted settlement Successfully');
     });
   });

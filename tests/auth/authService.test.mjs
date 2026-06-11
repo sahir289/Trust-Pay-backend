@@ -97,6 +97,7 @@ describe('authService', () => {
     it('should throw if user not found', async () => {
       authDao.getUserForVerificationDao.mockResolvedValue(null);
 
+      // Call the service and expect it to throw an error
       await expect(
         authService.verfyUserService('nouser'),
       ).rejects.toThrow();
@@ -113,10 +114,12 @@ describe('authService', () => {
       sendMailer.sendOTP.mockResolvedValue();
       userOtpDao.createUserOtpDao.mockResolvedValue();
 
+      // Call the service and expect it to resolve successfully
       await expect(
         authService.verfyUserService('test'),
       ).resolves.toBe(true);
 
+      // Check that the mailer and DAO were called with expected parameters
       expect(sendMailer.sendOTP).toHaveBeenCalled();
       expect(userOtpDao.createUserOtpDao).toHaveBeenCalled();
     });

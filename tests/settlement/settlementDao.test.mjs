@@ -50,23 +50,30 @@ describe('settlementDao', () => {
       db.buildInsertQuery.mockReturnValue(['INSERT INTO ...', ['a', 'b']]);
       const goodConn = { query: jest.fn(() => Promise.resolve({ rows: [{ id: 'settle-id' }] })) };
       const result = await dao.createSettlementDao({ foo: 'bar' }, goodConn);
+      // Service call should be made with correct query and params
       expect(db.buildInsertQuery).toHaveBeenCalled();
+      // Conn's query method should be called with the built query and params
       expect(goodConn.query).toHaveBeenCalled();
+      // Result should match the mocked DB response
       expect(result).toEqual({ id: 'settle-id' });
     });
     it('should handle empty result', async () => {
       const emptyConn = { query: jest.fn(() => Promise.resolve({ rows: [] })) };
       const result = await dao.createSettlementDao({ foo: 'bar' }, emptyConn);
+      // If DB returns no rows, result should be undefined
       expect(result).toBeUndefined();
     });
     it('should work without conn', async () => {
       db.executeQuery.mockResolvedValue({ rows: [{ id: 'settle-id' }] });
       const result = await dao.createSettlementDao({ foo: 'bar' });
+      // Result should match the mocked DB response
       expect(result).toEqual({ id: 'settle-id' });
     });
     it('should log and throw on error', async () => {
       const badConn = { query: jest.fn(() => { throw new Error('fail'); }) };
+      // Expect the method to throw an error when the DB query fails
       await expect(dao.createSettlementDao({}, badConn)).rejects.toThrow('fail');
+      // Logger should have been called to log the error
       expect(loggerModule.logger.error).toHaveBeenCalled();
     });
   });
@@ -76,23 +83,30 @@ describe('settlementDao', () => {
       db.buildUpdateQuery.mockReturnValue(['UPDATE ...', ['a', 'b']]);
       const goodConn = { query: jest.fn(() => Promise.resolve({ rows: [{ id: 'settle-id', status: 'SUCCESS' }] })) };
       const result = await dao.updateSettlementDao('settle-id', { status: 'SUCCESS' }, goodConn);
+      // Service call should be made with correct query and params
       expect(db.buildUpdateQuery).toHaveBeenCalled();
+      // Conn's query method should be called with the built query and params
       expect(goodConn.query).toHaveBeenCalled();
+      // Result should match the mocked DB response
       expect(result).toEqual({ id: 'settle-id', status: 'SUCCESS' });
     });
     it('should handle empty result', async () => {
       const emptyConn = { query: jest.fn(() => Promise.resolve({ rows: [] })) };
       const result = await dao.updateSettlementDao('settle-id', { status: 'SUCCESS' }, emptyConn);
+      // If DB returns no rows, result should be undefined
       expect(result).toBeUndefined();
     });
     it('should work without conn', async () => {
       db.executeQuery.mockResolvedValue({ rows: [{ id: 'settle-id', status: 'SUCCESS' }] });
       const result = await dao.updateSettlementDao('settle-id', { status: 'SUCCESS' });
+      // Result should match the mocked DB response
       expect(result).toEqual({ id: 'settle-id', status: 'SUCCESS' });
     });
     it('should log and throw on error', async () => {
       const badConn = { query: jest.fn(() => { throw new Error('fail'); }) };
+      // Expect the method to throw an error when the DB query fails
       await expect(dao.updateSettlementDao('settle-id', {}, badConn)).rejects.toThrow('fail');
+      // Logger should have been called to log the error
       expect(loggerModule.logger.error).toHaveBeenCalled();
     });
   });
@@ -102,24 +116,31 @@ describe('settlementDao', () => {
       db.buildUpdateQuery.mockReturnValue(['UPDATE ...', ['a', 'b']]);
       const goodConn = { query: jest.fn(() => Promise.resolve({ rows: [{ id: 'settle-id', is_obsolete: true }] })) };
       const result = await dao.deleteSettlementDao('settle-id', { is_obsolete: true }, goodConn);
+      // Service call should be made with correct query and params
       expect(db.buildUpdateQuery).toHaveBeenCalled();
+      // Conn's query method should be called with the built query and params
       expect(goodConn.query).toHaveBeenCalled();
+      // Result should match the mocked DB response
       expect(result).toEqual({ id: 'settle-id', is_obsolete: true });
     });
     it('should handle empty result', async () => {
       const emptyConn = { query: jest.fn(() => Promise.resolve({ rows: [] })) };
       const result = await dao.deleteSettlementDao('settle-id', { is_obsolete: true }, emptyConn);
+      // If DB returns no rows, result should be undefined
       expect(result).toBeUndefined();
     });
     it('should work without conn', async () => {
       db.executeQuery.mockResolvedValue({ rows: [{ id: 'settle-id', is_obsolete: true }] });
       const result = await dao.deleteSettlementDao('settle-id', { is_obsolete: true });
+      // Result should match the mocked DB response
       expect(result).toEqual({ id: 'settle-id', is_obsolete: true });
     });
     it('should log and throw on error', async () => {
       // Provide a mock conn with a query method that throws
       const badConn = { query: jest.fn(() => { throw new Error('fail'); }) };
+      // Expect the method to throw an error when the DB query fails
       await expect(dao.deleteSettlementDao('settle-id', {}, badConn)).rejects.toThrow('fail');
+      // Logger should have been called to log the error
       expect(loggerModule.logger.error).toHaveBeenCalled();
     });
   });
@@ -128,12 +149,15 @@ describe('settlementDao', () => {
     it('should fetch settlements with filters', async () => {
       db.executeQuery.mockResolvedValue({ rows: [{ id: 'settle-id', user_id: 'user-uuid' }] });
       const result = await dao.getSettlementDao({ user_id: 'user-uuid' }, 1, 10, 'sno', 'DESC', [], mockConn());
+      // Result should be an array of settlements matching the mocked DB response
       expect(Array.isArray(result)).toBe(true);
+      // First settlement should have the expected properties
       expect(result[0]).toHaveProperty('id', 'settle-id');
     });
     it('should handle empty result', async () => {
       db.executeQuery.mockResolvedValue({ rows: [] });
       const result = await dao.getSettlementDao({ user_id: 'user-uuid' }, 1, 10, 'sno', 'DESC', [], mockConn());
+      // If DB returns no rows, result should be an empty array
       expect(result).toEqual([]);
     });
     it('should handle multiple rows', async () => {
@@ -142,16 +166,20 @@ describe('settlementDao', () => {
         { id: 'settle-id-2', user_id: 'user-uuid' },
       ] });
       const result = await dao.getSettlementDao({ user_id: 'user-uuid' }, 1, 10, 'sno', 'DESC', [], mockConn());
+      // Result should be an array of settlements matching the mocked DB response
       expect(result.length).toBe(2);
     });
     it('should work without conn', async () => {
       db.executeQuery.mockResolvedValue({ rows: [{ id: 'settle-id', user_id: 'user-uuid' }] });
       const result = await dao.getSettlementDao({ user_id: 'user-uuid' }, 1, 10, 'sno', 'DESC', []);
+      // Result should match the mocked DB response
       expect(result[0]).toHaveProperty('id', 'settle-id');
     });
     it('should log and throw on error', async () => {
       db.executeQuery.mockRejectedValue(new Error('fail'));
+      // Expect the method to throw an error when the DB query fails
       await expect(dao.getSettlementDao({}, 1, 10, 'sno', 'DESC', [], mockConn())).rejects.toThrow('fail');
+      // Logger should have been called to log the error
       expect(loggerModule.logger.error).toHaveBeenCalled();
     });
   });
@@ -161,16 +189,22 @@ describe('settlementDao', () => {
       db.executeQuery.mockResolvedValueOnce({ rows: [{ total: 1 }] });
       db.executeQuery.mockResolvedValueOnce({ rows: [{ id: 'settle-id', user_id: 'user-uuid' }] });
       const result = await dao.getSettlementsBySearchDao({ user_id: 'user-uuid' }, 1, 10, 'sno', 'DESC', [], [], 'ADMIN', mockConn());
+      // Result should have pagination properties and settlements array matching the mocked DB response
       expect(result).toHaveProperty('totalCount', 1);
+      // Assuming pageSize is 10, totalPages should be 1 for totalCount of 1
       expect(result).toHaveProperty('totalPages', 1);
+      // Settlements should be an array containing the mocked settlement
       expect(Array.isArray(result.settlements)).toBe(true);
+      // First settlement should have the expected properties
       expect(result.settlements[0]).toHaveProperty('id', 'settle-id');
     });
     it('should handle empty settlements', async () => {
       db.executeQuery.mockResolvedValueOnce({ rows: [{ total: 0 }] });
       db.executeQuery.mockResolvedValueOnce({ rows: [] });
       const result = await dao.getSettlementsBySearchDao({}, 1, 10, 'sno', 'DESC', [], [], 'ADMIN', mockConn());
+      // Result should indicate zero total count and an empty settlements array
       expect(result.totalCount).toBe(0);
+      // Total pages should be 0 when there are no settlements
       expect(result.settlements).toEqual([]);
     });
     it('should handle multiple settlements', async () => {
@@ -180,18 +214,23 @@ describe('settlementDao', () => {
         { id: 'settle-id-2', user_id: 'user-uuid' },
       ] });
       const result = await dao.getSettlementsBySearchDao({}, 1, 10, 'sno', 'DESC', [], [], 'ADMIN', mockConn());
+      // Result should indicate the total count of settlements and an array containing the mocked settlements
       expect(result.totalCount).toBe(2);
+      // Settlements should be an array containing the mocked settlements
       expect(result.settlements.length).toBe(2);
     });
     it('should work without conn', async () => {
       db.executeQuery.mockResolvedValueOnce({ rows: [{ total: 1 }] });
       db.executeQuery.mockResolvedValueOnce({ rows: [{ id: 'settle-id', user_id: 'user-uuid' }] });
       const result = await dao.getSettlementsBySearchDao({}, 1, 10, 'sno', 'DESC', [], [], 'ADMIN');
+      // Result should match the mocked DB response
       expect(result.totalCount).toBe(1);
     });
     it('should log and throw on error', async () => {
       db.executeQuery.mockRejectedValue(new Error('fail'));
+      // Expect the method to throw an error when the DB query fails
       await expect(dao.getSettlementsBySearchDao({}, 1, 10, 'sno', 'DESC', [], [], 'ADMIN', mockConn())).rejects.toThrow('fail');
+      // Logger should have been called to log the error
       expect(loggerModule.logger.error).toHaveBeenCalled();
     });
   });
@@ -200,22 +239,28 @@ describe('settlementDao', () => {
     it('should fetch settlement by UTR', async () => {
       db.executeQuery.mockResolvedValue({ rows: [{ id: 'settle-utr', user_id: 'user-uuid', status: 'INITIATED' }] });
       const result = await dao.getSettlementByUTRDao('utr-123', mockConn());
+      // Result should be an array containing the settlement matching the mocked DB response
       expect(Array.isArray(result)).toBe(true);
+      // First settlement should have the expected properties
       expect(result[0]).toHaveProperty('id', 'settle-utr');
     });
     it('should handle empty result', async () => {
       db.executeQuery.mockResolvedValue({ rows: [] });
       const result = await dao.getSettlementByUTRDao('utr-123', mockConn());
+      // If DB returns no rows, result should be undefined
       expect(result).toBeUndefined();
     });
     it('should work without conn', async () => {
       db.executeQuery.mockResolvedValue({ rows: [{ id: 'settle-utr', user_id: 'user-uuid', status: 'INITIATED' }] });
       const result = await dao.getSettlementByUTRDao('utr-123');
+      // Result should match the mocked DB response
       expect(Array.isArray(result)).toBe(true);
     });
     it('should log and throw on error', async () => {
       db.executeQuery.mockRejectedValue(new Error('fail'));
+      // Expect the method to throw an error when the DB query fails
       await expect(dao.getSettlementByUTRDao('utr-123', mockConn())).rejects.toThrow('fail');
+      // Logger should have been called to log the error
       expect(loggerModule.logger.error).toHaveBeenCalled();
     });
   });

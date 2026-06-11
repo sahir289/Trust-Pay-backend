@@ -1,7 +1,6 @@
 // ESM MOCKS MUST STAY AT THE VERY TOP
-import { jest } from '@jest/globals';
-
 /* global describe, it, expect, afterEach, beforeAll, afterAll */
+import { jest } from '@jest/globals';
 
 // ─────────────────────────────────────────────
 // LOGGER MOCK
@@ -156,6 +155,7 @@ describe('calculationDao (Extreme Automation-Grade)', () => {
         null,
       );
 
+      // Should return the expected rows from the database
       expect(result).toEqual([
         { id: 1 },
         { id: 2 },
@@ -177,6 +177,7 @@ describe('calculationDao (Extreme Automation-Grade)', () => {
         null,
       );
 
+      // Should return an empty array if the database returns no rows
       expect(result).toEqual([]);
     });
 
@@ -192,6 +193,7 @@ describe('calculationDao (Extreme Automation-Grade)', () => {
         'error',
       );
 
+      // Should throw the error when the database query fails
       await expect(
         dao.getCalculationDao(
           {},
@@ -204,6 +206,7 @@ describe('calculationDao (Extreme Automation-Grade)', () => {
         ),
       ).rejects.toThrow('fail');
 
+      // Should log the error when the database query fails
       expect(errorSpy).toHaveBeenCalled();
 
       errorSpy.mockRestore();
@@ -230,6 +233,7 @@ describe('calculationDao (Extreme Automation-Grade)', () => {
           eDate: '2024-01-02',
         });
 
+      // Should return the expected rows from the database
       expect(result).toEqual([
         { a: 1 },
       ]);
@@ -248,10 +252,12 @@ describe('calculationDao (Extreme Automation-Grade)', () => {
           eDate: '2024-01-02',
         });
 
+      // Should return an empty array if the database returns no rows
       expect(result).toEqual([]);
     });
 
     it('should throw if required params missing', async () => {
+      // Should throw if required parameters are missing
       await expect(
         dao.getCalculationDashBoardReportDao({}),
       ).rejects.toThrow();
@@ -262,6 +268,7 @@ describe('calculationDao (Extreme Automation-Grade)', () => {
         new Error('fail'),
       );
 
+      // Should throw the error when the database query fails
       await expect(
         dao.getCalculationDashBoardReportDao({
           user_id: 1,
@@ -290,6 +297,7 @@ describe('calculationDao (Extreme Automation-Grade)', () => {
           '2024-01-01',
         );
 
+      // Should return the expected rows from the database
       expect(result).toEqual([
         { id: 1 },
       ]);
@@ -305,16 +313,19 @@ describe('calculationDao (Extreme Automation-Grade)', () => {
           '2024-01-01',
         );
 
+      // Should return an empty array if the database returns no rows
       expect(result).toEqual([]);
     });
 
     it('should throw if date missing', async () => {
+      // Should throw if date parameter is missing
       await expect(
         dao.getCalculationByDateAndUserDao(),
       ).rejects.toThrow();
     });
 
     it('should throw if invalid date', async () => {
+      // Should throw if date parameter is invalid
       await expect(
         dao.getCalculationByDateAndUserDao(
           'bad-date',
@@ -327,6 +338,7 @@ describe('calculationDao (Extreme Automation-Grade)', () => {
         new Error('fail'),
       );
 
+      // Should throw the error when the database query fails
       await expect(
         dao.getCalculationByDateAndUserDao(
           '2024-01-01',
@@ -353,6 +365,7 @@ describe('calculationDao (Extreme Automation-Grade)', () => {
           100,
         );
 
+      // Should return the expected row from the database
       expect(result).toEqual({
         id: 1,
       });
@@ -363,12 +376,14 @@ describe('calculationDao (Extreme Automation-Grade)', () => {
         rows: [],
       });
 
+      // Should return null if the database returns no rows instead of an empty array
       const result =
         await dao.updateTodayNetBalanceDao(
           'id',
           100,
         );
 
+      // Should return null if the database returns no rows
       expect(result).toBeNull();
     });
 
@@ -377,6 +392,7 @@ describe('calculationDao (Extreme Automation-Grade)', () => {
         new Error('fail'),
       );
 
+      // Should throw the error when the database query fails
       await expect(
         dao.updateTodayNetBalanceDao(
           'id',

@@ -70,8 +70,11 @@ describe('calculationController', () => {
 
       await controllers.getCalculation(req, res);
 
+      // Should call the service method to get calculations
       expect(getCalculationServiceMock).toHaveBeenCalled();
+      // Should call the response handler to send success
       expect(sendSuccessMock).toHaveBeenCalled();
+      // Should return the expected data
       expect(res._sent.data).toEqual([{ id: 1 }]);
     });
   });
@@ -112,8 +115,11 @@ describe('calculationController', () => {
 
       await controllers.updateCalculation(req, res);
 
+      // Should call the service method to update calculation
       expect(updateCalculationServiceMock).toHaveBeenCalled();
+      // Should call the response handler to send success
       expect(sendSuccessMock).toHaveBeenCalled();
+      // Should return the expected message
       expect(res._sent.msg).toBe('Update Calculation successfully');
     });
 
@@ -122,16 +128,21 @@ describe('calculationController', () => {
         error: { details: [{ message: 'err' }] },
       });
 
+      // Should throw if validation fails and not call the service
       await expect(controllers.updateCalculation(req, res)).rejects.toThrow();
     });
 
     it('should throw if params missing', async () => {
       req.params = undefined;
+
+      // Should throw if params missing and not call the service
       await expect(controllers.updateCalculation(req, res)).rejects.toThrow();
     });
 
     it('should throw if service fails', async () => {
       updateCalculationServiceMock.mockRejectedValue(new Error('fail'));
+
+      // Should throw if service fails and not call the response handler
       await expect(controllers.updateCalculation(req, res)).rejects.toThrow('fail');
     });
   });
@@ -168,18 +179,25 @@ describe('calculationController', () => {
 
       await controllers.deleteCalculation(req, res);
 
+      // Should call the service method to delete calculation
       expect(deleteCalculationServiceMock).toHaveBeenCalled();
+      // Should call the response handler to send success
       expect(sendSuccessMock).toHaveBeenCalled();
+      // Should return the expected message
       expect(res._sent.msg).toBe('Delete Calculation successfully');
     });
 
     it('should throw if params missing', async () => {
       req.params = undefined;
+
+      // Should throw if params missing and not call the service
       await expect(controllers.deleteCalculation(req, res)).rejects.toThrow();
     });
 
     it('should throw if service fails', async () => {
       deleteCalculationServiceMock.mockRejectedValue(new Error('fail'));
+
+      // Should throw if service fails and not call the response handler
       await expect(controllers.deleteCalculation(req, res)).rejects.toThrow('fail');
     });
   });
@@ -214,18 +232,23 @@ describe('calculationController', () => {
 
       await controllers.calculateSuccessRatios(req, res);
 
+      // Should call the service method to calculate success ratios
       expect(calculateSuccessRatiosServiceMock).toHaveBeenCalled();
+      // Should call the response handler to send success
       expect(sendSuccessMock).toHaveBeenCalled();
+      // Should return the expected data
       expect(res._sent.data).toEqual([{ id: 1 }]);
     });
 
     it('should throw if user_ids missing', async () => {
       req.body.user_ids = undefined;
+      // Should throw if user_ids missing and not call the service
       await expect(controllers.calculateSuccessRatios(req, res)).rejects.toThrow();
     });
 
     it('should throw if service fails', async () => {
       calculateSuccessRatiosServiceMock.mockRejectedValue(new Error('fail'));
+      // Should throw if service fails and not call the response handler
       await expect(controllers.calculateSuccessRatios(req, res)).rejects.toThrow('fail');
     });
   });
@@ -272,8 +295,11 @@ describe('calculationController', () => {
 
       await controllers.updateCalculations(req, res);
 
+      // Should call the service method to update calculations
       expect(updateCalculationsServiceMock).toHaveBeenCalled();
+      // Should call the response handler to send success
       expect(sendSuccessMock).toHaveBeenCalled();
+      // Should return the expected message
       expect(res._sent.msg).toBe('Calculations updated successfully');
     });
 
@@ -282,16 +308,21 @@ describe('calculationController', () => {
         error: { details: [{ message: 'err' }] },
       });
 
+      // Should throw if validation fails and not call the service
       await expect(controllers.updateCalculations(req, res)).rejects.toThrow();
     });
 
     it('should throw if user_id missing', async () => {
       req.body.user_id = undefined;
+
+      // Should throw if user_id missing and not call the service
       await expect(controllers.updateCalculations(req, res)).rejects.toThrow();
     });
 
     it('should throw if service fails', async () => {
       updateCalculationsServiceMock.mockRejectedValue(new Error('fail'));
+
+      // Should throw if service fails and not call the response handler
       await expect(controllers.updateCalculations(req, res)).rejects.toThrow('fail');
     });
   });
