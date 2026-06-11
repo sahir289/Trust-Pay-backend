@@ -344,7 +344,7 @@ const getUsersBySearchService = async (
     return data;
   } catch (error) {
     logger.error('Error while fetching users by search', error);
-    throw new InternalServerError(error.message);
+    throw error;
   }
 };
 
@@ -383,7 +383,7 @@ const getUsersInfoBySearchService = async (
     return data;
   } catch (error) {
     logger.error('Error while fetching users by search', error);
-    throw new InternalServerError(error.message);
+    throw error;
   }
 };
 
