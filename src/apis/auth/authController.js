@@ -1,3 +1,4 @@
+import { UAParser } from 'ua-parser-js';
 import { logoutSet } from '../../middlewares/auth.js';
 import { INSERT_AUTH_SCHEMA } from '../../schemas/authSchema.js';
 import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
@@ -24,6 +25,7 @@ import {
 
 const loginController = async (req, res) => {
   let clientIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  const ua = new UAParser(req.headers['user-agent']).getResult();
   const payload = { ...req.body };
   payload.user_location = req.user_location || {};
   const options = { abortEarly: false };
@@ -31,7 +33,7 @@ const loginController = async (req, res) => {
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
-  const data = await loginService(payload, clientIP);
+  const data = await loginService(payload, clientIP,ua);
   ///for first login user
   if (data.isLoginFirst) {
     return sendSuccess(res, data, "user's first login");
@@ -190,11 +192,12 @@ const getUserRoleController = async (req, res) => {
  */
 const verifyLoginOtpController = async (req, res) => {
   const clientIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  const ua = new UAParser(req.headers['user-agent']).getResult();
   const { preAuthToken, otpToken } = req.body;
   if (!preAuthToken || !otpToken) {
     throw new BadRequestError('preAuthToken and otpToken are required');
   }
-  const data = await verifyLoginOtpService(preAuthToken, String(otpToken), clientIP);
+  const data = await verifyLoginOtpService(preAuthToken, String(otpToken), clientIP, ua);
   res.cookie('refreshToken', data.tokenInfo.refreshToken, {
     httpOnly: true,
     secure: true,

@@ -17,11 +17,13 @@ import {
   getUsersDao,
   updateUserDao,
   getUsersBySearchDao,
+  getUsersInfoBySearchDao,
   getAllUsersDao,
   updateUserByIDDao,
   updateUser2FAStatusDao,
   updateUser2FAExemptionDao,
   disableTwoFactorDao,
+  getAllUsersNameDao,
 } from './userDao.js';
 import { getDesignationDao } from '../designation/designationDao.js';
 import { getRoleDao } from '../roles/rolesDao.js';
@@ -172,6 +174,19 @@ const getUsersService = async (
     );
   } catch (error) {
     logger.error('error getting while fetching user', error);
+    throw error;
+  }
+};
+
+const getUsersNameService = async (
+  ids,
+) => {
+  try {
+    return await getAllUsersNameDao(
+      ids,
+    );
+  } catch (error) {
+    logger.error('error getting while fetching user-names', error);
     throw error;
   }
 };
@@ -329,9 +344,49 @@ const getUsersBySearchService = async (
     return data;
   } catch (error) {
     logger.error('Error while fetching users by search', error);
-    throw new InternalServerError(error.message);
+    throw error;
   }
 };
+
+const getUsersInfoBySearchService = async (
+  ids,
+  role,
+  page,
+  limit,
+  startDate,
+  endDate,
+) => {
+  try {  
+
+    const pageNumber = parseInt(page, 10) || 1;
+    const pageSize = parseInt(limit, 10) || 10;
+
+    let searchTerms;
+    if (ids.search) {
+      searchTerms = ids.search
+        .split(',')
+        .map((term) => term.trim())
+        .filter((term) => term.length > 0);
+    }
+
+    const data = await getUsersInfoBySearchDao(
+      ids,
+      searchTerms,
+      pageNumber,
+      pageSize,
+      startDate,
+      endDate,
+      role,
+      // filterColumns
+    );
+
+    return data;
+  } catch (error) {
+    logger.error('Error while fetching users by search', error);
+    throw error;
+  }
+};
+
 const getUserByIdService = async (ids, role) => {
   try {
     const filterColumns =
@@ -684,7 +739,6 @@ const _userUpdateServiceInternal = async (ids, payload, conn) => {
        if (sessions && sessions.length > 0) {
          for (const session of sessions) {
            if (session?.session_id) {
-             console.log(session.session_id);
              await forceLogoutUser(session.user_id, session.session_id);
            }
          }
@@ -789,8 +843,10 @@ const toggleUser2FAExemptionService = async (userId, exempt) => {
 
 export {
   getUsersService,
+  getUsersNameService,
   getUserByIdService,
   getUsersBySearchService,
+  getUsersInfoBySearchService,
   getUsersByUserNameService,
   createUserService,
   userUpdateService,

@@ -18,7 +18,6 @@ import { getISTDateString } from '../../helpers/index.js';
 // Define the optimized runsafePayTransactionStatusCallback function
 export const runsafeTransactionStatusCallback = async (req, res) => {
   const payload = req.body;
-  console.log('Received runsafe callback payload:', payload);
   const apitxnid = payload?.platOrderNo;
   let conn;
   let committed = false;

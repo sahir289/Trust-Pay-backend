@@ -54,7 +54,6 @@ export const tytlWebhook = async (req, res) => {
   const utr = data?.trade?.utr || data?.trade?.cashierUTR || '';
   let responseData = data?.transaction;
   if (data?.accounts?.transactionType === 'pay-in' && utr && data?.trade?.event?.id === 4) {
-    console.log('Received pay-in callback:', data);
     // Process pay-in data here
     try {
       sendSuccess(res, 200, 'tytl webhook received successfully');

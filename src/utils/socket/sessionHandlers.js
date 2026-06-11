@@ -76,9 +76,8 @@ const validateClientMessagePayload = (payload) => {
   return false;
 };
 
-const bindSocketToUser = (socket, userId, sessionId, color = 'green') => {
+const bindSocketToUser = (socket, userId, sessionId) => {
   const loginTime = Date.now();
-  console.log(color, "console color");
   // const palette = {
   //   blue: chalk.bgBlue.white,
   //   cyan: chalk.bgCyan.white,

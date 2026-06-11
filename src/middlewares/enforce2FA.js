@@ -21,9 +21,6 @@ export const enforce2FAMiddleware = async (req, res, next) => {
       '/v1/auth/logout',                     // allow logout
     ];
 
-    // Temporary debug log to identify blocked paths
-    console.log('[enforce2FA] checking:', req.originalUrl);
-
     // Check if current path is exempt
     const isExempt = EXEMPT_PATHS.some(path => req.originalUrl.includes(path));
     
