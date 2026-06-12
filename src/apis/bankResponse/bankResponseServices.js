@@ -28,6 +28,7 @@ import {
   getBankIdsOnlyDao,
   atomicUpdateBankBalanceDao,
   atomicDecrementBankBalanceDao,
+  updateBankAccountBalanceDao
 } from '../bankAccounts/bankaccountDao.js';
 import {
   // getPayInUrlsDao,
@@ -39,7 +40,7 @@ import { getMerchantsBankResponseDao } from '../merchants/merchantDao.js';
 import { calculateCommission } from '../../utils/calculation.js';
 import {
   getVendorsDao,
-  updateVendorDao,
+  // updateVendorDao,
   getVendorsBankReponseDao,
 } from '../vendors/vendorDao.js';
 import {
@@ -440,13 +441,21 @@ const createBankResponseService = async (
         // NOTE: keep these sequential in the same transaction.
         // If the balance update hits a lock timeout (55P03), parallel queries on the
         // same connection can trigger noisy 25P02 cascades (transaction aborted).
-        const res = await atomicUpdateBankBalanceDao(
+        // const res = await atomicUpdateBankBalanceDao(
+        //   { id: botRes?.bank_id, company_id: companyId },
+        //   parseFloat(botRes.amount),
+        //   null,
+        //   conn,
+        // );
+     const res=await updateBankAccountBalanceDao(
           { id: botRes?.bank_id, company_id: companyId },
-          parseFloat(botRes.amount),
-          null,
+          {
+            balance: parseFloat(botRes.amount),
+            today_balance: parseFloat(botRes.amount),
+            payin_count: 1,
+          },
           conn,
-        );
-
+        ),
         vendor = await getVendorsBankReponseDao(
           {
             user_id: bankDetails[0].user_id,
@@ -460,16 +469,16 @@ const createBankResponseService = async (
           role,
           conn,
         );
-        if (isNaN(vendor[0].balance)) {
-          throw new BadRequestError('Invalid amount or commission');
-        }
-        await updateVendorDao(
-          { id: vendor[0].id },
-          {
-            balance: parseFloat(vendor[0].balance) + parseFloat(botRes.amount),
-          },
-          conn,
-        );
+        // if (isNaN(vendor[0].balance)) {
+        //   throw new BadRequestError('Invalid amount or commission');
+        // }
+        // await updateVendorDao(
+        //   { id: vendor[0].id },
+        //   {
+        //     balance: parseFloat(vendor[0].balance) + parseFloat(botRes.amount),
+        //   },
+        //   conn,
+        // );
         const payinVendorCommission = calculateCommission(
           botRes.amount,
           vendor[0].payin_commission,
@@ -1252,10 +1261,19 @@ const createBankResponseWebHookService = async (
           throw new BadRequestError('Invalid amount or commission');
         }
         // Using atomic increment to prevent race conditions on concurrent updates
-        const res = await atomicUpdateBankBalanceDao(
+        // const res = await atomicUpdateBankBalanceDao(
+        //   { id: botRes?.bank_id, company_id: companyId },
+        //   parseFloat(botRes.amount),
+        //   null,
+        //   conn,
+        // );
+         const res=   await updateBankAccountBalanceDao(
           { id: botRes?.bank_id, company_id: companyId },
-          parseFloat(botRes.amount),
-          null,
+          {
+            balance: parseFloat(botRes.amount),
+            today_balance: parseFloat(botRes.amount),
+            payin_count: 1,
+          },
           conn,
         );
         await _updateBankaccountInternal(
@@ -1267,16 +1285,16 @@ const createBankResponseWebHookService = async (
         vendor = await getVendorsBankReponseDao({
           user_id: bankDetails[0].user_id,
         }, conn);
-        if (isNaN(vendor[0]?.balance)) {
-          throw new BadRequestError('Invalid amount or commission');
-        }
-        await updateVendorDao(
-          { id: vendor[0].id },
-          {
-            balance: parseFloat(vendor[0].balance) + parseFloat(botRes.amount),
-          },
-          conn,
-        );
+        // if (isNaN(vendor[0]?.balance)) {
+        //   throw new BadRequestError('Invalid amount or commission');
+        // }
+        // await updateVendorDao(
+        //   { id: vendor[0].id },
+        //   {
+        //     balance: parseFloat(vendor[0].balance) + parseFloat(botRes.amount),
+        //   },
+        //   conn,
+        // );
         const payinVendorCommission = calculateCommission(
           botRes.amount,
           vendor[0].payin_commission,
