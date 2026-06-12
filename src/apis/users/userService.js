@@ -594,7 +594,6 @@ const _createUserServiceInternal = async (payload, conn) => {
             payout_notify: payout_notify,
             return: Return,
             site: site,
-            whitelist_ips: payload.whitelist_ips,
           },
           keys: {
             private: Private,
@@ -609,6 +608,7 @@ const _createUserServiceInternal = async (payload, conn) => {
           ...(sub_code && { sub_code }),
           unblocked_countries: unblocked_countries,
           gm_code: payload.gm_code,
+          whitelist_ips: payload.whitelist_ips,
         },
       };
       merchant = await _createMerchantServiceInternal(merchantPayload, conn);
