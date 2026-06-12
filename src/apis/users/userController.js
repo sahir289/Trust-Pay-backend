@@ -2,11 +2,13 @@ import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import {
   createUserService,
+  getUsersNameService,
   getUserByIdService,
   getUsersByUserNameService,
   getUsersService,
   userUpdateService,
   getUsersBySearchService,
+  getUsersInfoBySearchService,
   sendMailService,
   updateUser2FAService,
   toggleUser2FAExemptionService,
@@ -68,6 +70,32 @@ const getUsers = async (req, res) => {
   return sendSuccess(res, data, 'getUsers successfully');
 };
 
+const getUsersnames = async (req, res) => {
+  const {company_id} = req.user;
+  const cacheKey = `usersname:read:${company_id}:list:${generateCacheKey(
+    {
+      company_id,
+      query: normalizeQueryForCache(req.query),
+    },
+    'usersname-list',
+  )}`;
+
+  const cached = await readJsonCache(cacheKey, 'Users-name list cache');
+  if (shouldServeCachedResponse(cached, req.query)) {
+    return sendSuccess(res, cached, 'getUsersName successfully');
+  }
+
+  const data = await getUsersNameService(
+    {
+      company_id
+    },
+  );
+
+  await writeJsonCache(cacheKey, data, controllerCacheTtls.users.list);
+
+  return sendSuccess(res, data, 'getUsersname successfully');
+};
+
 const getUsersBySearch = async (req, res) => {
   const { role, company_id, user_id, designation } = req.user;
   const { page, limit } = req.query;
@@ -99,6 +127,44 @@ const getUsersBySearch = async (req, res) => {
     limit,
     designation,
     user_id,
+  );
+
+  await writeJsonCache(cacheKey, data, controllerCacheTtls.users.search);
+
+  return sendSuccess(res, data, 'getUsers successfully');
+};
+
+const getUsersInfoBySearch = async (req, res) => {
+  const { role, company_id } = req.user;
+  const { page, limit, startDate, endDate } = req.query;
+  const cacheKey = `users-info:read:${company_id}:search:${generateCacheKey(
+    {
+      company_id,
+      role,
+      page,
+      limit,
+      startDate,
+      endDate,
+      query: normalizeQueryForCache(req.query),
+    },
+    'users-info-search',
+  )}`;
+
+  const cached = await readJsonCache(cacheKey, 'Users-info search cache');
+  if (shouldServeCachedResponse(cached, req.query)) {
+    return sendSuccess(res, cached, 'getUsersInfo successfully');
+  }
+
+  const data = await getUsersInfoBySearchService(
+    {
+      company_id,
+      ...req.query,
+    },
+    role,
+    page,
+    limit,
+    startDate,
+    endDate,
   );
 
   await writeJsonCache(cacheKey, data, controllerCacheTtls.users.search);
@@ -257,7 +323,9 @@ const toggleUser2FAExemption = async (req, res) => {
 
 export {
   getUsers,
+  getUsersnames,
   getUsersBySearch,
+  getUsersInfoBySearch,
   getUserById,
   getUsersByUserName,
   createUser,

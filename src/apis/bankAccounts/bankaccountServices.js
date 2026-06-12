@@ -580,7 +580,18 @@ const updateBankaccountService = async (
 
 const deleteBankaccountService = async (ids, user_id) => {
   try {
-    const payload = { is_obsolete: true, updated_by: user_id };
+    const payload = { is_obsolete: true, updated_by: user_id ,
+        config: {
+          is_freeze: false,
+          is_intent: "off",
+          is_phonepay: false,
+          is_staticQR: false,
+          merchants:[]
+        },
+        is_qr: false,
+        is_bank: false,
+        is_enabled: false,
+    };
     const result = await deleteBankaccountDao(
       { id: ids.id, company_id: ids.company_id },
       payload,

@@ -818,6 +818,12 @@ export const assignedBankToPayInUrlService = async (
       status: Status.ASSIGNED,
       bank_acc_id: selectedBankDetails.id,
       duration: duration,
+      config:{...payIn.config,
+          assigned_bank: {
+            acc_no: selectedBankDetails?.acc_no,
+            upi_id: selectedBankDetails?.upi_id,
+          },
+      }
     });
 
     const vendors = await getVendorsDao({
@@ -841,6 +847,7 @@ export const assignedBankToPayInUrlService = async (
         utr: null,
         amount: 0,
       },
+      upi_id: selectedBankDetails.upi_id || null,
       company_id: payIn.company_id,
     };
     // Emit socket event for assigned payin
@@ -1431,6 +1438,7 @@ export const updateDepositStatusService = async (
         urls: payInData.config?.urls || {},
         user: payInData.config?.user || {},
       },
+      upi_id:payInData?.config?.assigned_bank?.upi_id || null,
       vendor_code: vendor?.code || null,
       vendor_user_id: vendor?.user_id || null,
       upi_short_code:
@@ -2021,6 +2029,7 @@ export const _processPayInServiceInternal = async (
         utr: bankResponse.utr || null,
         amount: bankResponse.amount || 0,
       },
+      upi_id: payIn.config?.assigned_bank?.upi_id || null,
       created_at: payIn.created_at,
       updated_at: new Date().toISOString(),
       updated_by: updated_by || null,
@@ -2088,6 +2097,7 @@ export const _processPayInServiceInternal = async (
       bank_acc_id: updatePayInData.bank_acc_id || null,
       merchant_order_id: payIn.merchant_order_id,
       company_id: payIn.company_id,
+      upi_id: payIn.config?.assigned_bank?.upi_id || null,
       bank_res_details: {
         utr: bankResponse.utr || null,
         amount: bankResponse.amount || 0,
@@ -2310,6 +2320,7 @@ export const _processPayInServiceInternal = async (
       utr: bankResponse.utr || null,
       amount: bankResponse.amount || 0,
     },
+    upi_id: payIn.config?.assigned_bank?.upi_id || null,
     user: payIn.user || null,
     updated_at: payIn.updated_at,
     created_at: payIn.created_at,
@@ -2630,6 +2641,7 @@ export const processPayInWebHookService = async (payload, updated_by, conn) => {
         utr: bankResponse.utr || null,
         amount: bankResponse.amount || 0,
       },
+      upi_id: payIn.config?.assigned_bank?.upi_id || null,
       user: payIn.user || null,
       updated_at: payIn.updated_at,
       created_at: payIn.created_at,
@@ -3239,6 +3251,7 @@ export const disputeDuplicateTransactionService = async (
             utr: bankResponse.utr || null,
             amount: bankResponse.amount || 0,
           },
+          upi_id: payInData.config?.assigned_bank?.upi_id || null,
         });
         await newTableEntry(tableName.BANK_RESPONSE, {
           id: payInData.bank_response_id,
@@ -3434,6 +3447,7 @@ export const disputeDuplicateTransactionService = async (
       created_by: response.created_by || null,
       updated_by: response.updated_by || null,
       is_notified: response.is_notified || false,
+      upi_id: payIn.config?.assigned_bank?.upi_id || null,
       user: response.user || payIn.user || null,
       created_at: response.created_at || payIn.created_at,
       updated_at: response.updated_at || new Date().toISOString(),

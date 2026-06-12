@@ -34,8 +34,9 @@ import {
   getCalculationforCronDao,
 } from '../calculation/calculationDao.js';
 import {
-  updateBankaccountDao,
+  // updateBankaccountDao,
   getBankByIdDao,
+  updateBankAccountBalanceDao
 } from '../bankAccounts/bankaccountDao.js';
 import config from '../../config/config.js';
 import { merchantPayoutCallback } from '../../callBacksAndWebHook/merchantCallBacks.js';
@@ -373,7 +374,6 @@ const _createPayoutServiceInternal = async (
       const getRunsafeWalletBalance = await getRunsafePayWalletBalance({
         company_id: payload.company_id,
       });
-      console.log(getRunsafeWalletBalance, "getRunsafeWalletBalance")
       let updatedData;
       if (Number(payoutAmount) < Number(runsafe_auto_approval_limit)) {
         if (
@@ -899,7 +899,7 @@ const _updatePayoutServiceInternal = async (
     if (!singleWithdrawData) {
       throw new NotFoundError('Payout not found!');
     }
-    if(singleWithdrawData.status === Status.APPROVED && payload.status !== Status.REVERSED ){
+    if(singleWithdrawData.status === Status.APPROVED && payload.status !== Status.REVERSED && !payload.utr_id){
       throw new BadRequestError('Payout Already Approved');
     }
     if(singleWithdrawData.status !== Status.INITIATED && payload.vendor_id === null ){
@@ -1573,21 +1573,15 @@ const _updatePayoutServiceInternal = async (
 
       await Promise.all([
         ...calculationUpdates,
-        updateBankaccountDao(
-          { id: bankData.id, company_id: ids.company_id },
-          {
-            payin_count: Number(bankData.payin_count) + 1,
-            today_balance: Number(bankData.today_balance) - Number(data.amount),
-            balance: Number(bankData.balance) - Number(data.amount),
-            is_enabled:
-              bankData?.config?.max_limit <
-              Math.abs(bankData.today_balance) + data.amount
-                ? false
-                : true,
-          },
-          false,
-          conn,
-        ),
+await updateBankAccountBalanceDao(
+  { id: bankData.id, company_id: ids.company_id },
+  {
+    balance: -Number(data.amount),
+    today_balance: -Number(data.amount),
+    payin_count: 1,
+  },
+  conn,
+),
         updatePayoutDao(
           ids,
           {
@@ -1631,20 +1625,6 @@ const _updatePayoutServiceInternal = async (
 
       await Promise.all([
         ...calculationUpdates,
-        updateBankaccountDao(
-          { id: bankData.id, company_id: ids.company_id },
-          {
-            today_balance: Number(bankData.today_balance + data.amount),
-            balance: Number(bankData.balance + data.amount),
-            is_enabled:
-              bankData?.config?.max_limit <
-              Math.abs(bankData.today_balance) + data.amount
-                ? false
-                : true,
-          },
-          false,
-          conn,
-        ),
       ]);
     }
 

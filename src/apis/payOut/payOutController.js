@@ -38,6 +38,7 @@ import { streamToBase64 } from '../../helpers/index.js';
 import { s3 } from '../../helpers/Aws.js';
 import config from '../../config/config.js';
 import { getImageContentFromOCrForPayout } from '../../helpers/index.js';
+import { publishBulkPayoutCreate } from '../../rabbitmq/producer.js';
 // import config from '../../config/config.js';
 // import { BadRequestError } from '../../utils/appErrors.js';
 
@@ -101,6 +102,34 @@ const createPayout = async (req, res) => {
     await invalidatePayoutCache(req.user?.company_id || payload.company_id);
     return sendNewSuccess(res, updateRes, 'Payout created successfully', 201);
   }
+};
+
+const createBulkPayout = async (req, res) => {
+  if (!req.file) {
+    throw new ValidationError('Excel file is required');
+  }
+
+  const payload = {
+    fileKey: req.file.key,
+    fileUrl: req.file.location,
+    bucket: req.file.bucket,
+
+    companyId: req.user.company_id,
+    role: req.user.role,
+    userId: req.user.user_id,
+    fileName: req.file.originalname,
+    createdBy: req.user.user_id,
+    updatedBy: req.user.user_id,
+  };
+
+  await publishBulkPayoutCreate(payload);
+
+  return sendNewSuccess(
+    res,
+    {},
+    'Bulk payout queued successfully',
+    202,
+  );
 };
 
 const getPayoutsById = async (req, res) => {
@@ -372,6 +401,7 @@ const createRupeeFlowBulkPayoutController = async (req, res) => {
 
 export {
   createPayout,
+  createBulkPayout,
   getPayoutsBySearch,
   checkPayOutStatus,
   getPayouts,

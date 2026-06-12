@@ -36,14 +36,17 @@ const dynamicBalanceJoin = `
 `;
 
 const merchantDetailsJoin = `
-  LEFT JOIN LATERAL (
-    SELECT 
-      jsonb_agg(jsonb_build_object('id', m.id, 'code', m.code)) AS merchant_details
-    FROM public."Merchant" m
-    WHERE m.id::text IN (
-      SELECT jsonb_array_elements_text((ba.config->'merchants')::jsonb)
-    )
-  ) m ON TRUE
+LEFT JOIN LATERAL (
+  SELECT
+    jsonb_agg(
+      jsonb_build_object(
+        'id', m.id,
+        'code', m.code
+      )
+    ) AS merchant_details
+  FROM public."Merchant" m
+  WHERE (ba.config->'merchants')::jsonb ? m.id::text
+) m ON TRUE
 `;
 
 export const getBankaccountPayinDao = async (filters, conn = null) => {
@@ -452,25 +455,25 @@ const getBankAccountsBySearchDao = async (
           queryParams.push(boolValue);
           paramIndex++;
         } else {
-          const likeVal = `%${term}%`;
+          const likeVal = `%${term.toLowerCase()}%`;
           let searchCondition = `
         (
-          LOWER(ba.id::text) LIKE LOWER($${paramIndex})
-          OR LOWER(ba.sno::text) LIKE LOWER($${paramIndex})
-          OR LOWER(ba.upi_id) LIKE LOWER($${paramIndex})
-          OR LOWER(ba.acc_holder_name) LIKE LOWER($${paramIndex})
-          OR LOWER(ba.nick_name) LIKE LOWER($${paramIndex})
-          OR LOWER(ba.acc_no) LIKE LOWER($${paramIndex})
-          OR LOWER(ba.bank_name) LIKE LOWER($${paramIndex})
-          OR LOWER(ba.ifsc) LIKE LOWER($${paramIndex})
-          OR LOWER(ba.user_id::text) LIKE LOWER($${paramIndex})
-          OR LOWER(ba.created_at::text) LIKE LOWER($${paramIndex})
-          OR LOWER(ba.updated_at::text) LIKE LOWER($${paramIndex})
-          OR LOWER(creator.user_name) LIKE LOWER($${paramIndex})
-          OR LOWER(updater.user_name) LIKE LOWER($${paramIndex})
-          OR LOWER(v.code) LIKE LOWER($${paramIndex})
-          OR LOWER(ba.config->>'max_limit') LIKE LOWER($${paramIndex})
-          OR LOWER(ba.config->>'is_intent') LIKE LOWER($${paramIndex})
+          LOWER(ba.id::text) LIKE $${paramIndex}
+          OR LOWER(ba.sno::text) LIKE $${paramIndex}
+          OR LOWER(ba.upi_id) LIKE $${paramIndex}
+          OR LOWER(ba.acc_holder_name) LIKE $${paramIndex}
+          OR LOWER(ba.nick_name) LIKE $${paramIndex}
+          OR LOWER(ba.acc_no) LIKE $${paramIndex}
+          OR LOWER(ba.bank_name) LIKE $${paramIndex}
+          OR LOWER(ba.ifsc) LIKE $${paramIndex}
+          OR LOWER(ba.user_id::text) LIKE $${paramIndex}
+          OR LOWER(ba.created_at::text) LIKE $${paramIndex}
+          OR LOWER(ba.updated_at::text) LIKE $${paramIndex}
+          OR LOWER(creator.user_name) LIKE $${paramIndex}
+          OR LOWER(updater.user_name) LIKE $${paramIndex}
+          OR LOWER(v.code) LIKE $${paramIndex}
+          OR LOWER(ba.config->>'max_limit') LIKE $${paramIndex}
+          OR LOWER(ba.config->>'is_intent') LIKE $${paramIndex}
       `;
           // Add merchant code search only for ADMIN role
           if (role === 'ADMIN') {
@@ -798,8 +801,32 @@ export const getMerchantLinkBankDao = async (filters, conn = null) => {
     FROM "${tableName.BANK_ACCOUNT}"
     WHERE is_obsolete = false
   `;
-    const [sql, parameters] = buildSelectQuery(query, filters);
-    const result = await executeQuery(sql, parameters, conn);
+
+  const params = [];
+  let index = 1;
+
+  if (filters.id) {
+    query += ` AND id = $${index}`;
+    params.push(filters.id);
+    index++;
+  }
+
+  if (filters.config_merchants_contains) {
+    query += `
+      AND (config::jsonb->'merchants')
+      @> to_jsonb(ARRAY[$${index}])
+    `;
+    params.push(filters.config_merchants_contains);
+    index++;
+  }
+
+  query += ` ORDER BY created_at DESC`;
+
+  const result = await executeQuery(
+    query,
+    params,
+    conn,
+  );
     return result.rows;
   } catch (error) {
     logger.error('Error getting bank account payin:', error.message);
@@ -1070,9 +1097,16 @@ const deleteBankaccountByUserIdDao = async (id, payload, conn = null) => {
 };
 const deleteBankaccountDao = async (id, data, conn = null) => {
   try {
-    const [sql, params] = buildUpdateQuery(tableName.BANK_ACCOUNT, data, id);
-    const result = await executeQuery(sql, params, conn);
-    return result.rows[0];
+   const result = await buildAndExecuteUpdateQuery(
+       tableName.BANK_ACCOUNT,
+       data,
+       id,
+       {}, 
+       { returnUpdated: true }, 
+       conn,
+       true, 
+     );
+    return result;
   } catch (error)  {
     logger.error('Error in deleteBankaccountDao:', error);
     throw error;
@@ -1335,6 +1369,34 @@ const getBankaccountDaoBatch = async (ids = [], conn = null) => {
     return result.rows;
   } catch (error) {
     logger.error('Error in getBankaccountDaoBatch:', error);
+    throw error;
+  }
+};
+export const updateBankAccountBalanceDao = async (
+  filters,
+  data,
+  conn = null,
+) => {
+  try {
+    const specialFields = {};
+    Object.keys(data).forEach((el) => {
+      specialFields[el] = '+'; 
+    });
+
+    const [sql, params] = buildUpdateQuery(
+      tableName.BANK_ACCOUNT,
+      data,
+      filters,
+      specialFields,
+    );
+
+    const result = conn
+      ? await conn.query(sql, params)
+      : await executeQuery(sql, params, conn);
+
+    return result.rows[0];
+  } catch (error) {
+    logger.error('Error updating bank account balance:', error);
     throw error;
   }
 };
