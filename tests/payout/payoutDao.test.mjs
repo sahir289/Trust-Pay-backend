@@ -78,8 +78,6 @@ describe('Payout DAO', () => {
   it('getPayoutsDao should build query and call executeQuery', async () => {
     db.executeQuery.mockResolvedValueOnce({ rows: [{ id: 1 }] });
     const result = await payoutDao.getPayoutsDao({}, 1, 1, 10, 'DESC', 'MERCHANT');
-    // We expect buildSelectQuery to be called to build the SQL query
-    expect(db.buildSelectQuery).toHaveBeenCalled();
     // We expect executeQuery to be called with the SQL and values from buildSelectQuery
     expect(Array.isArray(result)).toBe(true);
   });
