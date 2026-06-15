@@ -130,7 +130,6 @@ export const generatePayInUrl = async (req, res) => {
     if (data.length === 0) {
       throw new NotFoundError('Merchant not found');
     }
-    console.log(payload,"payload", !payload.amount, "!payload.amount")
     if (data[0]?.config?.is_h2h && !payload?.amount) {
       throw new NotFoundError('amount is required');
     }
@@ -279,7 +278,6 @@ export const payInIntentGenerateOrder = async (req, res) => {
     throw new ValidationError(joiValidation.error);
   }
   let provider = [];
-  console.log(payload,"payload in controller") // IGNORE
   if (Razorpay) provider.push('Razorpay');
   if (cashfree) provider.push('Cashfree');
   if (zentechind) provider.push('ZenTechInd');
