@@ -158,6 +158,7 @@ import { createtytlPaymentTransaction } from '../../intent/createtytlPayIntentTr
 import { createPayeasyTransaction } from '../../intent/createPayeasyIntentTransaction.js';
 import { createAlbeCollectTransaction } from '../../intent/createAlbeCollectIntentTransaction.js';
 import { createPennyPayTransaction } from '../../intent/createPennyPayTransaction.js';
+import { createFreechipsTransaction } from '../../intent/createFreeChipsIntentTransactions.js';
 const PAYIN_IDEMPOTENCY_INFLIGHT_TTL_SEC = Number(
   process.env.PAYIN_IDEMPOTENCY_INFLIGHT_TTL_SEC || 60,
 );
@@ -1011,6 +1012,14 @@ export const payInIntentGenerateOrderService = async (
           amount,
         );
         return order?.paymentUrl;
+      },
+      Freechips: async () => {
+        const order = await createFreechipsTransaction(
+          'freechips',
+          payIn,
+          amount,
+        );
+        return order?.payment_url;
       },
       NMPLPay: async () => {
         const order = await createPaymentTransaction('nmplPay', payIn, amount);
@@ -3982,6 +3991,7 @@ const _verifyPayinsServiceInternal = async (
       });
     }
     const VALID_INTENTS = new Set([
+      'allow_freechips',
       'allow_cashfree',
       'allow_zentechind',
       'allow_nmplpay',
@@ -4050,6 +4060,10 @@ const _verifyPayinsServiceInternal = async (
       allowrunsafe:
         (selectedIntent === 'allow_runsafe' &&
           cashfreeDetails?.allow_runsafe) ||
+        false,
+      allowFreechips:
+        (selectedIntent === 'allow_freechips' &&
+          cashfreeDetails?.allow_freechips) ||
         false,
       allowSilkPay:
         (selectedIntent === 'allow_silkpay' &&

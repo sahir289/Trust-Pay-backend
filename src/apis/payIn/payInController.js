@@ -272,18 +272,19 @@ export const checkPayInStatus = async (req, res) => {
 export const payInIntentGenerateOrder = async (req, res) => {
   const { merchantOrderId } = req.params;
   // const { company_id } = req.user;
-  const { amount, Razorpay, cashfree, zentechind, nmplPay, silkPay, orvixPay, orvixPay1, runsafe, cpsPay, tytl, payeasy, payeasy02, payeasy03 ,albecollect,pennypay ,trustpay } = req.body;
+  const { amount, Razorpay, cashfree,freechips, zentechind, nmplPay, silkPay, orvixPay, orvixPay1, runsafe, cpsPay, tytl, payeasy, payeasy02, payeasy03 ,albecollect,pennypay ,trustpay } = req.body;
   const payload = { merchantOrderId, amount, Razorpay, cashfree, zentechind };
   const joiValidation = VALIDATE_PAY_IN_INTENT_GENERATE_ORDER.validate(payload);
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
   let provider = [];
-
+  console.log(payload,"payload in controller") // IGNORE
   if (Razorpay) provider.push('Razorpay');
   if (cashfree) provider.push('Cashfree');
   if (zentechind) provider.push('ZenTechInd');
   if (nmplPay) provider.push('NMPLPay');
+ if (freechips) provider.push('Freechips');
   if (runsafe) provider.push('runsafe');
   if (cpsPay) provider.push('cpsPay');
   if(tytl) provider.push('tytl');
