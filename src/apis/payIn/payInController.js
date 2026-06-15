@@ -278,7 +278,6 @@ export const payInIntentGenerateOrder = async (req, res) => {
     throw new ValidationError(joiValidation.error);
   }
   let provider = [];
-  console.log(payload,"payload in controller") // IGNORE
   if (Razorpay) provider.push('Razorpay');
   if (cashfree) provider.push('Cashfree');
   if (zentechind) provider.push('ZenTechInd');
