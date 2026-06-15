@@ -2,153 +2,142 @@ import crypto from 'crypto';
 import { logger } from '../../utils/logger.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import { createBankResponseWebHookService } from '../bankResponse/bankResponseServices.js';
-import { getPayInByClientRefNoDao } from '../payIn/payInDao.js';
+import { getPayInIntentDao } from '../payIn/payInDao.js';
 import { processPayInWebHookService } from '../payIn/payInService.js';
 import { getBankResponseByUTR } from '../bankResponse/bankResponseDao.js';
 import { acquireLock, releaseLock } from '../../utils/distributedLock.js';
-import { getConnection, beginTransaction, commit, rollback } from '../../utils/db.js';
-
-// Freechips se mile credentials yahan set karein (Environment variables use karna best rahega)
-const SECRET_KEY = process.env.FREECHIPS_SECRET_KEY || 'your_secret_key_16bytes'; // Must be 16 bytes/chars for AES-256 key derivation padding or direct key
-const SECRET_IV = process.env.FREECHIPS_SECRET_IV || 'your_secret_iv_16bytes';   // Must be 16 bytes
-
-/**
- * Freechips AES-256-CBC Decryption Helper
- */
-const decryptFreechipsData = (encryptedDataBase64) => {
+import {
+  getConnection,
+  beginTransaction,
+  commit,
+  rollback,
+} from '../../utils/db.js';
+import config from '../../config/config.js';
+const decryptFreechipsData = (encryptedData) => {
+  const SECRET_KEY = config.freechips.secretKey;
+  const SECRET_IV = config.freechips.secretIv;
+  if (!encryptedData || !SECRET_KEY || !SECRET_IV) {
+    logger.error('Freechips decrypt failed: missing key, iv or data');
+    return null;
+  }
   try {
-    // 1. Key aur IV ko buffers me convert karein
-    // Note: Agar Freechips ne 32-byte key di hai toh direct use karein, agar 16-byte hai toh md5/sha256 hashing lag sakti hai.
-    // Standard AES-256-CBC 32-byte key aur 16-byte IV expect karta hai.
-    const key = Buffer.from(SECRET_KEY, 'utf-8');
-    const iv = Buffer.from(SECRET_IV, 'utf-8');
+    const key = Buffer.from(SECRET_KEY, 'utf8');
+    const iv = Buffer.from(SECRET_IV, 'utf8');
 
-    // 2. Decipher initialize karein
+    logger.info('Freechips decrypt config', {
+      keyLength: key.length,
+      ivLength: iv.length,
+      encryptedLength: encryptedData.length
+    });
     const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
-
-    // 3. Base64 encrypted string ko decrypt karein[cite: 1]
-    let decrypted = decipher.update(encryptedDataBase64, 'base64', 'utf-8');
-    decrypted += decipher.final('utf-8');
-
-    // 4. Decrypted string JSON hoti hai, use parse karke return karein[cite: 1]
+    decipher.setAutoPadding(true);
+    let decrypted = decipher.update(encryptedData, 'base64', 'utf8');
+    decrypted += decipher.final('utf8');
+    logger.info('Freechips decrypted raw:', decrypted);
     return JSON.parse(decrypted);
   } catch (error) {
-    logger.error('Error decrypting Freechips data:', error);
+    logger.error('Freechips decryption error', {
+      message: error.message,
+      stack: error.stack,
+      encryptedSample: encryptedData?.substring(0, 50)
+    });
     return null;
   }
 };
 
 export const freechipsWebhook = async (req, res) => {
-  let lockKey;
-  let conn;
+  let lockKey = null;
+  let conn = null;
   let committed = false;
   try {
-    // 1. Pehle response send kar dein taaki unka webhook timeout na ho
-    sendSuccess(res, {}, 'Webhook received successfully');
+    sendSuccess(res, {}, 'FreeChips Webhook received successfully');
 
     const body = req.body || {};
-    
-    // Freechips documentation ke mutabik data 'data' key me encrypted hota hai[cite: 1]
+    logger.info('Raw Freechips webhook payload', body);
     if (!body.data) {
       logger.warn('Invalid Freechips webhook payload structure:', body);
       return;
     }
 
-    // Decrypt the data block using crypto
     const decryptedData = decryptFreechipsData(body.data);
-    
     if (!decryptedData) {
       logger.error('Failed to decrypt Freechips webhook payload');
       return;
     }
-
-    // Freechips response keys mapping[cite: 1]
-    const clientRefNo = decryptedData?.orderId; 
+    console.log('Decrypted Freechips webhook data:', decryptedData);
+    const rawOrderId = decryptedData?.orderId;
     const utr = decryptedData?.utr;
     const amount = decryptedData?.amount ? Number(decryptedData.amount) : undefined;
-    const status = decryptedData?.status; 
-    
-    lockKey = utr || clientRefNo;
-
-    if (!clientRefNo || !utr) {
-      logger.warn('Invalid Freechips webhook decrypted payload missing orderId or utr:', decryptedData);
+    const status = String(decryptedData?.status || '').trim().toUpperCase();
+    logger.info(`Freechips webhook received - Order: ${rawOrderId}, Status: ${status}, UTR: ${utr}, Amount: ${amount}`);
+    if (status !== 'SUCCESS') {
+      logger.info(`Skipping processing for non-success status: ${status}`);
+      return;
+    }
+    if (!rawOrderId || !utr) {
+      logger.warn('Invalid Freechips webhook payload. Missing orderId or utr', decryptedData);
       return;
     }
 
-    // 2. Lock check for concurrency
+    lockKey = utr || rawOrderId;
+
     const lockAcquired = await acquireLock(lockKey, 'freechips');
     if (!lockAcquired) {
-      logger.warn(
-        `Duplicate concurrent webhook skipped for ${lockKey} and clientRefNo ${clientRefNo}`,
-      );
+      logger.warn(`Duplicate concurrent webhook skipped for ${lockKey}`);
       return;
     }
 
-    // 3. Database connection & transaction start
     conn = await getConnection();
     await beginTransaction(conn);
-    
-    const payIn = await getPayInByClientRefNoDao(clientRefNo, conn);
+    const payIn = await getPayInIntentDao(rawOrderId);
     if (!payIn) {
-      logger.warn(
-        `PayIn not found for Freechips webhook clientRefNo (orderId): ${clientRefNo}`,
-      );
+      logger.warn(`PayIn not found for Freechips webhook orderId: ${rawOrderId}`);
       await commit(conn);
       committed = true;
       return;
     }
     const merchantOrderId = payIn.merchant_order_id;
 
-    const payload = {
-      merchantOrderId,
-      userSubmittedUtr: utr,
-      amount: amount || payIn.amount || 0,
-      status,
-    };
-
-    // 4. Duplicate UTR check
-    const utrAlreadyExist = await getBankResponseByUTR(payload.userSubmittedUtr, conn);
+    const utrAlreadyExist = await getBankResponseByUTR(utr, conn);
     if (utrAlreadyExist) {
-      logger.warn(
-        'Duplicate UTR received in Freechips webhook:',
-        payload.userSubmittedUtr,
-      );
+      logger.warn(`Duplicate UTR received in Freechips webhook: ${utr}`);
       await commit(conn);
       committed = true;
       return;
     }
+    console.log(payIn, 'payIn details for Freechips webhook');
 
-    // 5. If status is SUCCESS, create Bank Response[cite: 1]
-    if (String(status || '').toUpperCase() === 'SUCCESS') {
-      const bankResponsePayload = `${payload.amount} nil ${payload.userSubmittedUtr} ${payIn.bank_acc_id}`;
-      const bankResponse = await createBankResponseWebHookService(
-        bankResponsePayload,
-        payIn.company_id,
-        'BOT',
-        'freechips',
-        conn,
-      );
-      logger.info('Bank response created for Freechips:', bankResponse);
-    }
-    
-    // 6. Process the PayIn Service
-    logger.info('Calling processPayInWebHookService for Freechips payload', payload);
-    const payin = await processPayInWebHookService(payload, '', conn);
-    logger.info('PayIn processed from Freechips webhook:', payin?.id);
-    
+    const bankResponsePayload = `${amount || payIn.amount} nil ${utr} ${payIn.bank_acc_id}`;
+    const bankResponse = await createBankResponseWebHookService(
+      bankResponsePayload,
+      payIn.company_id,
+      'BOT',
+      'freechips',
+      conn
+    );
+    logger.info('Bank response created for Freechips', bankResponse);
+    const payload = {
+      merchantOrderId,
+      userSubmittedUtr: utr,
+      amount: amount || payIn.amount,
+      status: 'SUCCESS'
+    };
+    logger.info('Calling processPayInWebHookService for Freechips', payload);
+    const processedPayIn = await processPayInWebHookService(payload, '', conn);
+    logger.info('PayIn processed successfully from Freechips webhook', processedPayIn?.id);
     await commit(conn);
     committed = true;
   } catch (error) {
     if (conn && !committed) {
       await rollback(conn);
     }
-    logger.error('Freechips webhook error:', error);
+    logger.error('Freechips webhook error', error);
   } finally {
     if (conn) {
       try {
         conn.release();
       } catch (releaseErr) {
-        logger.error('Error releasing DB connection:', releaseErr);
+        logger.error('Error releasing DB connection', releaseErr);
       }
     }
     if (lockKey) {

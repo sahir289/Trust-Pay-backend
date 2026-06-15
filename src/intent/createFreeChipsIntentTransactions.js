@@ -21,8 +21,6 @@ export const createFreechipsTransaction = async (
       throw new Error(`Invalid provider: ${providerKey}`);
     }
     
-    console.log('Creating Freechips transaction with deposit:', deposit, 'and amount:', amount);
-    console.log('Provider config:', providerConfig);
     
     const [company] = await getCompanyByIDDao({ id: deposit.company_id });
     const secretKey = company?.config?.FREECHIPS?.secretKey;
@@ -61,13 +59,10 @@ export const createFreechipsTransaction = async (
       secretCode: secretCode
     };
     
-    console.log('Request body for Freechips transaction:', requestBody);
-    console.log('Freechips payin URL:', payin_url);
 
     if (!payin_url) {
       throw new Error('Missing Freechips payin URL in config');
     }
-    
     // 4. API Request
     const endpoint = payin_url;
     const response = await axios.post(endpoint, requestBody, {
@@ -82,35 +77,33 @@ export const createFreechipsTransaction = async (
 
     // 5. Response Handling & Decryption
     if (response.data) {
-      // Freechips standard success check format ya 'true' string response
-      const isSuccess = response.data['error/success'] === 'true' || response.data.error === false;
+      const apiResult = response.data.response ? response.data.response : response.data;
+      const isSuccess = apiResult.success === true || apiResult['error/success'] === 'true' || apiResult.error === false;
 
-      if (isSuccess && response.data.data) {
-        // Success Decryption Logic
+      if (isSuccess && apiResult.data) {
         const decipher = crypto.createDecipheriv('aes-256-cbc', paddedKey, ivBuffer);
-        let decryptedStr = decipher.update(response.data.data, 'base64', 'utf8');
+        let decryptedStr = decipher.update(apiResult.data, 'base64', 'utf8');
         decryptedStr += decipher.final('utf8');
 
         const decryptedResponse = JSON.parse(decryptedStr);
         logger.info(`${providerKey} transaction decrypted data:`, decryptedResponse);
-        console.log('Decrypted Response:', decryptedResponse);
+        // console.log('Decrypted Response:', decryptedResponse);
         
         return decryptedResponse;
       } 
-      // Agar API ne error: true diya hai par encrypted data bheja hai
-      else if (response.data.error === true && response.data.data) {
+      else if ((apiResult.error === true || apiResult.success === false) && apiResult.data) {
         try {
           const decipher = crypto.createDecipheriv('aes-256-cbc', paddedKey, ivBuffer);
-          let decryptedErrorStr = decipher.update(response.data.data, 'base64', 'utf8');
+          let decryptedErrorStr = decipher.update(apiResult.data, 'base64', 'utf8');
           decryptedErrorStr += decipher.final('utf8');
           
-          console.error('Decrypted API Error Details:', decryptedErrorStr);
+          // console.error('Decrypted API Error Details:', decryptedErrorStr);
           throw new Error(`API Error: ${decryptedErrorStr}`);
         } catch (decryptError) {
-          throw new Error(response.data?.message|| decryptError || 'API responded with error status (Failed to decrypt error message)');
+          throw new Error(apiResult?.message || decryptError.message || 'API responded with error status (Failed to decrypt error message)');
         }
       } else {
-        throw new Error(response.data?.message || 'API responded with unexpected error format');
+        throw new Error(apiResult?.message || 'API responded with unexpected error format');
       }
     } else {
       throw new Error('Empty response received from API');

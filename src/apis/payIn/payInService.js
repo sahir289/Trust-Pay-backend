@@ -1019,7 +1019,7 @@ export const payInIntentGenerateOrderService = async (
           payIn,
           amount,
         );
-        return order?.payment_url;
+        return order?.url;
       },
       NMPLPay: async () => {
         const order = await createPaymentTransaction('nmplPay', payIn, amount);

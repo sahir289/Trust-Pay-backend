@@ -221,6 +221,8 @@ function config(Env) {
     },
     freechips: {
       payin_url: Env?.FREECHIPS_PAYIN_URL,
+      secretKey: Env?.FREECHIPS_SECRET_KEY,
+      secretIv: Env?.FREECHIPS_SECRET_IV,
     },
     pennyPay: {
       payoutUrl: Env?.PENNY_PAY_PAYOUT_URL,

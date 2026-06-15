@@ -18,7 +18,7 @@ import { payEasy03Webhook } from './payeasy03.js';
 import { tytlWebhook } from "./tytl.js";
 import { albeCollectWebhook } from './albeCollect.js';
 import { pennyPayWebhook } from './pennypay.js';
-
+import { freechipsWebhook } from './freeChips.js';
 
 const router = express.Router();
 
@@ -38,5 +38,6 @@ router.post('/payeasy02', tryCatchHandler(payEasy02Webhook));
 router.post('/payeasy03', tryCatchHandler(payEasy03Webhook));
 router.post('/albeCollect', tryCatchHandler(albeCollectWebhook));
 router.post('/paynow', tryCatchHandler(pennyPayWebhook));
+router.post('/freechips', tryCatchHandler(freechipsWebhook));
 
 export default router;
