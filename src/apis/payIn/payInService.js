@@ -158,6 +158,7 @@ import { createtytlPaymentTransaction } from '../../intent/createtytlPayIntentTr
 import { createPayeasyTransaction } from '../../intent/createPayeasyIntentTransaction.js';
 import { createAlbeCollectTransaction } from '../../intent/createAlbeCollectIntentTransaction.js';
 import { createPennyPayTransaction } from '../../intent/createPennyPayTransaction.js';
+import { createFreechipsTransaction } from '../../intent/createFreeChipsIntentTransactions.js';
 const PAYIN_IDEMPOTENCY_INFLIGHT_TTL_SEC = Number(
   process.env.PAYIN_IDEMPOTENCY_INFLIGHT_TTL_SEC || 60,
 );
@@ -1018,6 +1019,14 @@ export const payInIntentGenerateOrderService = async (
           amount,
         );
         return order?.paymentUrl;
+      },
+      Freechips: async () => {
+        const order = await createFreechipsTransaction(
+          'freechips',
+          payIn,
+          amount,
+        );
+        return order?.url;
       },
       NMPLPay: async () => {
         const order = await createPaymentTransaction('nmplPay', payIn, amount);
@@ -3028,6 +3037,7 @@ export const disputeDuplicateTransactionService = async (
         id: payInId,
       },
       conn,
+      true // for update
     );
 
     if (!payIn) {
@@ -3038,6 +3048,19 @@ export const disputeDuplicateTransactionService = async (
       bankId = payIn.bank_acc_id,
       updateBalance = true,
       isMismatch = false;
+
+      const finalStatuses = [
+        Status.SUCCESS,
+        Status.FAILED,
+        Status.BANK_MISMATCH,
+      ];
+      
+      if (finalStatuses.includes(payIn.status)) {
+        logger.info(
+          `PayIn ${payIn.id} already processed with status ${payIn.status}`
+        );
+        return payIn;
+      }
 
     if (payIn.status !== Status.DISPUTE) {
       throw new BadRequestError('PayIn Status is not DISPUTE');
@@ -3114,7 +3137,8 @@ export const disputeDuplicateTransactionService = async (
           merchant_order_id: merchantOrderId,
         },
         conn,
-      );
+        true, // for update
+      );  
       if (!payInData) {
         throw new NotFoundError('PayIn not found against merchant order id');
       }
@@ -4004,6 +4028,7 @@ const _verifyPayinsServiceInternal = async (
       });
     }
     const VALID_INTENTS = new Set([
+      'allow_freechips',
       'allow_cashfree',
       'allow_zentechind',
       'allow_nmplpay',
@@ -4074,6 +4099,10 @@ const _verifyPayinsServiceInternal = async (
       allowrunsafe:
         (selectedIntent === 'allow_runsafe' &&
           cashfreeDetails?.allow_runsafe) ||
+        false,
+      allowFreechips:
+        (selectedIntent === 'allow_freechips' &&
+          cashfreeDetails?.allow_freechips) ||
         false,
       allowSilkPay:
         (selectedIntent === 'allow_silkpay' &&

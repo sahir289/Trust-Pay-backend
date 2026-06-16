@@ -271,18 +271,18 @@ export const checkPayInStatus = async (req, res) => {
 export const payInIntentGenerateOrder = async (req, res) => {
   const { merchantOrderId } = req.params;
   // const { company_id } = req.user;
-  const { amount, Razorpay, cashfree, zentechind, nmplPay, silkPay, orvixPay, orvixPay1, runsafe, cpsPay, tytl, payeasy, payeasy02, payeasy03, albecollect, pennypay, trustpay, paybitra, paycric } = req.body;
+  const { amount, Razorpay, cashfree,freechips, zentechind, nmplPay, silkPay, orvixPay, orvixPay1, runsafe, cpsPay, tytl, payeasy, payeasy02, payeasy03, albecollect, pennypay, trustpay, paybitra, paycric } = req.body;
   const payload = { merchantOrderId, amount, Razorpay, cashfree, zentechind, paybitra, paycric };
   const joiValidation = VALIDATE_PAY_IN_INTENT_GENERATE_ORDER.validate(payload);
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
   let provider = [];
-
   if (Razorpay) provider.push('Razorpay');
   if (cashfree) provider.push('Cashfree');
   if (zentechind) provider.push('ZenTechInd');
   if (nmplPay) provider.push('NMPLPay');
+ if (freechips) provider.push('Freechips');
   if (runsafe) provider.push('runsafe');
   if (cpsPay) provider.push('cpsPay');
   if(tytl) provider.push('tytl');
@@ -522,7 +522,7 @@ export const processPayInIMGUTR = async (req, res) => {
   }
   const data = await processPayInService(payload, payload.code, false, true , null , null, true);
   await invalidatePayinCache(req.user?.company_id);
-  sendSuccess(res, data, 'PayIn updated successfully');
+  sendSuccess(res, data, 'PayIn processPayInIMGUTR updated successfully');
 };
 
 export const telegramOCR = async (req, res) => {
@@ -590,7 +590,7 @@ export const disputeDuplicateTransaction = async (req, res) => {
     req.user.user_id,
   );
   await invalidatePayinCache(req.user.company_id);
-  sendSuccess(res, data, 'PayIn Updated successfully');
+  sendSuccess(res, data, 'PayIn disputeDuplicateTransaction Updated successfully');
 };
 
 export const updateUtrPayins = async (req, res) => {
@@ -602,7 +602,7 @@ export const updateUtrPayins = async (req, res) => {
   sendSuccess(
     res,
     { id: data.id, updated_by: user_name },
-    'PayIn Updated successfully',
+    'PayIn updateUtrPayins Updated successfully',
   );
 };
 

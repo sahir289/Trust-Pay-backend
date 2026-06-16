@@ -16,6 +16,7 @@ import {
   updatePayoutDao,
   getAllPayoutsDao,
   getPayoutByMerchantOrderIdDao,
+  getPayouStatusByIdDao,
   getPayoutByUtrIdDao,
 } from './payOutDao.js';
 import {
@@ -68,7 +69,9 @@ import {
   createPayAssistPayout,
   getPayAssistWalletBalance,
 } from '../../payassist/payassist.js';
-import { createPayDumPayout } from '../../paydum/paydum.js';
+import {
+  createPayDumPayout,
+} from '../../paydum/paydum.js';
 import { createTataPayPayout } from '../../tatapay/tatapay.js';
 import {
   createRupeeFlowBulkPayout,
@@ -818,6 +821,16 @@ const _updatePayoutServiceInternal = async (
   conn = null,
 ) => {
   try {
+    const payoutStatusRow =
+    await getPayouStatusByIdDao(
+      ids.id,
+      ids.company_id,
+      conn,
+      true, // FOR UPDATE
+    );
+      if (!payoutStatusRow) {
+        throw new NotFoundError('Payout status not found!');
+      }
     const filterColumns =
       role === Role.MERCHANT
         ? merchantColumns.PAYOUT
@@ -904,7 +917,7 @@ const _updatePayoutServiceInternal = async (
       throw new BadRequestError('Payout Already Processed, cannot update vendor');
     }
 
-    const previousStatus = singleWithdrawData.status;
+    const previousStatus = payoutStatusRow.status;
     let earlyReturnResult = null;
 
     // Status validation logic - consolidated

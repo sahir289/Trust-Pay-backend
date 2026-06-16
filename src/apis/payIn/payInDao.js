@@ -323,7 +323,7 @@ export const getPayinsForServiccDao = async (filters, conn = null) => {
   }
 };
 
-export const getPayInForDisputeServiceDao = async (filters = {}, conn = null) => {
+export const getPayInForDisputeServiceDao = async (filters = {}, conn = null, forUpdate = false,) => {
   try {
     const selectColumns = `
       p.id,
@@ -344,10 +344,15 @@ export const getPayInForDisputeServiceDao = async (filters = {}, conn = null) =>
       p.expiration_date
     `;
 
-    const [sql, params] = buildSelectQuery(
+    let [sql, params] = buildSelectQuery(
       `SELECT ${selectColumns} FROM "${tableName.PAYIN}" as p WHERE is_obsolete = false`,
       filters,
     );
+
+    if (forUpdate) {
+      sql += ' FOR UPDATE';
+    }
+
     const result = await executeQuery(sql, params, conn);
     return result.rows[0] || null;
   } catch (error) {

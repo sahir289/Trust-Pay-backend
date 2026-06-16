@@ -219,6 +219,11 @@ function config(Env) {
       mid: Env?.ALBE_COLLECT_MID,
       secretKey: Env?.ALBE_COLLECT_SECRET_KEY,
     },
+    freechips: {
+      payin_url: Env?.FREECHIPS_PAYIN_URL,
+      secretKey: Env?.FREECHIPS_SECRET_KEY,
+      secretIv: Env?.FREECHIPS_SECRET_IV,
+    },
     pennyPay: {
       payoutUrl: Env?.PENNY_PAY_PAYOUT_URL,
       payinUrl: Env?.PENNY_PAY_PAYIN_URL,
@@ -394,6 +399,7 @@ function config(Env) {
     telegramBankAlertChatId: Env?.TELEGRAM_BANK_ALERT_CHAT_ID,
     telegramDuplicateDisputeChatId: Env?.TELEGRAM_DISPUTE_DUPLICATE_CHAT_ID,
     telegramCheckUTRHistoryChatId: Env?.TELEGRAM_CHECK_UTR_HISTORY_CHAT_ID,
+    telegramStatementNotUploadNotificationChatId: Env?.TELEGRAM_STATEMENT_NOT_UPLOAD_NOTIFICATION_CHAT_ID,
     telegramOcrBotToken: Env?.TELEGRAM_OCR_BOT_TOKEN,
     telegramCheckUtrBotToken: Env?.TELEGRAM_CHECK_UTR_BOT_TOKEN,
     ekoPaymentsActivateUrl: Env?.EKO_PAYMENTS_ACTIVATE_URL,
