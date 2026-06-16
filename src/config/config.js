@@ -219,6 +219,11 @@ function config(Env) {
       mid: Env?.ALBE_COLLECT_MID,
       secretKey: Env?.ALBE_COLLECT_SECRET_KEY,
     },
+    freechips: {
+      payin_url: Env?.FREECHIPS_PAYIN_URL,
+      secretKey: Env?.FREECHIPS_SECRET_KEY,
+      secretIv: Env?.FREECHIPS_SECRET_IV,
+    },
     pennyPay: {
       payoutUrl: Env?.PENNY_PAY_PAYOUT_URL,
       payinUrl: Env?.PENNY_PAY_PAYIN_URL,
