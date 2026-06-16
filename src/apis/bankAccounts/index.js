@@ -8,6 +8,7 @@ import {
   updateBankaccount,
   getBankaccountNickName,
   getBankAccountBySearch,
+  activeInactiveBankAccount,
   // activeInactiveBankAccount,
 } from './bankaccountController.js';
 const router = express.Router();
@@ -284,9 +285,9 @@ router.delete(
   tryCatchHandler(deleteBankaccount),
 );
 
-// router.patch(
-//   '/active-inactive-bankAccount',
-//   tryCatchHandler(activeInactiveBankAccount),
-// );
+router.patch(
+  '/active-inactive-bankAccount',
+  tryCatchHandler(activeInactiveBankAccount),
+);
 
 export default router;
