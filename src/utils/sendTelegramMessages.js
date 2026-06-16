@@ -1,6 +1,6 @@
 import { getBankResponseDao } from '../apis/bankResponse/bankResponseDao.js';
 import { Status } from '../constants/index.js';
-import { createTelegramSender } from '../helpers/telegramApi.js';
+import { createTelegramSender, sendTelegramFile } from '../helpers/telegramApi.js';
 import { logger } from './logger.js';
 import { getCachedData, setCachedData } from './redishashkey.js';
 const telegramSender = createTelegramSender();
@@ -1058,4 +1058,45 @@ export async function sendTelegramDisputeMessage(
     TELEGRAM_BOT_TOKEN,
   );
   logger.log(success ? 'Sent!' : 'Not sent.');
+}
+
+/**
+ * Send pending statement upload CSV report to Telegram admins
+ * @param {string} chatId - Telegram chat ID
+ * @param {Buffer} csvBuffer - CSV file buffer
+ * @param {string} fileName - File name with .csv extension
+ * @param {string} caption - Caption for the file
+ * @param {string} token - Telegram bot token (optional)
+ * @returns {Promise<boolean>} - True if sent successfully
+ */
+export async function sendTelegramStatementUploadCSV(
+  chatId,
+  csvBuffer,
+  fileName,
+  caption,
+  token,
+) {
+  try {
+    const success = await sendTelegramFile(
+      chatId,
+      csvBuffer,
+      fileName,
+      caption,
+      token,
+    );
+
+    logger.log(
+      success
+        ? `CSV file ${fileName} sent to chat ${chatId}!`
+        : `Failed to send CSV file ${fileName} to chat ${chatId}.`,
+    );
+
+    return success;
+  } catch (error) {
+    logger.error(
+      `Error in sendTelegramStatementUploadCSV: ${error.message}`,
+      error,
+    );
+    return false;
+  }
 }

@@ -29,7 +29,10 @@ import {
 import { getPayAssistWalletBalance } from '../../payassist/payassist.js';
 import { getPayDumWalletBalance } from '../../paydum/paydum.js';
 import { getTataPayWalletBalance } from '../../tatapay/tatapay.js';
-import { getRupeeFlowWalletBalance, initiateRupeeFlowPayout } from '../../rupeeflow/rupeeflow.js';
+import {
+  getRupeeFlowWalletBalance,
+  initiateRupeeFlowPayout,
+} from '../../rupeeflow/rupeeflow.js';
 import { getBSSWalletBalance, rechargeWallet } from '../../bss/bss.js';
 import { getBSS02WalletBalance } from '../../bss/bss02.js';
 import { getBSS03WalletBalance } from '../../bss/bss03.js';
@@ -123,6 +126,7 @@ router.get(
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(getPayoutsBySearch),
 );
+
 router.get(
   '/balance',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
@@ -133,6 +137,8 @@ router.get(
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(getPayouts),
 );
+
+
 router.post(
   '/payinfintech-callback',
   tryCatchHandler(payInFintechTransactionStatusCallback),
@@ -269,6 +275,7 @@ router.put(
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(assignedPayout),
 );
+
 /**
  * @swagger
  * /payout/delete-payout/{id}:
@@ -315,11 +322,13 @@ router.get(
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(getTataPayWalletBalance),
 );
+
 router.get(
   '/bss/bss-balance',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(getBSSWalletBalance),
 );
+
 router.get(
   '/silkpay/silkpay-balance',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
@@ -415,20 +424,11 @@ router.get(
   tryCatchHandler(getClickrrWalletBalance),
 );
 
-router.post(
-  '/bss-callback',
-  tryCatchHandler(bssTransactionStatusCallback),
-);
+router.post('/bss-callback', tryCatchHandler(bssTransactionStatusCallback));
 
-router.post(
-  '/bss02-callback',
-  tryCatchHandler(bss02TransactionStatusCallback),
-);
+router.post('/bss02-callback', tryCatchHandler(bss02TransactionStatusCallback));
 
-router.post(
-  '/bss03-callback',
-  tryCatchHandler(bss03TransactionStatusCallback),
-);
+router.post('/bss03-callback', tryCatchHandler(bss03TransactionStatusCallback));
 
 router.post(
   '/payassist-callback',
@@ -576,6 +576,7 @@ router.post(
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(createTataPayBulkPayoutController),
 );
+
 router.post(
   '/rupeeflow/bulk-payout',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],

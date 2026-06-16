@@ -69,7 +69,9 @@ import {
   createPayAssistPayout,
   getPayAssistWalletBalance,
 } from '../../payassist/payassist.js';
-import { createPayDumPayout } from '../../paydum/paydum.js';
+import {
+  createPayDumPayout,
+} from '../../paydum/paydum.js';
 import { createTataPayPayout } from '../../tatapay/tatapay.js';
 import {
   createRupeeFlowBulkPayout,
