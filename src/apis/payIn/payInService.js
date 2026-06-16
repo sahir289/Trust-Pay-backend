@@ -3028,6 +3028,7 @@ export const disputeDuplicateTransactionService = async (
         id: payInId,
       },
       conn,
+      true // for update
     );
 
     if (!payIn) {
@@ -3038,6 +3039,19 @@ export const disputeDuplicateTransactionService = async (
       bankId = payIn.bank_acc_id,
       updateBalance = true,
       isMismatch = false;
+
+      const finalStatuses = [
+        Status.SUCCESS,
+        Status.FAILED,
+        Status.BANK_MISMATCH,
+      ];
+      
+      if (finalStatuses.includes(payIn.status)) {
+        logger.info(
+          `PayIn ${payIn.id} already processed with status ${payIn.status}`
+        );
+        return payIn;
+      }
 
     if (payIn.status !== Status.DISPUTE) {
       throw new BadRequestError('PayIn Status is not DISPUTE');
@@ -3114,7 +3128,8 @@ export const disputeDuplicateTransactionService = async (
           merchant_order_id: merchantOrderId,
         },
         conn,
-      );
+        true, // for update
+      );  
       if (!payInData) {
         throw new NotFoundError('PayIn not found against merchant order id');
       }

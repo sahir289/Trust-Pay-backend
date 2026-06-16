@@ -8,6 +8,7 @@ import {
   updateBankaccount,
   getBankaccountNickName,
   getBankAccountBySearch,
+  resetBankNotification,
   // activeInactiveBankAccount,
 } from './bankaccountController.js';
 const router = express.Router();
@@ -282,6 +283,12 @@ router.delete(
   '/delete-bank/:id',
   [isAuthenticated, authorized(AccessRoles.BANK_ACCOUNT)],
   tryCatchHandler(deleteBankaccount),
+);
+
+router.patch(
+  '/reset-bankAccount-notification',
+  [isAuthenticated, authorized(AccessRoles.RESET_DATA_HISTORY)],
+  tryCatchHandler(resetBankNotification),
 );
 
 // router.patch(

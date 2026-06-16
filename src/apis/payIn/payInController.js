@@ -522,7 +522,7 @@ export const processPayInIMGUTR = async (req, res) => {
   }
   const data = await processPayInService(payload, payload.code, false, true , null , null, true);
   await invalidatePayinCache(req.user?.company_id);
-  sendSuccess(res, data, 'PayIn updated successfully');
+  sendSuccess(res, data, 'PayIn processPayInIMGUTR updated successfully');
 };
 
 export const telegramOCR = async (req, res) => {
@@ -590,7 +590,7 @@ export const disputeDuplicateTransaction = async (req, res) => {
     req.user.user_id,
   );
   await invalidatePayinCache(req.user.company_id);
-  sendSuccess(res, data, 'PayIn Updated successfully');
+  sendSuccess(res, data, 'PayIn disputeDuplicateTransaction Updated successfully');
 };
 
 export const updateUtrPayins = async (req, res) => {
@@ -602,7 +602,7 @@ export const updateUtrPayins = async (req, res) => {
   sendSuccess(
     res,
     { id: data.id, updated_by: user_name },
-    'PayIn Updated successfully',
+    'PayIn updateUtrPayins Updated successfully',
   );
 };
 

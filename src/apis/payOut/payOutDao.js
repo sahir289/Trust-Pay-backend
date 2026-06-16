@@ -95,6 +95,7 @@ export const assignedPayoutDao = async (
     throw error;
   }
 };
+
 export const getPayoutsDao = async (
   filters,
   company_id,
@@ -284,17 +285,42 @@ export const getPayoutsDao = async (
   }
 };
 
-export const getPayoutByIdDao = async (id, company_id, conn = null) => {
+
+export const getPayouStatusByIdDao = async (
+  id,
+  company_id,
+  conn = null,
+  lock = false,
+) => {
   try {
-    const sql = `SELECT id, status, config FROM "${tableName.PAYOUT}" WHERE id = $1 AND company_id = $2 AND is_obsolete = false`;
+    const sql = `
+      SELECT id, status
+      FROM "${tableName.PAYOUT}"
+      WHERE id = $1
+        AND company_id = $2
+        AND is_obsolete = false
+      ${lock ? 'FOR UPDATE' : ''}
+    `;
+
     const queryParams = [id, company_id];
-    const result = await executeQuery(sql, queryParams, conn);
-    return result.rows.length > 0 ? result.rows[0] : null;
+
+    const result = await executeQuery(
+      sql,
+      queryParams,
+      conn,
+    );
+
+    return result.rows.length > 0
+      ? result.rows[0]
+      : null;
   } catch (error) {
-    logger.error('Error fetching payout by utr id:', error.message);
+    logger.error(
+      'Error fetching payout status:',
+      error.message,
+    );
     throw error;
   }
-}
+};
 
 export const getPayoutByMerchantOrderIdDao = async (merchant_order_id, company_id, conn = null) => {
   try {
