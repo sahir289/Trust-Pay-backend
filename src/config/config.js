@@ -223,6 +223,11 @@ function config(Env) {
       payin_url: Env?.FREECHIPS_PAYIN_URL,
       secretKey: Env?.FREECHIPS_SECRET_KEY,
       secretIv: Env?.FREECHIPS_SECRET_IV,
+      secretIvPayout : Env?.FREECHIPS_PAYOUT_SECRET_IV,
+      secretKeyPayout : Env?.FREECHIPS_PAYOUY_SECRET_KEY,
+      secretCodePayout : Env?.FREECHIPS_PAYOUY_SECRET_CODE,
+      secretVendorKeyPayout : Env?.FREECHIPS_PAYOUY_VENDOR_KEY,
+      baseUrl : Env?.FREECHIPS_URL
     },
     pennyPay: {
       payoutUrl: Env?.PENNY_PAY_PAYOUT_URL,
