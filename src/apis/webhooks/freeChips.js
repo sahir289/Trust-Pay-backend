@@ -65,10 +65,11 @@ export const freechipsWebhook = async (req, res) => {
       return;
     }
     logger.info('Decrypted Freechips webhook data', decryptedData);
-    const rawOrderId = decryptedData?.systemId;
-    const utr = decryptedData?.transactionUtr;
-    const amount = decryptedData?.amount ? Number(decryptedData.amount) : undefined;
-    const status = String(decryptedData?.status || '').trim().toUpperCase();
+    console.log('Decrypted Freechips webhook data', decryptedData);
+    const rawOrderId = decryptedData?.data?.systemId;
+    const utr = decryptedData?.data?.transactionUtr;
+    const amount = decryptedData?.data?.amount ? Number(decryptedData?.data?.amount) : undefined;
+    const status = String(decryptedData?.data?.status || '').trim().toUpperCase();
     logger.info(`Freechips webhook received - Order: ${rawOrderId}, Status: ${status}, UTR: ${utr}, Amount: ${amount}`);
     if (status !== 'SUCCESS') {
       logger.info(`Skipping processing for non-success status: ${status} in Freechips webhook for Order: ${rawOrderId}`);
