@@ -68,7 +68,8 @@ const getCompanyDetailsByIdDao = async (id, conn = null) => {
       config ->> 'allow_payout_pennypay' AS allowpennypay,
       config ->> 'allow_payout_paybitra' AS allowpaybitra,
       config ->> 'allow_payout_paycric' AS allowpaycric,
-      config ->> 'allowPayInFintech' AS allowPayInFintech
+      config ->> 'allowPayInFintech' AS allowPayInFintech,
+      config ->> 'allow_payout_freechips' AS allowfreechips
       FROM "${tableName.COMPANY}" WHERE 1 = 1`;
     const [sql, queryParams] = buildSelectQuery(baseQuery, id);
     const result = await executeQuery(sql, queryParams, conn);
