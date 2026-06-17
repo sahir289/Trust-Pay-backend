@@ -4,7 +4,6 @@ import { sendNewSuccess } from "../utils/responseHandlers.js";
 import { logger } from "../utils/logger.js";
 import config from "../config/config.js";
 import { BadRequestError } from "../utils/appErrors.js";
-import { getCompanyByIDDao } from "../apis/company/companyDao.js";
 
 const encryptFreechipsPayoutData = (payload, secretKey, iv) => {
   try {
@@ -81,55 +80,46 @@ export const getFreechipsWalletBalance = async (req, res) => {
   }
 };
 
-export const createFreechipsPayout = async (result, payload, vendor_id, bankId, key) => {
+export const createFreechipsPayout = async (result, payload, vendor_id, bankId) => {
   try {
-    const providerConfig = config[key] || config.freechips || config.FREECHIPS;
-    const url = `${providerConfig.baseUrl}/vendor/payouts`;
-
+    const freechipsConfig =  config.freechips || config.FREECHIPS;
+    const url = `${freechipsConfig.baseUrl}/vendor/payouts`;
     if (!url) {
       throw new BadRequestError('FREECHIPS_PAYOUT_URL is missing in config');
     }
-
-    const company_id = payload.company_id || result.company_id;
-    const [company] = await getCompanyByIDDao({ id: company_id });
-
-    if (!company) {
-      throw new BadRequestError('Company not found');
-    }
-
-    const freechipsConfig = company?.config?.FREECHIPS;
+   const {
+      secretIvPayout,
+      secretKeyPayout,
+      secretCodePayout,
+      secretVendorKeyPayout,
+      tpin
+    } = freechipsConfig;
     if (!freechipsConfig) {
       throw new BadRequestError('Freechips payout configuration is missing');
     }
-
-    const {
-      secret_key,
-      iv,
-      secretCode,
-      vendor_key,
-      tpin
-    } = freechipsConfig;
+    const secret_key = secretKeyPayout;
+    const iv = secretIvPayout;
+    const secretCode = secretCodePayout;
+    const vendor_key = secretVendorKeyPayout;
 
     if (!secret_key || !iv || !secretCode || !vendor_key || !tpin) {
       throw new BadRequestError('Freechips required credentials missing (secret_key, iv, secretCode, vendor_key, tpin)');
     }
-
     // Payout Payload
     const payoutPayload = {
-      transaction_type: "IMPS", // Can be made dynamic if needed
+      transaction_type: "IMPS", 
       amount: Number(payload.amount),
       beneficiary_name: payload.user_bank_details?.account_holder_name,
       beneficiary_account_number: payload.user_bank_details?.account_no,
       beneficiary_ifsc: payload.user_bank_details?.ifsc_code,
       bank_name: payload.user_bank_details?.bank_name || "HDFC Bank",
       tpin: tpin,
-      external_reference: payload.merchant_order_id || payload.order_id,
+      external_reference: payload.merchant_order_id,
       vendor_key: vendor_key
     };
 
     // Encrypt the payload
     const encryptedData = encryptFreechipsPayoutData(payoutPayload, secret_key, iv);
-
     const requestBody = {
       secretCode,
       data: encryptedData
@@ -150,7 +140,6 @@ export const createFreechipsPayout = async (result, payload, vendor_id, bankId, 
     result.status = 'PENDING';
     result.bank_acc_id = bankId;
     result.vendor_id = vendor_id;
-    result.vendor_txn_id = response.data?.transaction_id || null;
 
     return result;
 
