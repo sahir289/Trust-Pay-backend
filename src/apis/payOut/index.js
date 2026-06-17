@@ -50,6 +50,7 @@ import { pennypaySuccessCallback } from '../../callBacksAndWebHook/callBacks/pen
 import {
   getPayInFintechWalletBalance,
 } from '../../payinfintech/payinfintech.js';
+import {getFreechipsWalletBalance} from '../../freechips/freechips.js';
 import { getWalletBalance } from '../../pennypay/pennypay.js';
 const router = express.Router();
 
@@ -456,7 +457,11 @@ router.get(
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(getRupeeFlowWalletBalance),
 );
-
+router.get(
+  '/freechips/freechips-balance',
+  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  tryCatchHandler(getFreechipsWalletBalance),
+);
 router.get(
   '/vertexpay/vertexpay-balance',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
