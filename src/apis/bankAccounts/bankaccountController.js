@@ -379,7 +379,7 @@ const activeInactiveBankAccount = async (req, res) => {
   }
   const ids = { id: bank_account_id, company_id: company_id };
   const payload = {
-    is_enabled: is_active,
+    config:{bot_bank_active: is_active},
   };
   const updateBank = await activeInactiveBankAccountService(
     ids,

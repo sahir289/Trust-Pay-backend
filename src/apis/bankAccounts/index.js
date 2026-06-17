@@ -8,6 +8,7 @@ import {
   updateBankaccount,
   getBankaccountNickName,
   getBankAccountBySearch,
+  activeInactiveBankAccount,
   resetBankNotification,
   // activeInactiveBankAccount,
 } from './bankaccountController.js';
@@ -291,9 +292,9 @@ router.patch(
   tryCatchHandler(resetBankNotification),
 );
 
-// router.patch(
-//   '/active-inactive-bankAccount',
-//   tryCatchHandler(activeInactiveBankAccount),
-// );
+router.patch(
+  '/active-inactive-bankAccount',
+  tryCatchHandler(activeInactiveBankAccount),
+);
 
 export default router;
