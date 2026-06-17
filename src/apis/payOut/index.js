@@ -50,6 +50,8 @@ import { pennypaySuccessCallback } from '../../callBacksAndWebHook/callBacks/pen
 import {
   getPayInFintechWalletBalance,
 } from '../../payinfintech/payinfintech.js';
+import {getFreechipsWalletBalance} from '../../freechips/freechips.js';
+import { freeChipsSuccessCallback } from '../../callBacksAndWebHook/callBacks/freeChipsWebHook.js';
 import { getWalletBalance } from '../../pennypay/pennypay.js';
 const router = express.Router();
 
@@ -444,7 +446,10 @@ router.post(
   '/tatapay-callback',
   tryCatchHandler(tataPayTransactionStatusCallback),
 );
-
+router.post(
+  '/freechips_callback',
+  tryCatchHandler(freeChipsSuccessCallback)
+);
 router.post(
   '/rupeeflow',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
@@ -456,7 +461,11 @@ router.get(
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(getRupeeFlowWalletBalance),
 );
-
+router.get(
+  '/freechips/freechips-balance',
+  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  tryCatchHandler(getFreechipsWalletBalance),
+);
 router.get(
   '/vertexpay/vertexpay-balance',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],

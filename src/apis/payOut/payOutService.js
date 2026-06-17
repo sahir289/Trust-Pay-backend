@@ -86,6 +86,7 @@ import { createRunsafePayPayout, getRunsafePayWalletBalance } from '../../runsaf
 import { createPayInFintechPayout } from '../../payinfintech/payinfintech.js';
 import {createPennyPayPayout} from '../../pennypay/pennypay.js';
 import { emitTableEntryAsync } from '../../utils/socket/sessionUtils.js';
+import {createFreechipsPayout} from '../../freechips/freechips.js'
 // import { notifyNewCalculationTableEntry } from '../../utils/sockets.js';
 
 // Helper function to check if vendor is sub-vendor and get parent info
@@ -1129,6 +1130,29 @@ const _updatePayoutServiceInternal = async (
         'payCric',
         xApiKey,
         code
+      );
+      payload = updatedPayload;
+    }
+    else if (payload?.config?.method === Method.FREECHIPS) {
+      const method = payload.config.method;
+      logger.info(`Processing FREECHIPS payout for method: ${method}`);
+      const [company] = await getCompanyByIDDao({ id: ids.company_id }, conn);
+      if (!company) throw new NotFoundError('Company not found');
+      const bankId = company.config.FREECHIPS?.defaultBankId;
+      if (!bankId)
+        throw new NotFoundError(`Default bank ID not found for ${method}`);
+      bankDataArr = await getBankByIdDao({ id: bankId });
+     const [vendor] = await getVendorsDao({
+        user_id: bankDataArr[0].user_id,
+      });
+      if (!vendor) {
+        throw new NotFoundError('Vendor not found for PayBitra payout');
+      }
+      const updatedPayload = await  createFreechipsPayout(
+        payload,
+        singleWithdrawData,
+        vendor.id,
+        bankId
       );
       payload = updatedPayload;
     }
