@@ -455,7 +455,7 @@ const createBankResponseService = async (
             payin_count: 1,
           },
           conn,
-        ),
+        );
         vendor = await getVendorsBankReponseDao(
           {
             user_id: bankDetails[0].user_id,
@@ -1033,9 +1033,6 @@ const createBankResponseService = async (
         }
       }
 
-      await commit(conn);
-      committed = true;
-
       // const bankDetails = await getBankaccountDao(
       //   { id: botRes?.bank_id, company_id: companyId },
       //   null,
@@ -1060,15 +1057,17 @@ const createBankResponseService = async (
         config: botRes.config || {},
         updated_by: botRes.updated_by,
         details: {
-          is_intent: bankDetails[0]?.config?.is_intent || false,
-          merchants: bankDetails[0]?.config?.merchants || [],
-          is_phonepay: bankDetails[0]?.config?.is_phonepay || false,
+          is_intent: bankDetails?.[0]?.config?.is_intent || false,
+          merchants: bankDetails?.[0]?.config?.merchants || [],
+          is_phonepay: bankDetails?.[0]?.config?.is_phonepay || false,
         },
-        nick_name: bankDetails[0]?.nick_name || null,
-        vendor_user_id: vendor[0]?.user_id || null,
-        vendor_code: vendor[0]?.code || null,
+        nick_name: bankDetails?.[0]?.nick_name || null,
+        vendor_user_id: vendor?.[0]?.user_id || null,
+        vendor_code: vendor?.[0]?.code || null,
         company_id: companyId,
       };
+      await commit(conn);
+      committed = true;
       // Send to socket for real-time update
       emitTableEntryAsync(tableName.BANK_RESPONSE, responseObj);
       return { message: `Entry created successfully`, data: responseObj };

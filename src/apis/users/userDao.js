@@ -390,7 +390,7 @@ SELECT
   at.config->'user_info'->>'os_version' AS os_version,
   at.config->'user_info'->'user_location'->>'latitude' AS latitude,
   at.config->'user_info'->'user_location'->>'longitude' AS longitude,
-  at.config->'user_info'->'user_location'->'proxy'->>'isVpn' AS is_vpn,
+  (at.config->'user_info'->'user_location'->'proxy'->>'isVpn')::boolean AS is_vpn,
   at.config->'user_info'->'user_location'->'proxy'->'raw'->>'country' AS country,
   at.config->'user_info'->'user_location'->'proxy'->'raw'->>'city' AS city,
   at.config->'user_info'->'user_location'->>'role' AS role,
