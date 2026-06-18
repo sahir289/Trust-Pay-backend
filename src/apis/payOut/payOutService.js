@@ -820,6 +820,7 @@ const _updatePayoutServiceInternal = async (
   payload,
   role,
   conn = null,
+  webhookCall = false
 ) => {
   try {
     const payoutStatusRow =
@@ -1133,7 +1134,7 @@ const _updatePayoutServiceInternal = async (
       );
       payload = updatedPayload;
     }
-    else if (payload?.config?.method === Method.FREECHIPS) {
+    else if (!webhookCall && payload?.config?.method === Method.FREECHIPS) {
       const method = payload.config.method;
       logger.info(`Processing FREECHIPS payout for method: ${method}`);
       const [company] = await getCompanyByIDDao({ id: ids.company_id }, conn);

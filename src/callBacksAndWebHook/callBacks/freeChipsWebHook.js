@@ -117,7 +117,8 @@ export const freeChipsSuccessCallback = async (req, res) => {
       { id: payout.id, company_id: payout.company_id },
       updatePayload,
       null,
-      conn
+      conn,
+      true
     );
     await commit(conn);
     committed = true;
