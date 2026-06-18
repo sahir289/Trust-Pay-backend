@@ -64,8 +64,13 @@ export const freeChipsSuccessCallback = async (req, res) => {
       return;
     }
 
-    if ([Status.REJECTED, Status.REVERSED, Status.APPROVED].includes(payout.status)) {
-      logger.info(`Payout ${payout.id} already in terminal state: ${payout.status}. Ignoring.`);
+    const canProcessApprovedToReversed =
+      payout.status === Status.APPROVED && freeChipsStatus === 'REFUNDED';
+    if (
+      [Status.REJECTED, Status.REVERSED, Status.APPROVED].includes(payout.status) &&
+      !canProcessApprovedToReversed
+    ) {
+      logger.info(`Payout ${payout.merchant_order_id} already in terminal state: ${payout.status}. Ignoring.`);
       return;
     }
 
