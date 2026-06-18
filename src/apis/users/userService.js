@@ -17,7 +17,13 @@ import {
   getUsersDao,
   updateUserDao,
   getUsersBySearchDao,
+  getUsersInfoBySearchDao,
   getAllUsersDao,
+  updateUserByIDDao,
+  updateUser2FAStatusDao,
+  updateUser2FAExemptionDao,
+  disableTwoFactorDao,
+  getAllUsersNameDao,
 } from './userDao.js';
 import { getDesignationDao } from '../designation/designationDao.js';
 import { getRoleDao } from '../roles/rolesDao.js';
@@ -36,11 +42,14 @@ import {
   createUserHierarchyDao,
   getUserHierarchysDao,
   updateUserHierarchyDao,
+  getAllHierarchyUserIds,
 } from '../userHierarchy/userHierarchyDao.js';
 import { getMerchantByUserIdDao } from '../merchants/merchantDao.js';
 import { getVendorByUserDao } from '../vendors/vendorDao.js';
 import { getCompanyByIDDao } from '../company/companyDao.js';
 import { getBankaccountCheckDao } from '../bankAccounts/bankaccountDao.js';
+import { getSessionByUserIdDao } from '../auth/authDao.js';
+import { forceLogoutUser } from '../../utils/sockets.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 
 const getUsersService = async (
@@ -165,6 +174,19 @@ const getUsersService = async (
     );
   } catch (error) {
     logger.error('error getting while fetching user', error);
+    throw error;
+  }
+};
+
+const getUsersNameService = async (
+  ids,
+) => {
+  try {
+    return await getAllUsersNameDao(
+      ids,
+    );
+  } catch (error) {
+    logger.error('error getting while fetching user-names', error);
     throw error;
   }
 };
@@ -322,9 +344,49 @@ const getUsersBySearchService = async (
     return data;
   } catch (error) {
     logger.error('Error while fetching users by search', error);
-    throw new InternalServerError(error.message);
+    throw error;
   }
 };
+
+const getUsersInfoBySearchService = async (
+  ids,
+  role,
+  page,
+  limit,
+  startDate,
+  endDate,
+) => {
+  try {  
+
+    const pageNumber = parseInt(page, 10) || 1;
+    const pageSize = parseInt(limit, 10) || 10;
+
+    let searchTerms;
+    if (ids.search) {
+      searchTerms = ids.search
+        .split(',')
+        .map((term) => term.trim())
+        .filter((term) => term.length > 0);
+    }
+
+    const data = await getUsersInfoBySearchDao(
+      ids,
+      searchTerms,
+      pageNumber,
+      pageSize,
+      startDate,
+      endDate,
+      role,
+      // filterColumns
+    );
+
+    return data;
+  } catch (error) {
+    logger.error('Error while fetching users by search', error);
+    throw error;
+  }
+};
+
 const getUserByIdService = async (ids, role) => {
   try {
     const filterColumns =
@@ -335,7 +397,9 @@ const getUserByIdService = async (ids, role) => {
           : columns.USER;
     const result = await getUserByIdDao(ids);
 
-    const finalResult = filterResponse(result, filterColumns);
+    const finalResult = filterResponse(result, filterColumns, {
+      stripSensitive: true,
+    });
     return finalResult;
   } catch (error) {
     logger.error('error getting while getting user by id', error);
@@ -352,7 +416,9 @@ const getUsersByUserNameService = async (username, ids, role) => {
           ? vendorColumns.USER
           : columns.USER;
     const data = await getUsersByUserNameDao(ids, username);
-    const finalResult = filterResponse(data, filterColumns);
+    const finalResult = filterResponse(data, filterColumns, {
+      stripSensitive: true,
+    });
     return finalResult;
   } catch (error) {
     logger.error('error getting while fetching user', error);
@@ -528,7 +594,6 @@ const _createUserServiceInternal = async (payload, conn) => {
             payout_notify: payout_notify,
             return: Return,
             site: site,
-            whitelist_ips: payload.whitelist_ips,
           },
           keys: {
             private: Private,
@@ -543,6 +608,7 @@ const _createUserServiceInternal = async (payload, conn) => {
           ...(sub_code && { sub_code }),
           unblocked_countries: unblocked_countries,
           gm_code: payload.gm_code,
+          whitelist_ips: payload.whitelist_ips,
         },
       };
       merchant = await _createMerchantServiceInternal(merchantPayload, conn);
@@ -661,6 +727,24 @@ const _userUpdateServiceInternal = async (ids, payload, conn) => {
     //     throw new BadRequestError('Email already Registered');
     //   }
     // }
+    if (payload.is_enabled === false || payload.is_enabled === true) {
+      const user = await getAllHierarchyUserIds(ids.id, conn);
+      const userPayload = {
+        is_obsolete: false,
+        is_enabled : payload.is_enabled,
+        updated_by : payload.updated_by
+      };
+      const User = await updateUserByIDDao({ id: user }, userPayload, conn);
+      const sessions = await getSessionByUserIdDao({ user_id: user }, conn);
+       if (sessions && sessions.length > 0) {
+         for (const session of sessions) {
+           if (session?.session_id) {
+             await forceLogoutUser(session.user_id, session.session_id);
+           }
+         }
+       }
+      return User;
+}
     const User = await updateUserDao(ids, payload, conn);
     // await notifyAdminsAndUsers({
     //   conn,
@@ -698,6 +782,28 @@ const userUpdateService = async (ids, payload) => {
   }
 };
 
+const updateUser2FAService = async (id, isTwoFactorRequired) => {
+  try {
+    return await updateUser2FAStatusDao(id, isTwoFactorRequired);
+  } catch (error) {
+    logger.error('Error in updateUser2FAService:', error);
+    throw error;
+  }
+};
+
+const resetUser2FAService = async (targetUserId, adminId, adminUsername) => {
+  try {
+    const result = await disableTwoFactorDao(targetUserId);
+    if (result) {
+      logger.info(`[AUDIT] 2FA Reset: User ID ${targetUserId} had their 2FA reset by Admin ${adminUsername} (ID: ${adminId}) at ${new Date().toISOString()}`);
+    }
+    return result;
+  } catch (error) {
+    logger.error('Error in resetUser2FAService:', error);
+    throw error;
+  }
+};
+
 const sendMailService = async (payload) => {
   try {
     const { user_id } = payload;
@@ -722,13 +828,31 @@ const sendMailService = async (payload) => {
   }
 };
 
+const toggleUser2FAExemptionService = async (userId, exempt) => {
+  try {
+    const result = await updateUser2FAExemptionDao(userId, exempt);
+    if (result) {
+      logger.info(`[AUDIT] 2FA Exemption Updated: User ID ${userId} exemption set to ${exempt} at ${new Date().toISOString()}`);
+    }
+    return result;
+  } catch (error) {
+    logger.error('Error in toggleUser2FAExemptionService:', error);
+    throw error;
+  }
+};
+
 export {
   getUsersService,
+  getUsersNameService,
   getUserByIdService,
   getUsersBySearchService,
+  getUsersInfoBySearchService,
   getUsersByUserNameService,
   createUserService,
   userUpdateService,
   sendMailService,
+  updateUser2FAService,
+  toggleUser2FAExemptionService,
+  resetUser2FAService,
   _createUserServiceInternal,
 };

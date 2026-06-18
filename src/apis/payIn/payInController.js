@@ -1,5 +1,5 @@
 import config from '../../config/config.js';
-import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
+import { BadRequestError, NotFoundError, ValidationError } from '../../utils/appErrors.js';
 import {
   sendSuccess,
   sendNewSuccess,
@@ -13,6 +13,7 @@ import {
   VALIDATE_CHECK_UTR,
   VALIDATE_DISPUTE_DUPLICATE_TRANSACTION,
   VALIDATE_EXPIRE_PAY_IN_URL,
+  VALIDATE_GENERATE_PAYIN_URL_SCHEMA,
   VALIDATE_PAY_IN_INTENT_GENERATE_ORDER,
   VALIDATE_PAYIN_SCHEMA,
   VALIDATE_PROCESS_PAYIN,
@@ -61,9 +62,10 @@ import {
   invalidateCompanyCacheByPrefix,
 } from '../../utils/controllerCache.js';
 import { publishPayInProcess } from '../../rabbitmq/producer.js';
+import { getMerchantsByCodeDao } from '../merchants/merchantDao.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 
-const TestingIp = process.env.LOCAL_IP;
+// const TestingIp = process.env.LOCAL_IP;
 // const { controllerCacheTtls } = config;
 
 const invalidatePayinCache = async (companyId) =>
@@ -83,22 +85,17 @@ export const generateHashForPayIn = async (req, res) => {
 export const generatePayInUrl = async (req, res) => {
   const payload = req.query;
   const x_api_key = req.headers['x-api-key'];
-  let userIp =
-    req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.ip;
 
-  // Handle localhost IP for testing
-  userIp = userIp === '::1' ? TestingIp : userIp;
   const { code, key, roleToken = null } = payload;
   let message;
-
+  if (payload.merchant_order_id?.includes('/')) {
+    throw new BadRequestError("Invalid order ID: '/' is not allowed.");
+  }
   const joiValidation = ASSIGN_PAYIN_SCHEMA.validate(payload);
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
-  const apiKey = key ? key : x_api_key;
-  if (!apiKey) {
-    return sendError(res, 'Enter valid Api key', 404);
-  }
+  let apiKey = key ? key : x_api_key;
 
   const generatedHash = createHash(`${code}`);
   // // Decode the provided hash before comparison
@@ -128,13 +125,24 @@ export const generatePayInUrl = async (req, res) => {
     role = roleData.role;
   }
 
+  if(role === "ADMIN" || !apiKey){
+    const data = await getMerchantsByCodeDao(code);
+    if (data.length === 0) {
+      throw new NotFoundError('Merchant not found');
+    }
+    if (data[0]?.config?.is_h2h && !payload?.amount) {
+      throw new NotFoundError('amount is required');
+    }
+    apiKey = data[0]?.config?.keys?.public
+  }
+
+
   const result = await generatePayInUrlService(
     {
       ...payload,
       api_key: apiKey,
     },
     role,
-    userIp,
   );
 
   // Build query string for the URL
@@ -197,14 +205,14 @@ export const validatePayInUrl = async (req, res) => {
 export const generateUpiUrl = async (req, res) => {
   const payload = req.body;
 
-  // const joiValidation = VALIDATE_PAYIN_SCHEMA.validate(req.params);
-  // if (joiValidation.error) {
-  //   throw new ValidationError(joiValidation.error);
-  // }
+  const joiValidation = VALIDATE_GENERATE_PAYIN_URL_SCHEMA.validate(payload);
+  if (joiValidation.error) {
+    throw new ValidationError(joiValidation.error);
+  }
 
   const result = await generateUpiUrlService(payload);
 
-  return sendSuccess(res, result, 'UPI Url is generated successfully');
+  return sendSuccess(res, result, 'UPI Urls are generated successfully');
 };
 
 export const assignedBankToPayInUrl = async (req, res) => {
@@ -263,24 +271,32 @@ export const checkPayInStatus = async (req, res) => {
 export const payInIntentGenerateOrder = async (req, res) => {
   const { merchantOrderId } = req.params;
   // const { company_id } = req.user;
-  const { amount, Razorpay, cashfree, zentechind, nmplPay, silkPay, orvixPay, orvixPay1, runsafe, payeasy } = req.body;
-  const payload = { merchantOrderId, amount, Razorpay, cashfree, zentechind };
+  const { amount, Razorpay, cashfree,freechips, zentechind, nmplPay, silkPay, orvixPay, orvixPay1, runsafe, cpsPay, tytl, payeasy, payeasy02, payeasy03, albecollect, pennypay, trustpay, paybitra, paycric } = req.body;
+  const payload = { merchantOrderId, amount, Razorpay, cashfree, zentechind, paybitra, paycric };
   const joiValidation = VALIDATE_PAY_IN_INTENT_GENERATE_ORDER.validate(payload);
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
   let provider = [];
-
   if (Razorpay) provider.push('Razorpay');
   if (cashfree) provider.push('Cashfree');
   if (zentechind) provider.push('ZenTechInd');
   if (nmplPay) provider.push('NMPLPay');
+ if (freechips) provider.push('Freechips');
   if (runsafe) provider.push('runsafe');
+  if (cpsPay) provider.push('cpsPay');
+  if(tytl) provider.push('tytl');
   if (silkPay) provider.push('silkPay');
   if (orvixPay) provider.push('orvixPay');
   if (orvixPay1) provider.push('orvixPay1');
   if (payeasy) provider.push('Payeasy');
-
+  if (payeasy02) provider.push('Payeasy02');
+  if (payeasy03) provider.push('Payeasy03');
+  if (albecollect) provider.push('albeCollect');
+  if (pennypay) provider.push('pennyPay');
+  if (trustpay) provider.push('trustPay');
+  if (paybitra) provider.push('payBitra');
+  if (paycric) provider.push('payCric');
   const data = await payInIntentGenerateOrderService(
     merchantOrderId,
     // company_id,
@@ -506,7 +522,7 @@ export const processPayInIMGUTR = async (req, res) => {
   }
   const data = await processPayInService(payload, payload.code, false, true , null , null, true);
   await invalidatePayinCache(req.user?.company_id);
-  sendSuccess(res, data, 'PayIn updated successfully');
+  sendSuccess(res, data, 'PayIn processPayInIMGUTR updated successfully');
 };
 
 export const telegramOCR = async (req, res) => {
@@ -574,7 +590,7 @@ export const disputeDuplicateTransaction = async (req, res) => {
     req.user.user_id,
   );
   await invalidatePayinCache(req.user.company_id);
-  sendSuccess(res, data, 'PayIn Updated successfully');
+  sendSuccess(res, data, 'PayIn disputeDuplicateTransaction Updated successfully');
 };
 
 export const updateUtrPayins = async (req, res) => {
@@ -586,7 +602,7 @@ export const updateUtrPayins = async (req, res) => {
   sendSuccess(
     res,
     { id: data.id, updated_by: user_name },
-    'PayIn Updated successfully',
+    'PayIn updateUtrPayins Updated successfully',
   );
 };
 

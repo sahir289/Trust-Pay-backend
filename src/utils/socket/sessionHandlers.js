@@ -76,9 +76,8 @@ const validateClientMessagePayload = (payload) => {
   return false;
 };
 
-const bindSocketToUser = (socket, userId, sessionId, color = 'green') => {
+const bindSocketToUser = (socket, userId, sessionId) => {
   const loginTime = Date.now();
-  console.log(color, "console color");
   // const palette = {
   //   blue: chalk.bgBlue.white,
   //   cyan: chalk.bgCyan.white,
@@ -460,6 +459,8 @@ const createHandleUserLogin = (socket) => {
 };
 
 const handleDisconnect = (socket, reason) => {
+  const disconnectingSessionId = getSocketSessionId(socket);
+
   const isServerSideDisconnect =
     reason === 'server disconnect' ||
     reason === 'transport close' ||
@@ -502,6 +503,15 @@ const handleDisconnect = (socket, reason) => {
         `[SOCKET] Emitting logout event for user ${userId} due to client disconnect`,
       ),
     );
+
+    // Emit logout event with the sessionId of the socket being disconnected
+    if (socketRuntime.ioInstance) {
+      socketRuntime.ioInstance.to(`user:${userId}`).emit('logout', {
+        userId,
+        sessionId: disconnectingSessionId,
+        reason: 'client-disconnect',
+      });
+    }
   }
 
   logger.info(

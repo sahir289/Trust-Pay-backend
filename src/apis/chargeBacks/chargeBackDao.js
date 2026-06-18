@@ -382,16 +382,18 @@ export const getAllChargeBackDao = async (
         m.code AS merchant_name,
         p.user AS user,
           cb.config,
+        p.created_at AS payin_created_at,
         p.merchant_order_id AS merchant_order_id,
       `;
     } else if (role === Role.VENDOR || role === Role.SUB_VENDOR) {
-      additionalColumns += `v.code AS vendor_name,`;
+      additionalColumns += `v.code AS vendor_name,p.created_at AS payin_created_at,`;
     } else {
       additionalColumns = `
         m.code AS merchant_name,
           cb.config,
         p.merchant_order_id AS merchant_order_id,
         v.code AS vendor_name,
+        p.created_at AS payin_created_at,
        CASE 
     WHEN m.config->>'sub_code' IS NOT NULL AND m.config->>'sub_code' != '' 
     THEN m.config->>'sub_code' 
@@ -607,6 +609,7 @@ export const getChargeBacksBySearchDao = async (
 
     let extraColumns = `
       ba.nick_name AS bank_name,
+      p.created_at AS payin_created_at,
       COALESCE(p.user_submitted_utr, br.utr) AS utr,
       cb.created_at
     `;

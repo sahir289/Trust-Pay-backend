@@ -1,3 +1,4 @@
+import { UAParser } from 'ua-parser-js';
 import { logoutSet } from '../../middlewares/auth.js';
 import { INSERT_AUTH_SCHEMA } from '../../schemas/authSchema.js';
 import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
@@ -16,10 +17,15 @@ import {
   forgetPasswordService,
   logoutService,
   getUserRoleService,
+  verifyLoginOtpService,
+  setup2FAService,
+  confirm2FAService,
+  disable2FAService,
 } from './authService.js';
 
 const loginController = async (req, res) => {
   let clientIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  const ua = new UAParser(req.headers['user-agent']).getResult();
   const payload = { ...req.body };
   payload.user_location = req.user_location || {};
   const options = { abortEarly: false };
@@ -27,11 +33,45 @@ const loginController = async (req, res) => {
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
-  const data = await loginService(payload, clientIP);
+  const data = await loginService(payload, clientIP,ua);
   ///for first login user
   if (data.isLoginFirst) {
     return sendSuccess(res, data, "user's first login");
   }
+  // 2FA gate: return a short-lived pre-auth token instead of the real session
+  if (data.twoFactorRequired) {
+    return sendSuccess(
+      res,
+      { 
+        twoFactorRequired: true, 
+        preAuthToken: data.preAuthToken,
+        two_factor_enforcement: data.two_factor_enforcement
+      },
+      '2FA verification required',
+    );
+  }
+  
+  // Handle case where global 2FA enforcement is active but user hasn't set up 2FA
+  if (data.must_setup_2fa) {
+    res.cookie('refreshToken', data.refreshToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'Strict',
+    });
+    const token = {
+      accessToken: data.tokenInfo.accessToken,
+      sessionId: data.sessionId,
+      user: data.user,
+      two_factor_enforcement: data.two_factor_enforcement,
+      must_setup_2fa: true,
+    };
+    return sendSuccess(
+      res, 
+      token, 
+      'Login successful. Global 2FA enforcement is active - you must set up Two-Factor Authentication before accessing other resources.'
+    );
+  }
+  
   res.cookie('refreshToken', data.refreshToken, {
     httpOnly: true,
     secure: true,
@@ -40,6 +80,9 @@ const loginController = async (req, res) => {
   const token = {
     accessToken: data.tokenInfo.accessToken,
     sessionId: data.sessionId,
+    user: data.user,
+    two_factor_enforcement: data.two_factor_enforcement,
+    must_setup_2fa: data.must_setup_2fa || false,
   };
   return sendSuccess(res, token, 'login successfully');
 };
@@ -138,6 +181,79 @@ const getUserRoleController = async (req, res) => {
   return sendSuccess(res, role, 'User role fetched successfully');
 };
 
+// ---------------------------------------------------------------------------
+// 2FA controllers
+// ---------------------------------------------------------------------------
+
+/**
+ * POST /auth/verify-2fa  (public)
+ * Body: { preAuthToken, otpToken }
+ * Validates the pre-auth token + OTP, then issues the real JWT + session.
+ */
+const verifyLoginOtpController = async (req, res) => {
+  const clientIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  const ua = new UAParser(req.headers['user-agent']).getResult();
+  const { preAuthToken, otpToken } = req.body;
+  if (!preAuthToken || !otpToken) {
+    throw new BadRequestError('preAuthToken and otpToken are required');
+  }
+  const data = await verifyLoginOtpService(preAuthToken, String(otpToken), clientIP, ua);
+  res.cookie('refreshToken', data.tokenInfo.refreshToken, {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'Strict',
+  });
+  const token = {
+    accessToken: data.tokenInfo.accessToken,
+    sessionId: data.sessionId,
+    user: data.user,
+    two_factor_enforcement: data.two_factor_enforcement,
+    must_setup_2fa: data.must_setup_2fa || false,
+  };
+  return sendSuccess(res, token, 'login successfully');
+};
+
+/**
+ * POST /2fa/setup  (protected)
+ * Generates a TOTP secret + QR code. Does NOT enable 2FA yet.
+ * Returns: { qrCodeDataUrl, secret }
+ */
+const setup2FAController = async (req, res) => {
+  const { user_id, user_name } = req.user;
+  const result = await setup2FAService(user_id, user_name);
+  return sendSuccess(res, result, '2FA setup initiated. Scan the QR code, then call /2fa/confirm');
+};
+
+/**
+ * POST /2fa/confirm  (protected)
+ * Body: { otpToken }
+ * Verifies the first OTP and enables 2FA for the account.
+ */
+const confirm2FAController = async (req, res) => {
+  const { user_id } = req.user;
+  const { otpToken } = req.body;
+  if (!otpToken) {
+    throw new BadRequestError('otpToken is required');
+  }
+  await confirm2FAService(user_id, String(otpToken));
+  return sendSuccess(res, {}, '2FA has been enabled successfully');
+};
+
+/**
+ * POST /2fa/disable  (protected)
+ * Body: { otpToken }
+ * Verifies the current OTP then disables 2FA and clears the secret.
+ */
+const disable2FAController = async (req, res) => {
+  const { user_id } = req.user;
+  const { otpToken } = req.body;
+  if (!otpToken) {
+    throw new BadRequestError('otpToken is required');
+  }
+  await disable2FAService(user_id, String(otpToken));
+  return sendSuccess(res, {}, '2FA has been disabled successfully');
+};
+
 export {
   loginController,
   refreshTokenController,
@@ -148,4 +264,8 @@ export {
   verfyOtpController,
   forgetPasswordController,
   getUserRoleController,
+  verifyLoginOtpController,
+  setup2FAController,
+  confirm2FAController,
+  disable2FAController,
 };

@@ -123,7 +123,6 @@ export async function rechargeWallet(req) {
       },
       timeout: 15000,
     });
-    console.log(response.data, "responseeeee");
     if (response.data.code === 'ERR') {
       throw new BadRequestError(response.data.mess);
     }

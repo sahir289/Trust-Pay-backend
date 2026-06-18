@@ -10,6 +10,7 @@ export const Status = {
   PENDING: 'PENDING',
   PROCESSING: 'PROCESSING',
   REJECTED: 'REJECTED',
+  REFUND: 'REFUND',
   TEST_SUCCESS: 'TEST_SUCCESS',
   TEST_DROPPED: 'TEST_DROPPED',
   BANK_MISMATCH: 'BANK_MISMATCH',
@@ -41,6 +42,12 @@ export const Method = {
   VERTEXPAY: 'VERTEXPAY',
   CPS: 'CPS',
   RUNSAFE_PAY: 'runsafe',
+  PAYINFINTECH: 'PAYINFINTECH',
+  PENNYPAY: 'PENNYPAY',
+  TRUSTPAY: 'TRUSTPAY',
+  PAYBITRA: 'PAYBITRA',
+  PAYCRIC: 'PAYCRIC',
+  FREECHIPS:'FREECHIPS',
 };
 
 export const Type = {
@@ -123,6 +130,8 @@ export const columns = {
     'id',
     'role_id',
     'designation_id',
+    'role',
+    'designation',
     'first_name',
     'last_name',
     'email',
@@ -134,10 +143,14 @@ export const columns = {
     'last_login',
     'last_logout',
     'config',
+    'is_two_factor_enabled',
+    'is_two_factor_required',
+    'is_two_factor_exempt',
     'created_by',
     'updated_by',
     'created_at',
     'updated_at',
+    // 'unique_admin_id', // REMOVED: Should not be exposed in any API
   ],
   ROLE: ['id', 'role', 'created_at', 'updated_at'],
   COMPANY: ['id', 'first_name', 'last_name', 'email', 'contact_no', 'config'],
@@ -375,7 +388,11 @@ export const merchantColumns = {
     'contact_no',
     'user_name',
     'is_enabled',
+    'is_two_factor_enabled',
+    'is_two_factor_required',
+    'is_two_factor_exempt',
     'code',
+    // 'unique_admin_id', // REMOVED: Should not be exposed in any API
   ],
   SETTLEMENT: [
     'id',
@@ -477,7 +494,11 @@ export const vendorColumns = {
     'contact_no',
     'user_name',
     'code',
+    'is_two_factor_enabled',
+    'is_two_factor_required',
+    'is_two_factor_exempt',
     'created_at', //-- need bank details within date range
+    // 'unique_admin_id', // REMOVED: Should not be exposed in any API
   ],
   SETTLEMENT: [
     'id',
@@ -717,6 +738,7 @@ export const AccessRoles = {
   },
   RESET_DATA_HISTORY: [Role.ADMIN, Role.OPERATIONS, Role.TRANSACTIONS],
   CHECK_UTR_HISTORY: [Role.ADMIN, Role.OPERATIONS, Role.TRANSACTIONS],
+  USER_INFO: [Role.ADMIN, Role.TRANSACTIONS, Role.OPERATIONS],
   BANK_RESPONSE: [
     Role.ADMIN,
     Role.OPERATIONS,

@@ -148,10 +148,40 @@ export const getImageContentFromOCr = async (image) => {
     const data = res.data?.data || {};
 
     return {
-      amount: data.amount?.replace(',', ''),
-      utr: data.transaction_id,
-      bankName: data.bank_name,
-      timeStamp: data.timestamp,
+      amount: String(data?.amount || '').replace(/,/g, ''),
+      utr: data?.transaction_id,
+      bankName: data?.bank_name,
+      timeStamp: data?.timestamp,
+    };
+  } catch (error) {
+    logger.error('Error while fetching content from image', error.message);
+    console.error('Error while fetching content from image', error);
+    throw error;
+  }
+};
+export const getImageContentFromOCrForPayout = async (image) => {
+  try {
+    if (!image) {
+      logger.log('No image provided for OCR payout!');
+      return;
+    }
+
+    const res = await axios.post(`${config.ocr.payoutUrl}`, {
+      image,
+    });
+
+    if (res.data.status === 'failure') {
+      logger.log('Unable to get content from image with ocr', res.data);
+      return;
+    }
+
+    const data = res.data?.data || {};
+
+    return {
+      amount: String(data?.amount || '').replace(/,/g, ''),
+      utr: data?.transaction_id,
+      bankName: data?.bank_name,
+      timeStamp: data?.timestamp,
     };
   } catch (error) {
     logger.error('Error while fetching content from image', error.message);
@@ -204,7 +234,7 @@ export async function streamToBuffer(stream) {
 //     return {};
 //   }
 
-export const filterResponse = (data, keys) => {
+export const filterResponse = (data, keys, options = { stripSensitive: true }) => {
   try {
     if (Array.isArray(data)) {
       logger.log('Data is an array');
@@ -213,7 +243,19 @@ export const filterResponse = (data, keys) => {
         const filteredItem = {};
         keys.forEach((key) => {
           if (Object.prototype.hasOwnProperty.call(item, key)) {
-            filteredItem[key] = item[key];
+            let value = item[key];
+            // Strip sensitive unique_admin_id from config objects if enabled
+            if (
+              options.stripSensitive &&
+              (key === 'config' || key === 'company_config') &&
+              value &&
+              typeof value === 'object'
+            ) {
+              const newValue = { ...value };
+              delete newValue.unique_admin_id;
+              value = newValue;
+            }
+            filteredItem[key] = value;
           } else {
             logger.error(item, key, 'Key not found in object');
           }
@@ -224,7 +266,19 @@ export const filterResponse = (data, keys) => {
       const filteredItem = {};
       keys.forEach((key) => {
         if (Object.prototype.hasOwnProperty.call(data, key)) {
-          filteredItem[key] = data[key];
+          let value = data[key];
+          // Strip sensitive unique_admin_id from config objects if enabled
+          if (
+            options.stripSensitive &&
+            (key === 'config' || key === 'company_config') &&
+            value &&
+            typeof value === 'object'
+          ) {
+            const newValue = { ...value };
+            delete newValue.unique_admin_id;
+            value = newValue;
+          }
+          filteredItem[key] = value;
         } else {
           logger.warn('Key not found in object');
         }
@@ -239,6 +293,16 @@ export const filterResponse = (data, keys) => {
     console.error('Error while filtering response', error);
     throw error;
   }
+};
+
+export const getISTDateString = () => {
+  const now = new Date();
+  const d = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  const yyyy = d.getFullYear();
+  const timePart = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true });
+  return `${dd}-${mm}-${yyyy} ${timePart}`;
 };
 
 export const decodeAuthToken = (token) => {

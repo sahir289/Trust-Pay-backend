@@ -100,15 +100,33 @@ export const createPool = (connectionString, name) => {
     idleTimeoutMillis: poolIdleTimeout,
     connectionTimeoutMillis: poolConnectionTimeout,
     keepAlive: true,
-    maxUses: 7500,
+    // Lower default maxUses so long-lived connections recycle more often.
+    // This is important for Aurora reader endpoint balancing: DNS only
+    // load-balances on connection establishment, so recycling connections
+    // periodically re-resolves DNS and redistributes reader traffic.
+    maxUses: parsePositiveInt(process.env.DB_POOL_MAX_USES, 1000),
   });
+
+  // Apply statement_timeout to reader connections so a single slow analytical
+  // query (e.g. deep OFFSET pagination) cannot monopolize a reader connection
+  // and exhaust the reader pool. Writers are left untouched to avoid killing
+  // legitimate long write transactions. Override via DB_READER_STATEMENT_TIMEOUT_MS.
+  const readerStatementTimeoutMs = parsePositiveInt(
+    process.env.DB_READER_STATEMENT_TIMEOUT_MS,
+    10000,
+  );
 
   pool.on('connect', async (client) => {
     try {
       await client.query("SET TIME ZONE 'Asia/Kolkata'");
+      if (!isWriter) {
+        await client.query(
+          `SET statement_timeout = ${readerStatementTimeoutMs}`,
+        );
+      }
     } catch (err) {
-      logger.error(`Failed to set timezone for ${name}:`, err);
-      throw err; // Reject the connection if timezone can't be set
+      logger.error(`Failed to initialize session for ${name}:`, err);
+      throw err; // Reject the connection if initialization fails
     }
   });
 
@@ -172,7 +190,99 @@ export const createPool = (connectionString, name) => {
 };
 
 const writerPool = createPool(config?.databaseWriterUrl, 'Writer');
-const readerPool = createPool(config?.databaseReaderUrl, 'Reader');
+
+/**
+ * Reader pools — supports multiple Aurora reader *instance* endpoints
+ * to evenly distribute SELECT traffic.
+ *
+ * Aurora's reader cluster endpoint only round-robins at DNS resolution time.
+ * Once `pg.Pool` establishes long-lived connections (keepAlive=true), all
+ * subsequent queries get pinned to whichever reader the connection landed on,
+ * which causes one reader to spike to 99% CPU while the other stays idle.
+ *
+ * Fix: configure `DATABASE_READER_URLS` as a comma-separated list of *instance*
+ * endpoints. We create one pool per endpoint and round-robin `.connect()` calls.
+ *
+ * If `DATABASE_READER_URLS` is not set, we fall back to a single pool against
+ * `DATABASE_READER_URL` (existing behavior).
+ */
+const readerUrls =
+  Array.isArray(config?.databaseReaderUrls) &&
+  config.databaseReaderUrls.length > 0
+    ? config.databaseReaderUrls
+    : [config?.databaseReaderUrl];
+
+const readerPools = readerUrls.map((url, idx) =>
+  createPool(url, readerUrls.length > 1 ? `Reader#${idx + 1}` : 'Reader'),
+);
+
+logger.info(
+  `[DB] Initialized ${readerPools.length} reader pool(s)` +
+    (readerPools.length > 1 ? ' — round-robin enabled' : ''),
+);
+
+let readerRoundRobinIndex = 0;
+const pickReaderPool = () => {
+  if (readerPools.length === 1) return readerPools[0];
+  const pool = readerPools[readerRoundRobinIndex % readerPools.length];
+  readerRoundRobinIndex =
+    (readerRoundRobinIndex + 1) % Number.MAX_SAFE_INTEGER;
+  return pool;
+};
+
+/**
+ * Facade that mimics a single `pg.Pool` so existing call sites
+ * (executeQuery, getConnection, healthCheck, connectionMonitor, getPoolStats,
+ * closePool) keep working without changes.
+ *
+ * - `.connect()` round-robins across the underlying reader pools.
+ * - Numeric counters (`totalCount`, `idleCount`, `waitingCount`) are summed.
+ * - `.options.max` is summed so capacity calculations remain meaningful.
+ * - `.end()` ends every underlying pool.
+ * - `.on(event, handler)` attaches the handler to every underlying pool.
+ */
+const sumPoolCounter = (key) =>
+  readerPools.reduce((acc, p) => acc + (p[key] || 0), 0);
+
+const readerPool = {
+  connect: (...args) => pickReaderPool().connect(...args),
+  query: (...args) => pickReaderPool().query(...args),
+  end: async () => {
+    await Promise.all(readerPools.map((p) => p.end()));
+  },
+  on: (event, handler) => {
+    readerPools.forEach((p) => p.on(event, handler));
+    return readerPool;
+  },
+  off: (event, handler) => {
+    readerPools.forEach((p) => p.off?.(event, handler));
+    return readerPool;
+  },
+  removeListener: (event, handler) => {
+    readerPools.forEach((p) => p.removeListener?.(event, handler));
+    return readerPool;
+  },
+  get totalCount() {
+    return sumPoolCounter('totalCount');
+  },
+  get idleCount() {
+    return sumPoolCounter('idleCount');
+  },
+  get waitingCount() {
+    return sumPoolCounter('waitingCount');
+  },
+  options: {
+    get max() {
+      return readerPools.reduce(
+        (acc, p) => acc + (p.options?.max || 0),
+        0,
+      );
+    },
+  },
+  // Expose underlying pools for advanced diagnostics (per-instance stats).
+  _pools: readerPools,
+};
+
 const DB_TX_STATE = Symbol('dbTransactionState');
 
 const getTransactionState = (client) => client?.[DB_TX_STATE] ?? null;
@@ -1226,6 +1336,9 @@ const generateQuery = (baseQuery, options = {}) => {
 
 export {
   // pool,
+  writerPool,
+  readerPool,
+  readerPools,
   getConnection,
   beginTransaction,
   commit,

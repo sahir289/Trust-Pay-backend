@@ -95,6 +95,7 @@ export const assignedPayoutDao = async (
     throw error;
   }
 };
+
 export const getPayoutsDao = async (
   filters,
   company_id,
@@ -284,17 +285,42 @@ export const getPayoutsDao = async (
   }
 };
 
-export const getPayoutByIdDao = async (id, company_id, conn = null) => {
+
+export const getPayouStatusByIdDao = async (
+  id,
+  company_id,
+  conn = null,
+  lock = false,
+) => {
   try {
-    const sql = `SELECT id, status, config FROM "${tableName.PAYOUT}" WHERE id = $1 AND company_id = $2 AND is_obsolete = false`;
+    const sql = `
+      SELECT id, status
+      FROM "${tableName.PAYOUT}"
+      WHERE id = $1
+        AND company_id = $2
+        AND is_obsolete = false
+      ${lock ? 'FOR UPDATE' : ''}
+    `;
+
     const queryParams = [id, company_id];
-    const result = await executeQuery(sql, queryParams, conn);
-    return result.rows.length > 0 ? result.rows[0] : null;
+
+    const result = await executeQuery(
+      sql,
+      queryParams,
+      conn,
+    );
+
+    return result.rows.length > 0
+      ? result.rows[0]
+      : null;
   } catch (error) {
-    logger.error('Error fetching payout by utr id:', error.message);
+    logger.error(
+      'Error fetching payout status:',
+      error.message,
+    );
     throw error;
   }
-}
+};
 
 export const getPayoutByMerchantOrderIdDao = async (merchant_order_id, company_id, conn = null) => {
   try {
@@ -678,16 +704,14 @@ export const getPayoutsBySearchDao = async (
         v.code AS vendor_code, 
         v.id AS vendor_id, 
         v.user_id AS vendor_user_id,
-        p.config AS payout_details,
+        (p.config::jsonb - 'slip') AS payout_details,
         p.updated_at,
         b.user_id,
         b.nick_name,
         json_build_object(
           'merchant_code', COALESCE(m.config->>'sub_code', m.code),
           'return_url', m.config->>'return_url',
-          'notify_url', m.config->>'notify_url',
-          'public_key', m.config->'keys'->>'public',
-          'private_key', m.config->'keys'->>'private'
+          'notify_url', m.config->>'notify_url'
         ) AS merchant_details
       `;
     }
@@ -704,6 +728,7 @@ export const getPayoutsBySearchDao = async (
         p.upi_id, 
         p.utr_id, 
         p.rejected_reason,
+        p.config ->> 'slip' AS slip,
         ${commissionSelect},
         json_build_object(
           'account_holder_name', p.acc_holder_name,
@@ -1035,6 +1060,15 @@ export const updatePayoutDao = async (ids, data, conn = null) => {
   try {
     // Clone the data object to avoid modifying the original
     const updateData = { ...data };
+    
+    // Move txnid to config if it exists as a direct field (it should always be in config)
+    if (updateData.txnid !== undefined) {
+      logger.warn('txnid found as direct field, moving to config', { txnid: updateData.txnid });
+      updateData.config = updateData.config || {};
+      updateData.config.txnid = updateData.txnid;
+      delete updateData.txnid;
+    }
+    
     // If config is present, ensure it's properly formatted
     if (updateData.config && typeof updateData.config === 'object') {
       // Get existing config first to merge with new config

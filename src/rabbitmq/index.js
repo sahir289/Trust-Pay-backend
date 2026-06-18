@@ -20,6 +20,7 @@ import {
   startDlqReplayConsumer,
   stopDlqReplayConsumer,
 } from './consumers/dlqReplayConsumer.js';
+import { startBulkPayoutCreateConsumer } from './consumers/CreateBulkPayoutConsumer.js';
 
 let consumersStarted = false;
 
@@ -33,6 +34,7 @@ export async function startRabbitMQConsumers() {
     startBankResponseConsumer(),
     startBankResponseBulkConsumer(),
     startBulkPayoutConsumer(),
+    startBulkPayoutCreateConsumer(),
     startPayInProcessConsumer(),
     startDlqReplayConsumer(),
   ]);

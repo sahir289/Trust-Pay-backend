@@ -16,6 +16,7 @@ import {
   updatePayoutDao,
   getAllPayoutsDao,
   getPayoutByMerchantOrderIdDao,
+  getPayouStatusByIdDao,
   getPayoutByUtrIdDao,
 } from './payOutDao.js';
 import {
@@ -34,27 +35,27 @@ import {
   getCalculationforCronDao,
 } from '../calculation/calculationDao.js';
 import {
-  updateBankaccountDao,
+  // updateBankaccountDao,
   getBankByIdDao,
+  updateBankAccountBalanceDao
 } from '../bankAccounts/bankaccountDao.js';
 import config from '../../config/config.js';
 import { merchantPayoutCallback } from '../../callBacksAndWebHook/merchantCallBacks.js';
-import { Status, Method, tableName } from '../../constants/index.js';
-import { calculateCommission } from '../../helpers/index.js';
 import { createTataPayBulkPayout } from '../../tatapay/tatapay.js';
 import {
   columns,
   merchantColumns,
   Role,
   vendorColumns,
+  Status,
+  Method,
+  tableName,
 } from '../../constants/index.js';
-import { filterResponse } from '../../helpers/index.js';
+import { calculateCommission, filterResponse, getISTDateString } from '../../helpers/index.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import { updateCalculationBalanceDao } from '../calculation/calculationDao.js';
 import { logger } from '../../utils/logger.js';
 import { publishBulkPayout } from '../../rabbitmq/producer.js';
-// import { updatePayout } from '../../utils/sockets.js';
-import { newTableEntry } from '../../utils/sockets.js';
 import { checkLockEdit } from '../../utils/advisoryLock.js';
 import { stringifyJSON } from '../../utils/index.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
@@ -68,7 +69,9 @@ import {
   createPayAssistPayout,
   getPayAssistWalletBalance,
 } from '../../payassist/payassist.js';
-import { createPayDumPayout } from '../../paydum/paydum.js';
+import {
+  createPayDumPayout,
+} from '../../paydum/paydum.js';
 import { createTataPayPayout } from '../../tatapay/tatapay.js';
 import {
   createRupeeFlowBulkPayout,
@@ -79,7 +82,11 @@ import { createSilkPayPayout } from '../../silkpay/silkpay.js';
 import { createBSS02Payout } from '../../bss/bss02.js';
 import { createBSS03Payout } from '../../bss/bss03.js';
 import { createVertexPayPayout } from '../../vertexpay/vertexpay.js';
-import { createRunsafePayPayout } from '../../runsafe/runsafepay.js';
+import { createRunsafePayPayout, getRunsafePayWalletBalance } from '../../runsafe/runsafepay.js';
+import { createPayInFintechPayout } from '../../payinfintech/payinfintech.js';
+import {createPennyPayPayout} from '../../pennypay/pennypay.js';
+import { emitTableEntryAsync } from '../../utils/socket/sessionUtils.js';
+import {createFreechipsPayout} from '../../freechips/freechips.js'
 // import { notifyNewCalculationTableEntry } from '../../utils/sockets.js';
 
 // Helper function to check if vendor is sub-vendor and get parent info
@@ -193,7 +200,7 @@ const _createPayoutServiceInternal = async (
     //     : role === Role.VENDOR
     //       ? vendorColumns.PAYOUT
     //       : columns.PAYOUT;
-    const { code, amount, x_api_key, returnUrl, notifyUrl } = payload;
+    const { code, amount, returnUrl, notifyUrl } = payload;
     const details = await getMerchantsByCodeDao(code);
 
     if (!details[0] || details[0].length === 0) {
@@ -204,34 +211,34 @@ const _createPayoutServiceInternal = async (
       throw error;
     }
 
-    if (details[0]?.config?.whitelist_ips && role !== Role.ADMIN) {
-      let whitelist = details[0].config.whitelist_ips;
-      // Normalize whitelist to array of trimmed strings
-      if (typeof whitelist === 'string') {
-        whitelist = whitelist
-          .split(',')
-          .map((ip) => ip.trim())
-          .filter(Boolean);
-      } else if (Array.isArray(whitelist)) {
-        whitelist = whitelist.map((ip) => String(ip).trim()).filter(Boolean);
-      } else {
-        whitelist = [];
-      }
-      if (
-        whitelist.length &&
-        !whitelist.includes(userIp) &&
-        role !== Role.ADMIN
-      ) {
-        throw new BadRequestError('IP not whitelisted');
-      }
-    }
+    // if (details[0]?.config?.whitelist_ips && role !== Role.ADMIN) {
+    //   let whitelist = details[0].config.whitelist_ips;
+    //   // Normalize whitelist to array of trimmed strings
+    //   if (typeof whitelist === 'string') {
+    //     whitelist = whitelist
+    //       .split(',')
+    //       .map((ip) => ip.trim())
+    //       .filter(Boolean);
+    //   } else if (Array.isArray(whitelist)) {
+    //     whitelist = whitelist.map((ip) => String(ip).trim()).filter(Boolean);
+    //   } else {
+    //     whitelist = [];
+    //   }
+    //   if (
+    //     whitelist.length &&
+    //     !whitelist.includes(userIp) &&
+    //     role !== Role.ADMIN
+    //   ) {
+    //     throw new BadRequestError('IP not whitelisted');
+    //   }
+    // }
 
     if (details[0]?.balance < 0 && !details[0]?.config?.allow_payout) {
       throw new BadRequestError('Merchant balance is less than payout amount');
     }
 
     const { config, user_id } = details[0];
-    const merchantAPIKey = config?.keys;
+    // const merchantAPIKey = config?.keys;
     const payoutAmount = Number(amount);
     const balanceRestriction = config.balanceRestriction;
     const merchant_order_id = payload.merchant_order_id ?? uuidv4();
@@ -260,16 +267,16 @@ const _createPayoutServiceInternal = async (
       throw new BadRequestError('Merchant Order ID already exists');
     }
 
-    if (!x_api_key || !merchantAPIKey) {
-      throw new NotFoundError('Enter valid Api key');
-    }
+    // if (!x_api_key || !merchantAPIKey) {
+    //   throw new NotFoundError('Enter valid Api key');
+    // }
 
-    if (
-      x_api_key !== merchantAPIKey?.private &&
-      x_api_key !== merchantAPIKey?.public
-    ) {
-      throw new NotFoundError('Enter valid Api key');
-    }
+    // if (
+    //   x_api_key !== merchantAPIKey?.private &&
+    //   x_api_key !== merchantAPIKey?.public
+    // ) {
+    //   throw new NotFoundError('Enter valid Api key');
+    // }
     if (
       (amount < details[0].min_payout || amount > details[0].max_payout) &&
       role !== Role.ADMIN
@@ -299,6 +306,8 @@ const _createPayoutServiceInternal = async (
       clickrr_auto_approval_limit,
       allow_payassist,
       payassist_auto_approval_limit,
+      allow_runsafe,
+      runsafe_auto_approval_limit,
     } = details[0]?.config || {};
 
     if (allow_payassist) {
@@ -362,6 +371,36 @@ const _createPayoutServiceInternal = async (
       }
     }
 
+    if (allow_runsafe) {
+      const ids = { id: data.id, company_id: payload.company_id };
+      const getRunsafeWalletBalance = await getRunsafePayWalletBalance({
+        company_id: payload.company_id,
+      });
+      let updatedData;
+      if (Number(payoutAmount) < Number(runsafe_auto_approval_limit)) {
+        if (
+          Number(getRunsafeWalletBalance?.data?.balance) <
+          Number(payoutAmount)
+        ) {
+          data = {
+            status: 201,
+            message: 'Insufficient Balance in Wallet',
+          };
+          return data;
+        }
+        // specific to clickrr max payout limit
+        const updatedPayload = { config: { method: 'runsafe' } };
+        // Use the DAO directly since we're already in a transaction
+        updatedData = await _updatePayoutServiceInternal(
+          ids,
+          updatedPayload,
+          role,
+          conn,
+        );
+        data = updatedData;
+      }
+    }
+
     if (!code) {
       throw new NotFoundError('Merchant does not exist');
     }
@@ -412,11 +451,8 @@ const _createPayoutServiceInternal = async (
       },
       rejected_at: data.rejected_at || null,
     };
-    setImmediate(() => {
-      newTableEntry(tableName.PAYOUT, responseObj).catch((err) =>
-        logger.error('Socket emit failed for payout:', err),
-      );
-    });
+
+    emitTableEntryAsync(tableName.PAYOUT, responseObj)
     return data;
   } catch (error) {
     logger.error('error in _createPayoutServiceInternal', error);
@@ -424,7 +460,7 @@ const _createPayoutServiceInternal = async (
   }
 };
 
-const createPayoutService = async (headers, payload, role, userIp, fromUI) => {
+const createPayoutService = async (headers, payload, role, fromUI) => {
   let conn;
   let committed = false;
   try {
@@ -434,7 +470,7 @@ const createPayoutService = async (headers, payload, role, userIp, fromUI) => {
       headers,
       payload,
       role,
-      userIp,
+      null,
       fromUI,
       conn,
     );
@@ -786,6 +822,16 @@ const _updatePayoutServiceInternal = async (
   conn = null,
 ) => {
   try {
+    const payoutStatusRow =
+    await getPayouStatusByIdDao(
+      ids.id,
+      ids.company_id,
+      conn,
+      true, // FOR UPDATE
+    );
+      if (!payoutStatusRow) {
+        throw new NotFoundError('Payout status not found!');
+      }
     const filterColumns =
       role === Role.MERCHANT
         ? merchantColumns.PAYOUT
@@ -793,18 +839,20 @@ const _updatePayoutServiceInternal = async (
           ? vendorColumns.PAYOUT
           : columns.PAYOUT;
 
+    const method = payload?.config?.method;
     if (
-      !payload?.config?.method === Method.CLICKRR &&
-      !payload?.config?.method === Method.PAYASSIST &&
-      !payload?.config?.method === Method.PAYDUM &&
-      !payload?.config?.method === Method.TATAPAY &&
-      !payload?.config?.method === Method.RUPEEFLOW &&
-      !payload?.config?.method === Method.BSS &&
-      !payload?.config?.method === Method.BSS02 &&
-      !payload?.config?.method === Method.BSS03 &&
-      !payload?.config?.method === Method.SILKPAY &&
-      !payload?.config?.method === Method.VERTEXPAY &&
-      !payload?.config?.method === Method.RUNSAFE_PAY
+      method !== Method.CLICKRR &&
+      method !== Method.PAYASSIST &&
+      method !== Method.PAYDUM &&
+      method !== Method.TATAPAY &&
+      method !== Method.RUPEEFLOW &&
+      method !== Method.BSS &&
+      method !== Method.BSS02 &&
+      method !== Method.BSS03 &&
+      method !== Method.SILKPAY &&
+      method !== Method.VERTEXPAY &&
+      method !== Method.RUNSAFE_PAY &&
+      method !== Method.PAYINFINTECH
     )
       await checkLockEdit(ids.id, false, conn);
 
@@ -825,6 +873,11 @@ const _updatePayoutServiceInternal = async (
       Object.assign(payload, {
         status: Status.APPROVED,
         approved_at: new Date().toISOString(),
+      });
+    }
+    else if (payload?.utr_id && payload.status == Status.APPROVED) {
+      Object.assign(payload, {
+        approved_at: new Date().toISOString()
       });
     }
     if (payload?.config?.rejected_reason) {
@@ -858,8 +911,14 @@ const _updatePayoutServiceInternal = async (
     if (!singleWithdrawData) {
       throw new NotFoundError('Payout not found!');
     }
+    if(singleWithdrawData.status === Status.APPROVED && payload.status !== Status.REVERSED && !payload.utr_id){
+      throw new BadRequestError('Payout Already Approved');
+    }
+    if(singleWithdrawData.status !== Status.INITIATED && payload.vendor_id === null ){
+      throw new BadRequestError('Payout Already Processed, cannot update vendor');
+    }
 
-    const previousStatus = singleWithdrawData.status;
+    const previousStatus = payoutStatusRow.status;
     let earlyReturnResult = null;
 
     // Status validation logic - consolidated
@@ -875,7 +934,6 @@ const _updatePayoutServiceInternal = async (
       const isInvalidTransition = invalidTransitions.some(
         ([from, to]) => currentStatus === from && newStatus === to,
       );
-
       if (isInvalidTransition) {
         throw new BadRequestError(
           `Cannot change payout status from ${currentStatus} to ${newStatus}`,
@@ -930,7 +988,175 @@ const _updatePayoutServiceInternal = async (
         bankId,
       );
       payload = updatedPayload;
-    } else if (payload?.config?.method === Method.BSS) {
+    }
+    else if (payload?.config?.method === Method.PENNYPAY) {
+      const method = payload.config.method;
+      logger.info(`Processing PennyPay payout for method: ${method}`);
+      const [company] = await getCompanyByIDDao({ id: ids.company_id }, conn);
+      if (!company) throw new NotFoundError('Company not found');
+      const bankId = company.config.PENNY_PAY.defaultBankId;
+      if (!bankId)
+        throw new NotFoundError(`Default bank ID not found for ${method}`);
+      bankDataArr = await getBankByIdDao({ id: bankId });
+      if (!bankDataArr[0])
+        throw new NotFoundError(`Bank not found for ${method} payout`);
+      logger.info(`Creating PennyPay payout with bankId: ${bankId}`);
+     const [vendor] = await getVendorsDao({
+      user_id: bankDataArr[0].user_id,
+    });
+    if (!vendor) {
+      throw new NotFoundError('Vendor not found for PennyPay payout');
+    }
+      const xApiKey = company.config.PENNY_PAY.secretKey;
+      const code = company.config.PENNY_PAY.code;
+      if (!xApiKey || !code) {
+        throw new NotFoundError(
+          `PennyPay configuration missing for ${method} payout`,
+        );
+      }
+      const updatedPayload = await createPennyPayPayout(
+        payload,
+        singleWithdrawData,
+        vendor.id,
+        bankId,
+        'pennyPay',
+        xApiKey,
+        code
+      );
+      payload = updatedPayload;
+    }
+     else if (payload?.config?.method === Method.TRUSTPAY) {
+      const method = payload.config.method;
+      logger.info(`Processing TrustPay payout for method: ${method}`);
+      const [company] = await getCompanyByIDDao({ id: ids.company_id }, conn);
+      if (!company) throw new NotFoundError('Company not found');
+      const bankId = company.config.TRUST_PAY.defaultBankId;
+      if (!bankId)
+        throw new NotFoundError(`Default bank ID not found for ${method}`);
+      bankDataArr = await getBankByIdDao({ id: bankId });
+      if (!bankDataArr[0])
+        throw new NotFoundError(`Bank not found for ${method} payout`);
+       const [vendor] = await getVendorsDao({
+      user_id: bankDataArr[0].user_id,
+    });
+    if (!vendor) {
+      throw new NotFoundError('Vendor not found for TrustPay payout');
+    }
+      logger.info(`Creating TrustPay payout with bankId: ${bankId}`);
+       const xApiKey = company.config.TRUST_PAY.secretKey;
+      const code = company.config.TRUST_PAY.code;
+      if (!xApiKey || !code) {
+        throw new NotFoundError(
+          `Trustpay configuration missing for ${method} payout`,
+        );
+      }
+      const updatedPayload = await createPennyPayPayout(
+        payload,
+        singleWithdrawData,
+        vendor.id,
+        bankId,
+        'trustPay',
+        xApiKey,
+        code
+      );
+      payload = updatedPayload;
+    }
+     else if (payload?.config?.method === Method.PAYBITRA) {
+      const method = payload.config.method;
+      logger.info(`Processing PayBitra payout for method: ${method}`);
+      const [company] = await getCompanyByIDDao({ id: ids.company_id }, conn);
+      if (!company) throw new NotFoundError('Company not found');
+      const bankId = company.config.PAY_BITRA?.defaultBankId;
+      if (!bankId)
+        throw new NotFoundError(`Default bank ID not found for ${method}`);
+      bankDataArr = await getBankByIdDao({ id: bankId });
+      if (!bankDataArr[0])
+        throw new NotFoundError(`Bank not found for ${method} payout`);
+      const [vendor] = await getVendorsDao({
+        user_id: bankDataArr[0].user_id,
+      });
+      if (!vendor) {
+        throw new NotFoundError('Vendor not found for PayBitra payout');
+      }
+      logger.info(`Creating PayBitra payout with bankId: ${bankId}`);
+      const xApiKey = company.config.PAY_BITRA?.secretKey;
+      const code = company.config.PAY_BITRA?.code;
+      if (!xApiKey || !code) {
+        throw new NotFoundError(
+          `PayBitra configuration missing for ${method} payout`,
+        );
+      }
+      const updatedPayload = await createPennyPayPayout(
+        payload,
+        singleWithdrawData,
+        vendor.id,
+        bankId,
+        'payBitra',
+        xApiKey,
+        code
+      );
+      payload = updatedPayload;
+    }
+     else if (payload?.config?.method === Method.PAYCRIC) {
+      const method = payload.config.method;
+      logger.info(`Processing PayCric payout for method: ${method}`);
+      const [company] = await getCompanyByIDDao({ id: ids.company_id }, conn);
+      if (!company) throw new NotFoundError('Company not found');
+      const bankId = company.config.PAY_CRIC?.defaultBankId;
+      if (!bankId)
+        throw new NotFoundError(`Default bank ID not found for ${method}`);
+      bankDataArr = await getBankByIdDao({ id: bankId });
+      if (!bankDataArr[0])
+        throw new NotFoundError(`Bank not found for ${method} payout`);
+      const [vendor] = await getVendorsDao({
+        user_id: bankDataArr[0].user_id,
+      });
+      if (!vendor) {
+        throw new NotFoundError('Vendor not found for PayCric payout');
+      }
+      logger.info(`Creating PayCric payout with bankId: ${bankId}`);
+      const xApiKey = company.config.PAY_CRIC?.secretKey;
+      const code = company.config.PAY_CRIC?.code;
+      if (!xApiKey || !code) {
+        throw new NotFoundError(
+          `PayCric configuration missing for ${method} payout`,
+        );
+      }
+      const updatedPayload = await createPennyPayPayout(
+        payload,
+        singleWithdrawData,
+        vendor.id,
+        bankId,
+        'payCric',
+        xApiKey,
+        code
+      );
+      payload = updatedPayload;
+    }
+    else if (payload?.config?.method === Method.FREECHIPS) {
+      const method = payload.config.method;
+      logger.info(`Processing FREECHIPS payout for method: ${method}`);
+      const [company] = await getCompanyByIDDao({ id: ids.company_id }, conn);
+      if (!company) throw new NotFoundError('Company not found');
+      const bankId = company.config.FREECHIPS?.defaultBankId;
+      if (!bankId)
+        throw new NotFoundError(`Default bank ID not found for ${method}`);
+      bankDataArr = await getBankByIdDao({ id: bankId });
+     const [vendor] = await getVendorsDao({
+        user_id: bankDataArr[0].user_id,
+      });
+      if (!vendor) {
+        throw new NotFoundError('Vendor not found for PayBitra payout');
+      }
+      const updatedPayload = await  createFreechipsPayout(
+        payload,
+        singleWithdrawData,
+        vendor.id,
+        bankId
+      );
+      payload = updatedPayload;
+    }
+     else if (payload?.config?.method === Method.BSS) {
       const method = payload.config.method;
       logger.info(`Processing BSS payout for method: ${method}`);
       const [company] = await getCompanyByIDDao({ id: ids.company_id }, conn);
@@ -1195,11 +1421,71 @@ const _updatePayoutServiceInternal = async (
       );
       payload = updatedPayload;
     }
+    else if (payload?.config?.method === Method.PAYINFINTECH) {
+      const method = payload.config.method;
+
+      const [company] = await getCompanyByIDDao({ id: ids.company_id }, conn);
+      if (!company) throw new NotFoundError('Company not found');
+
+      // Allow if either allowPayInFintech flag is true, or PAYINFINTECH config exists (backward compatibility)
+      if (!(company.config?.allowPayInFintech || company.config?.PAYINFINTECH)) {
+        throw new BadRequestError('PayInFintech is not enabled for this company');
+      }
+
+      const payinfintechConfig = company.config.PAYINFINTECH;
+      if (!payinfintechConfig) {
+        throw new NotFoundError(`PayInFintech configuration not found for company`);
+      }
+
+      const bankId = payinfintechConfig.defaultBankId;
+      if (!bankId)
+        throw new NotFoundError(`Default bank ID not found for ${method}`);
+
+      bankDataArr = await getBankByIdDao({ id: bankId }, conn);
+      if (!bankDataArr[0])
+        throw new NotFoundError(`Bank not found for ${method} payout`);
+
+      payload.config._payinfintechCredentials = {
+        Email: payinfintechConfig.Email,
+        Password: payinfintechConfig.Password,
+      };
+
+      logger.info(`Processing PayInFintech payout with bankId: ${bankId}`);
+      const updatedPayload = await createPayInFintechPayout(
+        payload,
+        ids,
+        singleWithdrawData,
+        bankId,
+      );
+      
+      // Sanitize payload: move top-level txnid and payinfintech_txnid into config
+      // These fields should only exist in the config JSONB field, not as database columns
+      if (updatedPayload.orderId !== undefined) {
+        updatedPayload.config = updatedPayload.config || {};
+        updatedPayload.config.orderId = updatedPayload.orderId;
+        delete updatedPayload.orderId;
+      }
+      if (updatedPayload.txnId !== undefined) {
+        updatedPayload.config = updatedPayload.config || {};
+        updatedPayload.config.txnId = updatedPayload.txnId;
+        delete updatedPayload.txnId;
+      }
+      
+      logger.info('PayInFintech: payload sanitized', {
+        orderId: updatedPayload.config?.orderId,
+        txnId: updatedPayload.config?.txnId,
+      });
+      
+      payload = updatedPayload;
+    }
 
     if (earlyReturnResult !== null) {
       return earlyReturnResult;
     }
 
+    if (payload?.status === Status.REVERSED) {
+      payload.config = {...(payload.config || {}), reversed_at: getISTDateString()};
+    }
     const data = await updatePayoutDao(ids, payload, conn);
     if (data.status == Status.INITIATED) {
       earlyReturnResult = data;
@@ -1227,7 +1513,7 @@ const _updatePayoutServiceInternal = async (
     const notifyUrl = data.config?.urls?.notify || merchant?.payout_notify;
 
     // Early return if not approved
-    if (!data.approved_at && data.status !== Status.PENDING) {
+    if (!data.approved_at && data.status !== Status.PENDING && !data.rejected_at) {
       merchantPayoutCallback(notifyUrl, {
         code: merchant.code,
         merchantOrderId: data.merchant_order_id,
@@ -1322,21 +1608,15 @@ const _updatePayoutServiceInternal = async (
 
       await Promise.all([
         ...calculationUpdates,
-        updateBankaccountDao(
-          { id: bankData.id, company_id: ids.company_id },
-          {
-            payin_count: Number(bankData.payin_count) + 1,
-            today_balance: Number(bankData.today_balance) - Number(data.amount),
-            balance: Number(bankData.balance) - Number(data.amount),
-            is_enabled:
-              bankData?.config?.max_limit <
-              Math.abs(bankData.today_balance) + data.amount
-                ? false
-                : true,
-          },
-          false,
-          conn,
-        ),
+await updateBankAccountBalanceDao(
+  { id: bankData.id, company_id: ids.company_id },
+  {
+    balance: -Number(data.amount),
+    today_balance: -Number(data.amount),
+    payin_count: 1,
+  },
+  conn,
+),
         updatePayoutDao(
           ids,
           {
@@ -1380,20 +1660,6 @@ const _updatePayoutServiceInternal = async (
 
       await Promise.all([
         ...calculationUpdates,
-        updateBankaccountDao(
-          { id: bankData.id, company_id: ids.company_id },
-          {
-            today_balance: Number(bankData.today_balance + data.amount),
-            balance: Number(bankData.balance + data.amount),
-            is_enabled:
-              bankData?.config?.max_limit <
-              Math.abs(bankData.today_balance) + data.amount
-                ? false
-                : true,
-          },
-          false,
-          conn,
-        ),
       ]);
     }
 
@@ -1439,6 +1705,7 @@ const _updatePayoutServiceInternal = async (
       vendor_id: data.vendor_id || null,
       vendor_user_id: vendor?.user_id || null,
       payout_details: data.config || {},
+      slip : data.config?.slip || null,
       updated_at: data.updated_at,
       user_id: vendor?.user_id || null,
       nick_name: bankDataArr?.[0]?.nick_name || null,
@@ -1459,11 +1726,9 @@ const _updatePayoutServiceInternal = async (
     };
 
     // Emit socket event for every payout status update, at the end
-    setImmediate(() => {
-      newTableEntry(tableName.PAYOUT, responseObj).catch((err) =>
-        logger.error('Socket emit failed for payout:', err),
-      );
-    });
+
+    emitTableEntryAsync(tableName.PAYOUT, responseObj)
+    
     // Always emit socket, then return the correct result
     if (earlyReturnResult !== null) {
       return earlyReturnResult;
@@ -1490,6 +1755,102 @@ const updatePayoutService = async (ids, payload, role) => {
       await rollback(conn);
     }
     logger.error('Error in updatePayoutService:', error.message);
+    throw error;
+  } finally {
+    if (conn) {
+      conn.release();
+    }
+  }
+};
+const _markPayoutPendingForUtrSlipMismatchInternal = async (
+  ids,
+  payload,
+  conn,
+) => {
+  try {
+    const singleWithdrawDataArr = await getPayoutsDao(ids);
+    const singleWithdrawData = singleWithdrawDataArr[0];
+    if (!singleWithdrawData) {
+      throw new NotFoundError('Payout not found!');
+    }
+    if(singleWithdrawData.status === Status.APPROVED){
+      throw new BadRequestError('Payout Already Approved');
+    }
+    if(singleWithdrawData.status !== Status.INITIATED && payload.vendor_id === null ){
+      throw new BadRequestError('Payout Already Processed, cannot update vendor');
+    }
+    const bankAccId = payload.bank_acc_id || singleWithdrawData.bank_acc_id;
+    const reason = 'UTR does not match with slip UTR';
+    const updatePayload = {
+      status: Status.IMG_PENDING,
+      updated_by: payload.updated_by,
+      config: {
+        ...(payload.config || {}),
+        reason,
+        utr: payload.utr_id || null,
+        slip_utr: payload.slip_utr || null,
+      },
+    };
+    if (payload.utr_id) {
+      updatePayload.utr_id = payload.utr_id;
+    }
+    if (bankAccId) {
+      updatePayload.bank_acc_id = bankAccId;
+      if (!singleWithdrawData.vendor_id) {
+        const bankDataArr = await getBankByIdDao({ id: bankAccId }, conn);
+        const bankData = bankDataArr[0];
+        if (!bankData) {
+          throw new NotFoundError('Bank not found!');
+        }
+        const vendorArr = await getVendorByIdDao(
+          bankData.user_id,
+          ids.company_id,
+          conn,
+        );
+        const vendor = vendorArr[0];
+        if (!vendor) {
+          throw new NotFoundError('Vendor not found!');
+        }
+        updatePayload.vendor_id = vendor.id;
+      }
+    }
+    const data = await updatePayoutDao(ids, updatePayload, conn);
+
+    const responseObj = {
+      ...data, ...updatePayload, slip: payload?.config?.slip
+    }
+
+    emitTableEntryAsync(tableName.PAYOUT, responseObj)
+
+    return data;
+  } catch (error) {
+    logger.error(
+      'Error in _markPayoutPendingForUtrSlipMismatchInternal:',
+      error,
+    );
+    throw error;
+  }
+};
+
+const markPayoutPendingForUtrSlipMismatchService = async (ids, payload) => {
+  let conn;
+  let committed = false;
+  try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+    const data = await _markPayoutPendingForUtrSlipMismatchInternal(
+      ids,
+      payload,
+      conn,
+    );
+    await commit(conn);
+    committed = true;
+    return data;
+  } catch (error) {
+    if (conn && !committed) {
+      await rollback(conn);
+    }
+    logger.error('Error in markPayoutPendingForUtrSlipMismatchService:', error);
     throw error;
   } finally {
     if (conn) {
@@ -1854,11 +2215,8 @@ const _assignedPayoutServiceInternal = async (
           },
           rejected_at: fullPayout.rejected_at || null,
         };
-        setImmediate(() => {
-          newTableEntry(tableName.PAYOUT, responseObj).catch((err) =>
-            logger.error('Socket emit failed for payout:', err),
-          );
-        });
+
+        emitTableEntryAsync(tableName.PAYOUT, responseObj)
       }
     }
     return data;
@@ -2440,6 +2798,7 @@ export {
   checkPayOutStatusService,
   getPayoutsBySearchService,
   updatePayoutService,
+  markPayoutPendingForUtrSlipMismatchService,
   deletePayoutService,
   assignedPayoutService,
   createTataPayBulkPayoutService,

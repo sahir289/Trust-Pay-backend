@@ -6,6 +6,7 @@ import { logger } from '../utils/logger.js';
 import { generateSign } from '../intent/createOnePayIntentTransaction.js';
 import config from '../config/config.js';
 import { sendSuccess } from '../utils/responseHandlers.js';
+import { getISTDateString } from '../helpers/index.js';
 
 /**
  * Get RupeeFlow API configuration
@@ -31,14 +32,13 @@ export const initiateRunsafePayPayout = async (
   payload,
   company_id,
 ) => {
-  console.log('Initiating runsafe payout with payload:', payload)
 
   const providerConfig = config['runsafe'];
   const payoutNotifyUrl = providerConfig.payoutNotifyUrl;
   const newPayload = {
-    mchId: 3558644692,
+    mchId: providerConfig.mchId,
     txChannel: "TX_INDIA_001",
-    appId: "BSahxNHf56acIa47Xo5KRWM8gbs=",
+    appId: providerConfig.appId,
     timestamp: Date.now(),
     mchOrderNo: payload?.merchant_order_id,
     name: payload?.user_bank_details?.account_holder_name || '',
@@ -60,8 +60,8 @@ export const initiateRunsafePayPayout = async (
 
   try {
     const runsafePayWalletBalance = await getRunsafePayWalletBalance();
-    if (runsafePayWalletBalance.data.balance < newPayload.amount) {
-      throw new BadRequestError(`Insufficient runsafePay wallet balance. Required: ${newPayload.amount}, Available: ${runsafePayWalletBalance.data.balance}`);
+    if (runsafePayWalletBalance?.data?.balance < newPayload.amount) {
+      throw new BadRequestError(`Insufficient runsafePay wallet balance. Required: ${newPayload.amount}, Available: ${runsafePayWalletBalance?.data?.balance}`);
     }
 
     const [company] = await getCompanyByIDDao({ id: company_id });
@@ -100,16 +100,16 @@ export const initiateRunsafePayPayout = async (
  */
 export const getRunsafePayWalletBalance = async (req, res) => {
   try {
-    console.log('Fetching runsafePay wallet balance', req);
-    const body = {
-      mchId: 3558644692,
-      timestamp: Date.now()
-    }
     const providerConfig = config['runsafe'];
+    const body = {
+      mchId: providerConfig.mchId,
+      timestamp: Date.now(),
+    };
     // const [company] = await getCompanyByIDDao({ id: company_id });
-    const sign = generateSign(body , providerConfig.privateKey);    
+    const sign = generateSign(body , providerConfig.privateKey);
     const response = await axios.post(
-      `https://api-in.transafe.co/cashout/balance`,{...body, sign: sign},
+      `${providerConfig.baseUrl}${providerConfig.walletBalance}`,
+      { ...body, sign },
     );
 
     logger.info('runsafePay wallet balance response:', response.data);
@@ -169,9 +169,9 @@ export const createRunsafePayPayout = async (
     let payoutResp;
     if (checkRunsafePay?.data?.orderStatus) {
       // Webhook format - status is already processed
-      statusCode = checkRunsafePay.data.orderStatus;
-      if(checkRunsafePay.data.platOrderNo){   
-        payload.config.txnid = checkRunsafePay.data.platOrderNo;
+      statusCode = checkRunsafePay?.data?.orderStatus;
+      if(checkRunsafePay?.data?.platOrderNo){   
+        payload.config.txnid = checkRunsafePay?.data?.platOrderNo;
       }
 
       logger.info('runsafePay webhook format processed:', {
@@ -181,8 +181,8 @@ export const createRunsafePayPayout = async (
     } else {
       // API response format (new RunsafePay response structure)
       payoutResp = checkRunsafePay?.data || checkRunsafePay;
-      statusCode = checkRunsafePay.data.orderStatus;
-      payload.config.txnid = checkRunsafePay.data.platOrderNo;
+      statusCode = checkRunsafePay?.data?.orderStatus || '';
+      payload.config.txnid = checkRunsafePay?.data?.platOrderNo || '';
 
       logger.info('runsafePay API response parsed:', {
         statusCode,
@@ -195,7 +195,17 @@ export const createRunsafePayPayout = async (
       payload.status = Status.APPROVED;
       payload.utr_id = payload.utr_id || '';
       payload.approved_at = new Date().toISOString();
-    } else {
+    } else if (statusCode === 'FAILED' || statusCode === 'REJECTED' || statusCode === Status.REJECTED) {
+      payload.status = Status.REJECTED;
+      payload.utr_id = payload.utr_id || '';
+      payload.config.rejected_reason =
+      payload.description || 'Transaction failed';
+      payload.rejected_at = new Date().toISOString();
+    } else if (statusCode === 'REVERSED' || statusCode === Status.REVERSED) {
+      payload.status = Status.REVERSED;
+      payload.config.reversed_at = getISTDateString()
+    }
+    else {
       payload.status = Status.PENDING;
     }
     if (payload?.platOrderNo) {

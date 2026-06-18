@@ -7,8 +7,7 @@ import { processPayInWebHookService } from '../payIn/payInService.js';
 import { getBankResponseByUTR } from '../bankResponse/bankResponseDao.js';
 import { Status } from '../../constants/index.js';
 import config from '../../config/config.js';
-
-const processingSet = new Set();
+import { acquireLock, releaseLock } from '../../utils/distributedLock.js';
 
 /**
  * Decrypt AES-256-CBC encrypted data from PayEasy webhook
@@ -50,12 +49,11 @@ export const payEasyWebhook = async (req, res) => {
     const merchantOrderId = body?.orderId;
     utr = body?.utr;
     
-    if (processingSet.has(utr)) {
+    const lockAcquired = await acquireLock(utr, 'payEasy');
+    if (!lockAcquired) {
       logger.warn(`Duplicate concurrent webhook skipped for ${utr} and merchantOrderId ${merchantOrderId}`);
       return;
     }
-
-    processingSet.add(utr);
 
     // status: 'approved' = payment successful, 'rejected' = payment failed
     const isSuccess = body?.status === 'approved';
@@ -66,7 +64,21 @@ export const payEasyWebhook = async (req, res) => {
       amount: Number(body?.amount),
       status: isSuccess ? 'success' : 'failed',
     };
+
+    logger.info(`[PayEasy] Fetching PayIn for merchantOrderId: ${merchantOrderId}`);
     const payIn = await getPayInIntentDao(merchantOrderId);
+
+    if (!payIn) {
+      logger.error(`[PayEasy] PayIn not found for merchantOrderId: ${merchantOrderId}`);
+      return;
+    }
+
+    logger.info(`[PayEasy] PayIn fetched:`, { 
+      merchantOrderId, 
+      status: payIn.status, 
+      bank_acc_id: payIn.bank_acc_id,
+      company_id: payIn.company_id 
+    });
 
     if (payIn.status === Status.SUCCESS) {
       logger.warn(`PayIn already marked as SUCCESS for merchantOrderId ${merchantOrderId} - skipping processing`);
@@ -75,6 +87,7 @@ export const payEasyWebhook = async (req, res) => {
 
     const bankResponsePayload = `${body?.amount} nil ${payload.userSubmittedUtr} ${payIn.bank_acc_id}`;
 
+    logger.info(`[PayEasy] Checking for existing UTR: ${payload.userSubmittedUtr}`);
     const utrAlreadyExist = await getBankResponseByUTR(
       payload.userSubmittedUtr,
     );
@@ -87,7 +100,10 @@ export const payEasyWebhook = async (req, res) => {
       return;
     }
 
+    logger.info(`[PayEasy] UTR check passed, proceeding with processing`);
+
     if (isSuccess) {
+      logger.info(`[PayEasy] Creating bank response for approved transaction`);
       const bankResponse = await createBankResponseWebHookService(
         bankResponsePayload,
         payIn.company_id,
@@ -96,6 +112,7 @@ export const payEasyWebhook = async (req, res) => {
       );
       logger.info('Bank response created:', bankResponse);
     }
+
     logger.info('Calling transactionWrapper for payload', payload);
     const payin = await processPayInWebHookService(
       payload,
@@ -104,10 +121,14 @@ export const payEasyWebhook = async (req, res) => {
 
     logger.info('PayIn processed:', payin);
   } catch (error) {
-    logger.error('payEasy webhook error:', error);
+    logger.error('[PayEasy] Webhook processing error:', {
+      message: error.message,
+      stack: error.stack,
+      utr: utr,
+    });
   } finally {
     if (utr) {
-      processingSet.delete(utr);
+      await releaseLock(utr, 'payEasy');
     }
   }
 };

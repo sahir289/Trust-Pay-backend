@@ -49,6 +49,7 @@ function config(Env) {
     },
     ocr: {
       url: Env?.OCR_URL,
+      payoutUrl: Env?.OCR_PAYOUT_URL,
     },
     redis: {
       url: Env?.REDIS_URL || 'redis://localhost:6379',
@@ -153,6 +154,24 @@ function config(Env) {
       payoutNotifyUrl: Env?.RUNSAFE_PAYOUT_NOTIFY_URL,
       privateKey: Env?.RUNSAFE_PRIVATE_KEY,
       publicKey: Env?.RUNSAFE_PUBLIC_KEY,
+      mchId: Env?.RUNSAFE_MCH_ID,
+      appId: Env?.RUNSAFE_APP_ID,
+    },
+    cps: {
+      url: Env?.CPS_API_URL,
+      NotifyUrl: Env?.CPS_NOTIFY_URL,
+      privateKey: Env?.CPS_PRIVATE_KEY,
+      publicKey: Env?.CPS_PUBLIC_KEY,
+    },
+    tytl : {
+      apiKey: Env.TYTL_API_KEY,
+      secretKey: Env.TTYL_SECRET_KEY,
+      NotifyUrl: Env?.TYTL_NOTIFY_URL,
+      payinUrl : Env?.TYTL_PAYIN_URL,
+    },
+    vertexPay:{
+      url: Env?.VERTEX_API_PAYIN_UPI_INTENT_URL,
+      apiKey: Env?.VERTEX_API_KEY,
     },
     clickrr : {
       baseUrl: Env?.CLICKRR_BASE_API_URL,
@@ -194,6 +213,42 @@ function config(Env) {
       walletBalance: Env?.BSS_WALLET_BALANCE_API_URL,
       apiKey: Env?.BSS03_API_KEY,
       apiSecret: Env?.BSS03_API_SECRET,
+    },
+    albeCollect: {
+      url: Env?.ALBE_COLLECT_API_URL,
+      mid: Env?.ALBE_COLLECT_MID,
+      secretKey: Env?.ALBE_COLLECT_SECRET_KEY,
+    },
+    freechips: {
+      payin_url: Env?.FREECHIPS_PAYIN_URL,
+      secretKey: Env?.FREECHIPS_SECRET_KEY,
+      secretIv: Env?.FREECHIPS_SECRET_IV,
+      secretIvPayout : Env?.FREECHIPS_PAYOUT_SECRET_IV,
+      secretKeyPayout : Env?.FREECHIPS_PAYOUY_SECRET_KEY,
+      secretCodePayout : Env?.FREECHIPS_PAYOUY_SECRET_CODE,
+      secretVendorKeyPayout : Env?.FREECHIPS_PAYOUY_VENDOR_KEY,
+      baseUrl : Env?.FREECHIPS_URL,
+      tpin : 654321
+    },
+    pennyPay: {
+      payoutUrl: Env?.PENNY_PAY_PAYOUT_URL,
+      payinUrl: Env?.PENNY_PAY_PAYIN_URL,
+      walletBalanceUrl: Env?.PENNY_PAY_WALLET_BALANCE_URL,
+    },
+    trustPay: {
+      payoutUrl: Env?.TRUST_PAY_PAYOUT_URL,
+      payinUrl: Env?.TRUST_PAY_PAYIN_URL,
+      walletBalanceUrl: Env?.TRUST_PAY_WALLET_BALANCE_URL,
+    },
+    payBitra: {
+      payoutUrl: Env?.PAY_BITRA_PAYOUT_URL,
+      payinUrl: Env?.PAY_BITRA_PAYIN_URL,
+      walletBalanceUrl: Env?.PAY_BITRA_WALLET_BALANCE_URL,
+    },
+    payCric: {
+      payoutUrl: Env?.PAY_CRIC_PAYOUT_URL,
+      payinUrl: Env?.PAY_CRIC_PAYIN_URL,
+      walletBalanceUrl: Env?.PAY_CRIC_WALLET_BALANCE_URL,
     },
     controllerCacheTtls: {
       auth: {
@@ -307,10 +362,29 @@ function config(Env) {
       payeasyClientId: Env?.PAYEASY_CLIENT_ID,
       encryptionKey: Env?.PAYEASY_ENCRYPTION_KEY
     },
+    payeasy02: {
+      url: Env?.PAYEASY02_API_URL,
+      payeasyClientId: Env?.PAYEASY02_CLIENT_ID,
+      encryptionKey: Env?.PAYEASY02_ENCRYPTION_KEY
+    },
+    payeasy03: {
+      url: Env?.PAYEASY03_API_URL,
+      payeasyClientId: Env?.PAYEASY03_CLIENT_ID,
+      encryptionKey: Env?.PAYEASY03_ENCRYPTION_KEY
+    },
     // reactAppBaseUrl: Env?.REACT_APP_BASE_URL,
     databaseUrl: Env?.DATABASE_URL,
     databaseWriterUrl: Env?.DATABASE_WRITER_URL,
     databaseReaderUrl: Env?.DATABASE_READER_URL,
+    // Optional: comma-separated list of postgresql reader *instance* endpoints
+    // (e.g. "postgresql://...instance-2...,postgresql://...instance-3...").
+    // When provided, the app round-robins SELECTs across each endpoint to
+    // avoid pinning all reader traffic to a single PostgreSQL reader instance.
+    // Falls back to databaseReaderUrl when unset.
+    databaseReaderUrls: (Env?.DATABASE_READER_URLS || '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean),
     accessTokenSecretKey: Env?.ACCESS_TOKEN_SECRET_KEY,
     accessTokenExpireTime: 24 * 60 * 60, // in seconds
     reactFrontOrigin1: Env?.REACT_FRONT_ORIGIN_1,
@@ -331,6 +405,7 @@ function config(Env) {
     telegramBankAlertChatId: Env?.TELEGRAM_BANK_ALERT_CHAT_ID,
     telegramDuplicateDisputeChatId: Env?.TELEGRAM_DISPUTE_DUPLICATE_CHAT_ID,
     telegramCheckUTRHistoryChatId: Env?.TELEGRAM_CHECK_UTR_HISTORY_CHAT_ID,
+    telegramStatementNotUploadNotificationChatId: Env?.TELEGRAM_STATEMENT_NOT_UPLOAD_NOTIFICATION_CHAT_ID,
     telegramOcrBotToken: Env?.TELEGRAM_OCR_BOT_TOKEN,
     telegramCheckUtrBotToken: Env?.TELEGRAM_CHECK_UTR_BOT_TOKEN,
     ekoPaymentsActivateUrl: Env?.EKO_PAYMENTS_ACTIVATE_URL,

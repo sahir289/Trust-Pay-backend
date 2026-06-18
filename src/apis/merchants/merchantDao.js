@@ -48,6 +48,7 @@ export const getMerchantsCodeDao = async (
   includeOnlyMerchants = false,
   excludeDisabledMerchant = false,
   conn = null,
+  allow_intent = null,
 ) => {
   try {
     //includeSubMerchants  convert string to boolean
@@ -56,6 +57,9 @@ export const getMerchantsCodeDao = async (
     }
     if (includeOnlyMerchants) {
       includeOnlyMerchants = includeOnlyMerchants.toLowerCase() === 'true';
+    }
+    if (typeof allow_intent === 'string') {
+      allow_intent = allow_intent.toLowerCase() === 'true';
     }
     let sql = `
       SELECT 
@@ -67,7 +71,7 @@ export const getMerchantsCodeDao = async (
             ? `
               COALESCE(
                 json_agg(
-                  json_build_object(
+                   json_build_object(
                     'label', sm.code,
                     'value', sm.user_id,
                     'merchant_id', sm.id
@@ -96,6 +100,15 @@ export const getMerchantsCodeDao = async (
     `;
     if (excludeDisabledMerchant) {
       sql += ` AND m.is_enabled = TRUE `;
+    }
+    if (allow_intent === true) {
+      sql += ` AND (m.config ->> 'allow_intent')::boolean = TRUE `;
+    } 
+    else if (allow_intent === false) {
+      sql += ` AND (
+        (m.config ->> 'allow_intent') IS NULL OR 
+        (m.config ->> 'allow_intent')::boolean = FALSE
+      ) `;
     }
     const queryParams = [];
     let paramIndex = 1;
@@ -210,17 +223,20 @@ export const getMerchantByUserDao = async (userId, role, conn = null) => {
         "Merchant".is_demo, 
         "Merchant".balance, 
         CASE 
-          WHEN UPPER($2::TEXT) = 'ADMIN' THEN "Merchant".config 
-          ELSE json_build_object(
-            'keys', COALESCE("Merchant".config->'keys', '{}'),
-            'urls', COALESCE("Merchant".config->'urls', '{}')
-          ) 
+          WHEN $2 = 'ADMIN' 
+            THEN (("Merchant".config::jsonb - ARRAY['keys', 'SUCCESSRATIOCHATID'])::json)
+          ELSE 
+            json_build_object(
+            'urls', COALESCE("Merchant".config->'urls', '{}'),
+            'unblocked_countries', COALESCE("Merchant".config->'unblocked_countries', '{}')
+          )
         END AS config,
         creator.user_name AS created_by, 
         updater.user_name AS updated_by, 
         "Merchant".created_at, 
         "Merchant".updated_at, 
-        "User".designation_id, 
+        CASE WHEN $2 = 'ADMIN' THEN "Merchant".company_id ELSE NULL END AS company_id, 
+        CASE WHEN $2 = 'ADMIN' THEN "User".designation_id ELSE NULL END AS designation_id,
         "User".first_name || ' ' || "User".last_name AS full_name, 
         "Designation".designation AS designation_name 
       FROM "Merchant" 
@@ -318,6 +334,36 @@ export const getMerchantForNotifyDao = async (
     throw error;
   }
 };
+export const getMerchantForMigrateDao = async (
+  filters = {},
+  conn = null,
+) => {
+  try {
+    const sql = `
+      SELECT
+        id,
+        user_id,
+        min_payin,
+        max_payin,
+        min_payout,
+        max_payout,
+        payin_commission,
+        payout_commission,
+        code,
+        config
+      FROM "Merchant"
+      WHERE is_obsolete = false
+        AND id = $1
+      LIMIT 1
+    `;
+    const params = [filters.id];
+    const result = await executeQuery(sql, params, conn);
+    return result.rows?.[0] || null;
+  } catch (error) {
+    logger.error('Error in getMerchantForMigrateDao:', error);
+    throw error;
+  }
+};
 
 export const getMerchantsDao = async (
   filters,
@@ -376,6 +422,15 @@ export const getMerchantsDao = async (
           SELECT id FROM "Designation" WHERE designation = 'MERCHANT'
         )
       `;
+    }
+
+    if (filters.active !== undefined) {
+      filters.is_enabled = filters.active === 'true' || filters.active === true;
+      delete filters.active;
+    }
+    if (filters.deleted !== undefined) {
+      filters.is_obsolete = filters.deleted === 'true' || filters.deleted === true;
+      delete filters.deleted;
     }
 
     const [sql, queryParams] = buildSelectQuery(
@@ -461,10 +516,10 @@ export const getMerchantsByCodeDao = async (code, api_key, conn = null) => {
       baseQuery += ` AND "Merchant".code = $1`;
       queryParams = [code.trim()];
     }
-    if (api_key) {
-      queryParams.push(api_key);
-      baseQuery += ` AND ("Merchant".config->'keys'->>'public' = $${queryParams.length} OR "Merchant".config->'keys'->>'private' = $${queryParams.length})`;
-    }
+    // if (api_key) {
+    //   queryParams.push(api_key);
+    //   baseQuery += ` AND ("Merchant".config->'keys'->>'public' = $${queryParams.length} OR "Merchant".config->'keys'->>'private' = $${queryParams.length})`;
+    // }
 
     const result = await executeQuery(baseQuery, queryParams, conn);
     return result.rows;
@@ -523,6 +578,33 @@ export const getMerchantsByCodeAndApiKeyDao = async (
     throw error;
   }
 };
+export const  getMerchantsBalance = async (
+  code,
+  api_key,
+  conn = null,
+) => {
+  try {
+    if (!code || !api_key) return {};
+    const cleanCode = code.trim();
+    const cleanApiKey = api_key.trim();
+    const query = `
+      SELECT 
+        m.user_id
+      FROM "Merchant" m
+      WHERE 
+        m.is_enabled = TRUE
+        AND m.is_obsolete = FALSE
+        AND m.code = $1
+        AND m.config->'keys'->>'private' = $2
+    `;
+    const params = [cleanCode, cleanApiKey];
+    const result = await executeQuery(query, params, conn);
+    return result?.rows[0] ?? {};
+  } catch (error) {
+    logger.error('Error in getMerchantsByCodeAndApiKeyDao:', error);
+    throw error;
+  }
+};
 
 export const getMerchantByCodeDao = async (code, conn = null) => {
   try {
@@ -533,8 +615,7 @@ export const getMerchantByCodeDao = async (code, conn = null) => {
         "Merchant".payin_commission, 
         "Merchant".payout_commission,
         "Merchant".min_payin,
-        "Merchant".max_payin,
-        ("Merchant".config->'keys'->>'public') AS public_key
+        "Merchant".max_payin
       FROM "Merchant" 
     `;
 
@@ -632,6 +713,15 @@ export const getAllMerchantsDao = async (
       `;
     }
 
+    if (filters.active !== undefined) {
+      filters.is_enabled = filters.active === 'true' || filters.active === true;
+      delete filters.active;
+    }
+    if (filters.deleted !== undefined) {
+      filters.is_obsolete = filters.deleted === 'true' || filters.deleted === true;
+      delete filters.deleted;
+    }
+
     const [sql, queryParams] = buildSelectQuery(
       baseQuery,
       filters,
@@ -696,18 +786,20 @@ export const getMerchantsBySearchDao = async (
         "Merchant".dispute_enabled, 
         "Merchant".is_demo, 
         CASE 
-          WHEN $${roleParamIndex} = 'ADMIN' THEN "Merchant".config 
-          ELSE json_build_object(
-            'keys', "Merchant".config->'keys',
-            'urls', "Merchant".config->'urls'
-          ) 
+          WHEN $${roleParamIndex} = 'ADMIN' 
+        THEN (("Merchant".config::jsonb - ARRAY['keys', 'SUCCESSRATIOCHATID'])::json)
+          ELSE 
+        json_build_object(
+          'urls', COALESCE("Merchant".config->'urls', '{}'),
+          'unblocked_countries', COALESCE("Merchant".config->'unblocked_countries', '{}')
+        )
         END AS config,
-        "Merchant".company_id, 
+        CASE WHEN $2 = 'ADMIN' THEN "Merchant".company_id ELSE NULL END AS company_id, 
         creator.user_name AS created_by, 
         updater.user_name AS updated_by, 
         "Merchant".created_at, 
         "Merchant".updated_at, 
-        "User".designation_id, 
+        CASE WHEN $2 = 'ADMIN' THEN "User".designation_id ELSE NULL END AS designation_id,
         "User".first_name || ' ' || "User".last_name AS full_name, 
         "Designation".designation AS designation_name,
         (SELECT net_balance 
@@ -754,6 +846,22 @@ export const getMerchantsBySearchDao = async (
       }
     }
 
+    // Handle active filter (is_enabled)
+    if (filters.active !== undefined) {
+      const activeValue = filters.active === 'true' || filters.active === true;
+      queryText += ` AND "Merchant".is_enabled = $${paramIndex}`;
+      values.push(activeValue);
+      paramIndex += 1;
+    }
+
+    // Handle deleted filter (is_obsolete)
+    if (filters.deleted !== undefined) {
+      const deletedValue = filters.deleted === 'true' || filters.deleted === true;
+      queryText += ` AND "Merchant".is_obsolete = $${paramIndex}`;
+      values.push(deletedValue);
+      paramIndex += 1;
+    }
+
     if (searchTerms.length > 0) {
       for (const term of searchTerms) {
         if (term.toLowerCase() === 'true' || term.toLowerCase() === 'false') {
@@ -787,8 +895,6 @@ export const getMerchantsBySearchDao = async (
         OR LOWER(updater.user_name) LIKE LOWER($${paramIndex})
         OR LOWER("User".first_name || ' ' || "User".last_name) LIKE LOWER($${paramIndex})
         OR LOWER("Designation".designation) LIKE LOWER($${paramIndex})
-        OR LOWER("Merchant".config->'keys'->>'public') LIKE LOWER($${paramIndex})
-        OR LOWER("Merchant".config->'keys'->>'private') LIKE LOWER($${paramIndex})
         OR LOWER("Merchant".config->'urls'->>'site') LIKE LOWER($${paramIndex})
         OR LOWER("Merchant".config->'urls'->>'return') LIKE LOWER($${paramIndex})
         OR LOWER("Merchant".config->'urls'->>'payin_notify') LIKE LOWER($${paramIndex})
@@ -885,6 +991,17 @@ export const updateMerchantDao = async (ids, data, conn = null) => {
     conn,
   );
 };
+
+export const migrateMerchantDao = async (ids, data, conn = null) => {
+  try {
+  const [sql, params] = buildUpdateQuery(tableName.MERCHANT, data, ids);
+    const result = await executeQuery(sql, params, conn);
+    return result;
+} catch (error) {
+    logger.error('Error in migrateMerchantDao:', error)
+    throw error  ;
+}
+}
 
 export const deleteMerchantDao = async (
   ids,

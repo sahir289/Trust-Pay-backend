@@ -10,6 +10,11 @@ import {
 } from '../../utils/db.js';
 import dayjs from 'dayjs';
 import { logger } from '../../utils/logger.js';
+import {
+  generateCacheKey,
+  getCachedData,
+  setCachedData,
+} from '../../utils/redishashkey.js';
 // import {
 //   createPayinInES,
 //   // getPayinsByESSearch,
@@ -75,7 +80,7 @@ export const getPayInwithMerchantDao = async (merchantorderid, conn = null) => {
     FROM "Payin" p
     INNER JOIN "Merchant" m ON p.merchant_id = m.id
     INNER JOIN "Company" c ON p.company_id = c.id
-    WHERE p.merchant_order_id = $1`;
+    WHERE p.merchant_order_id = $1 LIMIT 1`;
 
     const filterArray = Array.isArray(merchantorderid)
       ? merchantorderid
@@ -93,7 +98,7 @@ export const getPayInwithMerchantDao = async (merchantorderid, conn = null) => {
 
 export const getPayInWithMerchantOrderIdDao = async (merchantOrderid, conn = null) => {
   try {
-    const sql = `
+    let sql = `
     SELECT 
       p.id,
       p.merchant_order_id,
@@ -101,6 +106,7 @@ export const getPayInWithMerchantOrderIdDao = async (merchantOrderid, conn = nul
       p.merchant_id
     FROM "Payin" p
     WHERE p.merchant_order_id = $1`;
+    sql += ` ORDER BY "created_at" DESC LIMIT 1`;
     const params = [merchantOrderid];
     const result = await executeQuery(sql, params, conn);
     return result.rows[0];
@@ -279,7 +285,7 @@ export const getPayInForCheckStatusDao = async (filters, conn = null) => {
 
 export const getPayinsForServiccDao = async (filters, conn = null) => {
   try {
-    const [sql, params] = buildSelectQuery(
+    let [sql, params] = buildSelectQuery(
       `SELECT 
         id,
         merchant_order_id,
@@ -304,6 +310,7 @@ export const getPayinsForServiccDao = async (filters, conn = null) => {
        FROM "${tableName.PAYIN}" WHERE is_obsolete = false`,
       filters,
     );
+    sql += ` LIMIT 1`;
     const result = await executeQuery(sql, params, conn);
 
     return result.rows[0];
@@ -316,7 +323,7 @@ export const getPayinsForServiccDao = async (filters, conn = null) => {
   }
 };
 
-export const getPayInForDisputeServiceDao = async (filters = {}, conn = null) => {
+export const getPayInForDisputeServiceDao = async (filters = {}, conn = null, forUpdate = false,) => {
   try {
     const selectColumns = `
       p.id,
@@ -337,10 +344,15 @@ export const getPayInForDisputeServiceDao = async (filters = {}, conn = null) =>
       p.expiration_date
     `;
 
-    const [sql, params] = buildSelectQuery(
+    let [sql, params] = buildSelectQuery(
       `SELECT ${selectColumns} FROM "${tableName.PAYIN}" as p WHERE is_obsolete = false`,
       filters,
     );
+
+    if (forUpdate) {
+      sql += ' FOR UPDATE';
+    }
+
     const result = await executeQuery(sql, params, conn);
     return result.rows[0] || null;
   } catch (error) {
@@ -377,6 +389,35 @@ export const getPayInIntentDao = async (merchantOrderId, conn = null) => {
     return result.rows[0] || [];
   } catch (error) {
     logger.error('Error getting while creating intent link:', error);
+    throw error;
+  }
+};
+export const getPayInByClientRefNoDao = async (clientRefNo, conn = null) => {
+  try {
+    const sql = `
+      SELECT
+        p.id,
+        p.merchant_order_id,
+        p.user,
+        p.merchant_id,
+        p.status,
+        p.created_at,
+        p.amount,
+        p.company_id,
+        p.config,
+        p.bank_acc_id,
+        p.user_submitted_utr,
+        p.is_url_expires,
+        p.expiration_date
+      FROM "${tableName.PAYIN}" p
+      WHERE p.config->>'clientRefNo' = $1
+        AND p.is_obsolete = false
+      LIMIT 1
+    `;
+    const result = await executeQuery(sql, [clientRefNo], conn);
+    return result.rows[0] || null;
+  } catch (error) {
+    logger.error('Error getting PayIn by clientRefNo:', error);
     throw error;
   }
 };
@@ -433,6 +474,80 @@ export const getExpiredPayInsDao = async (expireTime, status, dateField = 'creat
     return result.rows || [];
   } catch (error) {
     logger.error('Error getting expired PayIns:', error);
+    throw error;
+  }
+};
+
+export const getPayInsForCronByDateRangeDao = async (
+  {
+    statuses = [],
+    isNotified,
+    dateField = 'updated_at',
+    startTime,
+    endTime,
+    maxRows,
+  } = {},
+  conn = null,
+) => {
+  try {
+    const normalizedStatuses = Array.isArray(statuses)
+      ? statuses.filter(Boolean)
+      : [statuses].filter(Boolean);
+
+    if (!normalizedStatuses.length) {
+      return [];
+    }
+
+    if (!startTime || !endTime) {
+      throw new Error('startTime and endTime are required for cron date range query');
+    }
+
+    const allowedDateFields = new Set(['created_at', 'updated_at']);
+    const safeDateField = allowedDateFields.has(dateField) ? dateField : 'updated_at';
+
+    const selectColumns = `
+      id,
+      merchant_order_id,
+      status,
+      is_notified,
+      amount,
+      user_submitted_utr,
+      config,
+      created_at,
+      updated_at
+    `;
+
+    const parsedMaxRows = Number.parseInt(maxRows, 10);
+    const safeMaxRows = Number.isFinite(parsedMaxRows) && parsedMaxRows > 0
+      ? parsedMaxRows
+      : null;
+
+    const params = [normalizedStatuses, startTime, endTime];
+    let sql = `
+      SELECT ${selectColumns}
+      FROM "${tableName.PAYIN}"
+      WHERE is_obsolete = false
+        AND status = ANY($1)
+        AND ${safeDateField} >= $2
+        AND ${safeDateField} <= $3
+    `;
+
+    if (isNotified !== undefined) {
+      params.push(isNotified);
+      sql += ` AND is_notified = $${params.length}`;
+    }
+
+    sql += ` ORDER BY ${safeDateField} DESC`;
+
+    if (safeMaxRows) {
+      params.push(safeMaxRows);
+      sql += ` LIMIT $${params.length}`;
+    }
+
+    const result = await executeQuery(sql, params, conn);
+    return result.rows || [];
+  } catch (error) {
+    logger.error('Error getting PayIns for cron by date range:', error);
     throw error;
   }
 };
@@ -1232,9 +1347,23 @@ export const getPayinsWithoutHistoryDao = async (
     //   return data;
     // }
     
+    // Conditions: every WHERE clause (including ones previously appended
+    // directly to queryText). Storing them in one array lets us reuse the
+    // exact same WHERE for both the data query and a slim COUNT.
     const conditions = [`p.is_obsolete = false`, `p.company_id = $1`];
     const queryParams = [filters.company_id];
+    // company_id is already locked into queryParams[0]; remove from filters
+    // so the generic filter loop below does NOT re-append a redundant
+    // `p.company_id = $N` to the WHERE clause.
+    delete filters.company_id;
     let paramIndex = 2;
+    // Track which JOINs the WHERE clause depends on so the COUNT can skip
+    // joins that are purely cosmetic for the SELECT projection.
+    // BankAccount/Vendor joins are 1-to-1 in our schema (BankAccount PK,
+    // Vendor.user_id is unique per vendor row), so omitting them when no
+    // filter references them does NOT change the row count.
+    const countNeedsBank = { value: false };
+    const countNeedsVendor = { value: false };
     const validColumns = new Set([
       'id',
       'sno',
@@ -1268,7 +1397,7 @@ export const getPayinsWithoutHistoryDao = async (
         p.merchant_order_id,
         p.user,
         p.is_notified,
-        p.config AS payin_details,
+        (p.config::jsonb - 'assigned_bank') AS payin_details,
         json_build_object(
           'merchant_code', m.code,
           'dispute', m.dispute_enabled,
@@ -1278,6 +1407,7 @@ export const getPayinsWithoutHistoryDao = async (
     } else if (role === 'VENDOR') {
       commissionSelect = `
         p.payin_vendor_commission,
+        p.config->'assigned_bank'->>'upi_id' AS upi_id,
         COALESCE((p.config->>'actual_vendor_commission')::numeric, 0) AS actual_vendor_commission,
         COALESCE((p.config->>'brokerage_commission')::numeric, 0) AS brokerage_commission,
         v.code AS vendor_code`;
@@ -1291,6 +1421,7 @@ export const getPayinsWithoutHistoryDao = async (
           'notify_url', m.config->>'notify_url'
         ) AS merchant_details,
         p.merchant_order_id,
+        p.config->'assigned_bank'->>'upi_id' AS upi_id,
         p.config AS payin_details,
         p.payin_vendor_commission,
         COALESCE((p.config->>'actual_vendor_commission')::numeric, 0) AS actual_vendor_commission,
@@ -1307,6 +1438,7 @@ export const getPayinsWithoutHistoryDao = async (
         p.created_at,
         p.updated_at`;
     } else {
+      
       commissionSelect = `
         p.payin_merchant_commission,
         json_build_object(
@@ -1407,10 +1539,18 @@ export const getPayinsWithoutHistoryDao = async (
 
     if (filters.status) {
       const statusArray = filters.status.split(',').map((s) => s.trim());
-      queryText += ` AND p.status IN (${statusArray.map((_, i) => `$${paramIndex + i}`).join(', ')})`;
+      conditions.push(
+        `p.status IN (${statusArray.map((_, i) => `$${paramIndex + i}`).join(', ')})`,
+      );
       queryParams.push(...statusArray);
       paramIndex += statusArray.length;
       delete filters.status;
+    }
+    if(filters.upi_id){
+      conditions.push(`p.config->'assigned_bank'->>'upi_id' = $${paramIndex}`);
+      queryParams.push(filters.upi_id.trim());
+      paramIndex++;
+      delete filters.upi_id;
     }
     if (filters.user_submitted_utr && filters.user_submitted_utr.trim()) {
       conditions.push(`
@@ -1427,15 +1567,21 @@ export const getPayinsWithoutHistoryDao = async (
     }
     if (filters.user_ids) {
       const userArray = filters.user_ids.split(',').map((s) => s.trim());
-      queryText += ` AND v.user_id IN (${userArray.map((_, i) => `$${paramIndex + i}`).join(', ')})`;
+      conditions.push(
+        `v.user_id IN (${userArray.map((_, i) => `$${paramIndex + i}`).join(', ')})`,
+      );
       queryParams.push(...userArray);
       paramIndex += userArray.length;
+      // Vendor JOIN drives this filter; Vendor JOIN requires BankAccount.
+      countNeedsVendor.value = true;
+      countNeedsBank.value = true;
       delete filters.user_ids;
     }
     if (filters.nick_name) {
       conditions.push(`b.nick_name = $${paramIndex}`);
       queryParams.push(filters.nick_name.trim());
       paramIndex++;
+      countNeedsBank.value = true;
       delete filters.nick_name;
     }
     if (filters.updated_at) {
@@ -1502,7 +1648,29 @@ export const getPayinsWithoutHistoryDao = async (
       queryText += ' AND (' + conditions.slice(2).join(' AND ') + ')';
     }
 
-    const countQuery = `SELECT COUNT(*) AS total FROM (${queryText}) AS count_table`;
+    // Slim COUNT: build a fresh, projection-free query that only includes
+    // the JOINs actually referenced by the WHERE clause.
+    // - Old version wrapped the full data query (including every
+    //   json_build_object and all 6 LEFT JOINs) in `SELECT COUNT(*) FROM (...)`.
+    // - New version selects COUNT(*) directly from "Payin" and only joins
+    //   "BankAccount"/"Vendor" when a filter references them.
+    // Merchant/BankResponse/User joins are SELECT-only (used solely for
+    // building the response payload), so they're omitted from COUNT.
+    let countJoins = '';
+    if (countNeedsBank.value) {
+      countJoins +=
+        '\n      LEFT JOIN public."BankAccount" b ON p.bank_acc_id = b.id';
+    }
+    if (countNeedsVendor.value) {
+      countJoins +=
+        '\n      LEFT JOIN public."Vendor" v ON v.user_id = b.user_id';
+    }
+    const countQuery = `
+      SELECT COUNT(*) AS total
+      FROM public."Payin" p${countJoins}
+      WHERE ${conditions.join(' AND ')}
+    `;
+
     queryText += `
       ORDER BY p.created_at DESC
       LIMIT $${queryParams.length + 1}
@@ -1510,14 +1678,60 @@ export const getPayinsWithoutHistoryDao = async (
     `;
     queryParams.push(limitNum, offset);
 
-    const countResult = await executeQuery(
-      countQuery,
-      queryParams.slice(0, -2),
-      conn
+    // Run COUNT and data query in parallel on the reader replica.
+    // Previously these ran sequentially, doubling the wall time and
+    // holding a reader connection for the sum of both query durations.
+    const countParams = queryParams.slice(0, -2);
+
+    // Cache COUNT in Redis for a short window. Pagination UIs hit the same
+    // count repeatedly while the user clicks through pages -- there's no
+    // reason to re-run the expensive count query each time. Key is derived
+    // from the count SQL + its params, so any filter change busts the cache.
+    // TTL is intentionally short so newly created Payins still surface
+    // promptly in the total.
+    const countCacheTtl =
+      parseInt(process.env.PAYIN_COUNT_CACHE_TTL_SEC, 10) || 60;
+    const countCacheKey = generateCacheKey(
+      { q: countQuery, p: countParams },
+      'payin:count',
     );
-    let searchResult = await executeQuery(queryText, queryParams, conn);
-    const totalItems = parseInt(countResult.rows[0].total);
-    let totalPages = Math.ceil(totalItems / limitNum);
+
+    const countPromise = (async () => {
+      const cached = await getCachedData(countCacheKey, 'PayIn count cache');
+      if (cached !== null && cached !== undefined) {
+        return { total: cached, fromCache: true };
+      }
+      try {
+        const res = await executeQuery(countQuery, countParams, conn);
+        const total = parseInt(res.rows[0].total, 10);
+        // Fire-and-forget cache write; don't await to avoid extending the
+        // request's hold on the reader connection.
+        setCachedData(
+          countCacheKey,
+          total,
+          countCacheTtl,
+          'PayIn count cache',
+        ).catch(() => {});
+        return { total, fromCache: false };
+      } catch (countErr) {
+        // COUNT failures (e.g. statement_timeout on a heavy join) should not
+        // fail the whole request -- the data rows are usually what the user
+        // wants. Return null total; UI can show "" or hide page counter.
+        logger.warn(
+          `PayIn count query failed, returning rows without total: ${countErr.message}`,
+        );
+        return { total: null, fromCache: false };
+      }
+    })();
+
+    const [countMeta, searchResultInitial] = await Promise.all([
+      countPromise,
+      executeQuery(queryText, queryParams, conn),
+    ]);
+    let searchResult = searchResultInitial;
+    const totalItems = countMeta.total;
+    let totalPages =
+      totalItems !== null ? Math.ceil(totalItems / limitNum) : null;
 
     if (totalItems > 0 && searchResult.rows.length === 0 && offset > 0) {
       queryParams[queryParams.length - 1] = 0;
@@ -1597,7 +1811,7 @@ export const getPayinsWithHistoryDao = async (
         p.merchant_order_id,
         p.user,
         p.is_notified,
-        p.config AS payin_details,
+        (p.config::jsonb - 'assigned_bank') AS payin_details,
         json_build_object(
           'merchant_code', m.code,
           'dispute', m.dispute_enabled,
@@ -1607,6 +1821,7 @@ export const getPayinsWithHistoryDao = async (
     } else if (role === 'VENDOR') {
       commissionSelect = `
         p.payin_vendor_commission,
+        p.config->'assigned_bank'->>'upi_id' AS upi_id,
         COALESCE((p.config->>'actual_vendor_commission')::numeric, 0) AS actual_vendor_commission,
         COALESCE((p.config->>'brokerage_commission')::numeric, 0) AS brokerage_commission,
         v.code AS vendor_code`;
@@ -1620,6 +1835,7 @@ export const getPayinsWithHistoryDao = async (
           'notify_url', m.config->>'notify_url'
         ) AS merchant_details,
         p.merchant_order_id,
+        p.config->'assigned_bank'->>'upi_id' AS upi_id,
         p.config AS payin_details,
         p.payin_vendor_commission,
         COALESCE((p.config->>'actual_vendor_commission')::numeric, 0) AS actual_vendor_commission,
@@ -1767,6 +1983,12 @@ export const getPayinsWithHistoryDao = async (
       paramIndex += statusArray.length;
       delete filters.status;
     }
+     if(filters.upi_id){
+      conditions.push(`p.config->'assigned_bank'->>'upi_id' = $${paramIndex}`);
+      queryParams.push(filters.upi_id.trim());
+      paramIndex++;
+      delete filters.upi_id;
+    }
     if (filters.user_submitted_utr && filters.user_submitted_utr.trim()) {
       conditions.push(`
         (
@@ -1895,6 +2117,23 @@ export const getPayinsWithHistoryDao = async (
 };
 export const getPayinsSumAndCountByStatusDao = async (filters, conn = null) => {
   try {
+    // Cache today's per-status sum/count. The summary view is called on
+    // every page change in the UI even though the numbers move slowly --
+    // serving it from Redis for ~60s removes a heavy aggregation from the
+    // reader pool's critical path.
+    const summaryCacheTtl =
+      Number.parseInt(process.env.PAYIN_SUMMARY_CACHE_TTL_SEC, 10) || 60;
+    const summaryCacheKey = generateCacheKey(
+      { company_id: filters.company_id },
+      'payin:summary',
+    );
+    const cachedSummary = await getCachedData(
+      summaryCacheKey,
+      'PayIn summary cache',
+    );
+    if (cachedSummary) {
+      return cachedSummary;
+    }
 
     const queryParams = [filters.company_id];
 
@@ -1946,7 +2185,16 @@ export const getPayinsSumAndCountByStatusDao = async (filters, conn = null) => {
       totalCount: Number.parseInt(row.total_count, 10) || 0,
     }));
 
-    return { results };
+    const payload = { results };
+    // Fire-and-forget cache write so we don't extend the request's hold
+    // on the reader connection.
+    setCachedData(
+      summaryCacheKey,
+      payload,
+      summaryCacheTtl,
+      'PayIn summary cache',
+    ).catch(() => {});
+    return payload;
   } catch (error) {
     logger.error('Error in getPayinsSumAndCountByStatusDao:', error);
     throw error;

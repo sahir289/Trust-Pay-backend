@@ -16,11 +16,16 @@ import {
   getCachedData,
   setCachedData,
 } from '../utils/redishashkey.js';
+import { enforce2FAMiddleware } from './enforce2FA.js';
 
 const logoutSet = new Set();
 
-const applyAuthenticatedSession = (req, decoded, sessionId) => {
-  req.user = decoded;
+const applyAuthenticatedSession = (req, decoded, sessionId, isTwoFactorEnabled, isTwoFactorExempt) => {
+  req.user = { 
+    ...decoded, 
+    is_two_factor_enabled: isTwoFactorEnabled,
+    is_two_factor_exempt: isTwoFactorExempt 
+  };
   req.sessionId = sessionId;
 };
 
@@ -49,8 +54,19 @@ const isAuthenticated = async (req, res, next) => {
       'Auth session cache',
     );
     if (cachedSession?.session_id === decoded.session_id) {
-      applyAuthenticatedSession(req, decoded, cachedSession.session_id);
-      return next();
+      applyAuthenticatedSession(
+        req, 
+        decoded, 
+        cachedSession.session_id, 
+        cachedSession.is_two_factor_enabled,
+        cachedSession.is_two_factor_exempt
+      );
+      
+      // APPLY 2FA ENFORCEMENT FOR CACHED SESSIONS
+      return enforce2FAMiddleware(req, res, (err) => {
+        if (err) return next(err);
+        next();
+      });
     }
 
     // Additional check: Verify session exists and is active in database
@@ -71,12 +87,28 @@ const isAuthenticated = async (req, res, next) => {
       // Session exists, proceed
       await setCachedData(
         sessionCacheKey,
-        { session_id: activeSession.session_id },
+        { 
+          session_id: activeSession.session_id,
+          is_two_factor_enabled: activeSession.is_two_factor_enabled,
+          is_two_factor_exempt: activeSession.is_two_factor_exempt
+        },
         AUTH_SESSION_CACHE_TTL_SEC,
         'Auth session cache',
       );
-      applyAuthenticatedSession(req, decoded, activeSession.session_id);
-      return next();
+      applyAuthenticatedSession(
+        req, 
+        decoded, 
+        activeSession.session_id, 
+        activeSession.is_two_factor_enabled,
+        activeSession.is_two_factor_exempt
+      );
+      
+      // APPLY 2FA ENFORCEMENT HERE
+      await enforce2FAMiddleware(req, res, (err) => {
+        if (err) return next(err);
+        next();
+      });
+
     } catch (dbError) {
       logger.error('Database session validation error:', dbError);
 

@@ -187,27 +187,30 @@ export const createPayAssistPayout = async (
 
     // Status handling based on PayAssist response
     const errorCode = checkPayAssist?.ErrorCode;
+    let statuscode = checkPayAssist?.Response?.statuscode
     payload.config.txnid = checkPayAssist?.Response?.txnid || '';
     if (!errorCode) {
       payload.status = Status.PENDING;
-    } else if (errorCode === '0') {
+    } else if (errorCode === '0' && statuscode === 'TXN') {
       payload.status = Status.APPROVED;
       payload.utr_id =
         checkPayAssist?.Response?.refno || checkPayAssist?.Response?.utr || '';
       payload.approved_at = new Date().toISOString();
-    } else if (errorCode === 'TUP') {
+    } else if (errorCode === '0' && statuscode === 'TUP') {
       payload.status = Status.PENDING;
+    } else if(errorCode === '1' && statuscode === 'TXF'){
+      payload.status = Status.REJECTED;
+      payload.config.rejected_reason =
+        checkPayAssist?.Response?.message ||
+        payAssistErrorCodeMap[checkPayAssist?.Response?.statusCode] ||
+        'Server Unreachable';
+      payload.rejected_at = new Date().toISOString();
     } else {
       if (checkPayAssist?.Response?.status === Status.REVERSED) {
         payload.status = Status.REVERSED;
         payload.rejected_at = new Date().toISOString();
       } else {
-        payload.status = Status.REJECTED;
-        payload.config.rejected_reason =
-          checkPayAssist?.Response?.message ||
-          payAssistErrorCodeMap[checkPayAssist?.Response?.statusCode] ||
-          'Server Unreachable';
-        payload.rejected_at = new Date().toISOString();
+      payload.status = Status.PENDING;
       }
     }
 

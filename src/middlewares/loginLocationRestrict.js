@@ -45,13 +45,13 @@ export const getClientIp = (req) => {
 const createGeoGuard = (options = {}) => {
   const {
     // maxAccuracy = 100,
-    restrictVpnForRoles = ['VENDOR'],
+    // restrictVpnForRoles = ['VENDOR'],
     blockedCountries = [],
     roleRegionRules = {},
     defaultLocation = { latitude: 0, longitude: 0, accuracy: 1000 }, // Default fallback location
   } = { ...config.geoGuard, ...options };
 
-  const vpnRolesSet = new Set(restrictVpnForRoles.map((r) => r.toUpperCase()));
+  // const vpnRolesSet = new Set(restrictVpnForRoles.map((r) => r.toUpperCase()));
   const blockedCountrySet = new Set(
     blockedCountries.map((c) => c.toLowerCase()),
   );
@@ -62,7 +62,7 @@ const createGeoGuard = (options = {}) => {
       let location = req.body?.user_location;
       let prefetchedProxyInfo = null;
 
-      if ((!location && vpnRolesSet.has('VENDOR')) || typeof location !== 'object') {
+      if ((!location) || typeof location !== 'object') {
         logger.warn('Location not provided, attempting to fetch from Proxy/VPN service', { ip: clientIp });
         prefetchedProxyInfo = await withTimeout(
           checkProxyAndVpn(clientIp),
@@ -157,14 +157,14 @@ const createGeoGuard = (options = {}) => {
       if (proxyInfo) {
         const { isVpn, country, region } = proxyInfo;
 
-        if (isVpn && vpnRolesSet.has(userRole)) {
+        if (isVpn) {
           logger.warn('VPN/Proxy blocked', {
             ip: clientIp,
             username: req.body.username,
             role: userRole,
           });
           return next( new BadRequestError(
-            'VPN or proxy usage is not allowed for your account type.',
+            'VPN or proxy usage is not allowed. Please disable VPN/proxy and try again.',
           ));
         }
 

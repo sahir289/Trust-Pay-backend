@@ -107,7 +107,7 @@ export const silkPayTransactionStatusCallback = async (req, res) => {
       }
       logger.info('Final update payload for payout:', updatePayload);
       // const data = await _updatePayoutServiceInternal(ids, payload, role, conn);
-      await _updatePayoutServiceInternal(
+    await updatePayoutService(
         {
           id: singleWithdrawData.id,
           company_id: singleWithdrawData.company_id,

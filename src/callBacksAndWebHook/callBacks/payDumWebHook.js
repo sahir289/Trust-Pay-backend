@@ -1,7 +1,11 @@
+// Import required functions and classes
 import { getBankByIdDao } from '../../apis/bankAccounts/bankaccountDao.js';
+// import { getMerchantsDao } from '../../apis/merchants/merchantDao.js';
 import { getPayoutsDao } from '../../apis/payOut/payOutDao.js';
+// import { merchantPayoutCallback } from '../merchantCallBacks.js';
 import { payAssistErrorCodeMap, Role, Status } from '../../constants/index.js';
 import { logger } from '../../utils/logger.js';
+// import axios from 'axios';
 import { getCompanyByIDDao } from '../../apis/company/companyDao.js';
 import { getVendorsDao } from '../../apis/vendors/vendorDao.js';
 import { updatePayoutService } from '../../apis/payOut/payOutService.js';
@@ -11,6 +15,7 @@ import { getUserByCompanyCreatedAtDao } from '../../apis/users/userDao.js';
 export const payDumTransactionStatusCallback = async (req, res) => {
   const payload = req.body;
   const apitxnid = payload?.Response?.apitxnid;
+  logger.info('Webhook received paydum payload ', payload)
 
   try {
     if (!apitxnid || apitxnid === '') {
@@ -31,10 +36,10 @@ export const payDumTransactionStatusCallback = async (req, res) => {
       singleWithdrawData.utr_id === payload.Response?.utr
     ) {
       logger.info('Payout already processed', {
-        payoutId: singleWithdrawData.id,
-        status: singleWithdrawData.status,
+        payoutId: singleWithdrawData?.id,
+        status: singleWithdrawData?.status,
       });
-      return res.status(200).send('Payout already processed');
+      return
     }
 
     const [company] = await getCompanyByIDDao({
@@ -116,19 +121,17 @@ export const payDumTransactionStatusCallback = async (req, res) => {
 
     // Handle response based on ErrorCode
     let errorCode = payload.ErrorCode;
+    let statuscode = payload?.Response?.statuscode
 
     if (errorCode) {
-      if (errorCode === '0') {
+      if (errorCode === '0' && statuscode === 'TXN') {
         await handlePayoutUpdate(payload, true);
-      } else if (errorCode === 'TUP') {
+      } else if (errorCode === '0' && statuscode === 'TUP') {
         await handlePayoutUpdate(payload, false, true);
-      } else if (errorCode !== 'TUP' && errorCode !== '0') {
-        if (singleWithdrawData.status === Status.APPROVED) {
-          await handlePayoutUpdate(payload, false, false, true);
-        } else {
-          await handlePayoutUpdate(payload, false);
-        }
+      } else if (errorCode === '1' && statuscode === 'TXF') {
+        await handlePayoutUpdate(payload, false);
       } else {
+        logger.error("Paydum payout callback error", payload.ErrorMessage)
         return res.status(400).send(payload.ErrorMessage);
       }
     }
@@ -137,7 +140,7 @@ export const payDumTransactionStatusCallback = async (req, res) => {
     logger.info('Payout Updated by PayDum callback', {
       status: singleWithdrawData.status,
     });
-    
+
     return res.status(200).send('Payout Updated Successfully');
   } catch (err) {
     // Log any errors while updating the payout

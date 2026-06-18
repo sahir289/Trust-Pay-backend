@@ -1,4 +1,5 @@
 import { logger } from '../logger.js';
+import { newTableEntry } from './publicApi.js';
 import {
   getSocketLoginTime,
   getSocketSessionId,
@@ -60,7 +61,10 @@ const emitForcedLogoutEvents = (
 
   if (emitLegacyEvents) {
     socket.emit('newLogin', payload.userId);
-    socket.emit('newlogout', payload.userId);
+    socket.emit('newlogout', {
+      userId: payload.userId,
+      sessionId: payload.sessionId,
+    });
   }
 };
 
@@ -93,10 +97,17 @@ const terminateSocketSession = (
   }
 };
 
+const emitTableEntryAsync = (table, payload) => {
+  void newTableEntry(table, payload).catch((error) => {
+    logger.error(`Failed to emit socket table entry for ${table}:`, error);
+  });
+};
+
 export {
   disconnectSocketSafely,
   emitForcedLogoutEvents,
   getMostRecentSessionId,
   groupSocketsBySessionId,
   terminateSocketSession,
+  emitTableEntryAsync
 };

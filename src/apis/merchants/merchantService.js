@@ -18,6 +18,8 @@ import {
   getMerchantsCodeDao,
   getMerchantsDao,
   updateMerchantDao,
+  getMerchantForMigrateDao,
+  migrateMerchantDao
 } from './merchantDao.js';
 import {
   createUserHierarchyDao,
@@ -40,6 +42,8 @@ import {
 import { deleteUserDao } from '../users/userDao.js';
 import { getSessionByUserIdDao } from '../auth/authDao.js';
 import { forceLogoutUser } from '../../utils/sockets.js';
+import { generateUUID } from '../../utils/generateUUID.js';
+import { getLatestNetBalanceByMerchantUserIdDao } from '../walletBalance/walletBalanceDao.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 // Create Merchant Service
 
@@ -326,6 +330,7 @@ const getMerchantsServiceCode = async (
   includeSubMerchants,
   includeOnlyMerchants,
   excludeDisabledMerchant,
+  allow_intent
 ) => {
   try {
     let userIdFilter = Array.isArray(user_id)
@@ -378,6 +383,8 @@ const getMerchantsServiceCode = async (
       includeSubMerchants,
       includeOnlyMerchants,
       excludeDisabledMerchant,
+      null,
+      allow_intent
     );
     return codes;
   } catch (error) {
@@ -425,6 +432,70 @@ const updateMerchantService = async (ids, payload) => {
   } catch (error) {
     logger.error('Error while updating merchant', error);
     throw error;
+  }
+};
+const migrateMerchantService = async (ids) => {
+  let conn;
+  let committed = false;
+  try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+    const sourceData = await getMerchantForMigrateDao({id:ids.source_merchant_id},conn);
+    const targetData = await getMerchantForMigrateDao({id:ids.target_merchant_id},conn);
+    const targetCalculation = await getLatestNetBalanceByMerchantUserIdDao(targetData.user_id, conn);
+    if (targetCalculation && targetCalculation !== 0) {
+  throw new BadRequestError(
+    'Cannot migrate. Please ensure the target merchant net balance is zero.'
+  );
+}
+    if(!targetData || targetData.length === 0){
+      throw new NotFoundError('Target Merchant not found');
+    }
+    if(!sourceData || sourceData.length === 0){
+      throw new NotFoundError('Source Merchant not found');
+    }
+    const targetConfig = JSON.parse(
+      JSON.stringify(sourceData.config),
+    );
+    const sourceConfig = JSON.parse(
+      JSON.stringify(sourceData.config),
+    );
+    sourceConfig.keys = {
+      public: generateUUID(),
+      private: generateUUID(),
+    };
+    await migrateMerchantDao({id:ids.source_merchant_id},{
+      code: sourceData.code + '_migrated',
+      config: sourceConfig,
+      updated_by: ids.updated_by,
+    },conn);
+    await migrateMerchantDao({id:ids.target_merchant_id},{
+      min_payin: sourceData.min_payin,
+      max_payin: sourceData.max_payin,
+      min_payout: sourceData.min_payout,
+      max_payout: sourceData.max_payout,
+      payin_commission: sourceData.payin_commission,
+      payout_commission: sourceData.payout_commission,
+      code: sourceData.code,
+      config: targetConfig,
+      updated_by: ids.updated_by,
+    },conn);
+    await commit(conn);
+    committed = true;
+    logger.log('Merchant migrated successfully');
+    return {
+      source_merchant_id: ids.source_merchant_id,
+      target_merchant_id: ids.target_merchant_id,
+    };
+  } catch (error) {
+     if (conn && !committed) {
+      await rollback(conn); 
+    }
+    logger.error('Error in migratemerchantservice', error);
+    throw error;
+  }
+  finally {
+    if (conn) conn.release();
   }
 };
 
@@ -685,4 +756,5 @@ export {
   getMerchantByIdService,
   getMerchantsServiceCode,
   getMerchantsByCodeService,
+  migrateMerchantService
 };

@@ -282,11 +282,17 @@ const getPayOutMerchantReportDao = async (
       if (status && Array.isArray(status) && status.length > 0) {
         const conditions = [];
         if (
-          status.includes(Status.APPROVED) ||
-          status.includes(Status.REVERSED)
+          status.includes(Status.APPROVED)
         ) {
           conditions.push(
             `(po.status IN ('${Status.APPROVED}', '${Status.REVERSED}') AND po.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1})`,
+          );
+        }
+        if (
+          status.includes(Status.REVERSED)
+        ) {
+          conditions.push(
+            `(po.status = '${Status.REVERSED}' AND (to_timestamp(po.config->>'reversed_at', 'DD-MM-YYYY HH12:MI:SS AM') BETWEEN $${paramIndex} AND $${paramIndex + 1}) AND po.approved_at IS NOT NULL)`,
           );
         }
         if (status.includes(Status.REJECTED)) {
@@ -310,6 +316,8 @@ const getPayOutMerchantReportDao = async (
       } else {
         query += ` AND (
           (po.status IN ('${Status.APPROVED}', '${Status.REVERSED}') AND po.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1})
+          OR
+          (po.status = '${Status.REVERSED}' AND (to_timestamp(po.config->>'reversed_at', 'DD-MM-YYYY HH12:MI:SS AM') BETWEEN $${paramIndex} AND $${paramIndex + 1}) AND po.approved_at IS NOT NULL)
           OR
           (po.status = '${Status.REJECTED}' AND po.rejected_at BETWEEN $${paramIndex} AND $${paramIndex + 1})
           OR
@@ -423,10 +431,17 @@ const getPayOutVendorReportDao = async (
       if (status && Array.isArray(status) && status.length > 0) {
         const conditions = [];
         if (
-          status.some((s) => [Status.APPROVED, Status.REVERSED].includes(s))
+          status.some((s) => [Status.APPROVED].includes(s))
         ) {
           conditions.push(
             `(po.status IN ('${Status.APPROVED}', '${Status.REVERSED}') AND po.approved_at BETWEEN $${paramIndex} AND $${paramIndex + 1})`,
+          );
+        }
+        if (
+          status.some((s) => [Status.REVERSED].includes(s))
+        ) {
+          conditions.push(
+            `(po.status = '${Status.REVERSED}' AND (to_timestamp(po.config->>'reversed_at', 'DD-MM-YYYY HH12:MI:SS AM') BETWEEN $${paramIndex} AND $${paramIndex + 1}) AND po.approved_at IS NOT NULL)`,
           );
         }
         if (status.includes(Status.REJECTED)) {
@@ -568,7 +583,7 @@ const getMerchantReportDao = async (
         c.total_reverse_payout_amount,
         c.total_reverse_payout_commission, 
         c.total_adjustment_amount,  
-        c.company_id,
+        ${role === Role.ADMIN ? 'c.company_id,' : ''}
         m.code
         ${role === Role.ADMIN ? ", m.config->>'gm_code' AS gm_code, m.user_id AS merchant_user_id" : ''}
         ${role === Role.ADMIN ? ", m.config->>'gm_code' AS gm_code, m.user_id AS merchant_user_id" : ''}

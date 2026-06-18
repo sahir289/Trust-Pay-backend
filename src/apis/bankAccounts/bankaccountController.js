@@ -1,9 +1,9 @@
-import {
-  columns,
-  merchantColumns,
-  Role,
-  vendorColumns,
-} from '../../constants/index.js';
+// import {
+//   columns,
+//   merchantColumns,
+//   Role,
+//   vendorColumns,
+// } from '../../constants/index.js';
 import {
   BANK_ACCOUNT_SCHEMA,
   UPDATE_BANK_ACCOUNT_SCHEMA,
@@ -14,7 +14,7 @@ import { ValidationError } from '../../utils/appErrors.js';
 import { sendError, sendSuccess } from '../../utils/responseHandlers.js';
 import {
   checkBankNickNameExistsDao,
-  getMerchantBankDao,
+  // getMerchantBankDao,
 } from './bankaccountDao.js';
 import { generateCacheKey } from '../../utils/redishashkey.js';
 import {
@@ -33,6 +33,7 @@ import {
   getBankaccountServiceNickName,
   getBankAccountBySearchService,
   activeInactiveBankAccountService,
+  restBankNotificationService,
 } from './bankaccountServices.js';
 
 const normalizeBankNumericFields = (bank = {}) => {
@@ -302,51 +303,51 @@ const updateBankaccount = async (req, res) => {
   );
 };
 
-const getMerchantBank = async (req, res) => {
-  // Fetch the bank account details for the given merchant ID
-  const { company_id, user_id } = req.user;
-  const { role } = req.user;
-  const filterColumns =
-    role === Role.MERCHANT
-      ? merchantColumns.BANK_ACCOUNT
-      : role === Role.VENDOR
-        ? vendorColumns.BANK_ACCOUNT
-        : columns.BANK_ACCOUNT;
-  const cacheKey = `bankaccounts:read:${company_id}:merchantbank:${generateCacheKey(
-    {
-      company_id,
-      user_id,
-      role,
-    },
-    'bankaccounts-merchant-bank',
-  )}`;
+// const getMerchantBank = async (req, res) => {
+//   // Fetch the bank account details for the given merchant ID
+//   const { company_id, user_id } = req.user;
+//   const { role } = req.user;
+//   const filterColumns =
+//     role === Role.MERCHANT
+//       ? merchantColumns.BANK_ACCOUNT
+//       : role === Role.VENDOR
+//         ? vendorColumns.BANK_ACCOUNT
+//         : columns.BANK_ACCOUNT;
+//   const cacheKey = `bankaccounts:read:${company_id}:merchantbank:${generateCacheKey(
+//     {
+//       company_id,
+//       user_id,
+//       role,
+//     },
+//     'bankaccounts-merchant-bank',
+//   )}`;
 
-  const cached = await readJsonCache(cacheKey, 'BankAccounts merchant-bank cache');
-  if (shouldServeCachedResponse(cached, req.query)) {
-    return sendSuccess(res, cached, 'Bank details fetched successfully');
-  }
+//   const cached = await readJsonCache(cacheKey, 'BankAccounts merchant-bank cache');
+//   if (shouldServeCachedResponse(cached, req.query)) {
+//     return sendSuccess(res, cached, 'Bank details fetched successfully');
+//   }
 
-  // const bankRes = await getMerchantBankDao({
-  //   company_id,
-  //   user_id
-  // }, role);
-  const bankRes = await getMerchantBankDao(
-    { company_id: company_id, user_id: user_id },
-    null,
-    null,
-    null,
-    null,
-    filterColumns,
-  );
+//   // const bankRes = await getMerchantBankDao({
+//   //   company_id,
+//   //   user_id
+//   // }, role);
+//   const bankRes = await getMerchantBankDao(
+//     { company_id: company_id, user_id: user_id },
+//     null,
+//     null,
+//     null,
+//     null,
+//     filterColumns,
+//   );
 
-  await writeJsonCache(
-    cacheKey,
-    bankRes,
-    controllerCacheTtls.bankAccounts.merchantBank,
-  );
+//   await writeJsonCache(
+//     cacheKey,
+//     bankRes,
+//     controllerCacheTtls.bankAccounts.merchantBank,
+//   );
 
-  return sendSuccess(res, bankRes, 'Bank details fetched successfully');
-};
+//   return sendSuccess(res, bankRes, 'Bank details fetched successfully');
+// };
 
 const deleteBankaccount = async (req, res) => {
   const { id } = req.params;
@@ -378,7 +379,7 @@ const activeInactiveBankAccount = async (req, res) => {
   }
   const ids = { id: bank_account_id, company_id: company_id };
   const payload = {
-    is_enabled: is_active,
+    config:{bot_bank_active: is_active},
   };
   const updateBank = await activeInactiveBankAccountService(
     ids,
@@ -392,6 +393,15 @@ const activeInactiveBankAccount = async (req, res) => {
   );
 };
 
+// Temporary controller to reset all bank notification levels to 0 - to be used in case of any issues with the cron job
+const resetBankNotification = async (req, res) => {
+  await restBankNotificationService();
+  return sendSuccess(
+    res,
+    'Bank notifications reset successfully',
+  );
+}
+
 export {
   getBankaccount,
   getBankAccountBySearch,
@@ -399,7 +409,8 @@ export {
   createBankaccount,
   updateBankaccount,
   deleteBankaccount,
-  getMerchantBank,
+  // getMerchantBank,
   getBankaccountNickName,
   activeInactiveBankAccount,
+  resetBankNotification,
 };

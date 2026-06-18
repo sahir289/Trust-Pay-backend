@@ -8,6 +8,7 @@ import {
   deletePayoutService,
   getPayoutsService,
   updatePayoutService,
+  markPayoutPendingForUtrSlipMismatchService,
   getPayoutsBySearchService,
   checkPayOutStatusService,
   assignedPayoutService,
@@ -32,10 +33,15 @@ import {
   // writeJsonCache,
   invalidateCompanyCacheByPrefix,
 } from '../../utils/controllerCache.js';
+import { GetObjectCommand } from '@aws-sdk/client-s3';
+import { streamToBase64 } from '../../helpers/index.js';
+import { s3 } from '../../helpers/Aws.js';
+import config from '../../config/config.js';
+import { getImageContentFromOCrForPayout } from '../../helpers/index.js';
+import { publishBulkPayoutCreate } from '../../rabbitmq/producer.js';
 // import config from '../../config/config.js';
 // import { BadRequestError } from '../../utils/appErrors.js';
 
-const TestingIp = process.env.LOCAL_IP;
 // const { controllerCacheTtls } = config;
 
 const invalidatePayoutCache = async (companyId) =>
@@ -43,18 +49,17 @@ const invalidatePayoutCache = async (companyId) =>
 
 const createPayout = async (req, res) => {
   let payload = req.body;
-  let userIp =
-    req.headers['x-forwarded-for'] || req.connection.remoteAddress || req.ip;
-  if (userIp == '::1') {
-    userIp = TestingIp;
-  }
   const fromUI = payload.fromUi || false;
   delete payload.fromUi;
   const joiValidation = PAYOUT_DETAILS_SCHEMA.validate(req.body);
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
-  const x_api_key = req.headers['x-api-key'];
+  // let x_api_key = req.headers['x-api-key'];
+
+  // if (!x_api_key) {
+  //   return sendError(res, 'Enter valid Api key', 404);
+  // }
   if (!payload.user_id && !payload.user) {
     throw new ValidationError('user_id is required');
   }
@@ -67,21 +72,19 @@ const createPayout = async (req, res) => {
     payload.company_id = company_id;
     payload.created_by = user_id;
     payload.updated_by = user_id;
-    payload.x_api_key = x_api_key;
+    // payload.x_api_key = x_api_key;
     result = await createPayoutService(
       req.headers,
       payload,
       role,
-      userIp,
       fromUI,
     );
   } else {
-    payload.x_api_key = x_api_key;
+    // payload.x_api_key = x_api_key;
     result = await createPayoutService(
       req.headers,
       payload,
       null,
-      userIp,
       fromUI,
     );
   }
@@ -99,6 +102,34 @@ const createPayout = async (req, res) => {
     await invalidatePayoutCache(req.user?.company_id || payload.company_id);
     return sendNewSuccess(res, updateRes, 'Payout created successfully', 201);
   }
+};
+
+const createBulkPayout = async (req, res) => {
+  if (!req.file) {
+    throw new ValidationError('Excel file is required');
+  }
+
+  const payload = {
+    fileKey: req.file.key,
+    fileUrl: req.file.location,
+    bucket: req.file.bucket,
+
+    companyId: req.user.company_id,
+    role: req.user.role,
+    userId: req.user.user_id,
+    fileName: req.file.originalname,
+    createdBy: req.user.user_id,
+    updatedBy: req.user.user_id,
+  };
+
+  await publishBulkPayoutCreate(payload);
+
+  return sendNewSuccess(
+    res,
+    {},
+    'Bulk payout queued successfully',
+    202,
+  );
 };
 
 const getPayoutsById = async (req, res) => {
@@ -220,7 +251,35 @@ const updatePayout = async (req, res) => {
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
-
+  if (req.file) {
+    payload.config = {
+      ...payload.config,
+      slip: req.file.key,
+    };
+    const command = new GetObjectCommand({
+      Bucket: config.bucketName,
+      Key: req.file.key,
+    });
+    const { Body } = await s3.send(command);
+    const base64Image = await streamToBase64(Body);
+    const content = await getImageContentFromOCrForPayout(base64Image);
+    const payloadUtr = payload.utr_id;
+    const slipUtr = content?.utr;
+    if (payloadUtr && content && payloadUtr !== slipUtr) {
+      payload.updated_by = user_id;
+      const ids = { id, company_id };
+      const update = await markPayoutPendingForUtrSlipMismatchService(ids, {
+        ...payload,
+        slip_utr: content?.utr || null,
+      });
+      await invalidatePayoutCache(company_id);
+      return sendSuccess(
+        res,
+        { id: update.id, updated_by: user_name },
+        'Payout moved to pending due to UTR mismatch with slip',
+      );
+    }
+  }
   payload.updated_by = user_id;
   const ids = { id, company_id };
   const update = await updatePayoutService(
@@ -342,6 +401,7 @@ const createRupeeFlowBulkPayoutController = async (req, res) => {
 
 export {
   createPayout,
+  createBulkPayout,
   getPayoutsBySearch,
   checkPayOutStatus,
   getPayouts,
