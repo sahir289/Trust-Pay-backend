@@ -20,6 +20,7 @@ import {
   getAllUsersDao,
   updateUserByIDDao,
   updateUser2FAStatusDao,
+  updateUser2FAExemptionDao,
   disableTwoFactorDao,
 } from './userDao.js';
 import { getDesignationDao } from '../designation/designationDao.js';
@@ -773,6 +774,19 @@ const sendMailService = async (payload) => {
   }
 };
 
+const toggleUser2FAExemptionService = async (userId, exempt) => {
+  try {
+    const result = await updateUser2FAExemptionDao(userId, exempt);
+    if (result) {
+      logger.info(`[AUDIT] 2FA Exemption Updated: User ID ${userId} exemption set to ${exempt} at ${new Date().toISOString()}`);
+    }
+    return result;
+  } catch (error) {
+    logger.error('Error in toggleUser2FAExemptionService:', error);
+    throw error;
+  }
+};
+
 export {
   getUsersService,
   getUserByIdService,
@@ -782,6 +796,7 @@ export {
   userUpdateService,
   sendMailService,
   updateUser2FAService,
+  toggleUser2FAExemptionService,
   resetUser2FAService,
   _createUserServiceInternal,
 };

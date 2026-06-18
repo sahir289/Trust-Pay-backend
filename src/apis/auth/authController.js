@@ -40,10 +40,36 @@ const loginController = async (req, res) => {
   if (data.twoFactorRequired) {
     return sendSuccess(
       res,
-      { twoFactorRequired: true, preAuthToken: data.preAuthToken },
+      { 
+        twoFactorRequired: true, 
+        preAuthToken: data.preAuthToken,
+        two_factor_enforcement: data.two_factor_enforcement
+      },
       '2FA verification required',
     );
   }
+  
+  // Handle case where global 2FA enforcement is active but user hasn't set up 2FA
+  if (data.must_setup_2fa) {
+    res.cookie('refreshToken', data.refreshToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'Strict',
+    });
+    const token = {
+      accessToken: data.tokenInfo.accessToken,
+      sessionId: data.sessionId,
+      user: data.user,
+      two_factor_enforcement: data.two_factor_enforcement,
+      must_setup_2fa: true,
+    };
+    return sendSuccess(
+      res, 
+      token, 
+      'Login successful. Global 2FA enforcement is active - you must set up Two-Factor Authentication before accessing other resources.'
+    );
+  }
+  
   res.cookie('refreshToken', data.refreshToken, {
     httpOnly: true,
     secure: true,
@@ -54,6 +80,7 @@ const loginController = async (req, res) => {
     sessionId: data.sessionId,
     user: data.user,
     two_factor_enforcement: data.two_factor_enforcement,
+    must_setup_2fa: data.must_setup_2fa || false,
   };
   return sendSuccess(res, token, 'login successfully');
 };
@@ -178,6 +205,7 @@ const verifyLoginOtpController = async (req, res) => {
     sessionId: data.sessionId,
     user: data.user,
     two_factor_enforcement: data.two_factor_enforcement,
+    must_setup_2fa: data.must_setup_2fa || false,
   };
   return sendSuccess(res, token, 'login successfully');
 };

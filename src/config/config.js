@@ -49,6 +49,7 @@ function config(Env) {
     },
     ocr: {
       url: Env?.OCR_URL,
+      payoutUrl: Env?.OCR_PAYOUT_URL,
     },
     redis: {
       url: Env?.REDIS_URL || 'redis://localhost:6379',
@@ -217,6 +218,11 @@ function config(Env) {
       url: Env?.ALBE_COLLECT_API_URL,
       mid: Env?.ALBE_COLLECT_MID,
       secretKey: Env?.ALBE_COLLECT_SECRET_KEY,
+    },
+    freechips: {
+      payin_url: Env?.FREECHIPS_PAYIN_URL,
+      secretKey: Env?.FREECHIPS_SECRET_KEY,
+      secretIv: Env?.FREECHIPS_SECRET_IV,
     },
     pennyPay: {
       payoutUrl: Env?.PENNY_PAY_PAYOUT_URL,

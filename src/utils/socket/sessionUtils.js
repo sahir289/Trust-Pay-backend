@@ -61,7 +61,10 @@ const emitForcedLogoutEvents = (
 
   if (emitLegacyEvents) {
     socket.emit('newLogin', payload.userId);
-    socket.emit('newlogout', payload.userId);
+    socket.emit('newlogout', {
+      userId: payload.userId,
+      sessionId: payload.sessionId,
+    });
   }
 };
 

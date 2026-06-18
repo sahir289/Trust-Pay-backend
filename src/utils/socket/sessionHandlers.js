@@ -460,6 +460,8 @@ const createHandleUserLogin = (socket) => {
 };
 
 const handleDisconnect = (socket, reason) => {
+  const disconnectingSessionId = getSocketSessionId(socket);
+
   const isServerSideDisconnect =
     reason === 'server disconnect' ||
     reason === 'transport close' ||
@@ -502,6 +504,15 @@ const handleDisconnect = (socket, reason) => {
         `[SOCKET] Emitting logout event for user ${userId} due to client disconnect`,
       ),
     );
+
+    // Emit logout event with the sessionId of the socket being disconnected
+    if (socketRuntime.ioInstance) {
+      socketRuntime.ioInstance.to(`user:${userId}`).emit('logout', {
+        userId,
+        sessionId: disconnectingSessionId,
+        reason: 'client-disconnect',
+      });
+    }
   }
 
   logger.info(

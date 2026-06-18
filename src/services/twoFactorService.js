@@ -2,7 +2,7 @@ import { generateSecret, generateURI, verifySync } from 'otplib';
 import qrcode from 'qrcode';
 import { logger } from '../utils/logger.js';
 
-const APP_NAME = 'TrustPay';
+export const APP_NAME = process.env.APP_NAME || 'Application';
 
 /**
  * Generates a TOTP secret and a QR code data URL for the given username.
@@ -14,7 +14,7 @@ const APP_NAME = 'TrustPay';
 const generateSetup = async (username) => {
   try {
     const secret = generateSecret();
-    const otpAuthUrl = generateURI({ secret, account: username, issuer: APP_NAME });
+    const otpAuthUrl = generateURI({ secret, label: username, issuer: APP_NAME });
     const qrCodeDataUrl = await qrcode.toDataURL(otpAuthUrl);
     return { secret, qrCodeDataUrl };
   } catch (error) {

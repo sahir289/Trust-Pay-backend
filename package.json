@@ -1,6 +1,6 @@
 {
   "name": "trust-pay-new-backend",
-  "version": "2.0.101",
+  "version": "2.0.108",
   "main": "server.js",
   "scripts": {
     "test": "jest",

@@ -1,29 +1,37 @@
 import { executeQuery } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
 
-export const getSettingDao = async (key) => {
+// Get 2FA enforcement from company config
+export const get2FAEnforcementDao = async (company_id, conn = null) => {
   try {
-    const sql = `SELECT value FROM "SystemSettings" WHERE key = $1 AND is_obsolete = false`;
-    const result = await executeQuery(sql, [key]);
-    return result.rows[0]?.value || null;
+    const sql = `SELECT config FROM "Company" WHERE id = $1 AND is_obsolete = false`;
+    const result = await executeQuery(sql, [company_id], conn);
+    const config = result.rows[0]?.config || {};
+    return config.two_factor_enforcement === true;
   } catch (error) {
-    logger.error(`Error in getSettingDao for key ${key}:`, error);
+    logger.error(`Error in get2FAEnforcementDao for company ${company_id}:`, error);
     throw error;
   }
 };
 
-export const updateSettingDao = async (key, value) => {
+// Update 2FA enforcement in company config
+export const update2FAEnforcementDao = async (company_id, enabled, conn = null) => {
   try {
     const sql = `
-      INSERT INTO "SystemSettings" (key, value)
-      VALUES ($1, $2)
-      ON CONFLICT (key) DO UPDATE SET value = $2
-      RETURNING value
+      UPDATE "Company"
+      SET config = (config::jsonb || $1::jsonb)::json,
+          updated_at = NOW()
+      WHERE id = $2 AND is_obsolete = false
+      RETURNING id, config
     `;
-    const result = await executeQuery(sql, [key, JSON.stringify(value)]);
-    return result.rows[0]?.value;
+    const result = await executeQuery(
+      sql,
+      [JSON.stringify({ two_factor_enforcement: enabled }), company_id],
+      conn
+    );
+    return result.rows[0] || null;
   } catch (error) {
-    logger.error(`Error in updateSettingDao for key ${key}:`, error);
+    logger.error(`Error in update2FAEnforcementDao for company ${company_id}:`, error);
     throw error;
   }
 };
