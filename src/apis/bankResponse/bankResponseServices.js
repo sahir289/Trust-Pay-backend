@@ -1066,10 +1066,10 @@ const createBankResponseService = async (
         vendor_code: vendor?.[0]?.code || null,
         company_id: companyId,
       };
-      // Send to socket for real-time update
-      emitTableEntryAsync(tableName.BANK_RESPONSE, responseObj);
       await commit(conn);
       committed = true;
+      // Send to socket for real-time update
+      emitTableEntryAsync(tableName.BANK_RESPONSE, responseObj);
       return { message: `Entry created successfully`, data: responseObj };
     } catch (err) {
       logger.error('Error performating transactions', err);
