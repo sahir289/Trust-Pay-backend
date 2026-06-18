@@ -1,5 +1,5 @@
 import crypto from 'crypto'; // Make sure this is imported at top
-import { getPayoutsByTxnIdDao } from '../../apis/payOut/payOutDao.js';
+import { getPayoutsDao } from '../../apis/payOut/payOutDao.js';
 import { Role, Status } from '../../constants/index.js';
 import { logger } from '../../utils/logger.js';
 import { _updatePayoutServiceInternal } from '../../apis/payOut/payOutService.js';
@@ -48,7 +48,9 @@ export const freeChipsSuccessCallback = async (req, res) => {
       payload = decryptPayload(payload.data);
     }
     logger.info('Processed FreeChips callback payload:', payload);
-    const txnid = payload?.Clientransactionid || payload?.clientransactionid;
+    const txnid = String(
+      payload?.Clientransactionid || payload?.clientransactionid || '',
+    ).trim();
     const freeChipsStatus = payload?.Status?.toUpperCase(); 
     const utrId = payload?.UTR;
     const message = payload?.Message;
@@ -58,7 +60,7 @@ export const freeChipsSuccessCallback = async (req, res) => {
       return;
     }
 
-    const [payout] = await getPayoutsByTxnIdDao({ txnid: txnid });
+    const [payout] = await getPayoutsDao({ txnid });
     if (!payout) {
       logger.error(`Payout not found for txnid: ${txnid}`);
       return;
@@ -91,7 +93,7 @@ export const freeChipsSuccessCallback = async (req, res) => {
         status: Status.REJECTED,
         rejected_at: new Date().toISOString(),
         config: {
-          ...(payout.config || {}),
+          ...(payout.payout_details || {}),
           rejected_reason: message || 'Transaction Failed by FreeChips',
           provider_status: freeChipsStatus,
         }
@@ -101,7 +103,7 @@ export const freeChipsSuccessCallback = async (req, res) => {
     else if (freeChipsStatus === 'REFUNDED') {
       Object.assign(updatePayload, {
         status: Status.REVERSED,
-        utr_id: payload?.utr_id,
+        utr_id: utrId || null,
         rejected_at: new Date().toISOString(),
       });
     } 

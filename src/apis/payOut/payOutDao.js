@@ -148,6 +148,17 @@ export const getPayoutsDao = async (
     Object.entries(filters).forEach(([key, value]) => {
       if (handledKeys.has(key) || value == null || value === '') return;
       const nextParamIdx = paramIndex;
+      //added this condition for freechips webhook to get payout by txnid
+      if (key === 'txnid') {
+        const txnidValue = Array.isArray(value)
+          ? String(value[0] ?? '').trim()
+          : String(value).trim();
+        if (!txnidValue) return;
+        conditions.push(`u.config->>'txnid' = $${nextParamIdx}`);
+        queryParams.push(txnidValue);
+        paramIndex += 1;
+        return;
+      }
       if (Array.isArray(value)) {
         const placeholders = value
           .map((_, idx) => `$${nextParamIdx + idx}`)
@@ -1148,34 +1159,6 @@ export const getPayoutByTxnId = async (txnId, conn = null) => {
   }
 }
 
-export const getPayoutsByTxnIdDao = async (filters = {}, conn = null) => {
-  try {
-    const txnid = String(filters?.txnid || '').trim();
-    if (!txnid) return [];
-    const query = `
-      SELECT
-        id,
-        company_id,
-        status,
-        config,
-        merchant_order_id,
-        utr_id
-      FROM "${tableName.PAYOUT}"
-      WHERE is_obsolete = false
-        AND (
-          config->>'txnid' = $1
-        )
-      ORDER BY id DESC
-      LIMIT 1
-    `;
-
-    const result = await executeQuery(query, [txnid], conn);
-    return result.rows || [];
-  } catch (error) {
-    logger.error('Error in getPayoutsByTxnIdDao:', error);
-    throw error;
-  }
-};
 
 export const deletePayoutDao = async (ids, data, conn = null) => {
   try {
