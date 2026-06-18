@@ -1,5 +1,5 @@
 import crypto from 'crypto'; // Make sure this is imported at top
-import { getPayoutsDao } from '../../apis/payOut/payOutDao.js';
+import { getPayoutsByTxnIdDao } from '../../apis/payOut/payOutDao.js';
 import { Role, Status } from '../../constants/index.js';
 import { logger } from '../../utils/logger.js';
 import { _updatePayoutServiceInternal } from '../../apis/payOut/payOutService.js';
@@ -48,19 +48,19 @@ export const freeChipsSuccessCallback = async (req, res) => {
       payload = decryptPayload(payload.data);
     }
     logger.info('Processed FreeChips callback payload:', payload);
-    const merchantOrderId = payload?.Clientransactionid || payload?.clientransactionid;
+    const txnid = payload?.Clientransactionid || payload?.clientransactionid;
     const freeChipsStatus = payload?.Status?.toUpperCase(); 
     const utrId = payload?.UTR;
     const message = payload?.Message;
 
-    if (!merchantOrderId) {
+    if (!txnid) {
       logger.error('Clientransactionid missing in FreeChips webhook');
       return;
     }
 
-    const [payout] = await getPayoutsDao({ merchant_order_id: merchantOrderId });
+    const [payout] = await getPayoutsByTxnIdDao({ txnid: txnid });
     if (!payout) {
-      logger.error(`Payout not found for merchantOrderId: ${merchantOrderId}`);
+      logger.error(`Payout not found for txnid: ${txnid}`);
       return;
     }
 
@@ -79,7 +79,7 @@ export const freeChipsSuccessCallback = async (req, res) => {
         utr_id: utrId || null,
         approved_at: new Date().toISOString(),
       });
-      logger.info(`Payout ${payout.id} marked APPROVED via FreeChips callback`);
+      logger.info(`Payout ${payout.merchant_order_id} marked APPROVED via FreeChips callback`);
     } 
     else if (freeChipsStatus === 'FAILED') {
       Object.assign(updatePayload, {
@@ -91,7 +91,7 @@ export const freeChipsSuccessCallback = async (req, res) => {
           provider_status: freeChipsStatus,
         }
       });
-      logger.info(`Payout ${payout.id} marked REJECTED via FreeChips callback`);
+      logger.info(`Payout ${payout.merchant_order_id} marked REJECTED via FreeChips callback`);
     } 
     else if (freeChipsStatus === 'REFUNDED') {
       Object.assign(updatePayload, {
@@ -101,7 +101,7 @@ export const freeChipsSuccessCallback = async (req, res) => {
       });
     } 
     else {
-      logger.warn(`Unknown FreeChips status received: ${freeChipsStatus}`, { merchantOrderId });
+      logger.warn(`Unknown FreeChips status received: ${freeChipsStatus}`, { txnid });
       return; 
     }
     conn = await getConnection();

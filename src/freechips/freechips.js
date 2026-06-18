@@ -4,6 +4,15 @@ import { sendNewSuccess } from "../utils/responseHandlers.js";
 import { logger } from "../utils/logger.js";
 import config from "../config/config.js";
 import { BadRequestError } from "../utils/appErrors.js";
+const buildFreechipsExternalReference = (merchantOrderId) => {
+  const raw = String(merchantOrderId || '').trim();
+  if (raw && raw.length <= 20) {
+    return raw;
+  }
+  const ts = Date.now().toString(36).toUpperCase();
+  const rand = crypto.randomBytes(3).toString('hex').toUpperCase();
+  return `FC${ts}${rand}`.slice(0, 20);
+};
 
 const encryptFreechipsPayoutData = (payload, secretKey, iv) => {
   try {
@@ -36,8 +45,6 @@ export const getFreechipsWalletBalance = async (req, res) => {
       secretCodePayout,
       secretVendorKeyPayout
     } = freechipsConfig;
-
-    console.log("Freechips Config loaded:", freechipsConfig);
 
     if (!secretIvPayout || !secretKeyPayout || !secretCodePayout || !secretVendorKeyPayout) {
       throw new BadRequestError('Freechips credentials are incomplete');
@@ -105,6 +112,7 @@ export const createFreechipsPayout = async (result, payload, vendor_id, bankId) 
     if (!secret_key || !iv || !secretCode || !vendor_key || !tpin) {
       throw new BadRequestError('Freechips required credentials missing (secret_key, iv, secretCode, vendor_key, tpin)');
     }
+    const externalReference = buildFreechipsExternalReference(payload?.merchant_order_id);
     // Payout Payload
     const payoutPayload = {
       transaction_type: "IMPS", 
@@ -112,9 +120,9 @@ export const createFreechipsPayout = async (result, payload, vendor_id, bankId) 
       beneficiary_name: payload.user_bank_details?.account_holder_name,
       beneficiary_account_number: payload.user_bank_details?.account_no,
       beneficiary_ifsc: payload.user_bank_details?.ifsc_code,
-      bank_name: payload.user_bank_details?.bank_name || "HDFC Bank",
+      bank_name: payload.user_bank_details?.bank_name ,
       tpin: tpin,
-      external_reference: payload.merchant_order_id,
+      external_reference: externalReference,
       vendor_key: vendor_key
     };
 
@@ -140,6 +148,10 @@ export const createFreechipsPayout = async (result, payload, vendor_id, bankId) 
     result.status = 'PENDING';
     result.bank_acc_id = bankId;
     result.vendor_id = vendor_id;
+    result.config = {
+      ...result.config,
+      txnid: response?.data?.transaction_id || externalReference
+    };
 
     return result;
 
