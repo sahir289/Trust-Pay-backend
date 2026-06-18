@@ -496,6 +496,22 @@ WHERE at.is_obsolete = false
   } else {
     query += ` ORDER BY at.created_at DESC`;
   }
+
+  const countQuery = `
+  SELECT COUNT(*) AS total
+  FROM (${query}) AS count_table
+`;
+
+const countResult = await executeQuery(
+  countQuery,
+  params,
+  conn,
+);
+
+const totalItems = parseInt(
+  countResult.rows[0].total,
+  10,
+);
   
   query += ` LIMIT $${index++} OFFSET $${index++}`;
   
@@ -508,7 +524,15 @@ WHERE at.is_obsolete = false
     conn,
   );
 
-  return result.rows;
+  return {
+    totalCount: totalItems,
+    totalPages: Math.ceil(
+      totalItems / validatedPageSize,
+    ),
+    userInfo: result.rows,
+  };
+
+  // return result.rows;
 };
 
 const getUserByIdDao = async (ids, conn = null) => {
