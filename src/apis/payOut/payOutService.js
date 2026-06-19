@@ -819,8 +819,7 @@ const _updatePayoutServiceInternal = async (
   ids,
   payload,
   role,
-  conn = null,
-  webhookCall = false
+  conn = null
 ) => {
   try {
     const payoutStatusRow =
@@ -1134,7 +1133,7 @@ const _updatePayoutServiceInternal = async (
       );
       payload = updatedPayload;
     }
-    else if (!webhookCall && payload?.config?.method === Method.FREECHIPS) {
+    else if (payload?.config?.method === Method.FREECHIPS) {
       const method = payload.config.method;
       logger.info(`Processing FREECHIPS payout for method: ${method}`);
       const [company] = await getCompanyByIDDao({ id: ids.company_id }, conn);
@@ -1740,7 +1739,193 @@ await updateBankAccountBalanceDao(
     throw error;
   }
 };
-
+const updatePayoutWebhookService = async (ids, payload, conn = null) => {
+  try {
+    const data = await updatePayoutDao(ids, payload, conn);
+    const bankID = data.bank_acc_id;
+    const [merchantArr, bankDataArr] = await Promise.all([
+      getMerchantByIdDao(data.merchant_id, data.company_id, conn),
+      bankID ? getBankByIdDao({ id: bankID }, conn) : Promise.resolve([]),
+    ]);
+    const merchant = merchantArr[0];
+    if (!merchant) {
+      throw new NotFoundError('Merchant not found!');
+    }
+    const bankData = bankDataArr[0];
+    let vendor = null;
+    if (bankData) {
+      const vendorArr = await getVendorByIdDao(
+        bankData.user_id,
+        ids.company_id,
+        conn,
+      );
+      vendor = vendorArr[0];
+    }
+    if (data.status === Status.APPROVED || data.status === Status.REVERSED) {
+      if (!bankData) {
+        throw new NotFoundError('Bank not found!');
+      }
+      if (!vendor) {
+        throw new NotFoundError('Vendor not found!');
+      }
+      const merchantCommission = calculateCommission(
+        data.amount,
+        merchant.payout_commission,
+      );
+      const vendorCommission = calculateCommission(
+        data.amount,
+        vendor.payout_commission,
+      );
+      let subVendorParentInfo = null;
+      if (vendor?.designation_name === Role.SUB_VENDOR) {
+        subVendorParentInfo = await getSubVendorParentInfo(vendor, conn);
+      }
+      if (data.status === Status.APPROVED) {
+        const calculationUpdates = [
+          updateCalculationTable(
+            merchant.user_id,
+            { payoutCommission: merchantCommission, amount: data.amount },
+            true,
+            conn,
+          ),
+          updateCalculationTable(
+            vendor.user_id,
+            { payoutCommission: vendorCommission, amount: data.amount },
+            true,
+            conn,
+          ),
+        ];
+        if (subVendorParentInfo) {
+          calculationUpdates.push(
+            updateParentVendorCalculation(
+              subVendorParentInfo.parentUserId,
+              Number(data.amount),
+              Number(vendor.config?.mediator_payout_commission) || 0,
+              true,
+              conn,
+            ),
+          );
+        }
+        await Promise.all([
+          ...calculationUpdates,
+          updateBankAccountBalanceDao(
+            { id: bankData.id, company_id: ids.company_id },
+            {
+              balance: -Number(data.amount),
+              today_balance: -Number(data.amount),
+              payin_count: 1,
+            },
+            conn,
+          ),
+          updatePayoutDao(
+            ids,
+            {
+              payout_merchant_commission: merchantCommission,
+              payout_vendor_commission: vendorCommission,
+              vendor_id: data.vendor_id || vendor.id,
+            },
+            conn,
+          ),
+        ]);
+        data.payout_merchant_commission = merchantCommission;
+        data.payout_vendor_commission = vendorCommission;
+        data.vendor_id = data.vendor_id || vendor.id;
+      } else if (data.status === Status.REVERSED) {
+        const calculationUpdates = [
+          updateCalculationTable(
+            merchant.user_id,
+            { payoutCommission: merchantCommission, amount: data.amount },
+            false,
+            conn,
+          ),
+          updateCalculationTable(
+            vendor.user_id,
+            { payoutCommission: vendorCommission, amount: data.amount },
+            false,
+            conn,
+          ),
+        ];
+        if (subVendorParentInfo) {
+          calculationUpdates.push(
+            updateParentVendorCalculation(
+              subVendorParentInfo.parentUserId,
+              Number(data.amount),
+              Number(vendor.config?.mediator_payout_commission) || 0,
+              false,
+              conn,
+            ),
+          );
+        }
+        await Promise.all(calculationUpdates);
+      }
+    }
+    const responseObj = {
+      id: data.id,
+      sno: data.sno || null,
+      amount: data.amount || 0,
+      status: data.status || null,
+      failed_reason: data.failed_reason || null,
+      currency: data.currency || 'INR',
+      upi_id: data.upi_id || null,
+      utr_id: data.utr_id || null,
+      rejected_reason: data.rejected_reason || null,
+      merchant_id: data.merchant_id || null,
+      company_id: data.company_id || null,
+      payout_merchant_commission: data.payout_merchant_commission || 0,
+      payout_vendor_commission: data.payout_vendor_commission || 0,
+      actual_vendor_commission: data.actual_vendor_commission || '0',
+      brokerage_commission: data.brokerage_commission || '0',
+      merchant_order_id: data.merchant_order_id || null,
+      bank_acc_id: data.bank_acc_id || null,
+      approved_at: data.approved_at || null,
+      created_by: data.created_by || '',
+      updated_by: data.updated_by || '',
+      user: data.user || data.created_by || '',
+      created_at: data.created_at,
+      vendor_code: vendor?.code || null,
+      vendor_id: data.vendor_id || null,
+      vendor_user_id: vendor?.user_id || null,
+      payout_details: data.config || {},
+      slip: data.config?.slip || null,
+      updated_at: data.updated_at,
+      user_id: vendor?.user_id || null,
+      nick_name: bankData?.nick_name || null,
+      merchant_details: {
+        merchant_code: merchant?.code || null,
+        return_url: merchant?.config?.urls?.return || null,
+        notify_url: merchant?.config?.urls?.payout_notify || null,
+        public_key: merchant?.config?.keys?.public || null,
+        private_key: merchant?.config?.keys?.private || null,
+      },
+      user_bank_details: {
+        account_holder_name: data.acc_holder_name || null,
+        account_no: data.acc_no || null,
+        ifsc_code: data.ifsc_code || null,
+        bank_name: data.bank_name || null,
+      },
+      rejected_at: data.rejected_at || null,
+    };
+    const notifyUrl =
+      data.config?.urls?.notify ||
+      merchant?.config?.urls?.payout_notify ||
+      merchant?.payout_notify;
+    if (data.status !== Status.PENDING) {
+      merchantPayoutCallback(notifyUrl, {
+        code: merchant.code,
+        merchantOrderId: data.merchant_order_id,
+        payoutId: data.id,
+        amount: data.amount,
+        status: data.status,
+        utr_id: data.utr_id || '',
+      });
+    }
+    emitTableEntryAsync(tableName.PAYOUT, responseObj);
+    return data;
+  } catch (error) {
+    logger.error('error in _updatePayoutWebhookInternal', error);
+    throw error;
+  }
+};
 const updatePayoutService = async (ids, payload, role) => {
   let conn;
   let committed = false;
@@ -1763,6 +1948,7 @@ const updatePayoutService = async (ids, payload, role) => {
     }
   }
 };
+
 const _markPayoutPendingForUtrSlipMismatchInternal = async (
   ids,
   payload,
@@ -2799,6 +2985,7 @@ export {
   checkPayOutStatusService,
   getPayoutsBySearchService,
   updatePayoutService,
+  updatePayoutWebhookService,
   markPayoutPendingForUtrSlipMismatchService,
   deletePayoutService,
   assignedPayoutService,

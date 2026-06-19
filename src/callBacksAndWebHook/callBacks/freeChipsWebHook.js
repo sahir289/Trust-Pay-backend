@@ -2,7 +2,7 @@ import crypto from 'crypto'; // Make sure this is imported at top
 import { getPayoutsDao } from '../../apis/payOut/payOutDao.js';
 import { Role, Status } from '../../constants/index.js';
 import { logger } from '../../utils/logger.js';
-import { _updatePayoutServiceInternal } from '../../apis/payOut/payOutService.js';
+import { updatePayoutWebhookService } from '../../apis/payOut/payOutService.js';
 import { getUserByCompanyCreatedAtDao } from '../../apis/users/userDao.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import {
@@ -105,6 +105,12 @@ export const freeChipsSuccessCallback = async (req, res) => {
         status: Status.REVERSED,
         utr_id: utrId || null,
         rejected_at: new Date().toISOString(),
+        config: {
+          ...(payout.payout_details || {}),
+          reversed_reason: message || 'Transaction Reversed by FreeChips',
+          provider_status: freeChipsStatus,
+          reversed_at: new Date().toISOString(),
+        }
       });
     } 
     else {
@@ -113,12 +119,11 @@ export const freeChipsSuccessCallback = async (req, res) => {
     }
     conn = await getConnection();
     await beginTransaction(conn);
-    await _updatePayoutServiceInternal(
+    await updatePayoutWebhookService(
       { id: payout.id, company_id: payout.company_id },
       updatePayload,
-      null,
+      payout,
       conn,
-      true
     );
     await commit(conn);
     committed = true;
