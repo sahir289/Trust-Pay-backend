@@ -8,12 +8,12 @@ import {
 } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
 import redisClient from '../../utils/redisClient.js';
+import { sendTelegramStatementNotUploadedMessage } from '../../utils/sendTelegramMessages.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 import { deactivateBank } from '../../utils/sockets.js';
-import {
-  bulkUpdateBankResponsesStatusDao,
-} from '../bankResponse/bankResponseDao.js';
+import { bulkUpdateBankResponsesStatusDao } from '../bankResponse/bankResponseDao.js';
 import { getCalculationforCronDao } from '../calculation/calculationDao.js';
+import { getCompanyByIDDao } from '../company/companyDao.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import { getVendorsDao } from '../vendors/vendorDao.js';
 import {
@@ -57,7 +57,9 @@ const isFastUpdateCandidate = (payload) => {
     }
   }
 
-  return payload.is_enabled === false || payload?.config?.is_freeze !== undefined;
+  return (
+    payload.is_enabled === false || payload?.config?.is_freeze !== undefined
+  );
 };
 
 const applyBankUserScopeFilters = async (
@@ -124,12 +126,7 @@ const getBankaccountService = async (
   designation,
 ) => {
   try {
-    await applyBankUserScopeFilters(
-      filters,
-      role,
-      designation,
-      user_id,
-    );
+    await applyBankUserScopeFilters(filters, role, designation, user_id);
 
     const pageNumber = parseInt(page, 10) || 1;
     const pageSize = parseInt(limit, 10) || 10;
@@ -138,7 +135,7 @@ const getBankaccountService = async (
       pageNumber,
       pageSize,
       role,
-      designation
+      designation,
     );
   } catch (error) {
     logger.error('error getting while  getting banks', error);
@@ -157,12 +154,7 @@ const getBankAccountBySearchService = async (
   search,
 ) => {
   try {
-    await applyBankUserScopeFilters(
-      filters,
-      role,
-      designation,
-      user_id,
-    );
+    await applyBankUserScopeFilters(filters, role, designation, user_id);
 
     const pageNumber = parseInt(page, 10) || 1;
     const pageSize = parseInt(limit, 10) || 10;
@@ -179,7 +171,7 @@ const getBankAccountBySearchService = async (
       pageSize,
       role,
       designation,
-      searchTerms
+      searchTerms,
     );
     return banks;
   } catch (error) {
@@ -198,9 +190,7 @@ const getBankaccountServiceNickName = async (
   // check_enabled
 ) => {
   try {
-    const userFilterKey = Array.isArray(user)
-      ? user.join(',')
-      : user || '';
+    const userFilterKey = Array.isArray(user) ? user.join(',') : user || '';
     const cacheKey = `bank:names:${company_id}:${type}:${role}:${user_id}:${designation}:${userFilterKey}`;
 
     const cached = await redisClient.get(cacheKey);
@@ -236,12 +226,7 @@ const getBankaccountServiceNickName = async (
     } else if (user) {
       filters.user_id = [user];
     }
-    await applyBankUserScopeFilters(
-      filters,
-      role,
-      designation,
-      user_id,
-    );
+    await applyBankUserScopeFilters(filters, role, designation, user_id);
 
     const result = await getBankAccountDaoNickName(
       company_id,
@@ -439,6 +424,28 @@ const _updateBankaccountInternal = async (
         null,
         conn,
       );
+      if (
+        [Role.VENDOR, Role.VENDOR_OPERATIONS, Role.VENDOR_ADMIN].includes(
+          role,
+        ) &&
+        !bank[0].config?.statement_upload?.uploaded &&
+        bank[0].config?.statement_upload?.notification_level === 3
+      ) {
+        const [company] = await getCompanyByIDDao({ id: ids.company_id });
+        const companyConfig = company?.config || {};
+        const telegramChatId =
+          companyConfig?.telegramStatementNotUploadNotificationChatId;
+        const telegramBotToken = companyConfig?.telegramBotToken;
+        sendTelegramStatementNotUploadedMessage(
+          telegramChatId,
+          bank[0].nick_name,
+          vendors[0]?.code,
+          telegramBotToken,
+        );
+        throw new BadRequestError(
+          'Cannot enable bank account. Statement upload is required for PayIn banks.',
+        );
+      }
       if (vendors && vendors.length > 0) {
         const vendor = vendors[0];
         const netBalanceLimit = vendor?.config?.net_balance;
@@ -580,17 +587,19 @@ const updateBankaccountService = async (
 
 const deleteBankaccountService = async (ids, user_id) => {
   try {
-    const payload = { is_obsolete: true, updated_by: user_id ,
-        config: {
-          is_freeze: false,
-          is_intent: "off",
-          is_phonepay: false,
-          is_staticQR: false,
-          merchants:[]
-        },
-        is_qr: false,
-        is_bank: false,
-        is_enabled: false,
+    const payload = {
+      is_obsolete: true,
+      updated_by: user_id,
+      config: {
+        is_freeze: false,
+        is_intent: 'off',
+        is_phonepay: false,
+        is_staticQR: false,
+        merchants: [],
+      },
+      is_qr: false,
+      is_bank: false,
+      is_enabled: false,
     };
     const result = await deleteBankaccountDao(
       { id: ids.id, company_id: ids.company_id },
@@ -672,7 +681,7 @@ const restBankNotificationService = async () => {
   } finally {
     if (conn) conn.release();
   }
-}
+};
 
 export {
   getBankaccountService,

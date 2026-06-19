@@ -1060,6 +1060,23 @@ export async function sendTelegramDisputeMessage(
   logger.log(success ? 'Sent!' : 'Not sent.');
 }
 
+export async function sendTelegramStatementNotUploadedMessage(
+  chatId,
+  nick_name,
+  vendor_code,
+  TELEGRAM_BOT_TOKEN,
+) {
+
+  let message = `<b>⛔ Statement Not Uploaded for Vendor Code:</b> ${vendor_code} <b>for Bank Name:</b> ${nick_name}`;
+  const success = await telegramSender(
+    chatId,
+    message,
+    null,
+    TELEGRAM_BOT_TOKEN,
+  );
+  logger.log(success ? 'Sent!' : 'Not sent.');
+}
+
 /**
  * Send pending statement upload CSV report to Telegram admins
  * @param {string} chatId - Telegram chat ID

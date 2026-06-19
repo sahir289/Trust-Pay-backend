@@ -518,7 +518,15 @@ const getBankAccountsBySearchDao = async (
         ba.is_enabled,   
         ba.bank_used_for,
         ba.config->>'max_limit' AS daily_limit,
-        (ba.config->>'is_freeze')::boolean AS is_freezed`;
+        (ba.config->>'is_freeze')::boolean AS is_freezed,
+        COALESCE(
+          ((ba.config->'statement_upload'->>'uploaded')::boolean), 
+            false
+          ) AS statement_upload,
+        COALESCE(
+          ((ba.config->'statement_upload'->>'notification_level')::integer), 
+            0
+          ) AS notification_level`;
     } else {
       commissionSelect = `
         ba.user_id, 
@@ -636,6 +644,7 @@ const getBankAccountsBySearchDao = async (
     throw error;
   }
 };
+
 export const getBankaccountCheckDao = async (filters = {}, conn = null) => {
   try {
     const selectColumns = `
@@ -1165,17 +1174,23 @@ const updateStatementUploadNotificationDao = async (bankId, newLevel, nowISO, co
   try {
     const query = `
       UPDATE public."BankAccount"
-      SET config = jsonb_set(
-        config::jsonb,
-        '{statement_upload}',
-        COALESCE(config::jsonb->'statement_upload', '{}'::jsonb)
-          || jsonb_build_object(
-            'notification_level', $1::int,
-            'last_notified_at', $2::text
-          )
-      )
+      SET 
+        is_enabled = CASE 
+          WHEN $1::int = 3 THEN false 
+          ELSE is_enabled 
+        END,
+        config = jsonb_set(
+          COALESCE(config::jsonb, '{}'::jsonb),
+          '{statement_upload}',
+          COALESCE(config::jsonb->'statement_upload', '{}'::jsonb)
+            || jsonb_build_object(
+              'notification_level', $1::int,
+              'last_notified_at', $2::text
+            )
+        )
       WHERE id = $3;
     `;
+
     await executeQuery(query, [newLevel, nowISO, bankId], conn);
   } catch (error) {
     logger.error('Error in updateStatementUploadNotificationDao:', error);
