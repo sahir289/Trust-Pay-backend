@@ -103,7 +103,6 @@ if (singleWithdrawData.status === Status.APPROVED && pennyPayStatus !== 'REVERSE
     });
 
   } catch (err) {
-    console.log(err);
     if (conn && !committed) await rollback(conn);
     logger.error('getting error while updating tp/pp payout', err);
   } finally {

@@ -65,7 +65,6 @@ export const freechipsWebhook = async (req, res) => {
       return;
     }
     logger.info('Decrypted Freechips webhook data', decryptedData);
-    console.log('Decrypted Freechips webhook data', decryptedData);
     const rawOrderId = decryptedData?.data?.systemId;
     const utr = decryptedData?.data?.transactionUtr;
     const amount = decryptedData?.data?.amount ? Number(decryptedData?.data?.amount) : undefined;

@@ -1742,7 +1742,6 @@ await updateBankAccountBalanceDao(
 const updatePayoutWebhookService = async (ids, payload, conn = null) => {
   try {
     const data = await updatePayoutDao(ids, payload, conn);
-    console.log("updatePayoutWebhookService data",data)
     const bankID = data.bank_acc_id;
     const [merchantArr, bankDataArr] = await Promise.all([
       getMerchantByIdDao(data.merchant_id, data.company_id, conn),
