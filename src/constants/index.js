@@ -47,6 +47,7 @@ export const Method = {
   TRUSTPAY: 'TRUSTPAY',
   PAYBITRA: 'PAYBITRA',
   PAYCRIC: 'PAYCRIC',
+  FREECHIPS:'FREECHIPS',
 };
 
 export const Type = {

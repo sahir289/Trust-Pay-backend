@@ -390,7 +390,7 @@ SELECT
   at.config->'user_info'->>'os_version' AS os_version,
   at.config->'user_info'->'user_location'->>'latitude' AS latitude,
   at.config->'user_info'->'user_location'->>'longitude' AS longitude,
-  at.config->'user_info'->'user_location'->'proxy'->>'isVpn' AS is_vpn,
+  (at.config->'user_info'->'user_location'->'proxy'->>'isVpn')::boolean AS is_vpn,
   at.config->'user_info'->'user_location'->'proxy'->'raw'->>'country' AS country,
   at.config->'user_info'->'user_location'->'proxy'->'raw'->>'city' AS city,
   at.config->'user_info'->'user_location'->>'role' AS role,
@@ -496,6 +496,22 @@ WHERE at.is_obsolete = false
   } else {
     query += ` ORDER BY at.created_at DESC`;
   }
+
+  const countQuery = `
+  SELECT COUNT(*) AS total
+  FROM (${query}) AS count_table
+`;
+
+const countResult = await executeQuery(
+  countQuery,
+  params,
+  conn,
+);
+
+const totalItems = parseInt(
+  countResult.rows[0].total,
+  10,
+);
   
   query += ` LIMIT $${index++} OFFSET $${index++}`;
   
@@ -508,7 +524,15 @@ WHERE at.is_obsolete = false
     conn,
   );
 
-  return result.rows;
+  return {
+    totalCount: totalItems,
+    totalPages: Math.ceil(
+      totalItems / validatedPageSize,
+    ),
+    userInfo: result.rows,
+  };
+
+  // return result.rows;
 };
 
 const getUserByIdDao = async (ids, conn = null) => {

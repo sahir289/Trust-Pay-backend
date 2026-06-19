@@ -148,6 +148,17 @@ export const getPayoutsDao = async (
     Object.entries(filters).forEach(([key, value]) => {
       if (handledKeys.has(key) || value == null || value === '') return;
       const nextParamIdx = paramIndex;
+      //added this condition for freechips webhook to get payout by txnid
+      if (key === 'txnid') {
+        const txnidValue = Array.isArray(value)
+          ? String(value[0] ?? '').trim()
+          : String(value).trim();
+        if (!txnidValue) return;
+        conditions.push(`u.config->>'txnid' = $${nextParamIdx}`);
+        queryParams.push(txnidValue);
+        paramIndex += 1;
+        return;
+      }
       if (Array.isArray(value)) {
         const placeholders = value
           .map((_, idx) => `$${nextParamIdx + idx}`)
@@ -285,17 +296,42 @@ export const getPayoutsDao = async (
   }
 };
 
-export const getPayoutByIdDao = async (id, company_id, conn = null) => {
+
+export const getPayouStatusByIdDao = async (
+  id,
+  company_id,
+  conn = null,
+  lock = false,
+) => {
   try {
-    const sql = `SELECT id, status, config FROM "${tableName.PAYOUT}" WHERE id = $1 AND company_id = $2 AND is_obsolete = false`;
+    const sql = `
+      SELECT id, status
+      FROM "${tableName.PAYOUT}"
+      WHERE id = $1
+        AND company_id = $2
+        AND is_obsolete = false
+      ${lock ? 'FOR UPDATE' : ''}
+    `;
+
     const queryParams = [id, company_id];
-    const result = await executeQuery(sql, queryParams, conn);
-    return result.rows.length > 0 ? result.rows[0] : null;
+
+    const result = await executeQuery(
+      sql,
+      queryParams,
+      conn,
+    );
+
+    return result.rows.length > 0
+      ? result.rows[0]
+      : null;
   } catch (error) {
-    logger.error('Error fetching payout by utr id:', error.message);
+    logger.error(
+      'Error fetching payout status:',
+      error.message,
+    );
     throw error;
   }
-}
+};
 
 export const getPayoutByMerchantOrderIdDao = async (merchant_order_id, company_id, conn = null) => {
   try {
@@ -1122,6 +1158,7 @@ export const getPayoutByTxnId = async (txnId, conn = null) => {
     throw error;
   }
 }
+
 
 export const deletePayoutDao = async (ids, data, conn = null) => {
   try {

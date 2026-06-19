@@ -1049,6 +1049,14 @@ const updateBankaccountDao = async (id, payload, isParentDeleted, conn = null) =
           };
 
           safeConfig['merchant_added'] = updatedAddedAt;
+        } else if(key ===  'is_intent' && configUpdates[key] !== existingBank?.config?.is_intent) {
+          const existingStatus = existingBank?.is_enabled || false;
+          if (existingStatus) {
+            throw new Error(`Cannot update 'is_intent' when bank account is enabled.`);
+          }
+          else {
+            safeConfig[key] = configUpdates[key];
+          }
         } else {
           safeConfig[key] = configUpdates[key];
         }
