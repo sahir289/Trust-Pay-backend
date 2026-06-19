@@ -1,7 +1,7 @@
 import { getPayoutsDao } from '../../apis/payOut/payOutDao.js';
 import { Role, Status } from '../../constants/index.js';
 import { logger } from '../../utils/logger.js';
-import { _updatePayoutServiceInternal } from '../../apis/payOut/payOutService.js';
+import { updatePayoutWebhookService } from '../../apis/payOut/payOutService.js';
 import { getUserByCompanyCreatedAtDao } from '../../apis/users/userDao.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import {
@@ -17,7 +17,7 @@ export const pennypaySuccessCallback = async (req, res) => {
   let committed = false;
   const merchantOrderId = payload?.merchantOrderId;
   const pennyPayStatus = payload?.status;
-  logger.info('Webhook received pennypay payload ', payload);
+  logger.info('Webhook received  payload ', payload);
 
   try {
     if (!merchantOrderId) {
@@ -82,20 +82,18 @@ if (singleWithdrawData.status === Status.APPROVED && pennyPayStatus !== 'REVERSE
       });
     } 
     else {
-      Object.assign(updatePayload, {
-        status: Status.PENDING,
-      });
+       logger.warn(`Unknown FreeChips status received: ${payload.status}`, { merchantOrderId: payload.merchantOrderId });
+      return;
     }
     conn = await getConnection();
     await beginTransaction(conn);
-    await _updatePayoutServiceInternal(
+    await updatePayoutWebhookService(
       {
         id: singleWithdrawData.id,
         company_id: singleWithdrawData.company_id,
       },
       updatePayload,
-      null,
-      conn
+      conn,
     );
     await commit(conn);
     committed = true;

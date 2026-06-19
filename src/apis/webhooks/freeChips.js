@@ -106,7 +106,6 @@ export const freechipsWebhook = async (req, res) => {
       committed = true;
       return;
     }
-    console.log(payIn, 'payIn details for Freechips webhook');
 
     const bankResponsePayload = `${amount || payIn.amount} nil ${utr} ${payIn.bank_acc_id}`;
     const bankResponse = await createBankResponseWebHookService(

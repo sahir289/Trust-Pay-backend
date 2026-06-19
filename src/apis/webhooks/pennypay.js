@@ -9,15 +9,14 @@ import { acquireLock, releaseLock } from '../../utils/distributedLock.js';
 import { beginTransaction, commit, getConnection, rollback  } from '../../utils/db.js';
 
 export const pennyPayWebhook = async (req, res) => {
-  logger.info('pennyPayWebhook called', req.body);
+  logger.info('webhook called', req.body);
   let utr = null;
   let conn = null;
-
   try {
     sendSuccess(res, 200, 'Webhook received successfully');
     const responseData = req.body; 
     if (!responseData) {
-      logger.error('[PennyPay] Missing data object in webhook body');
+      logger.error('Missing data object in webhook body');
       return;
     }
 
@@ -27,14 +26,14 @@ export const pennyPayWebhook = async (req, res) => {
 
     if (statusFromGateway !== 'SUCCESS') {
       logger.info(
-        `[PennyPay] Skipping webhook processing. Status is ${statusFromGateway} for merchantOrderId ${merchantOrderId}`,
+        `Skipping webhook processing. Status is ${statusFromGateway} for merchantOrderId ${merchantOrderId}`,
       );
       return;
     }
 
     if (!utr) {
       logger.error(
-        `[PennyPay] UTR missing or empty for successful transaction. merchantOrderId: ${merchantOrderId}`,
+        `UTR missing or empty for successful transaction. merchantOrderId: ${merchantOrderId}`,
       );
       return;
     }
@@ -56,12 +55,12 @@ export const pennyPayWebhook = async (req, res) => {
     const payIn = await getPayInIntentDao(merchantOrderId);
     if (!payIn) {
       logger.error(
-        `[PennyPay] PayIn not found for merchantOrderId: ${merchantOrderId}`,
+        `PayIn not found for merchantOrderId: ${merchantOrderId}`,
       );
       await rollback(conn);
       return;
     }
-    logger.info(`[PennyPay] PayIn fetched:`, {
+    logger.info(`PayIn fetched:`, {
       merchantOrderId,
       status: payIn.status,
       bank_acc_id: payIn.bank_acc_id,
@@ -89,7 +88,7 @@ export const pennyPayWebhook = async (req, res) => {
       bankResponsePayload,
       payIn.company_id,
       'BOT',
-      'pennyTrustPay',
+      'WEBHOOK',
       conn,
     );
     logger.info('Bank response created:', bankResponse);
