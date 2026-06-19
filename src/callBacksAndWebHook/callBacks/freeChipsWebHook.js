@@ -122,7 +122,6 @@ export const freeChipsSuccessCallback = async (req, res) => {
     await updatePayoutWebhookService(
       { id: payout.id, company_id: payout.company_id },
       updatePayload,
-      payout,
       conn,
     );
     await commit(conn);
