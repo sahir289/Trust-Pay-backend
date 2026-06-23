@@ -411,6 +411,11 @@ function config(Env) {
     cashFreeClientSecret: Env?.CLIENT_SECRET,
     cashFreeClientId: Env?.CLIENT_ID,
     telegramVendorboardChatId: Env?.TELEGRAM_VENDORBOARD_CHAT_ID,
+    ipWhitelists: {
+      payin: Env?.PAYIN_WHITELIST_IPS ,
+      payout: Env?.PAYOUT_WHITELIST_IPS ,
+      localIp: Env?.LOCAL_IP ,
+    },
   };
 }
 
