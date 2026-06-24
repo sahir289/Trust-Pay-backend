@@ -126,7 +126,7 @@ export const generatePayInUrl = async (req, res) => {
     role = roleData.role;
   }
 
-  if (role === role.ADMIN || !apiKey) {
+  if (role === Role.ADMIN || !apiKey) {
     // Internal admin flow: the caller is an authenticated ADMIN (verified via
     // roleToken). Derive the merchant's key from its record.
     const data = await getMerchantsByCodeDao(code);
