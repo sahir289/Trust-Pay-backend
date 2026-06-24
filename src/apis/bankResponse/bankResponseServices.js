@@ -453,8 +453,7 @@ const createBankResponseService = async (
             balance: parseFloat(botRes.amount),
             today_balance: parseFloat(botRes.amount),
             payin_count: 1,
-          },
-          conn,
+          }
         );
         vendor = await getVendorsBankReponseDao(
           {
@@ -1272,8 +1271,7 @@ const createBankResponseWebHookService = async (
             balance: parseFloat(botRes.amount),
             today_balance: parseFloat(botRes.amount),
             payin_count: 1,
-          },
-          conn,
+          }
         );
         await _updateBankaccountInternal(
           { id: botRes?.bank_id, company_id: companyId },
