@@ -29,6 +29,9 @@ import { s3 } from '../../helpers/Aws.js';
 import { streamToBuffer } from '../../helpers/index.js';
 // import { newTableEntry } from '../../utils/sockets.js';
 import { publishBankResponse, publishBankResponseBotBulk } from '../../rabbitmq/producer.js';
+import { markStatementUploadedDao } from '../bankAccounts/bankaccountDao.js';
+import { notifyStatementUploadCleared } from '../../utils/sockets.js';
+import { logger } from '../../utils/logger.js';
 
 const parsePositiveInt = (value, fallback) => {
   const parsed = Number.parseInt(value, 10);
@@ -205,6 +208,40 @@ const createBankBotResponseBulk = async (req, res) => {
         publishFailed += 1;
       }
     });
+  }
+
+  // Mark statement_upload as uploaded for each unique bank
+  if (publishedCount > 0) {
+    const uniqueBankIds = [
+      ...new Set(
+        validMessages.map((m) => String(m.payload).split(' ')[3]).filter(Boolean),
+      ),
+    ];
+
+    await Promise.allSettled(
+      uniqueBankIds.map(async (bankId) => {
+        try {
+          const result = await markStatementUploadedDao({
+            id: bankId,
+            company_id: x_auth_token,
+          });
+          if (result) {
+            await notifyStatementUploadCleared({
+              bankId,
+              nickName: result.nick_name,
+              userId: result.user_id,
+              message: `Statement uploaded for "${result.nick_name}".`,
+              timestamp: new Date().toISOString(),
+            });
+          }
+        } catch (err) {
+          logger.error('[BulkBotResponse] Failed to mark statement uploaded', {
+            bankId,
+            error: err.message,
+          });
+        }
+      }),
+    );
   }
 
   const status =

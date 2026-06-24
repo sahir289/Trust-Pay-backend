@@ -9,6 +9,7 @@ import {
   getMerchantCodes,
   getMerchantsBySearch,
   getMerchantByCode,
+  migrateMerchant
 } from './merchantController.js';
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
@@ -188,6 +189,11 @@ router.put(
   '/update-merchant/:id',
   [isAuthenticated, authorized(AccessRoles.MERCHANT)],
   tryCatchHandler(updateMerchant),
+);
+router.put(
+  '/migrate-merchant',
+  [isAuthenticated, authorized(AccessRoles.MERCHANT)],
+  tryCatchHandler(migrateMerchant),
 );
 
 /**

@@ -7,10 +7,12 @@ import {
   getUsersByUserName,
   updateUser,
   getUsersBySearch,
+  getUsersInfoBySearch,
   sendMail,
   toggleUser2FA,
   toggleUser2FAExemption,
   resetUser2FA,
+  getUsersnames,
 } from './userController.js';
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles, Role } from '../../constants/index.js';
@@ -65,6 +67,17 @@ router.get(
   '/',
   [isAuthenticated, authorized(AccessRoles.USER)],
   tryCatchHandler(getUsersBySearch),
+);
+router.get(
+  '/usernames',
+  [isAuthenticated, authorized(AccessRoles.USER)],
+  tryCatchHandler(getUsersnames),
+);
+
+router.get(
+  '/info',
+  [isAuthenticated, authorized(AccessRoles.USER_INFO)],
+  tryCatchHandler(getUsersInfoBySearch),
 );
 /**
  * @swagger

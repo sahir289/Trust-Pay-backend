@@ -1,8 +1,16 @@
+import { UAParser } from 'ua-parser-js';
 import { logoutSet } from '../../middlewares/auth.js';
+import {
+  recordAuthFailure,
+  resetAuthFailures,
+} from '../../middlewares/authRateLimiter.js';
 import { INSERT_AUTH_SCHEMA } from '../../schemas/authSchema.js';
 import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
-import { generateUserToken, verifyToken } from '../../utils/auth.js';
-// import { verifyToken } from '../../utils/auth.js';
+import {
+  generateUserToken,
+  verifyToken,
+  verifyRefreshToken,
+} from '../../utils/auth.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import { updateSessionDao } from './authDao.js';
 import {
@@ -24,6 +32,7 @@ import {
 
 const loginController = async (req, res) => {
   let clientIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  const ua = new UAParser(req.headers['user-agent']).getResult();
   const payload = { ...req.body };
   payload.user_location = req.user_location || {};
   const options = { abortEarly: false };
@@ -31,7 +40,16 @@ const loginController = async (req, res) => {
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
-  const data = await loginService(payload, clientIP);
+  let data;
+  try {
+    data = await loginService(payload, clientIP, ua);
+  } catch (err) {
+    // Count credential failures toward the brute-force lockout, then rethrow.
+    await recordAuthFailure(req);
+    throw err;
+  }
+  // Credentials were valid (any non-throwing return) — clear failure counter.
+  await resetAuthFailures(req);
   ///for first login user
   if (data.isLoginFirst) {
     return sendSuccess(res, data, "user's first login");
@@ -90,7 +108,10 @@ const refreshTokenController = async (req, res) => {
   if (!refreshToken) {
     throw new BadRequestError('Unauthorized access, Try to login again');
   }
-  const decoded = verifyToken(refreshToken, { ignoreExpiration: true });
+  const decoded = verifyRefreshToken(refreshToken);
+  if (!decoded || !decoded.user_id || !decoded.company_id) {
+    throw new BadRequestError('Unauthorized access, Try to login again');
+  }
   const session = await refreshTokenService(
     decoded.user_id,
     decoded.company_id,
@@ -190,11 +211,20 @@ const getUserRoleController = async (req, res) => {
  */
 const verifyLoginOtpController = async (req, res) => {
   const clientIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+  const ua = new UAParser(req.headers['user-agent']).getResult();
   const { preAuthToken, otpToken } = req.body;
   if (!preAuthToken || !otpToken) {
     throw new BadRequestError('preAuthToken and otpToken are required');
   }
-  const data = await verifyLoginOtpService(preAuthToken, String(otpToken), clientIP);
+  let data;
+  try {
+    data = await verifyLoginOtpService(preAuthToken, String(otpToken), clientIP, ua);
+  } catch (err) {
+    // Count failed OTP attempts toward the 2FA brute-force lockout.
+    await recordAuthFailure(req);
+    throw err;
+  }
+  await resetAuthFailures(req);
   res.cookie('refreshToken', data.tokenInfo.refreshToken, {
     httpOnly: true,
     secure: true,

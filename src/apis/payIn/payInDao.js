@@ -7,6 +7,7 @@ import {
   buildSelectQuery,
   buildUpdateQuery,
   executeQuery,
+  isSafeColumnName,
 } from '../../utils/db.js';
 import dayjs from 'dayjs';
 import { logger } from '../../utils/logger.js';
@@ -323,7 +324,7 @@ export const getPayinsForServiccDao = async (filters, conn = null) => {
   }
 };
 
-export const getPayInForDisputeServiceDao = async (filters = {}, conn = null) => {
+export const getPayInForDisputeServiceDao = async (filters = {}, conn = null, forUpdate = false,) => {
   try {
     const selectColumns = `
       p.id,
@@ -344,10 +345,15 @@ export const getPayInForDisputeServiceDao = async (filters = {}, conn = null) =>
       p.expiration_date
     `;
 
-    const [sql, params] = buildSelectQuery(
+    let [sql, params] = buildSelectQuery(
       `SELECT ${selectColumns} FROM "${tableName.PAYIN}" as p WHERE is_obsolete = false`,
       filters,
     );
+
+    if (forUpdate) {
+      sql += ' FOR UPDATE';
+    }
+
     const result = await executeQuery(sql, params, conn);
     return result.rows[0] || null;
   } catch (error) {
@@ -1392,7 +1398,7 @@ export const getPayinsWithoutHistoryDao = async (
         p.merchant_order_id,
         p.user,
         p.is_notified,
-        p.config AS payin_details,
+        (p.config::jsonb - 'assigned_bank') AS payin_details,
         json_build_object(
           'merchant_code', m.code,
           'dispute', m.dispute_enabled,
@@ -1402,6 +1408,7 @@ export const getPayinsWithoutHistoryDao = async (
     } else if (role === 'VENDOR') {
       commissionSelect = `
         p.payin_vendor_commission,
+        p.config->'assigned_bank'->>'upi_id' AS upi_id,
         COALESCE((p.config->>'actual_vendor_commission')::numeric, 0) AS actual_vendor_commission,
         COALESCE((p.config->>'brokerage_commission')::numeric, 0) AS brokerage_commission,
         v.code AS vendor_code`;
@@ -1415,6 +1422,7 @@ export const getPayinsWithoutHistoryDao = async (
           'notify_url', m.config->>'notify_url'
         ) AS merchant_details,
         p.merchant_order_id,
+        p.config->'assigned_bank'->>'upi_id' AS upi_id,
         p.config AS payin_details,
         p.payin_vendor_commission,
         COALESCE((p.config->>'actual_vendor_commission')::numeric, 0) AS actual_vendor_commission,
@@ -1539,6 +1547,12 @@ export const getPayinsWithoutHistoryDao = async (
       paramIndex += statusArray.length;
       delete filters.status;
     }
+    if(filters.upi_id){
+      conditions.push(`p.config->'assigned_bank'->>'upi_id' = $${paramIndex}`);
+      queryParams.push(filters.upi_id.trim());
+      paramIndex++;
+      delete filters.upi_id;
+    }
     if (filters.user_submitted_utr && filters.user_submitted_utr.trim()) {
       conditions.push(`
         (
@@ -1607,6 +1621,7 @@ export const getPayinsWithoutHistoryDao = async (
       if (handledKeys.has(key) || value == null || !validColumns.has(key)) {
         return;
       }
+      if (!isSafeColumnName(key)) return;
       const nextParamIdx = queryParams.length + 1;
       if (Array.isArray(value)) {
         const placeholders = value
@@ -1798,7 +1813,7 @@ export const getPayinsWithHistoryDao = async (
         p.merchant_order_id,
         p.user,
         p.is_notified,
-        p.config AS payin_details,
+        (p.config::jsonb - 'assigned_bank') AS payin_details,
         json_build_object(
           'merchant_code', m.code,
           'dispute', m.dispute_enabled,
@@ -1808,6 +1823,7 @@ export const getPayinsWithHistoryDao = async (
     } else if (role === 'VENDOR') {
       commissionSelect = `
         p.payin_vendor_commission,
+        p.config->'assigned_bank'->>'upi_id' AS upi_id,
         COALESCE((p.config->>'actual_vendor_commission')::numeric, 0) AS actual_vendor_commission,
         COALESCE((p.config->>'brokerage_commission')::numeric, 0) AS brokerage_commission,
         v.code AS vendor_code`;
@@ -1821,6 +1837,7 @@ export const getPayinsWithHistoryDao = async (
           'notify_url', m.config->>'notify_url'
         ) AS merchant_details,
         p.merchant_order_id,
+        p.config->'assigned_bank'->>'upi_id' AS upi_id,
         p.config AS payin_details,
         p.payin_vendor_commission,
         COALESCE((p.config->>'actual_vendor_commission')::numeric, 0) AS actual_vendor_commission,
@@ -1968,6 +1985,12 @@ export const getPayinsWithHistoryDao = async (
       paramIndex += statusArray.length;
       delete filters.status;
     }
+     if(filters.upi_id){
+      conditions.push(`p.config->'assigned_bank'->>'upi_id' = $${paramIndex}`);
+      queryParams.push(filters.upi_id.trim());
+      paramIndex++;
+      delete filters.upi_id;
+    }
     if (filters.user_submitted_utr && filters.user_submitted_utr.trim()) {
       conditions.push(`
         (
@@ -2029,6 +2052,7 @@ export const getPayinsWithHistoryDao = async (
       if (handledKeys.has(key) || value == null || !validColumns.has(key)) {
         return;
       }
+      if (!isSafeColumnName(key)) return;
       const nextParamIdx = queryParams.length + 1;
       if (Array.isArray(value)) {
         const placeholders = value

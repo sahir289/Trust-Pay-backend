@@ -49,13 +49,36 @@ const generateUserToken = (user, sessionId) => {
 
 const verifyToken = (token) => {
   try {
-    const decoded = jwt.verify(token, config.jwt.jwt_secret);
+    const decoded = jwt.verify(token, config.jwt.jwt_secret, {
+      algorithms: ['HS256'],
+    });
     return decoded;
   } catch (err) {
     if (err.name === 'TokenExpiredError') {
       throw new BadRequestError('Token expired');
     }
     logger.error('Token Expired:', err);
+    return false;
+  }
+};
+
+/**
+ * Verifies a refresh token using the dedicated refresh-token secret.
+ * Refresh tokens are signed with `refresh_token_secret`, so they must be
+ * verified with the same key (not the access-token secret). Returns the
+ * decoded payload on success or `false` on any failure.
+ *
+ * @param {string} token
+ * @returns {object|false}
+ */
+const verifyRefreshToken = (token) => {
+  try {
+    return jwt.verify(token, config.jwt.refresh_token_secret, {
+      algorithms: ['HS256'],
+      ignoreExpiration: true,
+    });
+  } catch (err) {
+    logger.error('Refresh token verification failed:', err);
     return false;
   }
 };
@@ -104,7 +127,9 @@ const generatePreAuthToken = (payload) => {
  */
 const verifyPreAuthToken = (token) => {
   try {
-    const decoded = jwt.verify(token, config.jwt.jwt_secret);
+    const decoded = jwt.verify(token, config.jwt.jwt_secret, {
+      algorithms: ['HS256'],
+    });
     if (decoded?.stage !== 'PRE_2FA') {
       throw new BadRequestError('Invalid pre-auth token stage');
     }
@@ -123,6 +148,7 @@ export {
   refreshAccessToken,
   generateUserToken,
   verifyToken,
+  verifyRefreshToken,
   hashValue,
   createTemporaryToken,
   generatePreAuthToken,

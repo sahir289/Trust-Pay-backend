@@ -1,7 +1,11 @@
+// Import required functions and classes
 import { getBankByIdDao } from '../../apis/bankAccounts/bankaccountDao.js';
+// import { getMerchantsDao } from '../../apis/merchants/merchantDao.js';
 import { getPayoutsDao } from '../../apis/payOut/payOutDao.js';
+// import { merchantPayoutCallback } from '../merchantCallBacks.js';
 import { payAssistErrorCodeMap, Role, Status } from '../../constants/index.js';
 import { logger } from '../../utils/logger.js';
+// import axios from 'axios';
 import { getCompanyByIDDao } from '../../apis/company/companyDao.js';
 import { getVendorsDao } from '../../apis/vendors/vendorDao.js';
 import { updatePayoutService } from '../../apis/payOut/payOutService.js';
@@ -33,7 +37,7 @@ export const payDumTransactionStatusCallback = async (req, res) => {
         payoutId: singleWithdrawData?.id,
         status: singleWithdrawData?.status,
       });
-      return;
+      return
     }
 
     const [company] = await getCompanyByIDDao({
@@ -129,6 +133,7 @@ export const payDumTransactionStatusCallback = async (req, res) => {
       status: singleWithdrawData.status,
     });
 
+    return res.status(200).send('Payout Updated Successfully');
   } catch (err) {
     // Log any errors while updating the payout
     logger.error('getting error while updating payout', err);

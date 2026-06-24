@@ -223,6 +223,12 @@ function config(Env) {
       payin_url: Env?.FREECHIPS_PAYIN_URL,
       secretKey: Env?.FREECHIPS_SECRET_KEY,
       secretIv: Env?.FREECHIPS_SECRET_IV,
+      secretIvPayout : Env?.FREECHIPS_PAYOUT_SECRET_IV,
+      secretKeyPayout : Env?.FREECHIPS_PAYOUY_SECRET_KEY,
+      secretCodePayout : Env?.FREECHIPS_PAYOUY_SECRET_CODE,
+      secretVendorKeyPayout : Env?.FREECHIPS_PAYOUY_VENDOR_KEY,
+      baseUrl : Env?.FREECHIPS_URL,
+      tpin : 654321
     },
     pennyPay: {
       payoutUrl: Env?.PENNY_PAY_PAYOUT_URL,
@@ -233,6 +239,16 @@ function config(Env) {
       payoutUrl: Env?.TRUST_PAY_PAYOUT_URL,
       payinUrl: Env?.TRUST_PAY_PAYIN_URL,
       walletBalanceUrl: Env?.TRUST_PAY_WALLET_BALANCE_URL,
+    },
+    payBitra: {
+      payoutUrl: Env?.PAY_BITRA_PAYOUT_URL,
+      payinUrl: Env?.PAY_BITRA_PAYIN_URL,
+      walletBalanceUrl: Env?.PAY_BITRA_WALLET_BALANCE_URL,
+    },
+    payCric: {
+      payoutUrl: Env?.PAY_CRIC_PAYOUT_URL,
+      payinUrl: Env?.PAY_CRIC_PAYIN_URL,
+      walletBalanceUrl: Env?.PAY_CRIC_WALLET_BALANCE_URL,
     },
     controllerCacheTtls: {
       auth: {
@@ -389,6 +405,7 @@ function config(Env) {
     telegramBankAlertChatId: Env?.TELEGRAM_BANK_ALERT_CHAT_ID,
     telegramDuplicateDisputeChatId: Env?.TELEGRAM_DISPUTE_DUPLICATE_CHAT_ID,
     telegramCheckUTRHistoryChatId: Env?.TELEGRAM_CHECK_UTR_HISTORY_CHAT_ID,
+    telegramStatementNotUploadNotificationChatId: Env?.TELEGRAM_STATEMENT_NOT_UPLOAD_NOTIFICATION_CHAT_ID,
     telegramOcrBotToken: Env?.TELEGRAM_OCR_BOT_TOKEN,
     telegramCheckUtrBotToken: Env?.TELEGRAM_CHECK_UTR_BOT_TOKEN,
     ekoPaymentsActivateUrl: Env?.EKO_PAYMENTS_ACTIVATE_URL,
@@ -411,6 +428,11 @@ function config(Env) {
     cashFreeClientSecret: Env?.CLIENT_SECRET,
     cashFreeClientId: Env?.CLIENT_ID,
     telegramVendorboardChatId: Env?.TELEGRAM_VENDORBOARD_CHAT_ID,
+    ipWhitelists: {
+      payin: Env?.PAYIN_WHITELIST_IPS ,
+      payout: Env?.PAYOUT_WHITELIST_IPS ,
+      localIp: Env?.LOCAL_IP ,
+    },
   };
 }
 

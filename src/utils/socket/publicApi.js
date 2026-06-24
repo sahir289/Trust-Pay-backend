@@ -115,6 +115,29 @@ const forceLogoutUser = async (
   }
 };
 
+// Statement upload reminder notification (targeted to specific vendor by userId)
+const notifyStatementUpload = async (payload) => {
+  const eventName = 'statementUploadReminder';
+  const bankCount = payload.banks?.length || 0;
+  logger.log(
+    chalk.bold.yellow(
+      `[SOCKET] Emitting ${eventName} for vendor userId ${payload.userId} — ${bankCount} bank(s), level ${payload.notificationLevel}`,
+    ),
+  );
+  await emitOrBridgeSocketEvent(eventName, payload);
+};
+
+// Statement upload status cleared notification
+const notifyStatementUploadCleared = async (payload) => {
+  const eventName = 'statementUploadCleared';
+  logger.log(
+    chalk.bold.green(
+      `[SOCKET] Emitting ${eventName} for bank ${payload.nickName}`,
+    ),
+  );
+  await emitOrBridgeSocketEvent(eventName, payload);
+};
+
 const deactivateBank = (
   nickName,
   bankId,
@@ -229,4 +252,6 @@ export {
   newTableEntry,
   notifyBankResponseAccessUpdate,
   notifyNewTableEntry,
+  notifyStatementUpload,
+  notifyStatementUploadCleared,
 };

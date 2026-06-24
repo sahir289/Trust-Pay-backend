@@ -1,7 +1,6 @@
-// import config from '../config/config.js';
 import { AUTH_HEADER_KEY } from '../utils/constants.js';
 import {
-  // AccessDeniedError,
+  AccessDeniedError,
   AuthenticationError,
   DbError,
   InternalServerError,
@@ -18,7 +17,19 @@ import {
 } from '../utils/redishashkey.js';
 import { enforce2FAMiddleware } from './enforce2FA.js';
 
+// Bounded in-process denylist of recently-invalidated tokens. This is only a
+// best-effort fast path on top of the authoritative Redis/DB session checks;
+// an unbounded Set would leak memory under sustained traffic (10k+ rps).
+const LOGOUT_SET_MAX = Number.parseInt(process.env.LOGOUT_SET_MAX || '50000', 10);
 const logoutSet = new Set();
+const denylistToken = (token) => {
+  if (logoutSet.size >= LOGOUT_SET_MAX) {
+    // Evict the oldest entry (insertion order) to keep memory bounded.
+    const oldest = logoutSet.values().next().value;
+    if (oldest !== undefined) logoutSet.delete(oldest);
+  }
+  logoutSet.add(token);
+};
 
 const applyAuthenticatedSession = (req, decoded, sessionId, isTwoFactorEnabled, isTwoFactorExempt) => {
   req.user = { 
@@ -79,7 +90,7 @@ const isAuthenticated = async (req, res, next) => {
 
       if (!activeSession) {
         // Session doesn't exist in database, add token to logout set
-        logoutSet.add(token);
+        denylistToken(token);
         await deleteCachedData(sessionCacheKey, 'Auth session cache');
         throw new AuthenticationError('Session expired or invalid. Please login again.');
       }
@@ -157,12 +168,20 @@ const authorized =
 
       // Check if the user's designation is included in the allowed roles
       if (!designation || !allowedRoles.includes(designation)) {
-        throw new AuthenticationError('Access denied');
+        throw new AccessDeniedError('Access denied');
       }
       next();
     } catch (error) {
       logger.error('Error in authorization middleware:', error);
-      next(new InternalServerError(error.message));
+      // Preserve client-facing auth errors (401/403) instead of masking them
+      // as 500s, which leaks no useful info and breaks correct client handling.
+      if (
+        error instanceof AccessDeniedError ||
+        error instanceof AuthenticationError
+      ) {
+        return next(error);
+      }
+      return next(new InternalServerError(error.message));
     }
   };
 

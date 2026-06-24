@@ -63,6 +63,8 @@ export const VALIDATE_PAY_IN_INTENT_GENERATE_ORDER = Joi.object({
   Razorpay: Joi.boolean().label('Razorpay').optional(),
   cashfree: Joi.boolean().label('cashfree').optional(),
   zentechind: Joi.boolean().label('zentechind').optional(),
+  paybitra: Joi.boolean().label('paybitra').optional(),
+  paycric: Joi.boolean().label('paycric').optional(),
 });
 
 export const VALIDATE_UPDATE_PAYMENT_NOTIFICATION_STATUS = Joi.object({

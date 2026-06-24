@@ -26,6 +26,7 @@ import {
   getBankAccountDaoNickName,
   getBankAccountsBySearchDao,
   getAllBankaccountDao,
+  resetBankNotificationDao,
 } from './bankaccountDao.js';
 
 const isPlainObject = (value) =>
@@ -579,7 +580,18 @@ const updateBankaccountService = async (
 
 const deleteBankaccountService = async (ids, user_id) => {
   try {
-    const payload = { is_obsolete: true, updated_by: user_id };
+    const payload = { is_obsolete: true, updated_by: user_id ,
+        config: {
+          is_freeze: false,
+          is_intent: "off",
+          is_phonepay: false,
+          is_staticQR: false,
+          merchants:[]
+        },
+        is_qr: false,
+        is_bank: false,
+        is_enabled: false,
+    };
     const result = await deleteBankaccountDao(
       { id: ids.id, company_id: ids.company_id },
       payload,
@@ -642,6 +654,26 @@ const activeInactiveBankAccountService = async (ids, payload) => {
   }
 };
 
+// Temporary service to reset all bank notification levels to 0 - to be used in case of any issues with the cron job
+const restBankNotificationService = async () => {
+  let conn;
+  let committed = false;
+  try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+    const result = await resetBankNotificationDao(conn);
+    await commit(conn);
+    committed = true;
+    return result;
+  } catch (error) {
+    if (conn && !committed) await rollback(conn);
+    logger.error('error in restBankNotificationService', error);
+    throw error;
+  } finally {
+    if (conn) conn.release();
+  }
+}
+
 export {
   getBankaccountService,
   getBankAccountBySearchService,
@@ -651,4 +683,5 @@ export {
   deleteBankaccountService,
   getBankaccountServiceNickName,
   activeInactiveBankAccountService,
+  restBankNotificationService,
 };

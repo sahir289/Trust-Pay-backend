@@ -33,6 +33,7 @@ import {
   getBankaccountServiceNickName,
   getBankAccountBySearchService,
   activeInactiveBankAccountService,
+  restBankNotificationService,
 } from './bankaccountServices.js';
 
 const normalizeBankNumericFields = (bank = {}) => {
@@ -378,7 +379,7 @@ const activeInactiveBankAccount = async (req, res) => {
   }
   const ids = { id: bank_account_id, company_id: company_id };
   const payload = {
-    is_enabled: is_active,
+    config:{bot_bank_active: is_active},
   };
   const updateBank = await activeInactiveBankAccountService(
     ids,
@@ -392,6 +393,15 @@ const activeInactiveBankAccount = async (req, res) => {
   );
 };
 
+// Temporary controller to reset all bank notification levels to 0 - to be used in case of any issues with the cron job
+const resetBankNotification = async (req, res) => {
+  await restBankNotificationService();
+  return sendSuccess(
+    res,
+    'Bank notifications reset successfully',
+  );
+}
+
 export {
   getBankaccount,
   getBankAccountBySearch,
@@ -402,4 +412,5 @@ export {
   // getMerchantBank,
   getBankaccountNickName,
   activeInactiveBankAccount,
+  resetBankNotification,
 };

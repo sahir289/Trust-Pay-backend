@@ -164,6 +164,22 @@ const getAllUsersDao = async (
   }
 };
 
+const getAllUsersNameDao = async (
+  filters,
+  conn = null,
+) => {
+  try {
+    const sql = `SELECT id, user_name FROM public."User" WHERE is_obsolete = false AND company_id = $1`;
+    const queryParams = [filters.company_id];
+
+    const result = await executeQuery(sql, queryParams, conn);
+    return result.rows;
+  } catch (error) {
+    logger.error('Error in get Users Dao:', error);
+    throw error;
+  }
+};
+
 const getUsersBySearchDao = async (
   filters,
   searchTerms,
@@ -347,6 +363,191 @@ const getUsersBySearchDao = async (
     throw error;
   }
 };
+
+const getUsersInfoBySearchDao = async (
+  filters = {},
+  searchTerms,
+  page,
+  pageSize,
+  startDate,
+  endDate,
+  sortBy,
+  sortOrder,
+  conn = null,
+) => {
+  let query = `
+SELECT
+  at.id,
+  at.user_id,
+  u.user_name,
+  at.company_id,
+  at.session_id,
+  at.config->'user_info'->>'user_ip' AS user_ip,
+  at.config->'user_info'->>'browser' AS browser,
+  at.config->'user_info'->>'os' AS os,
+  at.config->'user_info'->>'device_type' AS device_type,
+  at.config->'user_info'->>'browser_version' AS browser_version,
+  at.config->'user_info'->>'os_version' AS os_version,
+  at.config->'user_info'->'user_location'->>'latitude' AS latitude,
+  at.config->'user_info'->'user_location'->>'longitude' AS longitude,
+  (at.config->'user_info'->'user_location'->'proxy'->>'isVpn')::boolean AS is_vpn,
+  at.config->'user_info'->'user_location'->'proxy'->'raw'->>'country' AS country,
+  at.config->'user_info'->'user_location'->'proxy'->'raw'->>'city' AS city,
+  at.config->'user_info'->'user_location'->>'role' AS role,
+  at.config->'user_info'->'user_location'->'proxy'->'raw'->>'provider' AS provider,
+  at.is_obsolete,
+  at.created_at,
+  at.updated_at
+FROM public."AccessToken" at
+LEFT JOIN public."User" u
+  ON at.user_id = u.id
+WHERE at.is_obsolete = false
+  `;
+
+  const params = [];
+  let index = 1;
+
+  if (filters.id) {
+    query += ` AND at.id = $${index++}`;
+    params.push(filters.id);
+  }
+
+  if (filters.user_id) {
+    query += ` AND at.user_id = $${index++}`;
+    params.push(filters.user_id);
+  }
+
+  if (filters.user_name) {
+    const userIds = filters.user_name
+      .split(',')
+      .map((id) => id.trim())
+      .filter(Boolean);
+  
+    if (userIds.length > 0) {
+      query += ` AND at.user_id = ANY($${index++})`;
+      params.push(userIds);
+    }
+  }
+
+  if (filters.company_id) {
+    query += ` AND at.company_id = $${index++}`;
+    params.push(filters.company_id);
+  }
+
+  if (filters.session_id) {
+    query += ` AND at.session_id = $${index++}`;
+    params.push(filters.session_id);
+  }
+
+  if (filters.is_obsolete !== undefined) {
+    query += ` AND at.is_obsolete = $${index++}`;
+    params.push(filters.is_obsolete);
+  }
+
+  if (searchTerms?.length > 0) {
+    const searchConditions = [];
+  
+    for (const term of searchTerms) {
+      searchConditions.push(`
+        (
+          u.user_name ILIKE $${index}
+          OR at.config->'user_info'->>'user_ip' ILIKE $${index}
+        )
+      `);
+  
+      params.push(`%${term}%`);
+      index++;
+    }
+  
+    if (searchConditions.length) {
+      query += ` AND (${searchConditions.join(' OR ')})`;
+    }
+  }
+
+
+  const validatedPageSize = Math.min(
+    Math.max(parseInt(pageSize) || 10, 1),
+    100,
+  );
+  
+  const validatedPageNumber = Math.max(
+    parseInt(page) || 1,
+    1,
+  );
+  
+  const offset = (validatedPageNumber - 1) * validatedPageSize;
+
+  if (startDate && endDate) {
+    query += ` AND at.created_at BETWEEN $${index++} AND $${index++}`;
+    params.push(
+      `${startDate} 00:00:00`,
+      `${endDate} 23:59:59.999`
+    );
+  } else if (startDate) {
+    query += ` AND at.created_at >= $${index++}`;
+    params.push(`${startDate} 00:00:00`);
+  } else if (endDate) {
+    query += ` AND at.created_at <= $${index++}`;
+    params.push(`${endDate} 23:59:59.999`);
+  }
+  
+  if (sortBy && sortOrder) {
+    // Whitelist sortable columns and direction to prevent ORDER BY injection.
+    const SORTABLE_COLUMNS = {
+      id: 'at.id',
+      user_id: 'at.user_id',
+      user_name: 'u.user_name',
+      company_id: 'at.company_id',
+      session_id: 'at.session_id',
+      is_obsolete: 'at.is_obsolete',
+      created_at: 'at.created_at',
+      updated_at: 'at.updated_at',
+    };
+    const safeSortColumn = SORTABLE_COLUMNS[sortBy] || 'at.created_at';
+    const safeSortOrder = sortOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+    query += ` ORDER BY ${safeSortColumn} ${safeSortOrder}`;
+  } else {
+    query += ` ORDER BY at.created_at DESC`;
+  }
+
+  const countQuery = `
+  SELECT COUNT(*) AS total
+  FROM (${query}) AS count_table
+`;
+
+const countResult = await executeQuery(
+  countQuery,
+  params,
+  conn,
+);
+
+const totalItems = parseInt(
+  countResult.rows[0].total,
+  10,
+);
+  
+  query += ` LIMIT $${index++} OFFSET $${index++}`;
+  
+  params.push(validatedPageSize);
+  params.push(offset);
+
+  const result = await executeQuery(
+    query,
+    params,
+    conn,
+  );
+
+  return {
+    totalCount: totalItems,
+    totalPages: Math.ceil(
+      totalItems / validatedPageSize,
+    ),
+    userInfo: result.rows,
+  };
+
+  // return result.rows;
+};
+
 const getUserByIdDao = async (ids, conn = null) => {
   try {
     let baseQuery = `
@@ -767,8 +968,10 @@ export {
   getUserByIdDao,
   getUsersByUserNameDao,
   getUsersDao,
+  getAllUsersNameDao,
   updateUserDao,
   getUsersBySearchDao,
+  getUsersInfoBySearchDao,
   getAllUsersDao,
   updateUserByIDDao,
   updateUser2FAStatusDao,
