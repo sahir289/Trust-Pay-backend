@@ -492,7 +492,20 @@ WHERE at.is_obsolete = false
   }
   
   if (sortBy && sortOrder) {
-    query += ` ORDER BY ${sortBy} ${sortOrder}`;
+    // Whitelist sortable columns and direction to prevent ORDER BY injection.
+    const SORTABLE_COLUMNS = {
+      id: 'at.id',
+      user_id: 'at.user_id',
+      user_name: 'u.user_name',
+      company_id: 'at.company_id',
+      session_id: 'at.session_id',
+      is_obsolete: 'at.is_obsolete',
+      created_at: 'at.created_at',
+      updated_at: 'at.updated_at',
+    };
+    const safeSortColumn = SORTABLE_COLUMNS[sortBy] || 'at.created_at';
+    const safeSortOrder = sortOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+    query += ` ORDER BY ${safeSortColumn} ${safeSortOrder}`;
   } else {
     query += ` ORDER BY at.created_at DESC`;
   }

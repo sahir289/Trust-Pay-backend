@@ -7,6 +7,7 @@ import {
   buildSelectQuery,
   buildUpdateQuery,
   executeQuery,
+  isSafeColumnName,
 } from '../../utils/db.js';
 import dayjs from 'dayjs';
 import { logger } from '../../utils/logger.js';
@@ -1620,6 +1621,7 @@ export const getPayinsWithoutHistoryDao = async (
       if (handledKeys.has(key) || value == null || !validColumns.has(key)) {
         return;
       }
+      if (!isSafeColumnName(key)) return;
       const nextParamIdx = queryParams.length + 1;
       if (Array.isArray(value)) {
         const placeholders = value
@@ -2050,6 +2052,7 @@ export const getPayinsWithHistoryDao = async (
       if (handledKeys.has(key) || value == null || !validColumns.has(key)) {
         return;
       }
+      if (!isSafeColumnName(key)) return;
       const nextParamIdx = queryParams.length + 1;
       if (Array.isArray(value)) {
         const placeholders = value

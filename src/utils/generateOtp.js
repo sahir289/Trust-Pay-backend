@@ -1,5 +1,6 @@
+import { randomInt } from 'node:crypto';
+
 export function generateOTP() {
-  const min = 100000;
-  const max = 999999;
-  return Math.floor(Math.random() * (max - min + 1)) + min;
+  // Cryptographically secure, unbiased 6-digit OTP (100000–999999).
+  return randomInt(100000, 1000000);
 }

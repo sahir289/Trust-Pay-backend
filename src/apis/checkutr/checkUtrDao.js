@@ -62,8 +62,9 @@ const getCheckUtrDao = async (
         ON "${PAYIN}".bank_response_id = "${BANK_RESPONSE}".id
       LEFT JOIN "${USER}" u ON "${CHECK_UTR_HISTORY}".created_by = u.id 
       LEFT JOIN "${USER}" uu ON "${CHECK_UTR_HISTORY}".updated_by = uu.id
-      WHERE u.company_id = '${filters.company_id}'
+      WHERE u.company_id = $${queryParams.length + 1}
     `;
+    queryParams.push(filters.company_id);
 
     // Handle filters
     const whereClauses = [];

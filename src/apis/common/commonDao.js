@@ -1,4 +1,4 @@
-import { executeQuery } from '../../utils/db.js';
+import { executeQuery, isSafeColumnName } from '../../utils/db.js';
 import { Role, tableName } from '../../constants/index.js';
 import { logger } from '../../utils/logger.js';
 import { BadRequestError } from '../../utils/appErrors.js';
@@ -131,6 +131,7 @@ export const getTotalCountDao = async (
         ) {
           return; // Skip these special filters
         }
+        if (!column.includes('->>') && !isSafeColumnName(column)) return;
         if (Array.isArray(value)) {
           // Handle multiple values using SQL IN clause
           const placeholders = value.map(() => `$${paramIndex++}`).join(',');
@@ -138,6 +139,7 @@ export const getTotalCountDao = async (
           params.push(...value);
         } else if (column.includes('->>')) {
           const [jsonField, jsonKey] = column.split('->>');
+          if (!isSafeColumnName(jsonField) || !isSafeColumnName(jsonKey)) return;
           query += ` AND "${tablename}".${jsonField}->>'${jsonKey}' = $${paramIndex++}`;
           params.push(value);
         } else {

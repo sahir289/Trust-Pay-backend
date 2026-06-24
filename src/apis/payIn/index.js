@@ -32,7 +32,7 @@ import {
 import { multerUpload } from '../../utils/index.js';
 import getUserLocationMiddleware from '../../middlewares/locationRestrict.js';
 import dbConnScope from '../../middlewares/dbConnScope.js';
-import { checkApiKey } from '../../middlewares/checkApiKey.js';
+import { checkApiKey, checkMerchantApiKey } from '../../middlewares/checkApiKey.js';
 
 const router = express.Router();
 
@@ -126,7 +126,7 @@ router.get(
  *       404:
  *         description: Pay-In URL not found.
  */
-router.post('/generate-upi-url', tryCatchHandler(generateUpiUrl));
+router.post('/generate-upi-url', checkMerchantApiKey, tryCatchHandler(generateUpiUrl));
 
 /**
  * @swagger

@@ -7,6 +7,7 @@ import {
   buildInsertQuery,
   buildUpdateQuery,
   executeQuery,
+  isSafeColumnName,
 } from '../../utils/db.js';
 import { buildSelectQuery } from '../../utils/db.js';
 // import { createPayoutInES ,updatePayoutInES} from '../../elasticSearch/payout/common.js';
@@ -106,10 +107,8 @@ export const getPayoutsDao = async (
   conn,
 ) => {
   try {
-    // Ensure sortOrder has a valid value
-    if (!sortOrder) {
-      sortOrder = 'DESC';
-    }
+    // Whitelist sortOrder to prevent ORDER BY SQL injection (used raw below).
+    sortOrder = sortOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
 
     if (typeof company_id === 'string') {
       company_id = company_id.trim();
@@ -147,6 +146,8 @@ export const getPayoutsDao = async (
     const handledKeys = new Set(['page', 'limit', 'startDate', 'endDate']);
     Object.entries(filters).forEach(([key, value]) => {
       if (handledKeys.has(key) || value == null || value === '') return;
+      // `key` is interpolated as a column identifier below; reject unsafe keys.
+      if (!isSafeColumnName(key)) return;
       const nextParamIdx = paramIndex;
       //added this condition for freechips webhook to get payout by txnid
       if (key === 'txnid') {
@@ -440,6 +441,8 @@ export const getAllPayoutsDao = async (
   conn,
 ) => {
   try {
+    // Whitelist sortOrder to prevent ORDER BY SQL injection (used raw below).
+    sortOrder = sortOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
     if (typeof company_id === 'string') {
       company_id = company_id.trim();
     }
@@ -495,6 +498,8 @@ export const getAllPayoutsDao = async (
     const handledKeys = new Set(['page', 'limit', 'startDate', 'endDate', 'userId', 'status']);
     Object.entries(filters).forEach(([key, value]) => {
       if (handledKeys.has(key) || value == null || value === '') return;
+      // `key` is interpolated as a column identifier below; reject unsafe keys.
+      if (!isSafeColumnName(key)) return;
       const nextParamIdx = paramIndex;
       if (Array.isArray(value)) {
         const placeholders = value.map((_, idx) => `$${nextParamIdx + idx}`).join(', ');
