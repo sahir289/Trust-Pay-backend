@@ -150,6 +150,10 @@ describe('authController', () => {
       authService.loginService.mockResolvedValue({
         tokenInfo: { accessToken: 'token' },
         sessionId: 'session',
+        // Add these to make the mock more realistic (optional but recommended)
+        user: { id: 123, username: 'test' },
+        two_factor_enforcement: false,
+        must_setup_2fa: false,
       });
 
       responseHandlers.sendSuccess.mockImplementation((res, token, msg) => {
@@ -161,14 +165,16 @@ describe('authController', () => {
 
       await controllers.loginController(req, res);
 
-      // Check if cookie was set and response was sent correctly
       expect(res.cookie).toHaveBeenCalled();
 
-      // Check the response sent by sendSuccess
       expect(res._sent.token).toEqual({
         accessToken: 'token',
         sessionId: 'session',
+        user: expect.any(Object),           // or provide exact shape if you want
+        two_factor_enforcement: false,      // or expect.anything() / undefined
+        must_setup_2fa: false,
       });
+
       expect(res._sent.msg).toBe('login successfully');
     });
 
