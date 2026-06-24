@@ -2,6 +2,7 @@ import {
   buildInsertQuery,
   buildUpdateQuery,
   executeQuery,
+  isSafeColumnName,
 } from '../../utils/db.js';
 import { Role, Status, tableName } from '../../constants/index.js';
 import { logger } from '../../utils/logger.js';
@@ -164,6 +165,7 @@ const getSettlementDao = async (
 
     Object.entries(filters).forEach(([key, value]) => {
       if (handledKeys.has(key) || value == null) return;
+      if (!isSafeColumnName(key)) return;
       const nextParamIdx = queryParams.length + 1;
 
       if (Array.isArray(value)) {

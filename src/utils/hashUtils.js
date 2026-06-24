@@ -7,5 +7,9 @@ export const createHash = (data) => {
 
 export const compareHash = (data, hash) => {
   const generatedHash = createHash(data);
-  return generatedHash === hash; // Compare the generated hash with the provided hash
+  // Constant-time comparison to avoid leaking match progress via timing.
+  const a = globalThis.Buffer.from(generatedHash, 'utf8');
+  const b = globalThis.Buffer.from(String(hash ?? ''), 'utf8');
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(a, b);
 };

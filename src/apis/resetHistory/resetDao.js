@@ -3,6 +3,7 @@ import {
   buildInsertQuery,
   buildUpdateQuery,
   executeQuery,
+  isSafeColumnName,
 } from '../../utils/db.js';
 import dayjs from 'dayjs';
 import { logger } from '../../utils/logger.js';
@@ -77,6 +78,7 @@ const getResetHistoryDao = async (
 
     // Add additional filters (e.g., status, amount)
     for (const [key, value] of Object.entries(filters)) {
+      if (!isSafeColumnName(key)) continue;
       if (key !== 'search' && value !== undefined) {
         whereClauses.push(`"${RESET_DATA_HISTORY}".${key} = $${paramIndex}`);
         queryParams.push(value);

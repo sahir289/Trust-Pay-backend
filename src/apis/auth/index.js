@@ -14,7 +14,15 @@ import {
 } from './authController.js';
 import { isAuthenticated } from '../../middlewares/auth.js';
 import  {geoLocationGuard}  from '../../middlewares/loginLocationRestrict.js';
+import {
+  authApiRateLimiter,
+  loginBruteGuard,
+  verify2faBruteGuard,
+} from '../../middlewares/authRateLimiter.js';
 const router = express.Router();
+
+// Dedicated, stricter per-IP rate limiting for ALL authentication endpoints.
+router.use(authApiRateLimiter);
 
 /**
  * @swagger
@@ -36,10 +44,19 @@ const router = express.Router();
  *                   type: string
  *                   example: "login successfully!"
  */
-router.post('/login', geoLocationGuard, tryCatchHandler(loginController)); // login route
+router.post(
+  '/login',
+  geoLocationGuard,
+  loginBruteGuard,
+  tryCatchHandler(loginController),
+); // login route
 
 // Second step of the 2FA login flow — public (no auth middleware)
-router.post('/verify-2fa', tryCatchHandler(verifyLoginOtpController));
+router.post(
+  '/verify-2fa',
+  verify2faBruteGuard,
+  tryCatchHandler(verifyLoginOtpController),
+);
 
 router.post('/refresh-token', tryCatchHandler(refreshTokenController));
 

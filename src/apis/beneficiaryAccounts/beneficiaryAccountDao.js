@@ -5,6 +5,7 @@ import {
   buildUpdateQuery,
   buildAndExecuteUpdateQuery,
   executeQuery,
+  isSafeColumnName,
 } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
 
@@ -23,9 +24,12 @@ const getBeneficiaryAccountDao = async (filters, page, limit, role, conn = null)
         delete filters?.page;
         delete filters?.limit;
         const value = filters[key];
+        if (!key.includes('->>') && !isSafeColumnName(key)) return;
         if (value !== null && value !== undefined && value !== '') {
           if (key.includes('->>')) {
             const [jsonField, jsonKey] = key.split('->>');
+            if (!isSafeColumnName(jsonField) || !isSafeColumnName(jsonKey))
+              return;
             conditions.push(
               `bea.${jsonField}->>'${jsonKey}' = $${queryParams.length + 1}`,
             );
@@ -130,9 +134,12 @@ const getBeneficiaryAccountDaoAll = async (filters, page, limit, role, conn = nu
         delete filters?.page;
         delete filters?.limit;
         const value = filters[key];
+        if (!key.includes('->>') && !isSafeColumnName(key)) return;
         if (value !== null && value !== undefined && value !== '') {
           if (key.includes('->>')) {
             const [jsonField, jsonKey] = key.split('->>');
+            if (!isSafeColumnName(jsonField) || !isSafeColumnName(jsonKey))
+              return;
             conditions.push(
               `bea.${jsonField}->>'${jsonKey}' = $${queryParams.length + 1}`,
             );
@@ -223,9 +230,12 @@ const getBeneficiaryAccountBySearchDao = async (
       Object.keys(filters).length > 0
     ) {
       Object.entries(filters).forEach(([key, value]) => {
+        if (!key.includes('->>') && !isSafeColumnName(key)) return;
         if (value !== null && value !== undefined && value !== '') {
           if (key.includes('->>')) {
             const [jsonField, jsonKey] = key.split('->>');
+            if (!isSafeColumnName(jsonField) || !isSafeColumnName(jsonKey))
+              return;
             conditions.push(`bea.${jsonField}->>'${jsonKey}' = $${paramIndex}`);
             queryParams.push(value);
           } else if (Array.isArray(value)) {
@@ -386,6 +396,7 @@ const getBeneficiaryAccountDaoByBankName = async (
     // Handle filters
     if (Object.keys(filters).length > 0) {
       Object.entries(filters).forEach(([key, value]) => {
+        if (!isSafeColumnName(key)) return;
         let paramValue = value;
         // If value is an array, take the first element (adjust based on requirements)
         if (Array.isArray(value) && value.length > 0) {

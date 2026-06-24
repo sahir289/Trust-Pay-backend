@@ -1,6 +1,7 @@
 import axios from 'axios';
 import { logger } from '../utils/logger.js';
 import { BadRequestError } from '../utils/appErrors.js';
+import { assertSafeOutboundUrl } from '../utils/ssrfGuard.js';
 
 const sendMerchantNotification = async (url, data, type) => {
   try {
@@ -8,11 +9,19 @@ const sendMerchantNotification = async (url, data, type) => {
       logger.error(`No URL provided for ${type} Notification`);
       throw new BadRequestError('Notify Url not found!');
     }
+
+    // SSRF protection: merchant-supplied notify URLs must not target internal
+    // / loopback / link-local / cloud-metadata ranges.
+    await assertSafeOutboundUrl(url);
+
     logger.info(`Sending ${type} Notification to Merchant`, {
       notify_url: url,
-      notify_data: data,
     });
-    const response = await axios.post(url, data,{timeout: 5000});
+    const response = await axios.post(url, data, {
+      timeout: 5000,
+      maxRedirects: 0,
+      maxContentLength: 1 * 1024 * 1024,
+    });
     logger.info(`${type} Notification Sent Successfully`, {
       //send dat in logs
       status: response?.status,

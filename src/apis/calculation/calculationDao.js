@@ -15,6 +15,17 @@ import config from '../../config/config.js';
 
 const IST = 'Asia/Kolkata';
 
+// User/merchant/vendor ids are varchar UUIDs (User.id DEFAULT uuid_generate_v4()) or alphanumeric codes. Several roll-up queries below interpolate these user-controlled values (from `?users=`) directly into SQL ARRAY[...] literals, so we hard-filter to a safe identifier charset to prevent SQL injection.
+ // Anything containing quotes, parentheses, semicolons or whitespace is dropped.
+const SAFE_ID_PATTERN = /^[A-Za-z0-9_-]+$/;
+const sanitizeUserCodes = (rawUsers) => {
+  if (!rawUsers) return [];
+  return rawUsers
+    .split(/\s*,\s*/)
+    .map((id) => id.trim())
+    .filter((id) => id && SAFE_ID_PATTERN.test(id));
+};
+
 const getCalculationDao = async (
   filters,
   page,
@@ -242,10 +253,7 @@ export const getCalculationsSumDao = async (filters, conn) => {
       netBalance = {};
     let hierarchyUsers = [];
     // Fix the userCodes array creation
-    let userCodes = [];
-    if (users) {
-      userCodes = users.split(/\s*,\s*/).filter((id) => id.trim());
-    }
+    const userCodes = sanitizeUserCodes(users);
     let effectiveUserId = user_id;
 
     // Cache for user hierarchies to avoid repeated database calls
@@ -791,10 +799,10 @@ export const getCalculationsForInternalUseDao = async (
     let hierarchyUsers = [];
 
     // Fix the userCodes array creation
-    let userCodes = [];
-    if (users) {
-      // Handle both comma-with-space and comma-only separators
-      userCodes = users.split(/\s*,\s*/).filter((id) => id.trim());
+    // Handle both comma-with-space and comma-only separators; drop anything
+    // outside the safe identifier charset to prevent SQL injection via `?users=`.
+    const userCodes = sanitizeUserCodes(users);
+    if (userCodes.length) {
       logger.info('Processed user codes:', userCodes);
     }
 
