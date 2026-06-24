@@ -1,5 +1,5 @@
 import config from '../../config/config.js';
-import { BadRequestError, NotFoundError, ValidationError } from '../../utils/appErrors.js';
+import { AuthenticationError, BadRequestError, NotFoundError, ValidationError } from '../../utils/appErrors.js';
 import {
   sendSuccess,
   sendNewSuccess,
@@ -62,7 +62,7 @@ import {
   invalidateCompanyCacheByPrefix,
 } from '../../utils/controllerCache.js';
 import { publishPayInProcess } from '../../rabbitmq/producer.js';
-import { getMerchantsByCodeDao } from '../merchants/merchantDao.js';
+import { getMerchantsByCodeDao, getMerchantsByCodeAndApiKeyDao } from '../merchants/merchantDao.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 
 // const TestingIp = process.env.LOCAL_IP;
@@ -125,7 +125,9 @@ export const generatePayInUrl = async (req, res) => {
     role = roleData.role;
   }
 
-  if(role === "ADMIN" || !apiKey){
+  if (role === Role.ADMIN) {
+    // Internal admin flow: the caller is an authenticated ADMIN (verified via
+    // roleToken). Derive the merchant's key from its record.
     const data = await getMerchantsByCodeDao(code);
     if (data.length === 0) {
       throw new NotFoundError('Merchant not found');
@@ -133,7 +135,19 @@ export const generatePayInUrl = async (req, res) => {
     if (data[0]?.config?.is_h2h && !payload?.amount) {
       throw new NotFoundError('amount is required');
     }
-    apiKey = data[0]?.config?.keys?.public
+    apiKey = data[0]?.config?.keys?.public;
+  } else {
+    // External merchant flow: a valid API key is mandatory and must match the
+    // merchant identified by `code`. We must NOT fall back to the merchant's
+    // own public key when none is supplied — that previously let anyone who
+    // knew a merchant code generate pay-in URLs without authentication.
+    if (!apiKey) {
+      throw new AuthenticationError('API key is required');
+    }
+    const merchantArr = await getMerchantsByCodeAndApiKeyDao(code, apiKey);
+    if (merchantArr.length === 0) {
+      throw new AuthenticationError('Invalid merchant code or API key');
+    }
   }
 
 

@@ -773,6 +773,11 @@ export const executeQuery = async (query, queryParams = [], conn = null) => {
   }
 };
 
+// Validates that an object key used as a SQL column identifier contains only safe characters. 
+// Filter/update payload keys are frequently sourced from req.query/req.body, so any key interpolated into SQL must be checked to prevent SQL injection via attacker-controlled property names.
+export const isSafeColumnName = (name) =>
+  typeof name === 'string' && /^[A-Za-z0-9_]+$/.test(name);
+
 export const buildSelectQuery = (
   baseQuery,
   filters,
@@ -794,6 +799,12 @@ export const buildSelectQuery = (
     }
 
     if (['startDate', 'endDate'].includes(key)) {
+      continue;
+    }
+
+    // Filter keys are interpolated into SQL as column identifiers and are often sourced from req.query, so drop anything that isn't a safe identifier to
+    // prevent SQL injection via attacker-controlled property names.
+    if (!isSafeColumnName(key)) {
       continue;
     }
 
@@ -845,6 +856,7 @@ export const buildSelectQuery = (
   if (filters?.or && typeof filters?.or === 'object') {
     const orConditions = [];
     for (const key in filters.or) {
+      if (!isSafeColumnName(key)) continue;
       const value = filters.or[key];
       if (Array.isArray(value)) {
         orConditions.push(`${prefix}"${key}" = ANY($${values.length + 1})`);
@@ -882,8 +894,13 @@ export const applySortingAndPagination = (
   const order =
     (sortOrder && sortOrder.toUpperCase()) === 'ASC' ? 'ASC' : 'DESC';
 
+  // Validate sort column (interpolated into SQL) against a safe identifier
+  // charset to prevent ORDER BY injection via a quote break-out.
+  const safeSortBy =
+    sortBy && /^[A-Za-z0-9_]+$/.test(sortBy) ? sortBy : 'created_at';
+
   // Add sorting
-  query += ` ORDER BY ${prefix}"${sortBy || 'created_at'}" ${order}`;
+  query += ` ORDER BY ${prefix}"${safeSortBy}" ${order}`;
 
   // Add pagination if values are passed
   if (Number(page) && Number(pageSize)) {
@@ -896,7 +913,12 @@ export const applySortingAndPagination = (
 };
 
 export const buildInsertQuery = (tableName, data) => {
-  const keys = Object.keys(data).map((key) => `"${key}"`);
+  const keys = Object.keys(data).map((key) => {
+    if (!isSafeColumnName(key)) {
+      throw new Error(`Unsafe column name in insert payload: ${key}`);
+    }
+    return `"${key}"`;
+  });
   const values = keys.map((el, i) => `$${i + 1}`);
   const query = `INSERT INTO "${tableName}" (${keys.join(', ')}) VALUES (${values}) RETURNING *`;
   return [query, Object.values(data)];
@@ -914,6 +936,9 @@ export const buildUpdateQuery = (
 ) => {
   const values = [];
   const setClause = Object.entries(data).map(([key, value]) => {
+    if (!isSafeColumnName(key)) {
+      throw new Error(`Unsafe column name in update payload: ${key}`);
+    }
     values.push(value);
     return specialFields[key]
       ? `"${key}" = "${key}" ${specialFields[key]} $${values.length}` // Use specified operator (e.g., "+", "-")
@@ -921,6 +946,9 @@ export const buildUpdateQuery = (
   });
 
   const whereClause = Object.entries(whereCondition).map(([key, value]) => {
+    if (!isSafeColumnName(key)) {
+      throw new Error(`Unsafe column name in update condition: ${key}`);
+    }
     values.push(value);
     return `"${key}" = $${values.length}`;
   });
@@ -983,6 +1011,9 @@ export const buildAndExecuteUpdateQuery = async (
 
     // Handle other updates
     Object.entries(data).forEach(([key, value]) => {
+      if (!isSafeColumnName(key)) {
+        throw new Error(`Unsafe column name in update payload: ${key}`);
+      }
       setClause.push(
         specialFields[key]
           ? `"${key}" = "${key}" ${specialFields[key]} $${index}` // Use specified operator (e.g., "+", "-")
@@ -994,6 +1025,9 @@ export const buildAndExecuteUpdateQuery = async (
 
     // Build the WHERE clause
     const whereClause = Object.entries(whereCondition).map(([key, value]) => {
+      if (!isSafeColumnName(key)) {
+        throw new Error(`Unsafe column name in update condition: ${key}`);
+      }
       values.push(value);
       return `"${key}" = $${index++}`;
     });
@@ -1313,26 +1347,26 @@ const buildFilterConditions = (filters, fieldMap, paramStart = 1) => {
   return { conditions, params, nextParam: paramCount };
 };
 
-const generateQuery = (baseQuery, options = {}) => {
-  // Default options
-  const {
-    tableName = 'CheckUtrHistory',
-    sortOrder = 'DESC',
-    companyIdParam = '$1',
-  } = options;
+// const generateQuery = (baseQuery, options = {}) => {
+//   // Default options
+//   const {
+//     tableName = 'CheckUtrHistory',
+//     sortOrder = 'DESC',
+//     companyIdParam = '$1',
+//   } = options;
 
-  // Build the additional conditions
-  const additionalConditions = `
-      AND "${tableName}".is_obsolete = false 
-      AND "${tableName}"."company_id" = ${companyIdParam}
-      ORDER BY "${tableName}"."created_at" ${sortOrder}
-  `;
+//   // Build the additional conditions
+//   const additionalConditions = `
+//       AND "${tableName}".is_obsolete = false 
+//       AND "${tableName}"."company_id" = ${companyIdParam}
+//       ORDER BY "${tableName}"."created_at" ${sortOrder}
+//   `;
 
-  // Combine base query with additional conditions
-  const finalQuery = `${baseQuery} ${additionalConditions}`;
+//   // Combine base query with additional conditions
+//   const finalQuery = `${baseQuery} ${additionalConditions}`;
 
-  return finalQuery;
-};
+//   return finalQuery;
+// };
 
 export {
   // pool,
@@ -1346,5 +1380,5 @@ export {
   executePaginatedQuery,
   buildSearchConditions,
   buildFilterConditions,
-  generateQuery,
+  // generateQuery,
 };

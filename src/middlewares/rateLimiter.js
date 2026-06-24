@@ -50,13 +50,16 @@ const globalRateLimiters = {
 };
 
 const resolveClientIp = (req) => {
+  // Prefer Express's computed req.ip. With `trust proxy` configured, this is the real client address and cannot be spoofed by a client-supplied X-Forwarded-For header (the load balancer rewrites/appends it). Only fall back to raw headers if req.ip is somehow unavailable.
+  if (req?.ip) return req.ip;
+
   const xForwardedFor = req?.headers?.['x-forwarded-for'];
   if (xForwardedFor) {
     const forwarded = String(xForwardedFor).split(',')[0]?.trim();
     if (forwarded) return forwarded;
   }
 
-  return req?.ip || req?.connection?.remoteAddress || 'unknown';
+  return req?.connection?.remoteAddress || 'unknown';
 };
 
 const hashToken = (token) =>
