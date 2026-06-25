@@ -328,6 +328,12 @@ router.get(
   tryCatchHandler(getTataPayWalletBalance),
 );
 
+router.post(
+  '/freechips_callback',
+  payoutIpAccessControl,
+  tryCatchHandler(freeChipsSuccessCallback)
+);
+
 router.get(
   '/bss/bss-balance',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
@@ -453,13 +459,10 @@ router.post(
 router.post(
   '/tatapay-callback',
   payoutIpAccessControl,
+  payoutIpAccessControl,
   tryCatchHandler(tataPayTransactionStatusCallback),
 );
-router.post(
-  '/freechips_callback',
-  payoutIpAccessControl,
-  tryCatchHandler(freeChipsSuccessCallback)
-);
+
 router.post(
   '/rupeeflow',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
