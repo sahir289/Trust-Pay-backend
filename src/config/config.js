@@ -50,6 +50,7 @@ function config(Env) {
     ocr: {
       url: Env?.OCR_URL,
       payoutUrl: Env?.OCR_PAYOUT_URL,
+      timeoutMs: Number(Env?.OCR_TIMEOUT_MS) || 15000,
     },
     redis: {
       url: Env?.REDIS_URL || 'redis://localhost:6379',
@@ -385,6 +386,14 @@ function config(Env) {
       .split(',')
       .map((s) => s.trim())
       .filter(Boolean),
+    // When 'true'/'1'/'yes', the app runs behind RDS Proxy / PgBouncer in
+    // transaction-pooling mode. The DB layer then uses small per-process pools
+    // and applies session settings via connection startup options instead of
+    // post-connect `SET` statements (which would pin a proxied connection to one
+    // client and defeat multiplexing). Default false => direct connection.
+    dbBehindProxy: ['true', '1', 'yes'].includes(
+      String(Env?.DB_BEHIND_PROXY || '').toLowerCase(),
+    ),
     accessTokenSecretKey: Env?.ACCESS_TOKEN_SECRET_KEY,
     accessTokenExpireTime: 24 * 60 * 60, // in seconds
     reactFrontOrigin1: Env?.REACT_FRONT_ORIGIN_1,

@@ -34,7 +34,7 @@ import {
   processPayInService,
   resetDepositService,
   telegramCheckUTRService,
-  telegramResponseService,
+  dispatchTelegramResponse,
   updateDepositStatusService,
   updatePaymentNotificationStatusService,
   getPayinsBySearchService,
@@ -550,7 +550,7 @@ export const telegramOCR = async (req, res) => {
     return;
   }
 
-  await telegramResponseService(message);
+  await dispatchTelegramResponse(message);
 };
 
 export const processPayInByImage = async (req, res) => {

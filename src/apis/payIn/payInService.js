@@ -119,6 +119,7 @@ import { _createResetHistoryServiceInternal } from '../resetHistory/resetService
 import { stringifyJSON } from '../../utils/index.js';
 import { createHash } from '../../utils/hashUtils.js';
 import { logger } from '../../utils/logger.js';
+import { publishTelegramOcr } from '../../rabbitmq/producer.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 // import { generateUUID } from '../../utils/generateUUID.js';
 // import { randomUUID } from 'crypto';
@@ -2685,6 +2686,35 @@ export const processPayInWebHookService = async (payload, updated_by, conn) => {
 //   };
 // };
 
+// When enabled, the Telegram OCR webhook payload is processed off the API
+// process by the RabbitMQ worker (durable, retry + DLQ) instead of running the
+// heavy OCR + DB transaction inline after the 200 response. Default off keeps
+// the current inline behavior; on a publish failure we fall back to inline so a
+// screenshot is never dropped.
+const OCR_QUEUE_ENABLED =
+  String(process.env.OCR_QUEUE_ENABLED || '').toLowerCase() === 'true';
+
+/**
+ * Entry point used by the telegram-ocr webhook controller. Routes the message
+ * to the durable queue when OCR_QUEUE_ENABLED, else (or on publish failure)
+ * processes it inline via telegramResponseService.
+ */
+export const dispatchTelegramResponse = async (message) => {
+  if (OCR_QUEUE_ENABLED) {
+    try {
+      await publishTelegramOcr({ message });
+      return;
+    } catch (error) {
+      logger.error('[Telegram][OCR] Enqueue failed; processing inline', {
+        error: error.message,
+      });
+      // fall through to inline processing so the screenshot is not lost
+    }
+  }
+
+  await telegramResponseService(message);
+};
+
 export const telegramResponseService = async (message) => {
   // Guard: validate photo before acquiring a DB connection so we never open a
   // transaction that we immediately abandon (which contaminates the pool).
@@ -2952,10 +2982,14 @@ export const processPayInByImageService = async (payload) => {
   let conn;
   let committed = false;
   try {
+    const { base64Image, merchantOrderId } = payload;
+    // Run OCR (external HTTP call) BEFORE acquiring a DB connection so a slow or
+    // unavailable OCR service never pins a pooled writer connection or holds an
+    // open transaction for its full duration.
+    const content = await getImageContentFromOCr(base64Image);
+
     conn = await getConnection();
     await beginTransaction(conn);
-    const { base64Image, merchantOrderId } = payload;
-    const content = await getImageContentFromOCr(base64Image);
     let payInData;
     payInData = await getPayInUrlService(merchantOrderId, null, conn);
 

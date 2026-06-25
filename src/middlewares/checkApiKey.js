@@ -1,5 +1,6 @@
 import { getMerchantsByCodeAndApiKeyDao } from '../apis/merchants/merchantDao.js';
-import { sendError } from '../utils/responseHandlers.js';
+import { sendError, sendV2Error } from '../utils/responseHandlers.js';
+import { V2_ERROR_CODES } from '../constants/index.js';
 
 const LOCALHOST_IPS = new Set(['::1', '127.0.0.1', '::ffff:127.0.0.1']);
 
@@ -128,4 +129,40 @@ export const checkMerchantApiKey = async (req, res, next) => {
 
   req.merchant = merchant;
   next();
+};
+
+// V2 variant of checkMerchantApiKey: identical fail-closed merchant API-key +
+// IP-allowlist validation (and it attaches `req.merchant`, exposing the
+// per-merchant signing secret at merchant.config.keys.private for the request
+// signature middleware), but it emits the standardized v2 error envelope via
+// sendV2Error and forwards unexpected errors to the v2 error handler. The v1
+// guards above are intentionally left untouched.
+export const checkMerchantApiKeyV2 = async (req, res, next) => {
+  try {
+    const x_api_key = req.headers['x-api-key'];
+    const code = req.headers['code'] || req.body?.code || req.query?.code;
+    const userIp = resolveMerchantClientIp(req);
+
+    if (!x_api_key) {
+      return sendV2Error(res, 'x-api-key header is missing', 401, V2_ERROR_CODES.API_KEY_MISSING);
+    }
+
+    const merchantArr = await getMerchantsByCodeAndApiKeyDao(code, x_api_key);
+    const merchant = merchantArr[0];
+    if (!merchant) {
+      return sendV2Error(res, 'Invalid merchant code or API key', 401, V2_ERROR_CODES.INVALID_API_KEY);
+    }
+
+    if (merchant?.config?.whitelist_ips) {
+      const whitelist = normalizeWhitelist(merchant.config.whitelist_ips);
+      if (whitelist.length > 0 && !whitelist.includes(userIp)) {
+        return sendV2Error(res, 'IP not whitelisted', 403, V2_ERROR_CODES.IP_NOT_WHITELISTED);
+      }
+    }
+
+    req.merchant = merchant;
+    return next();
+  } catch (error) {
+    return next(error);
+  }
 };
