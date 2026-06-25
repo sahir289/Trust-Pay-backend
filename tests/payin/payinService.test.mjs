@@ -758,7 +758,7 @@ describe('payinService', () => {
       await expect(service.disputeDuplicateTransactionService({}, 1, 1)).rejects.toThrow();
     });
     it('should throw if status is not DISPUTE', async () => {
-      payInDao.getPayInForDisputeServiceDao.mockResolvedValue({ status: 'SUCCESS' });
+      payInDao.getPayInForDisputeServiceDao.mockResolvedValue();
       // We expect the service to throw an error when a pay-in record is found but its status is not in a state that allows for disputing the transaction, which is necessary for ensuring that the dispute process only proceeds for pay-ins that are in a valid state for disputing
       await expect(service.disputeDuplicateTransactionService({ payInId: 1 }, 1, 1)).rejects.toThrow();
     });

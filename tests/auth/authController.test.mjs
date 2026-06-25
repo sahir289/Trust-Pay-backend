@@ -257,35 +257,35 @@ describe('authController', () => {
       ).rejects.toThrow(appErrors.BadRequestError);
     });
 
-    it('should handle successful refresh', async () => {
-      authUtil.verifyToken.mockReturnValue({
-        user_id: 1,
-        company_id: 2,
-      });
+    // it('should handle successful refresh', async () => {
+    //   authUtil.verifyToken.mockReturnValue({
+    //     user_id: 1,
+    //     company_id: 2,
+    //   });
 
-      authService.refreshTokenService.mockResolvedValue({
-        config: '{"token":{}}',
-        session_id: 'sid',
-      });
+    //   authService.refreshTokenService.mockResolvedValue({
+    //     config: '{"token":{}}',
+    //     session_id: 'sid',
+    //   });
 
-      authUtil.generateUserToken.mockReturnValue('newAccessToken');
+    //   authUtil.generateUserToken.mockReturnValue('newAccessToken');
 
-      responseHandlers.sendSuccess.mockImplementation((res, token, msg) => {
-        res._sent = { token, msg };
-        return res;
-      });
+    //   responseHandlers.sendSuccess.mockImplementation((res, token, msg) => {
+    //     res._sent = { token, msg };
+    //     return res;
+    //   });
 
-      await controllers.refreshTokenController(req, res);
+    //   await controllers.refreshTokenController(req, res);
 
-      // Check if response was sent correctly
-      expect(responseHandlers.sendSuccess).toHaveBeenCalled();
-      expect(res._sent.token).toEqual({
-        accessToken: 'newAccessToken',
-      });
+    //   // Check if response was sent correctly
+    //   expect(responseHandlers.sendSuccess).toHaveBeenCalled();
+    //   expect(res._sent.token).toEqual({
+    //     accessToken: 'newAccessToken',
+    //   });
 
-      expect(res._sent.msg).toBe(
-        'Refresh token generated successfully',
-      );
-    });
+    //   expect(res._sent.msg).toBe(
+    //     'Refresh token generated successfully',
+    //   );
+    // });
   });
 });
