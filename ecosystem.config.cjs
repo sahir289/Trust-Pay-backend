@@ -46,9 +46,12 @@ module.exports = {
                 // mutating v2 endpoints (prevents double charge / double payout
                 // on retries). Requires the "IdempotencyKey" table to exist.
                 IDEMPOTENCY_ENABLED: 'false',
-                // Flip to 'true' to require an HMAC-SHA256 request signature
-                // (x-signature + x-timestamp) on signed v2 merchant endpoints,
-                // verified with the per-merchant secret. No shared env secret.
+                // HMAC-SHA256 request signatures (x-signature + x-timestamp),
+                // verified with the per-merchant secret (no shared env secret).
+                // NOTE: the core v2 merchant endpoints (create payIn/payOut,
+                // process-payin, wallet balance, check-status) ALWAYS require a
+                // valid signature regardless of this flag. This flag only turns
+                // signing on for additional opt-in v2 routes.
                 REQUEST_SIGNING_ENABLED: 'false',
             },
             env_development: {

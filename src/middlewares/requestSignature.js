@@ -25,8 +25,15 @@ import { V2_ERROR_CODES } from '../constants/index.js';
 //
 // Unlike the idempotency layer (which fails OPEN because it depends on a DB),
 // signature verification is pure CPU with no external dependency, so it FAILS
-// CLOSED: when the flag is on, anything that doesn't verify is rejected.
-// When the flag is off the middleware is a true no-op.
+// CLOSED: anything that doesn't verify is rejected.
+//
+// Two enforcement modes:
+//   - verifyRequestSignature({ required: true })  -> ALWAYS enforced. This is the
+//       v2 merchant security baseline (create payIn/payOut, process-payin, wallet
+//       balance, check-status). A missing/invalid signature is always rejected,
+//       independent of the REQUEST_SIGNING_ENABLED flag.
+//   - verifyRequestSignature()                    -> opt-in. Gated by the
+//       REQUEST_SIGNING_ENABLED flag; a true no-op while the flag is off.
 // ---------------------------------------------------------------------------
 
 const DEFAULT_MAX_SKEW_MS = 5 * 60 * 1000; // 5 minutes
@@ -61,13 +68,20 @@ const safeEqualHex = (a, b) => {
  * Build the request-signature verification middleware.
  *
  * @param {object} [options]
+ * @param {boolean} [options.required] When true, the signature is ALWAYS enforced
+ *   (independent of REQUEST_SIGNING_ENABLED) — the security baseline for the v2
+ *   merchant endpoints. When false/omitted, enforcement is gated by the flag.
  * @param {number} [options.maxSkewMs] Override the replay window (ms).
  */
 const verifyRequestSignature = (options = {}) => {
   const maxSkewMs = options.maxSkewMs || resolveMaxSkewMs();
+  const required = options.required === true;
 
   return (req, res, next) => {
-    if (!isEnabled()) {
+    // `required: true` endpoints enforce the signature unconditionally (the v2
+    // merchant security baseline). Opt-in endpoints stay gated behind the
+    // REQUEST_SIGNING_ENABLED flag and are a true no-op while it is off.
+    if (!required && !isEnabled()) {
       return next();
     }
 

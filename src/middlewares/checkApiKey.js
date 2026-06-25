@@ -140,7 +140,12 @@ export const checkMerchantApiKey = async (req, res, next) => {
 export const checkMerchantApiKeyV2 = async (req, res, next) => {
   try {
     const x_api_key = req.headers['x-api-key'];
-    const code = req.headers['code'] || req.body?.code || req.query?.code;
+    const code =
+      req.headers['code'] ||
+      req.body?.code ||
+      req.query?.code ||
+      req.body?.merchantCode ||
+      req.query?.merchantCode;
     const userIp = resolveMerchantClientIp(req);
 
     if (!x_api_key) {

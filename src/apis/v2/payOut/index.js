@@ -10,14 +10,15 @@ const router = express.Router();
 // Mutating merchant endpoint — full Phase-2 guard chain:
 //   1. checkMerchantApiKeyV2     -> fail-closed API key + IP allowlist, attaches
 //                                   req.merchant (exposes the per-merchant secret)
-//   2. verifyRequestSignature()  -> HMAC request signature (default OFF)
+//   2. verifyRequestSignature({required:true}) -> HMAC request signature is
+//                                   MANDATORY (fail-closed, Razorpay-style); a
+//                                   missing/invalid signature is always rejected.
 //   3. idempotency({required})   -> replay protection / no double payout (default OFF)
-// With both feature flags off (default) this behaves like the v1 create-payout
-// but returns the standardized v2 envelope, reusing the same createPayoutService.
+// The signature requirement is always on; idempotency activates with its flag.
 router.post(
   '/create-payout',
   checkMerchantApiKeyV2,
-  verifyRequestSignature(),
+  verifyRequestSignature({ required: true }),
   idempotency({ required: true }),
   tryCatchHandler(createPayoutV2),
 );
