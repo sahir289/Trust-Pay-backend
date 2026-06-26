@@ -147,7 +147,6 @@ export const checkMerchantApiKeyV2 = async (req, res, next) => {
       req.body?.merchantCode ||
       req.query?.merchantCode;
     const userIp = resolveMerchantClientIp(req);
-
     if (!x_api_key) {
       return sendV2Error(res, 'x-api-key header is missing', 401, V2_ERROR_CODES.API_KEY_MISSING);
     }

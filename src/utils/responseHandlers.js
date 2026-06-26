@@ -1,6 +1,8 @@
 import { logger } from './logger.js';
 import { V2_ERROR_CODES } from '../constants/index.js';
 
+const API_VERSION_V1 = 'v1';
+
 const sendSuccess = (
   res,
   Data = {},
@@ -11,6 +13,7 @@ const sendSuccess = (
 ) => {
   let finalRes = {
     statusCode: status,
+    apiVersion: API_VERSION_V1,
     error: {},
     meta: {},
     data: {},
@@ -40,6 +43,7 @@ const sendNewSuccess = (res, Data = {}, message = '', status = 200) => {
   const finalRes = {
     message: message || '',
     statusCode: status,
+    apiVersion: API_VERSION_V1,
     data: Data || {},
   };
   logger.info(message, { status, data: finalRes.data });
