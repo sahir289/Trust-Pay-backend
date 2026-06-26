@@ -1,7 +1,7 @@
 import express from 'express';
 import tryCatchHandler from '../../../utils/tryCatchHandler.js';
 import dbConnScope from '../../../middlewares/dbConnScope.js';
-import { checkMerchantApiKeyV2 } from '../../../middlewares/checkApiKey.js';
+import { checkAuthCode } from '../../../middlewares/checkAuthCode.js';
 import { verifyRequestSignature } from '../../../middlewares/requestSignature.js';
 import { idempotency } from '../../../middlewares/idempotency.js';
 import { adaptResponseToV2 } from '../../../utils/v2ResponseAdapter.js';
@@ -23,7 +23,7 @@ router.use(dbConnScope);
 // service logic, standardized v2 response envelope.
 router.post(
   '/check-payin-status',
-  checkMerchantApiKeyV2,
+  checkAuthCode,
   verifyRequestSignature({ required: true }),
   tryCatchHandler(checkPayInStatusV2),
 );
@@ -39,9 +39,9 @@ router.post(
 //                                   since merchant_order_id already de-dupes the
 //                                   create at the service layer.
 // The signature requirement is always on; idempotency activates with its flag.
-router.get(
+router.post(
   '/generate-payin',
-  checkMerchantApiKeyV2,
+  checkAuthCode,
   verifyRequestSignature({ required: true }),
   idempotency(),
   tryCatchHandler(generatePayInV2),
@@ -62,7 +62,7 @@ router.get(
 // The signature requirement is always on; idempotency activates with its flag.
 router.post(
   '/process-payin/:merchantOrderId',
-  checkMerchantApiKeyV2,
+  checkAuthCode,
   verifyRequestSignature({ required: true }),
   idempotency({ required: true }),
   tryCatchHandler((req, res) => processPayInH2H(req, adaptResponseToV2(res))),

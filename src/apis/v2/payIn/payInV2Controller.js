@@ -1,14 +1,13 @@
 import config from '../../../config/config.js';
 import {
-  ASSIGN_PAYIN_SCHEMA,
-  VALIDATE_CHECK_PAY_IN_STATUS,
+  GENERATE_PAYIN_V2_SCHEMA,
+  VALIDATE_CHECK_PAY_IN_V2_STATUS,
 } from '../../../schemas/payInSchema.js';
 import {
-  checkPayInStatusService,
-  generatePayInUrlService,
-} from '../../payIn/payInService.js';
+  checkPayInStatusV2Service,
+  generatePayInUrlV2Service,
+} from './payInV2Service.js';
 import { BadRequestError, ValidationError } from '../../../utils/appErrors.js';
-import { createHash } from '../../../utils/hashUtils.js';
 import { sendV2Success, sendV2Error } from '../../../utils/responseHandlers.js';
 import { STATUS_ERROR_CODES, V2_ERROR_CODES } from '../../../constants/index.js';
 
@@ -23,19 +22,17 @@ import { STATUS_ERROR_CODES, V2_ERROR_CODES } from '../../../constants/index.js'
  * rather than thrown, so a v2 client always receives the v2 shape.
  */
 export const checkPayInStatusV2 = async (req, res) => {
-  const joiValidation = VALIDATE_CHECK_PAY_IN_STATUS.validate(req.body);
+  const joiValidation = VALIDATE_CHECK_PAY_IN_V2_STATUS.validate(req.body);
   if (joiValidation.error) {
     return sendV2Error(res, joiValidation.error.message, 400, V2_ERROR_CODES.VALIDATION_ERROR, {
       details: joiValidation.error.details,
     });
   }
 
-  const apiKey = req.headers['x-api-key'];
-  const data = await checkPayInStatusService(
-    req.body.payinId,
-    req.body.merchantCode,
+  const code = req.headers['x-auth-code'];
+  const data = await checkPayInStatusV2Service(
     req.body.merchantOrderId,
-    apiKey,
+    code
   );
 
   if (data.status === 400 || data.status === 404) {
@@ -63,13 +60,13 @@ export const checkPayInStatusV2 = async (req, res) => {
  * `role` is always null on this surface.
  */
 export const generatePayInV2 = async (req, res) => {
-  const payload = req.query;
+  const payload = req.body;
 
   if (payload.merchant_order_id?.includes('/')) {
     throw new BadRequestError("Invalid order ID: '/' is not allowed.");
   }
 
-  const joiValidation = ASSIGN_PAYIN_SCHEMA.validate(payload);
+  const joiValidation = GENERATE_PAYIN_V2_SCHEMA.validate(payload);
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
@@ -78,10 +75,10 @@ export const generatePayInV2 = async (req, res) => {
   // validated x-api-key only seeds the service's routing cache key; the service
   // authorizes by `code`, exactly as in v1.
   const role = null;
-  const apiKey = req.headers['x-api-key'];
+  const code = req.headers['x-auth-code'];
 
-  const result = await generatePayInUrlService(
-    { ...payload, api_key: apiKey },
+  const result = await generatePayInUrlV2Service(
+    { ...payload, code },
     role,
   );
 
@@ -109,11 +106,10 @@ export const generatePayInV2 = async (req, res) => {
     );
   }
 
-  const generatedHash = createHash(`${payload.code}`);
   const data = {
     ...baseRes,
     expirationDate: result?.expiration_date,
-    payInUrl: `${config.reactPaymentOrigin}/transaction/${generatedHash}?order=${result?.merchant_order_id}`,
+    payInUrl: `${config.reactPaymentOrigin}/transaction?order=${result?.merchant_order_id}`,
   };
   return sendV2Success(res, data, 'PayIn is generated & url is sent successfully');
 };
