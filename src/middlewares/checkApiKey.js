@@ -139,7 +139,7 @@ export const checkMerchantApiKey = async (req, res, next) => {
 // guards above are intentionally left untouched.
 export const checkMerchantApiKeyV2 = async (req, res, next) => {
   try {
-    const x_public_key = req.headers['x-public-key'];
+    const x_api_key = req.headers['x-api-key'];
     const code =
       req.headers['code'] ||
       req.body?.code ||
@@ -147,12 +147,11 @@ export const checkMerchantApiKeyV2 = async (req, res, next) => {
       req.body?.merchantCode ||
       req.query?.merchantCode;
     const userIp = resolveMerchantClientIp(req);
-
-    if (!x_public_key) {
+    if (!x_api_key) {
       return sendV2Error(res, 'x-api-key header is missing', 401, V2_ERROR_CODES.API_KEY_MISSING);
     }
 
-    const merchantArr = await getMerchantsByCodeAndApiKeyDao(code, x_public_key);
+    const merchantArr = await getMerchantsByCodeAndApiKeyDao(code, x_api_key);
     const merchant = merchantArr[0];
     if (!merchant) {
       return sendV2Error(res, 'Invalid merchant code or API key', 401, V2_ERROR_CODES.INVALID_API_KEY);
