@@ -1199,6 +1199,21 @@ export const getVendorByUserId = async (user_id, conn = null) => {
 };
 
 // Batch fetch vendors by array of user_ids
+export const getVendorForAssignDao = async (user_id, conn = null) => {
+  try {
+    const sql = `
+      SELECT code, user_id
+      FROM "Vendor"
+      WHERE user_id = $1 AND is_obsolete = false
+      LIMIT 1
+    `;
+    const result = await executeQuery(sql, [user_id], conn);
+    return result.rows[0] || null;
+  } catch (error) {
+    logger.error('Error in getVendorForAssignDao:', error);
+    throw error;
+  }
+};
 export const getVendorsByUserIdsDao = async (user_ids = [], conn = null) => {
   if (!Array.isArray(user_ids) || user_ids.length === 0) return [];
   try {
