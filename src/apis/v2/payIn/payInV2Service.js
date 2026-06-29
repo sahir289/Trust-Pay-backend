@@ -1,21 +1,27 @@
-import dayjs from "dayjs";
-import { Currency, Role, Status, tableName } from "../../../constants/index.js";
-import { calculateDuration } from "../../../helpers/index.js";
-import { stringifyJSON } from "../../../utils//index.js";
-import logger from "../../../utils/logger.js";
-import { generatePayInUrlDao, getPayInForCheckStatusDao, getPayInWithMerchantOrderIdDao, updatePayInUrlDao } from "../../payIn/payInDao.js";
-import { assignedBankToPayInUrlService, determineType } from "../../payIn/payInService.js";
-import { getUserByCompanyCreatedAtDao } from "../../users/userDao.js";
-import { getCachedData, setCachedData } from "../../../utils/redishashkey.js";
-import { getCompanyByIDDao } from "../../company/companyDao.js";
-import { getMerchantBankDao } from "../../bankAccounts/bankaccountDao.js";
-import { getMerchantsByCodeDao, getMerchantsDao } from "../../merchants/merchantDao.js";
-import { createHash } from "../../../utils/bcryptPassword.js";
-import { sendBankNotAssignedAlertTelegram } from "../../../utils/sendTelegramMessages.js";
-import { newTableEntry } from "../../../utils/sockets.js";
-import { nanoid } from "nanoid";
+import dayjs from 'dayjs';
+import { Currency, Role, Status, tableName } from '../../../constants/index.js';
+import { calculateDuration } from '../../../helpers/index.js';
+import { stringifyJSON } from '../../../utils//index.js';
+import logger from '../../../utils/logger.js';
+import {
+  generatePayInUrlDao,
+  getPayInForCheckStatusDao,
+  getPayInWithMerchantOrderIdDao,
+  updatePayInUrlDao,
+} from '../../payIn/payInDao.js';
+import {
+  assignedBankToPayInUrlService,
+  determineType,
+} from '../../payIn/payInService.js';
+import { getUserByCompanyCreatedAtDao } from '../../users/userDao.js';
+import { getCachedData, setCachedData } from '../../../utils/redishashkey.js';
+import { getCompanyByIDDao } from '../../company/companyDao.js';
+import { getMerchantBankDao } from '../../bankAccounts/bankaccountDao.js';
+import { sendBankNotAssignedAlertTelegram } from '../../../utils/sendTelegramMessages.js';
+import { newTableEntry } from '../../../utils/sockets.js';
+import { nanoid } from 'nanoid';
 import { v4 as uuidv4 } from 'uuid';
-import { getBankResponseDao } from "../../bankResponse/bankResponseDao.js";
+import { getBankResponseDao } from '../../bankResponse/bankResponseDao.js';
 
 const createPayInWithUniqueShortCode = async (data) => {
   let attempts = 0;
@@ -62,42 +68,31 @@ const triggerBankAlert = async (company, code) => {
   }
 };
 
-
 export const generatePayInUrlV2Service = async (payload, role) => {
   try {
     const {
-      code,
+      merchant,
       user_id,
-      merchant_order_id: order_id,
+      merchant_order_id = uuidv4(),
       amount,
       returnUrl,
       notifyUrl,
       ot,
     } = payload;
-
-    const merchant_order_id = order_id ? order_id : uuidv4();
+    const code = merchant.code;
 
     // Cache merchant routing data to reduce repeated DB reads under load.
     // Merchant config and bank assignments change rarely; 60s TTL is safe.
-    const routingCacheKey = `merchant_routing:${code}:${createHash(code + ':' + merchant_order_id)}`;
-    let merchant, company, bankAssigned;
+    const routingCacheKey = `merchant_routing:${merchant.id}`;
+    let company, bankAssigned;
 
     const cachedRouting = await getCachedData(
       routingCacheKey,
       'merchant_routing',
     );
     if (cachedRouting) {
-      ({ merchant, company, bankAssigned } = cachedRouting);
+      ({ company, bankAssigned } = cachedRouting);
     } else {
-      const merchantArr = await getMerchantsByCodeDao(code);
-      merchant = merchantArr[0];
-      if (!merchant) {
-        return {
-          status: 400,
-          message: 'Invalid merchant code',
-        };
-      }
-
       // Parallelize company + bank fetch — they only need merchant.company_id / merchant.id
       const [companyRows, rawBankAssigned] = await Promise.all([
         getCompanyByIDDao({ id: merchant.company_id }),
@@ -109,7 +104,7 @@ export const generatePayInUrlV2Service = async (payload, role) => {
       // Cache the routing bundle
       await setCachedData(
         routingCacheKey,
-        { merchant, company, bankAssigned },
+        { company, bankAssigned },
         60,
         'merchant_routing',
       );
@@ -141,15 +136,13 @@ export const generatePayInUrlV2Service = async (payload, role) => {
       };
     }
 
-    const existingOrder = await getPayInWithMerchantOrderIdDao(order_id);
+    const existingOrder =
+      await getPayInWithMerchantOrderIdDao(merchant_order_id);
     if (existingOrder) {
       return { status: 400, message: 'Merchant Order ID already exists' };
     }
 
-    if (
-      role !== Role.ADMIN &&
-      (amount < merchant.min_payin || amount > merchant.max_payin)
-    ) {
+    if (amount < merchant.min_payin || amount > merchant.max_payin) {
       return {
         status: 400,
         message: `Amount must be between ${merchant.min_payin} and ${merchant.max_payin}`,
@@ -241,20 +234,8 @@ export const generatePayInUrlV2Service = async (payload, role) => {
 };
 
 // Public API Used by Merchants
-export const checkPayInStatusV2Service = async (
-  merchantOrderId,
-  merchantCode,
-) => {
+export const checkPayInStatusV2Service = async (merchantOrderId, merchant) => {
   try {
-    const merchantArr = await getMerchantsDao({ code: merchantCode });
-    const merchant = merchantArr[0];
-    if (!merchant) {
-      const data = {
-        status: 400,
-        message: 'Merchant Order ID already exists',
-      };
-      return data;
-    }
 
     const payIn = await getPayInForCheckStatusDao({
       merchant_order_id: merchantOrderId,
@@ -263,7 +244,7 @@ export const checkPayInStatusV2Service = async (
     if (!payIn) {
       const data = {
         status: 404,
-        message: 'PayIn not found',
+        message: 'Order id does not exist',
       };
       return data;
     }
@@ -272,8 +253,7 @@ export const checkPayInStatusV2Service = async (
     if (!(payIn.merchant_id === merchant.id)) {
       const data = {
         status: 404,
-        message:
-          'merchant_order_id and payIn ID do not belong to the specified merchant',
+        message: 'Merchant order id does not exist',
       };
       return data;
     }
