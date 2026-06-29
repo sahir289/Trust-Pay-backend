@@ -35,15 +35,18 @@ router.post(
 //   2. verifyRequestSignature({required:true}) -> HMAC request signature is
 //                                   MANDATORY (fail-closed, Razorpay-style).
 //   3. idempotency()             -> response-replay protection (default OFF); the
-//                                   key is honored if supplied but not mandated,
-//                                   since merchant_order_id already de-dupes the
-//                                   create at the service layer.
+//                                   key is GENERATED SERVER-SIDE from the request's
+//                                   merchant_order_id (never read from a header),
+//                                   so a retry of the same order replays the
+//                                   original response. When no merchant_order_id is
+//                                   supplied the request is genuinely unique and
+//                                   idempotency is skipped. Activates with its flag.
 // The signature requirement is always on; idempotency activates with its flag.
 router.post(
   '/generate-payin',
   checkAuthCode,
   verifyRequestSignature({ required: true }),
-  idempotency(),
+  idempotency({ deriveKey: (req) => req.body?.merchant_order_id }),
   tryCatchHandler(generatePayInV2),
 );
 
@@ -58,13 +61,19 @@ router.post(
 //                                   req.merchant (server-to-server auth for h2h)
 //   2. verifyRequestSignature({required:true}) -> HMAC request signature is
 //                                   MANDATORY (fail-closed, Razorpay-style).
-//   3. idempotency({required})   -> no double-processing on retry (default OFF)
+//   3. idempotency({required})   -> no double-processing on retry (default OFF);
+//                                   the key is GENERATED SERVER-SIDE from the
+//                                   :merchantOrderId path param (never read from a
+//                                   header).
 // The signature requirement is always on; idempotency activates with its flag.
 router.post(
   '/process-payin/:merchantOrderId',
   checkAuthCode,
   verifyRequestSignature({ required: true }),
-  idempotency({ required: true }),
+  idempotency({
+    required: true,
+    deriveKey: (req) => req.params?.merchantOrderId,
+  }),
   tryCatchHandler((req, res) => processPayInH2H(req, adaptResponseToV2(res))),
 );
 

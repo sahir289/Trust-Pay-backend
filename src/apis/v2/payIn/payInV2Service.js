@@ -5,7 +5,7 @@ import { stringifyJSON } from '../../../utils//index.js';
 import logger from '../../../utils/logger.js';
 import {
   generatePayInUrlDao,
-  getPayInForCheckStatusDao,
+  getPayInWithBankResponseForStatusDao,
   getPayInWithMerchantOrderIdDao,
   updatePayInUrlDao,
 } from '../../payIn/payInDao.js';
@@ -21,7 +21,6 @@ import { sendBankNotAssignedAlertTelegram } from '../../../utils/sendTelegramMes
 import { newTableEntry } from '../../../utils/sockets.js';
 import { nanoid } from 'nanoid';
 import { v4 as uuidv4 } from 'uuid';
-import { getBankResponseDao } from '../../bankResponse/bankResponseDao.js';
 
 const createPayInWithUniqueShortCode = async (data) => {
   let attempts = 0;
@@ -81,6 +80,16 @@ export const generatePayInUrlV2Service = async (payload, role) => {
     } = payload;
     const code = merchant.code;
 
+    // Kick off the duplicate-order lookup up front. It is independent of the
+    // merchant routing data, so overlapping the two round-trips removes a serial
+    // DB hop from the hot path. It is still EVALUATED at the same point below, so
+    // error precedence (bank checks before "order already exists") is unchanged.
+    // The benign catch prevents an unhandled rejection if an earlier guard
+    // returns before we await the promise.
+    const existingOrderPromise =
+      getPayInWithMerchantOrderIdDao(merchant_order_id);
+    existingOrderPromise.catch(() => {});
+
     // Cache merchant routing data to reduce repeated DB reads under load.
     // Merchant config and bank assignments change rarely; 60s TTL is safe.
     const routingCacheKey = `merchant_routing:${merchant.id}`;
@@ -136,8 +145,7 @@ export const generatePayInUrlV2Service = async (payload, role) => {
       };
     }
 
-    const existingOrder =
-      await getPayInWithMerchantOrderIdDao(merchant_order_id);
+    const existingOrder = await existingOrderPromise;
     if (existingOrder) {
       return { status: 400, message: 'Merchant Order ID already exists' };
     }
@@ -236,34 +244,22 @@ export const generatePayInUrlV2Service = async (payload, role) => {
 // Public API Used by Merchants
 export const checkPayInStatusV2Service = async (merchantOrderId, merchant) => {
   try {
-
-    const payIn = await getPayInForCheckStatusDao({
-      merchant_order_id: merchantOrderId,
-    });
+    // Single round trip: PayIn joined with its BankResponse (if any).
+    const payIn = await getPayInWithBankResponseForStatusDao(merchantOrderId);
 
     if (!payIn) {
-      const data = {
+      return {
         status: 404,
         message: 'Order id does not exist',
       };
-      return data;
     }
 
     //check is payIn detials belongs to that merchant or not
     if (!(payIn.merchant_id === merchant.id)) {
-      const data = {
+      return {
         status: 404,
         message: 'Merchant order id does not exist',
       };
-      return data;
-    }
-
-    let botResponse;
-    if (payIn.bank_response_id) {
-      botResponse = await getBankResponseDao({
-        id: payIn.bank_response_id,
-        company_id: payIn.company_id,
-      });
     }
 
     return {
@@ -276,9 +272,7 @@ export const checkPayInStatusV2Service = async (merchantOrderId, merchant) => {
         Status.DUPLICATE,
       ].includes(payIn.status)
         ? null
-        : botResponse?.amount
-          ? botResponse?.amount
-          : null,
+        : payIn.bank_response_amount ?? null,
       payinId: payIn.id,
       req_amount: payIn.amount,
       utr_id: [
@@ -288,9 +282,7 @@ export const checkPayInStatusV2Service = async (merchantOrderId, merchant) => {
         Status.IMG_PENDING,
       ].includes(payIn.status)
         ? ' '
-        : botResponse?.utr
-          ? botResponse?.utr
-          : payIn.user_submitted_utr,
+        : payIn.bank_response_utr ?? payIn.user_submitted_utr,
     };
   } catch (error) {
     logger.error('Error check payin:', error);

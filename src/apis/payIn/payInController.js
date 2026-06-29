@@ -530,6 +530,7 @@ export const processPayInH2H = async (req, res) => {
 
   sendSuccess(res, data, 'PayIn request queued successfully', 202);
 };
+
 export const processPayInIMGUTR = async (req, res) => {
   const payload = {
     ...req.body,

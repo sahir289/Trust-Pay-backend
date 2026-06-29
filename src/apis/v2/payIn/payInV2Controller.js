@@ -63,7 +63,7 @@ export const generatePayInV2 = async (req, res) => {
   const payload = req.body;
   const merchant = req.merchant;
  
-  if (merchant.merchant_order_id?.includes('/')) {
+  if (payload.merchant_order_id?.includes('/')) {
     throw new BadRequestError("Invalid order ID: '/' is not allowed.");
   }
 
