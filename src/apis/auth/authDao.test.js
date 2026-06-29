@@ -128,6 +128,61 @@ describe("authDao - Part 1", () => {
     });
   });
 
+  describe("addLoginDao - additional cases", () => {
+    beforeEach(() => jest.clearAllMocks());
+
+    test("should insert login session and return id and session_id", async () => {
+      executeQuery.mockResolvedValueOnce({
+        rows: [{ id: 1, session_id: "s1" }],
+      });
+
+      const result = await addLoginDao({ user_id: 1 });
+
+      expect(result).toEqual({ id: 1, session_id: "s1" });
+      expect(executeQuery).toHaveBeenCalled();
+    });
+
+    test("should stringify nested config object before insert", async () => {
+      executeQuery.mockResolvedValueOnce({ rows: [] });
+
+      await addLoginDao({ config: { a: 1 } });
+
+      expect(stringifyJSON).toHaveBeenCalled();
+    });
+
+    test("should handle null config gracefully", async () => {
+      executeQuery.mockResolvedValueOnce({ rows: [] });
+
+      await addLoginDao({ config: null });
+
+      expect(executeQuery).toHaveBeenCalled();
+    });
+
+    test("should return undefined when rows empty", async () => {
+      executeQuery.mockResolvedValueOnce({ rows: [] });
+
+      const res = await addLoginDao({ user_id: 1 });
+
+      expect(res).toBeUndefined();
+    });
+
+    test("should propagate DB error and log it", async () => {
+      executeQuery.mockRejectedValueOnce(new Error("db fail"));
+
+      await expect(addLoginDao({ user_id: 1 })).rejects.toThrow();
+      expect(logger.error).toHaveBeenCalled();
+    });
+
+    test("should use custom connection when provided", async () => {
+      const conn = {};
+      executeQuery.mockResolvedValueOnce({ rows: [] });
+
+      await addLoginDao({ user_id: 1 }, conn);
+
+      expect(executeQuery).toHaveBeenCalled();
+    });
+  });
+
   describe("getRefreshTokenDao", () => {
     it("should return refresh token user", async () => {
       executeQuery.mockResolvedValue({
@@ -187,6 +242,44 @@ describe("authDao - Part 1", () => {
       );
     });
   });
+
+  describe("getRefreshTokenDao - additional cases", () => {
+    beforeEach(() => jest.clearAllMocks());
+
+    test("should return user_id when refresh token matches", async () => {
+      executeQuery.mockResolvedValueOnce({
+        rows: [{ user_id: 1 }],
+      });
+
+      const res = await getRefreshTokenDao("token", 1);
+
+      expect(res).toEqual({ user_id: 1 });
+    });
+
+    test("should return undefined when no match", async () => {
+      executeQuery.mockResolvedValueOnce({ rows: [] });
+
+      const res = await getRefreshTokenDao("token", 1);
+
+      expect(res).toBeUndefined();
+    });
+
+    test("should use company_id filter correctly", async () => {
+      executeQuery.mockResolvedValueOnce({ rows: [] });
+
+      await getRefreshTokenDao("t", 99);
+
+      expect(executeQuery).toHaveBeenCalled();
+    });
+
+    test("should handle DB error and log it", async () => {
+      executeQuery.mockRejectedValueOnce(new Error("fail"));
+
+      await expect(getRefreshTokenDao("t", 1)).rejects.toThrow();
+      expect(logger.error).toHaveBeenCalled();
+    });
+  });
+
   describe("getLoginDao", () => {
     it("should return login configuration", async () => {
       executeQuery.mockResolvedValue({
@@ -250,6 +343,35 @@ describe("authDao - Part 1", () => {
       );
     });
   });
+
+  describe("getLoginDao - additional cases", () => {
+    beforeEach(() => jest.clearAllMocks());
+
+    test("should return config for valid user", async () => {
+      executeQuery.mockResolvedValueOnce({
+        rows: [{ config: "{}" }],
+      });
+
+      const res = await getLoginDao(1, 2);
+
+      expect(res).toBeDefined();
+    });
+
+    test("should return undefined when no record exists", async () => {
+      executeQuery.mockResolvedValueOnce({ rows: [] });
+
+      const res = await getLoginDao(1, 2);
+
+      expect(res).toBeUndefined();
+    });
+
+    test("should handle SQL failure", async () => {
+      executeQuery.mockRejectedValueOnce(new Error("db"));
+
+      await expect(getLoginDao(1, 2)).rejects.toThrow();
+    });
+  });
+
   describe("getSessionByIdDao", () => {
     it("should return session without session_id", async () => {
       executeQuery.mockResolvedValue({
@@ -339,6 +461,46 @@ describe("authDao - Part 1", () => {
       );
     });
   });
+
+  describe("getSessionByIdDao - additional cases", () => {
+    beforeEach(() => jest.clearAllMocks());
+
+    test("should return session data when session_id provided", async () => {
+      executeQuery.mockResolvedValueOnce({
+        rows: [{ session_id: "s1" }],
+      });
+
+      const res = await getSessionByIdDao(1, 2, "s1");
+
+      expect(res).toBeDefined();
+    });
+
+    test("should return session when session_id not provided", async () => {
+      executeQuery.mockResolvedValueOnce({
+        rows: [{ session_id: "s1" }],
+      });
+
+      const res = await getSessionByIdDao(1, 2);
+
+      expect(res).toBeDefined();
+    });
+
+    test("should return undefined when no session found", async () => {
+      executeQuery.mockResolvedValueOnce({ rows: [] });
+
+      const res = await getSessionByIdDao(1, 2);
+
+      expect(res).toBeUndefined();
+    });
+
+    test("should propagate DB error", async () => {
+      executeQuery.mockRejectedValueOnce(new Error("fail"));
+
+      await expect(getSessionByIdDao(1, 2)).rejects.toThrow();
+      expect(logger.error).toHaveBeenCalled();
+    });
+  });
+
   describe("getSessionByUserIdDao", () => {
     it("should fetch sessions for single user", async () => {
       executeQuery.mockResolvedValue({
@@ -420,6 +582,35 @@ describe("authDao - Part 1", () => {
       );
     });
   });
+
+  describe("getSessionByUserIdDao - additional cases", () => {
+    beforeEach(() => jest.clearAllMocks());
+
+    test("should return sessions for user_id", async () => {
+      executeQuery.mockResolvedValueOnce({
+        rows: [{ session_id: "s1" }],
+      });
+
+      const res = await getSessionByUserIdDao(1, 2);
+
+      expect(Array.isArray(res)).toBe(true);
+    });
+
+    test("should return empty array when no sessions exist", async () => {
+      executeQuery.mockResolvedValueOnce({ rows: [] });
+
+      const res = await getSessionByUserIdDao(1, 2);
+
+      expect(res).toEqual([]);
+    });
+
+    test("should handle DB failure", async () => {
+      executeQuery.mockRejectedValueOnce(new Error("db"));
+
+      await expect(getSessionByUserIdDao(1, 2)).rejects.toThrow();
+    });
+  });
+
   describe("updateSessionDao", () => {
     it("should update session config", async () => {
       executeQuery.mockResolvedValue({});
@@ -469,6 +660,34 @@ describe("authDao - Part 1", () => {
       );
     });
   });
+
+  describe("updateSessionDao - additional cases", () => {
+    beforeEach(() => jest.clearAllMocks());
+
+    test("should update session config", async () => {
+      executeQuery.mockResolvedValueOnce({ rows: [] });
+
+      await updateSessionDao(1, 2, 3, { a: 1 });
+
+      expect(stringifyJSON).toHaveBeenCalled();
+      expect(executeQuery).toHaveBeenCalled();
+    });
+
+    test("should not update when session not found", async () => {
+      executeQuery.mockResolvedValueOnce({ rows: [] });
+
+      const res = await updateSessionDao(1, 2, 3, {});
+
+      expect(res).toBeUndefined();
+    });
+
+    test("should handle DB failure", async () => {
+      executeQuery.mockRejectedValueOnce(new Error("fail"));
+
+      await expect(updateSessionDao(1, 2, 3, {})).rejects.toThrow();
+    });
+  });
+
   describe("deleteUserSessionsDao", () => {
     it("should delete all user sessions", async () => {
       executeQuery.mockResolvedValue({
@@ -544,6 +763,33 @@ describe("authDao - Part 1", () => {
       );
     });
   });
+
+  describe("deleteUserSessionsDao - additional cases", () => {
+    beforeEach(() => jest.clearAllMocks());
+
+    test("should mark sessions obsolete (all)", async () => {
+      executeQuery.mockResolvedValueOnce({ rows: [{ id: 1 }] });
+
+      const res = await deleteUserSessionsDao(1, 2);
+
+      expect(res).toBeDefined();
+    });
+
+    test("should mark only specific session", async () => {
+      executeQuery.mockResolvedValueOnce({ rows: [] });
+
+      await deleteUserSessionsDao(1, 2, "s1");
+
+      expect(executeQuery).toHaveBeenCalled();
+    });
+
+    test("should handle DB error", async () => {
+      executeQuery.mockRejectedValueOnce(new Error("db"));
+
+      await expect(deleteUserSessionsDao(1, 2)).rejects.toThrow();
+    });
+  });
+
   describe("changePasswordDao", () => {
     it("should update password", async () => {
       executeQuery.mockResolvedValue({
@@ -591,6 +837,29 @@ describe("authDao - Part 1", () => {
       );
     });
   });
+
+  describe("changePasswordDao - additional cases", () => {
+    beforeEach(() => jest.clearAllMocks());
+
+    test("should update password", async () => {
+      executeQuery.mockResolvedValueOnce({
+        rows: [{ user_id: 1 }],
+      });
+
+      const res = await changePasswordDao(1, "pass");
+
+      expect(res).toBeDefined();
+    });
+
+    test("should return undefined when no rows", async () => {
+      executeQuery.mockResolvedValueOnce({ rows: [] });
+
+      const res = await changePasswordDao(1, "pass");
+
+      expect(res).toBeUndefined();
+    });
+  });
+
   describe("getUserAuthPasswordDao", () => {
     it("should get user by id", async () => {
       executeQuery.mockResolvedValue({
@@ -695,6 +964,35 @@ describe("authDao - Part 1", () => {
       );
     });
   });
+
+  describe("getUserAuthPasswordDao - additional cases", () => {
+    beforeEach(() => jest.clearAllMocks());
+
+    test("should return user credentials", async () => {
+      executeQuery.mockResolvedValueOnce({
+        rows: [{ user_id: 1 }],
+      });
+
+      const res = await getUserAuthPasswordDao({ user_id: 1 });
+
+      expect(res).toBeDefined();
+    });
+
+    test("should return null when not found", async () => {
+      executeQuery.mockResolvedValueOnce({ rows: [] });
+
+      const res = await getUserAuthPasswordDao({ user_id: 1 });
+
+      expect(res).toBeNull();
+    });
+
+    test("should handle DB error", async () => {
+      executeQuery.mockRejectedValueOnce(new Error("db"));
+
+      await expect(getUserAuthPasswordDao({})).rejects.toThrow();
+    });
+  });
+
   describe("getAllActiveSessionsDao", () => {
     test("should return all active sessions", async () => {
       executeQuery.mockResolvedValue({
@@ -759,6 +1057,29 @@ describe("authDao - Part 1", () => {
       );
     });
   });
+
+  describe("getAllActiveSessionsDao - additional cases", () => {
+    beforeEach(() => jest.clearAllMocks());
+
+    test("should return active sessions", async () => {
+      executeQuery.mockResolvedValueOnce({
+        rows: [{ session_id: "s1" }],
+      });
+
+      const res = await getAllActiveSessionsDao(1, 2);
+
+      expect(Array.isArray(res)).toBe(true);
+    });
+
+    test("should return empty array when none", async () => {
+      executeQuery.mockResolvedValueOnce({ rows: [] });
+
+      const res = await getAllActiveSessionsDao(1, 2);
+
+      expect(res).toEqual([]);
+    });
+  });
+
   describe("getRoleByUserNameDao", () => {
     test("should return designation and role", async () => {
       executeQuery.mockResolvedValue({
@@ -817,6 +1138,29 @@ describe("authDao - Part 1", () => {
       );
     });
   });
+
+  describe("getRoleByUserNameDao - additional cases", () => {
+    beforeEach(() => jest.clearAllMocks());
+
+    test("should return role info", async () => {
+      executeQuery.mockResolvedValueOnce({
+        rows: [{ role: "admin" }],
+      });
+
+      const res = await getRoleByUserNameDao("john");
+
+      expect(res).toBeDefined();
+    });
+
+    test("should return undefined when not found", async () => {
+      executeQuery.mockResolvedValueOnce({ rows: [] });
+
+      const res = await getRoleByUserNameDao("john");
+
+      expect(res).toBeUndefined();
+    });
+  });
+
   describe("getUserForVerificationDao", () => {
     test("should return user", async () => {
       executeQuery.mockResolvedValue({
@@ -879,6 +1223,34 @@ describe("authDao - Part 1", () => {
         "Error in getting user details for verification",
         error
       );
+    });
+  });
+
+  describe("getUserForVerificationDao", () => {
+    beforeEach(() => jest.clearAllMocks());
+
+    test("should return user data", async () => {
+      executeQuery.mockResolvedValueOnce({
+        rows: [{ user_name: "john" }],
+      });
+
+      const res = await getUserForVerificationDao("john");
+
+      expect(res).toBeDefined();
+    });
+
+    test("should return null when user disabled", async () => {
+      executeQuery.mockResolvedValueOnce({ rows: [] });
+
+      const res = await getUserForVerificationDao("john");
+
+      expect(res).toBeNull();
+    });
+
+    test("should handle DB error", async () => {
+      executeQuery.mockRejectedValueOnce(new Error("db"));
+
+      await expect(getUserForVerificationDao("john")).rejects.toThrow();
     });
   });
 });

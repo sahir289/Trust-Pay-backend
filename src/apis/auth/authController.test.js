@@ -270,6 +270,114 @@ describe("Auth Controller", () => {
     });
   });
 
+  describe("loginController - additional cases", () => {
+    const res = { cookie: jest.fn(), status: jest.fn(() => res) };
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    test("should throw ValidationError when Joi validation fails", async () => {
+      INSERT_AUTH_SCHEMA.validate.mockReturnValueOnce({
+        error: new Error("validation error"),
+      });
+
+      const req = { body: {}, headers: {} };
+
+      await expect(loginController(req, res)).rejects.toThrow();
+    });
+
+    test("should call recordAuthFailure when loginService throws unexpected error", async () => {
+      loginService.mockRejectedValueOnce(new Error("DB error"));
+
+      const req = { body: {}, headers: {} };
+
+      await expect(loginController(req, res)).rejects.toThrow("DB error");
+      expect(recordAuthFailure).toHaveBeenCalled();
+    });
+
+    test("should resetAuthFailures after successful login", async () => {
+      loginService.mockResolvedValueOnce({
+        tokenInfo: { accessToken: "a" },
+        sessionId: "s",
+        user: {},
+        refreshToken: "r",
+      });
+
+      const req = { body: {}, headers: {} };
+
+      await loginController(req, res);
+
+      expect(resetAuthFailures).toHaveBeenCalled();
+    });
+
+    test("should not set cookie when twoFactorRequired is true", async () => {
+      loginService.mockResolvedValueOnce({
+        twoFactorRequired: true,
+        preAuthToken: "p",
+      });
+
+      const req = { body: {}, headers: {} };
+
+      await loginController(req, res);
+
+      expect(res.cookie).not.toHaveBeenCalled();
+    });
+
+    test("should not set cookie when must_setup_2fa is true", async () => {
+      loginService.mockResolvedValueOnce({
+        must_setup_2fa: true,
+        refreshToken: "r",
+        tokenInfo: { accessToken: "a" },
+        sessionId: "s",
+        user: {},
+      });
+
+      const req = { body: {}, headers: {} };
+
+      await loginController(req, res);
+
+      expect(res.cookie).toHaveBeenCalled();
+    });
+
+    test("should handle missing x-forwarded-for header", async () => {
+      loginService.mockResolvedValueOnce({
+        tokenInfo: { accessToken: "a" },
+        sessionId: "s",
+        user: {},
+        refreshToken: "r",
+      });
+
+      const req = { body: {}, headers: {} };
+
+      await loginController(req, res);
+
+      expect(loginService).toHaveBeenCalled();
+    });
+
+    test("should handle undefined loginService response safely", async () => {
+      loginService.mockResolvedValueOnce(undefined);
+
+      const req = { body: {}, headers: {} };
+
+      await expect(loginController(req, res)).rejects.toThrow();
+    });
+
+    test("should not crash when x-forwarded-for is missing", async () => {
+      loginService.mockResolvedValueOnce({
+        tokenInfo: { accessToken: "a" },
+        sessionId: "s",
+        user: {},
+        refreshToken: "r",
+      });
+
+      const req = { body: {}, headers: {} };
+
+      await loginController(req, res);
+
+      expect(sendSuccess).toHaveBeenCalled();
+    });
+  });
 
   describe("refreshTokenController", () => {
     test("should refresh access token", async () => {
@@ -323,6 +431,51 @@ describe("Auth Controller", () => {
     });
   });
 
+  describe("refreshTokenController - additional cases", () => {
+    const res = {};
+
+    beforeEach(() => jest.clearAllMocks());
+
+    test("should throw when refreshToken cookie is missing", async () => {
+      const req = { cookies: {} };
+
+      await expect(refreshTokenController(req, res)).rejects.toThrow();
+    });
+
+    test("should throw when verifyRefreshToken returns null", async () => {
+      verifyRefreshToken.mockReturnValueOnce(null);
+
+      const req = { cookies: { refreshToken: "r" } };
+
+      await expect(refreshTokenController(req, res)).rejects.toThrow();
+    });
+
+    test("should throw when decoded token invalid", async () => {
+      verifyRefreshToken.mockReturnValueOnce({ user_id: null });
+
+      const req = { cookies: { refreshToken: "r" } };
+
+      await expect(refreshTokenController(req, res)).rejects.toThrow();
+    });
+
+    test("should handle corrupted session.config JSON", async () => {
+      refreshTokenService.mockResolvedValueOnce({
+        config: "invalid-json",
+      });
+
+      const req = { cookies: { refreshToken: "r" } };
+
+      await expect(refreshTokenController(req, res)).rejects.toThrow();
+    });
+
+    test("should not generate token if company_id missing", async () => {
+      verifyRefreshToken.mockReturnValueOnce({ user_id: 1 });
+
+      const req = { cookies: { refreshToken: "r" } };
+
+      await expect(refreshTokenController(req, res)).rejects.toThrow();
+    });
+  });
 
   describe("logoutController", () => {
     test("should logout successfully", async () => {
@@ -347,6 +500,44 @@ describe("Auth Controller", () => {
         {},
         "logout successfully"
       );
+    });
+  });
+
+  describe("logoutController - additional cases", () => {
+    const res = {};
+
+    beforeEach(() => jest.clearAllMocks());
+
+    test("should throw when x-auth-token is missing", async () => {
+      const req = { headers: {}, body: {} };
+
+      await expect(logoutController(req, res)).rejects.toThrow();
+    });
+
+    test("should not call logoutService if token invalid", async () => {
+      verifyToken.mockReturnValueOnce(null);
+
+      const req = { headers: { "x-auth-token": "t" }, body: {} };
+
+      await expect(logoutController(req, res)).rejects.toThrow();
+      expect(logoutService).not.toHaveBeenCalled();
+    });
+
+    test("should add token to logoutSet after success", async () => {
+      verifyToken.mockReturnValueOnce({ user_id: 1 });
+      logoutService.mockResolvedValueOnce({});
+
+      const req = {
+        body: { session_id: "s1" },
+        header: jest.fn(() => "test-token"),
+      };
+
+      const res = {};
+
+      await logoutController(req, res);
+
+      const { logoutSet } = await import("../../middlewares/auth.js");
+      expect(logoutSet.add).toHaveBeenCalledWith("test-token");
     });
   });
 
@@ -391,6 +582,23 @@ describe("Auth Controller", () => {
     });
   });
 
+  describe("verfyUserController - additional cases", () => {
+    const res = {};
+
+    test("should throw when username missing", async () => {
+      const req = { body: {} };
+
+      await expect(verfyUserController(req, res)).rejects.toThrow();
+    });
+
+    test("should handle null service response", async () => {
+      verfyUserService.mockResolvedValueOnce(null);
+
+      const req = { body: { user_name: "u" } };
+
+      await expect(verfyUserController(req, res)).rejects.toThrow();
+    });
+  });
 
   describe("changePasswordController", () => {
     test("should change password", async () => {
@@ -431,6 +639,31 @@ describe("Auth Controller", () => {
     });
   });
 
+  describe("changePasswordController - additional cases", () => {
+    const res = {};
+
+    test("should throw when old password incorrect", async () => {
+      changePasswordService.mockResolvedValueOnce(false);
+
+      const req = {
+        user: { user_id: 1, user_name: "u" },
+        body: { oldPassword: "a", password: "b" },
+      };
+
+      await expect(changePasswordController(req, res)).rejects.toThrow();
+    });
+
+    test("should handle service exception", async () => {
+      changePasswordService.mockRejectedValueOnce(new Error("fail"));
+
+      const req = {
+        user: { user_id: 1, user_name: "u" },
+        body: { oldPassword: "a", password: "b" },
+      };
+
+      await expect(changePasswordController(req, res)).rejects.toThrow();
+    });
+  });
 
   describe("verfyUserController", () => {
     test("should verify user", async () => {
@@ -464,6 +697,23 @@ describe("Auth Controller", () => {
     });
   });
 
+  describe("verfyUserController - additional cases", () => {
+    const res = {};
+
+    test("should throw when username missing", async () => {
+      const req = { body: {} };
+
+      await expect(verfyUserController(req, res)).rejects.toThrow();
+    });
+
+    test("should handle null service response", async () => {
+      verfyUserService.mockResolvedValueOnce(null);
+
+      const req = { body: { user_name: "u" } };
+
+      await expect(verfyUserController(req, res)).rejects.toThrow();
+    });
+  });
 
   describe("verfyOtpController", () => {
     test("should verify otp", async () => {
@@ -501,6 +751,23 @@ describe("Auth Controller", () => {
     });
   });
 
+  describe("verfyOtpController - additional cases", () => {
+    const res = {};
+
+    test("should throw when OTP missing", async () => {
+      const req = { body: {} };
+
+      await expect(verfyOtpController(req, res)).rejects.toThrow();
+    });
+
+    test("should handle invalid OTP format", async () => {
+      verfyOtpService.mockResolvedValueOnce(false);
+
+      const req = { body: { otp: "abc" } };
+
+      await expect(verfyOtpController(req, res)).rejects.toThrow();
+    });
+  });
 
   describe("forgetPasswordController", () => {
     test("should reset password", async () => {
@@ -539,6 +806,23 @@ describe("Auth Controller", () => {
     });
   });
 
+  describe("forgetPasswordController - additional cases", () => {
+    const res = {};
+
+    test("should throw when user_id missing", async () => {
+      const req = { body: { password: "a" } };
+
+      await expect(forgetPasswordController(req, res)).rejects.toThrow();
+    });
+
+    test("should reject weak password reset", async () => {
+      forgetPasswordService.mockResolvedValueOnce(false);
+
+      const req = { body: { password: "123", user_id: 1 } };
+
+      await expect(forgetPasswordController(req, res)).rejects.toThrow();
+    });
+  });
 
   describe("getUserRoleController", () => {
     test("should fetch role", async () => {
@@ -561,6 +845,28 @@ describe("Auth Controller", () => {
         },
         "User role fetched successfully"
       );
+    });
+  });
+
+  describe("getUserRoleController - additional cases", () => {
+    const res = {};
+
+    test("should handle missing query param", async () => {
+      const req = { query: {} };
+
+      getUserRoleService.mockResolvedValueOnce(null);
+
+      await getUserRoleController(req, res);
+
+      expect(sendSuccess).toHaveBeenCalled();
+    });
+
+    test("should handle service failure", async () => {
+      getUserRoleService.mockRejectedValueOnce(new Error("db fail"));
+
+      const req = { query: { userName: "u" } };
+
+      await expect(getUserRoleController(req, res)).rejects.toThrow();
     });
   });
 
@@ -660,6 +966,32 @@ describe("Auth Controller", () => {
     });
   });
 
+  describe("verifyLoginOtpController - additional cases", () => {
+    const res = { cookie: jest.fn() };
+
+    test("should throw when preAuthToken missing", async () => {
+      const req = { body: { otpToken: "123" }, headers: {} };
+
+      await expect(verifyLoginOtpController(req, res)).rejects.toThrow();
+    });
+
+    test("should reset failures on success", async () => {
+      verifyLoginOtpService.mockResolvedValueOnce({
+        tokenInfo: { accessToken: "a", refreshToken: "r" },
+        sessionId: "s",
+        user: {},
+      });
+
+      const req = {
+        body: { preAuthToken: "p", otpToken: "1" },
+        headers: {},
+      };
+
+      await verifyLoginOtpController(req, res);
+
+      expect(resetAuthFailures).toHaveBeenCalled();
+    });
+  });
 
   describe("setup2FAController", () => {
     test("should setup 2FA", async () => {
@@ -686,6 +1018,13 @@ describe("Auth Controller", () => {
     });
   });
 
+  describe("setup2FAController", () => {
+    test("should throw when req.user missing", async () => {
+      const req = { user: null };
+
+      await expect(setup2FAController(req, {})).rejects.toThrow();
+    });
+  });
 
   describe("confirm2FAController", () => {
     test("should confirm 2FA", async () => {
@@ -718,6 +1057,13 @@ describe("Auth Controller", () => {
     });
   });
 
+  describe("confirm2FAController", () => {
+    test("should throw when otpToken missing", async () => {
+      const req = { user: { user_id: 1 }, body: {} };
+
+      await expect(confirm2FAController(req, {})).rejects.toThrow();
+    });
+  });
 
   describe("disable2FAController", () => {
     test("should disable 2FA", async () => {
@@ -747,6 +1093,14 @@ describe("Auth Controller", () => {
       await expect(
         disable2FAController(req, res)
       ).rejects.toThrow();
+    });
+  });
+
+  describe("disable2FAController", () => {
+    test("should throw when otpToken missing", async () => {
+      const req = { user: { user_id: 1 }, body: {} };
+
+      await expect(disable2FAController(req, {})).rejects.toThrow();
     });
   });
 });
