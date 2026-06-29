@@ -11,16 +11,41 @@ import { BadRequestError } from './appErrors.js';
 import { logger } from './logger.js';
 import safeStringify from 'fast-safe-stringify';
 
+// Only document/image/spreadsheet types are ever uploaded (bank statements,
+// payout sheets, payment proof screenshots). Reject everything else up front.
+const ALLOWED_UPLOAD_MIME_TYPES = new Set([
+  'application/pdf',
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'application/vnd.ms-excel',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'text/csv',
+]);
+
+// Strip any path components / unsafe characters from a user-supplied filename
+// so it cannot influence the S3 key structure (path confusion / traversal).
+const sanitizeUploadFilename = (name = 'file') => {
+  const base = String(name).split(/[\\/]/).pop() || 'file';
+  return base.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 120) || 'file';
+};
+
 export const multerUpload = multer({
   storage: multerS3({
     s3: s3,
     bucket: config.bucketName,
     acl: 'public-read', // Set the access control list (ACL) policy for the file
     key: function (req, file, cb) {
-      cb(null, `uploads/${Date.now()}-${file.originalname}`); // Set the file path and name
+      cb(null, `uploads/${Date.now()}-${sanitizeUploadFilename(file.originalname)}`);
     },
   }),
-  limits: { fileSize: 50 * 1024 * 1024 },
+  limits: { fileSize: 50 * 1024 * 1024, files: 1 },
+  fileFilter: (req, file, cb) => {
+    if (ALLOWED_UPLOAD_MIME_TYPES.has(file.mimetype)) {
+      return cb(null, true);
+    }
+    return cb(new BadRequestError(`Unsupported file type: ${file.mimetype}`));
+  },
 });
 
 export const parseJSON = (data) => {

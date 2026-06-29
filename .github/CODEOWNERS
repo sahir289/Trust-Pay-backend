@@ -1,0 +1,12 @@
+# =============================================================================
+# Code Owners — Trust Pay Backend
+# -----------------------------------------------------------------------------
+# Combined with a branch protection rule / ruleset that requires Code Owner
+# review (and restricts who can push), this makes @sahir289 the gatekeeper for
+# every change reaching the deployable branches (main, trust-pay-stg).
+#
+# See jenkins/SETUP.md -> "Layer 1: Lock down the GitHub branches".
+# =============================================================================
+
+# Everything in the repository is owned by the release manager.
+*       @sahir289

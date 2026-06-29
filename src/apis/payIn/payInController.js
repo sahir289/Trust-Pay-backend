@@ -85,6 +85,7 @@ export const generateHashForPayIn = async (req, res) => {
 export const generatePayInUrl = async (req, res) => {
   const payload = req.query;
   const x_api_key = req.headers['x-api-key'];
+  // const x_auth_token = req.headers['x-auth-token'];
 
   const { code, key, roleToken = null } = payload;
   let message;
@@ -125,7 +126,9 @@ export const generatePayInUrl = async (req, res) => {
     role = roleData.role;
   }
 
-  if(role === "ADMIN" || !apiKey){
+  if (role === Role.ADMIN || !apiKey) {
+    // Internal admin flow: the caller is an authenticated ADMIN (verified via
+    // roleToken). Derive the merchant's key from its record.
     const data = await getMerchantsByCodeDao(code);
     if (data.length === 0) {
       throw new NotFoundError('Merchant not found');
@@ -133,8 +136,21 @@ export const generatePayInUrl = async (req, res) => {
     if (data[0]?.config?.is_h2h && !payload?.amount) {
       throw new NotFoundError('amount is required');
     }
-    apiKey = data[0]?.config?.keys?.public
-  }
+    apiKey = data[0]?.config?.keys?.public;
+  } 
+  // else {
+  //   // External merchant flow: a valid API key is mandatory and must match the
+  //   // merchant identified by `code`. We must NOT fall back to the merchant's
+  //   // own public key when none is supplied — that previously let anyone who
+  //   // knew a merchant code generate pay-in URLs without authentication.
+  //   if (!apiKey) {
+  //     throw new AuthenticationError('API key is required');
+  //   }
+  //   const merchantArr = await getMerchantsByCodeAndApiKeyDao(code, apiKey);
+  //   if (merchantArr.length === 0) {
+  //     throw new AuthenticationError('Invalid merchant code or API key');
+  //   }
+  // }
 
 
   const result = await generatePayInUrlService(

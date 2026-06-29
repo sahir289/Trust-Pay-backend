@@ -450,6 +450,21 @@ export const getMerchantsDao = async (
     throw error;
   }
 };
+export const getMerchantForAssignDao = async (id, conn = null) => {
+  try {
+    const sql = `
+      SELECT id, min_payin, max_payin, code, config
+      FROM "Merchant"
+      WHERE id = $1 AND is_enabled = true AND is_obsolete = false
+      LIMIT 1
+    `;
+    const result = await executeQuery(sql, [id], conn);
+    return result.rows[0] || null;
+  } catch (error) {
+    logger.error('Error in getMerchantForAssignDao:', error);
+    throw error;
+  }
+};
 
 export const getMerchantsForDashboardReportDao = async (
   filters = {},

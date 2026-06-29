@@ -881,7 +881,7 @@ export async function sendAlreadyConfirmedMessageTelegramBot(
   let message;
   if (payinData) {
     if (payinData.status === 'SUCCESS') {
-      message = `✅ UTR ${utr} is already confirmed with this orderId ${payinData.merchant_order_id}`;
+      message = `❗ UTR ${utr} is already confirmed with this orderId ${payinData.merchant_order_id}`;
     } else {
       message = `🚨 UTR ${utr} is already ${payinData.status} with this orderId ${payinData.merchant_order_id}`;
     }
@@ -942,7 +942,7 @@ export async function sendMerchantOrderIDStatusDuplicateTelegramMessage(
   let message;
   if (payinData) {
     if (payinData.status === 'SUCCESS') {
-      message = `✅ UTR ${utr} is already confirmed with this orderId ${payinData.merchant_order_id}`;
+      message = `❗ UTR ${utr} is already confirmed with this orderId ${payinData.merchant_order_id}`;
     } else {
       message = `🚨 UTR ${utr} is already ${payinData.status} with this orderId ${payinData.merchant_order_id}`;
     }

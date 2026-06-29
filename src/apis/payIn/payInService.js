@@ -71,6 +71,7 @@ import {
 import {
   getMerchantsByCodeDao,
   getMerchantsDao,
+  getMerchantForAssignDao,
   getMerchantForNotifyDao,
   getMerchantsForValidatePayinDao,
   getMerchantByUserIdDao,
@@ -84,6 +85,7 @@ import {
 } from '../calculation/calculationDao.js';
 import {
   getVendorsDao,
+  getVendorForAssignDao,
   updateVendorDao,
   getVendorsPayinsDao,
   getVendorsByUserIdsDao,
@@ -675,7 +677,6 @@ export const assignedBankToPayInUrlService = async (
     );
     const payIn = await getPayInUrlService(merchantOrderId);
     const payInConfig = payIn.config || {};
-    let merchant = {};
     checkIsPayInExpired(payIn);
     if (payIn.status !== Status.INITIATED) {
       if (payIn.status === Status.ASSIGNED) {
@@ -714,11 +715,12 @@ export const assignedBankToPayInUrlService = async (
         throw new BadRequestError('PayIn has been confirmed already!');
       }
     }
-    const merchantArr = await getMerchantsDao({ id: payIn.merchant_id });
-    merchant = merchantArr[0] || {};
+    const [merchant, banks] = await Promise.all([
+      getMerchantForAssignDao(payIn.merchant_id),
+      getMerchantBankDao({ config_merchants_contains: payIn.merchant_id }),
+    ]);
     if (!merchant) {
       throw new NotFoundError('No merchant found');
-      // return { message: `No merchant found` };
     }
     const maxPayIn = Number(merchant.max_payin);
     const minPayIn = Number(merchant.min_payin);
@@ -729,11 +731,7 @@ export const assignedBankToPayInUrlService = async (
       throw new BadRequestError(
         `Amount must be between ${minPayIn} and ${maxPayIn}`,
       );
-      // return { message: `Amount must be between ${minPayIn} and ${maxPayIn}` };
     }
-    const banks = await getMerchantBankDao({
-      config_merchants_contains: merchant.id,
-    });
 
     // First, check if any bank satisfies the amount condition
     const banksWithValidAmount = banks.filter((bank) => {
@@ -827,10 +825,7 @@ export const assignedBankToPayInUrlService = async (
       }
     });
 
-    const vendors = await getVendorsDao({
-      user_id: selectedBankDetails.user_id,
-    });
-    const vendor = vendors[0];
+    const vendor = await getVendorForAssignDao(selectedBankDetails.user_id);
 
     const responseObj = {
       ...updatePayIn,
@@ -863,7 +858,7 @@ export const assignedBankToPayInUrlService = async (
       merchant_min_payin: merchant.min_payin,
       merchant_max_payin: merchant.max_payin,
       merchant_code: merchant.code,
-      allow_merchant_intent: merchant.allow_intent,
+      allow_merchant_intent: merchant.config?.allow_intent,
       code: updatePayIn.upi_short_code,
       bank: selectedBankDetails,
     });

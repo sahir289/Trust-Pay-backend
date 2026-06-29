@@ -17,6 +17,7 @@ import { updatePayoutService } from './payOutService.js';
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
 import { checkPayoutApiKey } from '../../middlewares/checkApiKey.js';
+import { payoutIpAccessControl } from '../../middlewares/ipAccessControl.js';
 import { multerUpload } from '../../utils/index.js';
 import { payAssistTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/payAsistWebHook.js';
 import { payDumTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/payDumWebHook.js';
@@ -143,10 +144,12 @@ router.get(
 
 router.post(
   '/payinfintech-callback',
+  payoutIpAccessControl,
   tryCatchHandler(payInFintechTransactionStatusCallback),
 );
 router.post(
   '/callback',
+  payoutIpAccessControl,
   tryCatchHandler(pennypaySuccessCallback),
 );
 router.get(
@@ -325,6 +328,12 @@ router.get(
   tryCatchHandler(getTataPayWalletBalance),
 );
 
+router.post(
+  '/freechips_callback',
+  payoutIpAccessControl,
+  tryCatchHandler(freeChipsSuccessCallback)
+);
+
 router.get(
   '/bss/bss-balance',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
@@ -339,11 +348,13 @@ router.get(
 
 router.post(
   '/silkpay-callback',
+  payoutIpAccessControl,
   tryCatchHandler(silkPayTransactionStatusCallback),
 );
 
 router.post(
   '/vertexpay-callback',
+  payoutIpAccessControl,
   tryCatchHandler(vertexPayTransactionStatusCallback),
 );
 
@@ -367,6 +378,7 @@ router.get(
 
 router.post(
   '/runsafe-callback',
+  payoutIpAccessControl,
   tryCatchHandler(runsafeTransactionStatusCallback),
 );
 
@@ -426,30 +438,31 @@ router.get(
   tryCatchHandler(getClickrrWalletBalance),
 );
 
-router.post('/bss-callback', tryCatchHandler(bssTransactionStatusCallback));
+router.post('/bss-callback',payoutIpAccessControl, tryCatchHandler(bssTransactionStatusCallback));
 
-router.post('/bss02-callback', tryCatchHandler(bss02TransactionStatusCallback));
+router.post('/bss02-callback',payoutIpAccessControl, tryCatchHandler(bss02TransactionStatusCallback));
 
-router.post('/bss03-callback', tryCatchHandler(bss03TransactionStatusCallback));
+router.post('/bss03-callback',payoutIpAccessControl, tryCatchHandler(bss03TransactionStatusCallback));
 
 router.post(
   '/payassist-callback',
+  payoutIpAccessControl,
   tryCatchHandler(payAssistTransactionStatusCallback),
 );
 
 router.post(
   '/paydum-callback',
+  payoutIpAccessControl,
   tryCatchHandler(payDumTransactionStatusCallback),
 );
 
 router.post(
   '/tatapay-callback',
+  payoutIpAccessControl,
+  payoutIpAccessControl,
   tryCatchHandler(tataPayTransactionStatusCallback),
 );
-router.post(
-  '/freechips_callback',
-  tryCatchHandler(freeChipsSuccessCallback)
-);
+
 router.post(
   '/rupeeflow',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],

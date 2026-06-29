@@ -6,6 +6,7 @@ import {
   buildUpdateQuery,
   buildAndExecuteUpdateQuery,
   executeQuery,
+  isSafeColumnName,
 } from '../../utils/db.js';
 
 import { logger } from '../../utils/logger.js';
@@ -148,6 +149,7 @@ const getBankaccountDao = async (filters, page, limit, role, designation, conn =
         delete filters?.page;
         delete filters?.limit;
         const value = filters[key];
+        if (!isSafeColumnName(key)) return;
         if (value !== null && value !== undefined && value !== '') {
           if (Array.isArray(value)) {
             conditions.push(`ba."${key}" = ANY($${queryParams.length + 1})`);
@@ -287,6 +289,7 @@ const getAllBankaccountDao = async (
         delete filters?.page;
         delete filters?.limit;
         const value = filters[key];
+        if (!isSafeColumnName(key)) return;
         if (value !== null && value !== undefined && value !== '') {
           if (Array.isArray(value)) {
             conditions.push(`ba."${key}" = ANY($${queryParams.length + 1})`);
@@ -430,6 +433,7 @@ const getBankAccountsBySearchDao = async (
     if (filters && Object.keys(filters).length > 0) {
       Object.keys(filters).forEach((key) => {
         if (key === 'page' || key === 'limit') return; // Skip pagination keys
+        if (!isSafeColumnName(key)) return;
         const value = filters[key];
         if (value !== null && value !== undefined && value !== '') {
           if (Array.isArray(value)) {
@@ -748,6 +752,7 @@ const getMerchantBankDao = async (filters, conn = null) => {
     if (filters && Object.keys(filters).length > 0) {
       Object.keys(filters).forEach((key) => {
         const value = filters[key];
+        if (!isSafeColumnName(key)) return;
 
         if (value !== null && value !== undefined && value !== '') {
 
@@ -810,32 +815,8 @@ export const getMerchantLinkBankDao = async (filters, conn = null) => {
     FROM "${tableName.BANK_ACCOUNT}"
     WHERE is_obsolete = false
   `;
-
-  const params = [];
-  let index = 1;
-
-  if (filters.id) {
-    query += ` AND id = $${index}`;
-    params.push(filters.id);
-    index++;
-  }
-
-  if (filters.config_merchants_contains) {
-    query += `
-      AND (config::jsonb->'merchants')
-      @> to_jsonb(ARRAY[$${index}])
-    `;
-    params.push(filters.config_merchants_contains);
-    index++;
-  }
-
-  query += ` ORDER BY created_at DESC`;
-
-  const result = await executeQuery(
-    query,
-    params,
-    conn,
-  );
+    const [sql, parameters] = buildSelectQuery(query, filters);
+    const result = await executeQuery(sql, parameters, conn);
     return result.rows;
   } catch (error) {
     logger.error('Error getting bank account payin:', error.message);
@@ -931,6 +912,7 @@ const getBankAccountDaoNickName = async (
     // Handle filters
     if (Object.keys(filters).length > 0) {
       Object.entries(filters).forEach(([key, value]) => {
+        if (!isSafeColumnName(key)) return;
         if (key === 'user_id' && Array.isArray(value)) {
           // If user_id is an array, use IN clause
           whereConditions.push(`"user_id" = ANY($${queryParams.length + 1})`);

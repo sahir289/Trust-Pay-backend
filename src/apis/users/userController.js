@@ -15,6 +15,7 @@ import {
   resetUser2FAService,
 } from './userService.js';
 import { CREATE_USER_SCHEMA } from '../../schemas/userSchema.js';
+import { Role } from '../../constants/index.js';
 import { logger } from '../../utils/logger.js';
 import { getUsersContactDao } from './userDao.js';
 import { generateCacheKey } from '../../utils/redishashkey.js';
@@ -31,8 +32,48 @@ const invalidateUsersCache = async (companyId) =>
   invalidateCompanyCacheByPrefix(companyId, 'users:read:', 'Users cache');
 const { controllerCacheTtls } = config;
 
+// Fields that must never be set through the generic user-update endpoint.
+// Each is managed exclusively by a dedicated, audited flow (password reset,
+// 2FA toggle, settlement/balance services, etc.).
+const IMMUTABLE_USER_UPDATE_FIELDS = new Set([
+  'id',
+  'password',
+  'company_id',
+  'balance',
+  'today_balance',
+  'two_factor_secret',
+  'is_two_factor_enabled',
+  'refresh_token',
+  'created_by',
+  'created_at',
+  'sno',
+]);
+
+// Fields only an ADMIN/SUPER_ADMIN may change. Stripped for everyone else to
+// prevent privilege escalation (e.g. a merchant promoting itself to admin via
+// PUT /users/update-user/:id, which is reachable by non-admin roles).
+const PRIVILEGED_USER_UPDATE_FIELDS = new Set([
+  'role_id',
+  'role',
+  'designation_id',
+  'designation',
+  'is_two_factor_exempt',
+]);
+
+const sanitizeUserUpdatePayload = (body, actor) => {
+  const isAdmin =
+    actor?.designation === Role.ADMIN ||
+    actor?.designation === Role.SUPER_ADMIN;
+  const sanitized = {};
+  for (const [key, value] of Object.entries(body || {})) {
+    if (IMMUTABLE_USER_UPDATE_FIELDS.has(key)) continue;
+    if (!isAdmin && PRIVILEGED_USER_UPDATE_FIELDS.has(key)) continue;
+    sanitized[key] = value;
+  }
+  return sanitized;
+};
+
 const getUsers = async (req, res) => {
-  // const reqBody = req.body;
   const { role, company_id, user_id, designation } = req.user;
   const { page, limit } = req.query;
   const cacheKey = `users:read:${company_id}:list:${generateCacheKey(
@@ -247,7 +288,7 @@ const createUser = async (req, res) => {
 
 const updateUser = async (req, res) => {
   const { company_id, user_id, user_name } = req.user;
-  let payload = req.body;
+  const payload = sanitizeUserUpdatePayload(req.body, req.user);
   payload.updated_by = user_id;
   const id = req.params.id;
   const ids = { id, company_id };

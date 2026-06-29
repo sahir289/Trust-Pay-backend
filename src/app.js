@@ -13,9 +13,15 @@ import { requestSanitizerMiddleware } from './middlewares/requestSanitizer.js';
 import apis from './apis/index.js';
 import errorHandler from './middlewares/errorHandler.js';
 import config from './config/config.js';
+import { BoundedSet } from './utils/boundedSet.js';
 
 const app = express();
-export const usedTokens = new Set();
+// Bounded idempotency cache for processed merchant order ids. The DB column
+// `one_time_used` remains the authoritative guard; this only avoids redundant
+// work and must stay memory-bounded under sustained traffic.
+export const usedTokens = new BoundedSet(
+  Number.parseInt(process.env.USED_TOKENS_MAX || '100000', 10),
+);
 
 // Behind reverse proxy/load balancer, trust the first upstream proxy for accurate req.ip
 app.set('trust proxy', 1);
@@ -50,14 +56,18 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.options('*', cors(corsOptions)); // it will handle preflight
 
+// Cap request body size to limit memory-amplification DoS. Configurable via
+// JSON_BODY_LIMIT for the rare bulk endpoint that needs more.
+const BODY_LIMIT = config?.bodyLimit || process.env.JSON_BODY_LIMIT || '5mb';
+
 app.use(express.json({
-  limit: '50mb',
+  limit: BODY_LIMIT,
   verify: (req, res, buf) => {
     req.rawBody = buf.toString();
   },
 }));
 app.use(express.urlencoded({
-  limit: '50mb',
+  limit: BODY_LIMIT,
   extended: true,
   parameterLimit: 100000,
 }));

@@ -4,6 +4,7 @@ import {
   buildUpdateQuery,
   buildSelectQuery,
   executeQuery,
+  isSafeColumnName,
 } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
 import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
@@ -114,6 +115,8 @@ export const getChargeBackDao = async (
 
     Object.entries(filters).forEach(([key, value]) => {
       if (handledKeys.has(key) || value == null) return;
+      // `key` is interpolated as a column identifier below; reject unsafe keys.
+      if (!isSafeColumnName(key)) return;
       const nextParamIdx = queryParams.length + 1;
 
       // Special handling for arrays (like merchant_user_id)
@@ -208,7 +211,8 @@ export const getChargeBackDao = async (
     ];
     const qualifiedSortBy = validSortColumns.includes(sortBy)
       ? `cb.${sortBy}`
-      : sortBy;
+      : 'cb.created_at';
+    const safeSortOrder = sortOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
 
     const baseQuery = `
       SELECT
@@ -225,7 +229,7 @@ export const getChargeBackDao = async (
       WHERE ${conditions.join(' AND ')}
       ${bankName ? `AND ba.nick_name = $${queryParams.length + 1}` : ''}
       ${utr ? `AND p.user_submitted_utr = $${queryParams.length + 1}` : ''}
-      ORDER BY ${qualifiedSortBy} ${sortOrder}
+      ORDER BY ${qualifiedSortBy} ${safeSortOrder}
       ${limitcondition.value}
     `;
     // Add bank_name to params if it exists
@@ -332,6 +336,8 @@ export const getAllChargeBackDao = async (
 
     Object.entries(filters).forEach(([key, value]) => {
       if (handledKeys.has(key) || value == null) return;
+      // `key` is interpolated as a column identifier below; reject unsafe keys.
+      if (!isSafeColumnName(key)) return;
       const nextParamIdx = queryParams.length + 1;
 
       // Special handling for arrays (like merchant_user_id)
@@ -427,7 +433,8 @@ export const getAllChargeBackDao = async (
     ];
     const qualifiedSortBy = validSortColumns.includes(sortBy)
       ? `cb.${sortBy}`
-      : sortBy;
+      : 'cb.created_at';
+    const safeSortOrder = sortOrder?.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
 
     const baseQuery = `
       SELECT
@@ -443,7 +450,7 @@ export const getAllChargeBackDao = async (
       WHERE ${conditions.join(' AND ')}
       ${bankName ? `AND ba.nick_name = $${queryParams.length + 1}` : ''}
       ${utr ? `AND p.user_submitted_utr = $${queryParams.length + 1}` : ''}
-      ORDER BY ${qualifiedSortBy} ${sortOrder}
+      ORDER BY ${qualifiedSortBy} ${safeSortOrder}
       ${limitcondition.value}
     `;
     // Add bank_name to params if it exists
@@ -585,6 +592,8 @@ export const getChargeBacksBySearchDao = async (
     ]);
     for (const [key, value] of Object.entries(filters)) {
       if (!value || ignoredKeys.has(key)) continue;
+      // `key` is interpolated as a column identifier below; reject unsafe keys.
+      if (!isSafeColumnName(key)) continue;
       const values = Array.isArray(value)
         ? value
         : typeof value === 'string' && value.includes(',')
