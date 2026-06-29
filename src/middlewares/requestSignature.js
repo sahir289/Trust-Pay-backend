@@ -117,15 +117,14 @@ const verifyRequestSignature = (options = {}) => {
       );
     }
 
-    const [pathname, rawQuery = ''] = String(req.originalUrl || '').split('?');
-    const payload = req.method === 'GET' ? rawQuery : req.rawBody || '';
-    const canonical = buildSignaturePayload({
-      method: req.method,
-      pathname,
-      payload,
-      timestamp,
-    });
-    const expected = computeSignature(secret, canonical);
+    const payload = req.method === 'POST' && req.rawBody || '';
+
+    const stringToSign = timestamp + payload;
+
+    const expected = crypto
+      .createHmac("sha256", secret)
+      .update(stringToSign, "utf8")
+      .digest("hex");
 
     if (!safeEqualHex(expected, String(signature))) {
       return sendV2Error(res, 'Invalid request signature', 401, V2_ERROR_CODES.INVALID_SIGNATURE);
