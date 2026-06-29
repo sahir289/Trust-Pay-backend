@@ -126,6 +126,7 @@ export const generatePayInUrl = async (req, res) => {
     role = roleData.role;
   }
 
+  let merchantData = null;
   if (role === Role.ADMIN || !apiKey) {
     // Internal admin flow: the caller is an authenticated ADMIN (verified via
     // roleToken). Derive the merchant's key from its record.
@@ -136,6 +137,7 @@ export const generatePayInUrl = async (req, res) => {
     if (data[0]?.config?.is_h2h && !payload?.amount) {
       throw new NotFoundError('amount is required');
     }
+    merchantData = data[0];
     apiKey = data[0]?.config?.keys?.public;
   } 
   // else {
@@ -157,6 +159,7 @@ export const generatePayInUrl = async (req, res) => {
     {
       ...payload,
       api_key: apiKey,
+      _merchantData: merchantData,
     },
     role,
   );

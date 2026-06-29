@@ -15,7 +15,7 @@ import {
   getPayoutsBySearchDao,
   updatePayoutDao,
   getAllPayoutsDao,
-  getPayoutByMerchantOrderIdDao,
+  // getPayoutByMerchantOrderIdDao,
   getPayouStatusByIdDao,
   getPayoutByUtrIdDao,
 } from './payOutDao.js';
@@ -258,14 +258,13 @@ const _createPayoutServiceInternal = async (
       : details[0].company_id;
     payload.created_by = payload.created_by ? payload.created_by : user_id;
     payload.updated_by = payload.updated_by ? payload.updated_by : user_id;
-    const isOrderIdExist = await getPayoutByMerchantOrderIdDao(
-      merchant_order_id,
-      payload.company_id,
-    );
-
-    if (isOrderIdExist) {
-      throw new BadRequestError('Merchant Order ID already exists');
-    }
+    // const isOrderIdExist = await getPayoutByMerchantOrderIdDao(
+    //   merchant_order_id,
+    //   payload.company_id,
+    // );
+    // if (isOrderIdExist) {
+    //   throw new BadRequestError('Merchant Order ID already exists');
+    // }
 
     // if (!x_api_key || !merchantAPIKey) {
     //   throw new NotFoundError('Enter valid Api key');
@@ -287,7 +286,15 @@ const _createPayoutServiceInternal = async (
     }
 
     delete payload.x_api_key;
-    let data = await createPayoutDao(payload, conn);
+    let data;
+    try {
+      data = await createPayoutDao(payload, conn);
+    } catch (error) {
+      if (error.code === '23505' && error.message?.includes('merchant_order_id')) {
+        throw new BadRequestError('Merchant Order ID already exists');
+      }
+      throw error;
+    }
 
     if (balanceRestriction) {
       const { totalNetBalance } = await getCalculationDao({ user_id });
