@@ -554,7 +554,7 @@ export const generatePayInUrlService = async (payload, role) => {
           bank: {
             upi_id: randomBank.upi_id,
             acc_holder_name: randomBank.acc_holder_name,
-            code: Math.random().toString(36).substr(2, 5), // Will be overwritten by upi_short_code
+            code: nanoid(5),
           },
         };
       }
