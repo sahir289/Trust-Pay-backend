@@ -135,7 +135,7 @@ const shouldApplyDefaultBankResponseDateWindow = (payload = {}) => {
   );
 };
 
-const applyBankResponseTxTimeouts = async (conn) => {
+export const applyBankResponseTxTimeouts = async (conn) => {
   await conn.query(
     `SET LOCAL lock_timeout = '${BANK_RESPONSE_LOCK_TIMEOUT_MS}ms'`,
   );
@@ -145,7 +145,7 @@ const applyBankResponseTxTimeouts = async (conn) => {
 };
 
 
-const runPostCommitTasks = (tasks, context) => {
+export const runPostCommitTasks = (tasks, context) => {
   if (!Array.isArray(tasks) || tasks.length === 0) {
     return;
   }
@@ -165,7 +165,7 @@ const runPostCommitTasks = (tasks, context) => {
 };
 
 // Helper function to check if vendor is sub-vendor and get parent info
-const getSubVendorParentInfo = async (vendor, conn = null) => {
+export const getSubVendorParentInfo = async (vendor, conn = null) => {
   try {
     // Check if vendor designation is SUB_VENDOR
     if (
@@ -222,7 +222,7 @@ const getSubVendorParentInfo = async (vendor, conn = null) => {
 };
 
 // Helper function to calculate commission for parent vendor
-const updateParentVendorCalculation = async (
+export const updateParentVendorCalculation = async (
   parentUserId,
   amount,
   vendorCommissionRate,
@@ -259,13 +259,13 @@ const createBankResponseService = async (
   let conn;
   let committed = false;
   const postCommitTasks = [];
-
-  const splitData = payload.split(' ');
-  const amount = Number.parseFloat(splitData[0]);
-  const upi_short_code = splitData.length > 1 ? splitData[1] : '';
-  const utr = splitData[2];
-  const bank_id = splitData[3];
-  const from_UI = splitData[4];
+  const { amount, upi_short_code, utr,bank_id, from_UI } = payload;
+  // const splitData = payload.split(' ');
+  // const amount = Number.parseFloat(payload.amount[0]);
+  // const upi_short_code = splitData.length > 1 ? splitData[1] : '';
+  // const utr = splitData[2];
+  // const bank_id = splitData[3];
+  // const from_UI = splitData[4];
   let vendor;
 
   // Check for concurrent duplicate UTR immediately (in-memory check)
