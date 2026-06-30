@@ -85,7 +85,7 @@ const verifyRequestSignature = (options = {}) => {
       return next();
     }
 
-    const secret = req.merchant?.config?.keys?.private;
+    const secret = req.merchant?.config?.keys?.private || req.vendor?.config?.keys?.private;
     if (!secret) {
       // Either merchant-auth did not run or the merchant has no signing secret.
       return sendV2Error(

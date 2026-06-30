@@ -10,6 +10,7 @@ import reportsV2 from './reports/index.js';
 import dashboardReportV2 from './dashboardReport/index.js';
 import authV2 from './auth/index.js';
 import payOutV2 from './payOut/index.js';
+import BankResponseV2 from './bankResponse/index.js';
 
 /**
  * API v2 router.
@@ -57,6 +58,7 @@ v2Router.get('/health', (req, res) =>
 // payIn — Phase 1 (standardized v2 envelope). First migrated route:
 //   POST /v2/payIn/check-payin-status (read-only status check).
 v2Router.use('/payIn', payInV2);
+v2Router.use('/bankResponse', BankResponseV2);
 
 // Read-only route groups migrated to the v2 envelope (Phase 1).
 v2Router.use('/walletBalance', walletBalanceV2);
