@@ -22,6 +22,7 @@ import { STATUS_ERROR_CODES, V2_ERROR_CODES } from '../../../constants/index.js'
  * rather than thrown, so a v2 client always receives the v2 shape.
  */
 export const checkPayInStatusV2 = async (req, res) => {
+  const merchant  = req.merchant;
   const joiValidation = VALIDATE_CHECK_PAY_IN_V2_STATUS.validate(req.body);
   if (joiValidation.error) {
     return sendV2Error(res, joiValidation.error.message, 400, V2_ERROR_CODES.VALIDATION_ERROR, {
@@ -29,10 +30,9 @@ export const checkPayInStatusV2 = async (req, res) => {
     });
   }
 
-  const code = req.headers['x-auth-code'];
   const data = await checkPayInStatusV2Service(
     req.body.merchantOrderId,
-    code
+    merchant,
   );
 
   if (data.status === 400 || data.status === 404) {
@@ -61,7 +61,8 @@ export const checkPayInStatusV2 = async (req, res) => {
  */
 export const generatePayInV2 = async (req, res) => {
   const payload = req.body;
-
+  const merchant = req.merchant;
+ 
   if (payload.merchant_order_id?.includes('/')) {
     throw new BadRequestError("Invalid order ID: '/' is not allowed.");
   }
@@ -75,10 +76,10 @@ export const generatePayInV2 = async (req, res) => {
   // validated x-api-key only seeds the service's routing cache key; the service
   // authorizes by `code`, exactly as in v1.
   const role = null;
-  const code = req.headers['x-auth-code'];
+  // const code = req.headers['x-auth-code'];
 
   const result = await generatePayInUrlV2Service(
-    { ...payload, code },
+    { ...payload, merchant },
     role,
   );
 

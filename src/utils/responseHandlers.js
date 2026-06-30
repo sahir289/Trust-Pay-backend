@@ -50,23 +50,39 @@ const sendNewSuccess = (res, Data = {}, message = '', status = 200) => {
   return res.status(200).json(finalRes);
 };
 
-const sendError = (res, message, statusCode) => {
-  const error = {
+const sendError = (
+  res,
+  message,
+  statusCode = 400,
+  code = V2_ERROR_CODES.ERROR,
+  details,
+) => {
+  const requestId = res.req?.identifier || null;
+  const body = {
+    success: false,
+    statusCode: statusCode,
+    apiVersion: API_VERSION_V2,
+    requestId,
+    timestamp: new Date().toISOString(),
     error: {
-      additionalInfo: {},
-      level: 'info',
-      timestamp: new Date().toISOString(),
+      code: code || V2_ERROR_CODES.ERROR,
+      message: message || 'An error occurred',
     },
+    additionalInfo: {},
   };
 
-  if (message) {
-    error.error.message = message;
+  if (details && typeof details === 'object') {
+    body.error.details = details;
   }
-  if (statusCode) {
-    error.error.status = statusCode;
-  }
-  logger.error(error);
-  return res.status(statusCode).json(error);
+
+  logger.error('v2 error response', {
+    apiVersion: API_VERSION_V2,
+    statusCode,
+    code: body.error.code,
+    message: body.error.message,
+    requestId,
+  });
+  return res.status(statusCode).json(body);
 };
 
 // ---------------------------------------------------------------------------

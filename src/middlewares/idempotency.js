@@ -121,25 +121,53 @@ const attachResponsePersistence = (res, id) => {
 /**
  * Build the idempotency middleware.
  *
+ * The idempotency key is generated SERVER-SIDE and is never accepted from a
+ * client header. Callers pass a `deriveKey(req)` function that returns the
+ * request's natural business identifier (e.g. the merchant order id); retries of
+ * the same logical operation therefore resolve to the same idempotency record
+ * and replay the original response instead of re-executing. When `deriveKey` is
+ * omitted the middleware falls back to the legacy `Idempotency-Key` header for
+ * backwards compatibility with callers that have not migrated yet.
+ *
  * @param {object} [options]
  * @param {boolean} [options.required=false] When true (and the feature flag is
- *   on) a missing `Idempotency-Key` header is rejected with 400 instead of
- *   passing through.
+ *   on) the absence of a derivable key is rejected with 400 instead of passing
+ *   through.
+ * @param {(req: import('express').Request) => (string|null|undefined)} [options.deriveKey]
+ *   Server-side key generator. Receives the request and returns the natural
+ *   idempotency key (or a falsy value when the request has none).
  */
 const idempotency = (options = {}) => {
   const required = options.required === true;
+  const deriveKey =
+    typeof options.deriveKey === 'function' ? options.deriveKey : null;
 
   return async (req, res, next) => {
     if (!isEnabled()) {
       return next();
     }
 
-    const key = req.headers[HEADER];
+    // Server-generated key only — the client cannot supply or influence it via
+    // headers. When a `deriveKey` is configured we compute the key from the
+    // request's natural business identifier; otherwise we retain the legacy
+    // header path for not-yet-migrated callers.
+    let key;
+    if (deriveKey) {
+      try {
+        key = deriveKey(req);
+      } catch {
+        key = null;
+      }
+    } else {
+      key = req.headers[HEADER];
+    }
+    key = key ? String(key) : null;
+
     if (!key) {
       if (required) {
         return sendV2Error(
           res,
-          'Idempotency-Key header is required',
+          'A server-generated idempotency key could not be derived for this request',
           400,
           V2_ERROR_CODES.IDEMPOTENCY_KEY_REQUIRED,
         );

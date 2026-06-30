@@ -156,12 +156,13 @@ export const createPool = (connectionString, name) => {
     // pin the proxied connection and defeat transaction pooling.
     if (behindProxy) return;
     try {
-      await client.query("SET TIME ZONE 'Asia/Kolkata'");
-      if (!isWriter) {
-        await client.query(
-          `SET statement_timeout = ${readerStatementTimeoutMs}`,
-        );
-      }
+      // Apply session params in a SINGLE round trip. On a high-latency link
+      // (e.g. a cross-region RDS) every extra round trip on a fresh connection
+      // is added directly to the first query's latency.
+      const sessionSql = isWriter
+        ? "SET TIME ZONE 'Asia/Kolkata'"
+        : `SET TIME ZONE 'Asia/Kolkata'; SET statement_timeout = ${readerStatementTimeoutMs}`;
+      await client.query(sessionSql);
     } catch (err) {
       logger.error(`Failed to initialize session for ${name}:`, err);
       throw err; // Reject the connection if initialization fails
@@ -370,6 +371,82 @@ if (config.env === 'production') {
       }
     }
   }, POOL_CHECK_INTERVAL);
+}
+
+// ---------------------------------------------------------------------------
+// Pool keep-warm
+// ---------------------------------------------------------------------------
+// node-postgres does NOT pre-open `min` connections, and idle connections are
+// closed after `idleTimeoutMillis`. A brand-new physical connection to a remote
+// DB costs a full TLS + SCRAM handshake — several network round trips (observed
+// ~2s from a distant/cross-region client). With sporadic traffic the pool goes
+// cold and EVERY request then pays this cold-connect penalty on the hot path,
+// which is the dominant cost behind multi-second responses in such setups.
+//
+// Keep one connection alive per pool by issuing a trivial `SELECT 1` slightly
+// more often than the idle timeout, so the request path almost always reuses an
+// already-established connection. Disable with DB_KEEP_WARM_ENABLED=false.
+const keepWarmEnabled =
+  String(process.env.DB_KEEP_WARM_ENABLED ?? 'true').toLowerCase() !== 'false';
+
+if (keepWarmEnabled) {
+  const parseIntEnv = (value, fallback) => {
+    const parsed = Number.parseInt(value, 10);
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+  };
+
+  const idleTimeoutMs = parseIntEnv(process.env.DB_IDLE_TIMEOUT_MS, 10000);
+  // Ping comfortably under the idle timeout (and at least every 5s) so a warm
+  // connection never ages out between pings.
+  const keepWarmIntervalMs = parseIntEnv(
+    process.env.DB_KEEP_WARM_INTERVAL_MS,
+    Math.max(idleTimeoutMs - 5000, 5000),
+  );
+  // How many connections to keep warm per pool. A single request can fan out to
+  // several concurrent reads (e.g. generate-payin overlaps the duplicate-order
+  // check with the company + bank fetch), so keep a few warm to cover the burst.
+  const keepWarmConnections = Math.min(
+    parseIntEnv(process.env.DB_KEEP_WARM_CONNECTIONS, 2),
+    10,
+  );
+
+  const pingPool = async (poolRef, label) => {
+    try {
+      // Run the probes concurrently so the pool actually establishes (and then
+      // keeps idle/warm) up to `keepWarmConnections` physical connections.
+      await Promise.all(
+        Array.from({ length: keepWarmConnections }, () =>
+          poolRef.query('SELECT 1'),
+        ),
+      );
+    } catch (error) {
+      logger.warn(
+        `[DB keep-warm] ${label} ping failed:`,
+        error?.message || error,
+      );
+    }
+  };
+
+  const keepWarm = () => {
+    pingPool(writerPool, 'writer');
+    readerPools.forEach((p, idx) =>
+      pingPool(p, readerPools.length > 1 ? `reader#${idx + 1}` : 'reader'),
+    );
+  };
+
+  // Warm immediately at boot so the very first request is not cold, then keep it
+  // warm on an interval.
+  keepWarm();
+  const keepWarmTimer = setInterval(keepWarm, keepWarmIntervalMs);
+  // Never let the keep-warm timer hold the event loop open during shutdown.
+  if (typeof keepWarmTimer.unref === 'function') {
+    keepWarmTimer.unref();
+  }
+
+  logger.info(
+    `[DB] Pool keep-warm enabled (every ${keepWarmIntervalMs}ms, ` +
+      `${keepWarmConnections} conn/pool across ${readerPools.length + 1} pool(s))`,
+  );
 }
 
 /**

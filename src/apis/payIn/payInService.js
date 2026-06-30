@@ -41,7 +41,7 @@ import {
   getPayInForTelegramResponseArrayDao,
   getPayInIntentDao,
   getPayInsForCronDao,
-  getPayInWithMerchantOrderIdDao,
+  // getPayInWithMerchantOrderIdDao,
   // atomicClaimPayInUrlDao,
 } from './payInDao.js';
 import {
@@ -323,6 +323,9 @@ const createPayInWithUniqueShortCode = async (data) => {
         upi_short_code: nanoid(5),
       });
     } catch (error) {
+       if (error.code === '23505' && error.message?.includes('merchant_order_id')) {
+        throw new BadRequestError('Merchant Order ID already exists');
+      }
       if (error.code === '23505') {
         continue;
       }
@@ -382,6 +385,7 @@ export const generatePayInUrlService = async (payload, role) => {
       notifyUrl,
       ot,
       api_key,
+      _merchantData,
     } = payload;
 
     const merchant_order_id = order_id ? order_id : uuidv4();
@@ -398,7 +402,7 @@ export const generatePayInUrlService = async (payload, role) => {
     if (cachedRouting) {
       ({ merchant, company, bankAssigned } = cachedRouting);
     } else {
-      const merchantArr = await getMerchantsByCodeDao(code);
+      const merchantArr = _merchantData ? [_merchantData] : await getMerchantsByCodeDao(code);
       merchant = merchantArr[0];
       if (!merchant) {
         return {
@@ -473,10 +477,6 @@ export const generatePayInUrlService = async (payload, role) => {
     //   }
     // }
 
-    const existingOrder = await getPayInWithMerchantOrderIdDao(order_id);
-    if (existingOrder) {
-      return { status: 400, message: 'Merchant Order ID already exists' };
-    }
 
     // const { keys: merchantKeys } = merchant.config || {};
     // if (
@@ -505,16 +505,72 @@ export const generatePayInUrlService = async (payload, role) => {
     if (role === Role.ADMIN) {
       admin = await getUserByCompanyCreatedAtDao(merchant.company_id, role);
     }
+    let bankAccId = null;
+    let assignedBankData = null;
+    const amt = Number(amount || 0);
+    if (merchant?.config?.allow_intent) {
+      const validIntentBanks = bankAssigned.filter((bank) => {
+        const intent = bank?.config?.is_intent;
+        return intent && intent !== 'off' && intent !== false;
+      });
+      if (validIntentBanks.length === 0) {
+        await triggerBankAlert(company, code);
+        return {
+          status: 404,
+          message: 'Bank account not found for the given merchant',
+        };
+      }
+      const randomBank =
+        validIntentBanks[Math.floor(Math.random() * validIntentBanks.length)];
+      bankAccId = randomBank.id;
+    }
+    // For H2H merchants: find valid bank for amount
+    if (merchant.config?.is_h2h) {
+      const banksWithValidAmount = bankAssigned.filter((bank) => {
+        const isPayInBank = ['PayIn', 'payIn'].includes(bank.bank_used_for);
+        const isActive = bank.is_enabled && isPayInBank;
+        if (!isActive) return false;
+        return amt >= Number(bank.min) && amt <= Number(bank.max);
+      });
+      if (banksWithValidAmount.length === 0) {
+        await triggerBankAlert(company, code);
+        return {
+          status: 404,
+          message: 'Bank account not found for the given merchant',
+        };
+      }
+      const randomBank = banksWithValidAmount[Math.floor(Math.random() * banksWithValidAmount.length)];
+      bankAccId = randomBank.id;
+      if (type === BankTypes.BANK_TRANSFER) {
+        assignedBankData = {
+          bank: {
+            nick_name: randomBank.nick_name,
+            acc_holder_name: randomBank.acc_holder_name,
+            acc_no: randomBank.acc_no,
+            ifsc: randomBank.ifsc,
+          },
+        };
+      } else {
+        assignedBankData = {
+          bank: {
+            upi_id: randomBank.upi_id,
+            acc_holder_name: randomBank.acc_holder_name,
+            code: nanoid(5),
+          },
+        };
+      }
+    }
 
     const data = {
-      amount: amount || 0,
-      status: Status.INITIATED,
+      amount: amt || 0,
+      status: bankAccId ? Status.ASSIGNED : Status.INITIATED,
       currency: Currency.INR,
       merchant_order_id,
       user: user_id,
       merchant_id: merchant.id,
       expiration_date: expirationDate,
       company_id: merchant.company_id,
+      bank_acc_id: bankAccId,
       config: stringifyJSON({
         urls: {
           return: returnUrl || merchant.config?.urls?.return || '',
@@ -537,43 +593,16 @@ export const generatePayInUrlService = async (payload, role) => {
         logger.error('Socket emit failed:', err),
       );
     });
-    if (merchant?.config?.allow_intent) {
-      const validIntentBanks = bankAssigned.filter((bank) => {
-        const intent = bank?.config?.is_intent;
-        return intent && intent !== 'off' && intent !== false;
-      });
-      if (validIntentBanks.length === 0) {
-        await triggerBankAlert(company, code);
-        return {
-          status: 404,
-          message: 'Bank account not found for the given merchant',
-        };
-      }
-      const randomBank =
-        validIntentBanks[Math.floor(Math.random() * validIntentBanks.length)];
-      const duration = calculateDuration(result.created_at);
-      await updatePayInUrlDao(result.id, {
-        amount: parseFloat(amount || 0),
-        status: Status.ASSIGNED,
-        bank_acc_id: randomBank.id,
-        duration: duration,
-      });
-    }
-    // Assign bank if H2H
-    if (merchant.config?.is_h2h) {
-      const assign = await assignedBankToPayInUrlService(
-        merchant_order_id,
-        amount,
-        type,
-      );
-      const merchantConfig = {
-        h2h: merchant?.config?.is_h2h || false,
+    // Return H2H response with bank details
+    if (merchant.config?.is_h2h && assignedBankData) {
+      return {
+        ...result,
+        merchant: { h2h: merchant?.config?.is_h2h || false },
+        bank: assignedBankData.bank,
+        type: type,
       };
-      result.merchant = merchantConfig;
-      result.bank = assign.bank;
-      result.type = type;
     }
-    // await newTableEntry(tableName.PAYIN);
+
     return result;
   } catch (error) {
     logger.error('Error generating payin url:', error);
