@@ -20,6 +20,7 @@ CREATE TABLE IF NOT EXISTS "IdempotencyKey" (
   "created_at" TIMESTAMPTZ DEFAULT (now()),
   "completed_at" TIMESTAMPTZ,
   "expires_at" TIMESTAMPTZ DEFAULT (now() + interval '24 hours'),
+  "is_obsolete" boolean NOT NULL DEFAULT false,
   -- One claim per merchant per key. Enables the atomic INSERT ... ON CONFLICT
   -- claim used by the idempotency middleware.
   CONSTRAINT uq_idempotency_scope_key UNIQUE ("merchant_scope", "idempotency_key")
