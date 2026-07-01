@@ -28,6 +28,10 @@ const START_POSITION = String(process.env.CW_START_POSITION || 'beginning').toLo
 // Dead-letter queue: lines that failed transport delivery are stored here for auto-replay.
 const DLQ_PREFIX = process.env.CW_DLQ_PREFIX || 'cw-dlq';
 const ERROR_THROTTLE_MS = Number.parseInt(process.env.CW_ERROR_THROTTLE_MS || '15000', 10);
+const RECENT_ATTEMPT_WINDOW_MS = Number.parseInt(
+  process.env.CW_RECENT_ATTEMPT_WINDOW_MS || '90000',
+  10,
+);
 // How often to attempt replaying any accumulated DLQ files (default every 60 s).
 const DLQ_REPLAY_INTERVAL_MS = Number.parseInt(process.env.CW_DLQ_REPLAY_INTERVAL_MS || '60000', 10);
 
@@ -145,6 +149,7 @@ class CloudWatchDailyForwarder {
   #state = {};
   #lastErrorSignature = '';
   #lastErrorAt = 0;
+  #recentAttempts = new Map();
 
   async init() {
     await fsp.mkdir(LOG_DIR, { recursive: true });
@@ -179,7 +184,24 @@ class CloudWatchDailyForwarder {
       process.stderr.write(`[CW Forwarder] ${context}: ${message}\n`);
     }
   }
-
+  #buildFingerprint(rawLine, dateStr) {
+    return `${dateStr}:${rawLine}`;
+  }
+  #pruneRecent(map, now = Date.now()) {
+    for (const [fingerprint, expiry] of map.entries()) {
+      if (expiry <= now) {
+        map.delete(fingerprint);
+      }
+    }
+  }
+  #markRecentAttempt(fingerprint, now = Date.now()) {
+    this.#pruneRecent(this.#recentAttempts, now);
+    this.#recentAttempts.set(fingerprint, now + RECENT_ATTEMPT_WINDOW_MS);
+  }
+  #wasRecentlyAttempted(fingerprint, now = Date.now()) {
+    this.#pruneRecent(this.#recentAttempts, now);
+    return (this.#recentAttempts.get(fingerprint) || 0) > now;
+  }
   /**
    * Append a raw log line that failed CloudWatch delivery into the dead-letter queue file for
    * its original date. The `date` field ensures replay targets the correct CW stream.
@@ -228,17 +250,24 @@ class CloudWatchDailyForwarder {
    * Returns true on success, false on transport callback error (also writes DLQ).
    * This is async so callers can use Promise.all() for parallel batch emit.
    */
-  async #emitLine(rawLine, dateStr, transport = this.#transport) {
+  async #emitLine(rawLine, dateStr, transport = this.#transport, source = 'primary') {
     if (!rawLine || !transport) return true;
-
+    const now = Date.now();
+    const fingerprint = this.#buildFingerprint(rawLine, dateStr);
+    if (source === 'replay' && this.#wasRecentlyAttempted(fingerprint, now)) {
+      return 'defer-retry';
+    }
+    this.#markRecentAttempt(fingerprint, now);
     return new Promise((resolve) => {
       transport.log(buildInfo(rawLine), (error) => {
         if (error) {
           this.#reportError('emit error', error);
-          this.#writeDLQ(rawLine, 'emit-error', dateStr).catch(() => {});
-          resolve(false);
+          if (source === 'primary') {
+            this.#writeDLQ(rawLine, 'emit-error', dateStr).catch(() => {});
+          }
+          resolve('failed');
         } else {
-          resolve(true);
+          resolve('sent');
         }
       });
     });
@@ -282,7 +311,7 @@ class CloudWatchDailyForwarder {
 
     if (trimmedLines.length > 0) {
       // Emit all lines in parallel; await ALL callbacks before touching offset.
-      await Promise.all(trimmedLines.map((line) => this.#emitLine(line, today)));
+      await Promise.all(trimmedLines.map((line) => this.#emitLine(line, today, this.#transport, 'primary')));
     }
 
     // Only here — after every callback fired (success or DLQ) — do we advance the cursor.
@@ -316,22 +345,22 @@ class CloudWatchDailyForwarder {
 
   /** Emit all lines to the single configured CW stream, return true if all succeeded. */
   async #replayDateBatch(dateStr, logLines) {
-    const transport = this.#transport;
-    if (!transport) return false;
+    if (!this.#transport) return false;
 
     const results = await Promise.all(
-      logLines.map(
-        (line) =>
-          new Promise((resolve) => {
-            transport.log(buildInfo(line), (err) => {
-              if (err) this.#reportError(`DLQ replay emit [${dateStr}]`, err);
-              resolve(!err);
-            });
-          }),
-      ),
+      logLines.map((line) => this.#emitLine(line, dateStr, this.#transport, 'replay')),
     );
+    for (const result of results) {
+      if (result === 'failed') {
+        this.#reportError(`DLQ replay emit [${dateStr}]`, new Error('replay delivery failed'));
+        return false;
+      }
+      if (result === 'defer-retry') {
+        return false;
+      }
+    }
 
-    return results.every(Boolean);
+    return true;
   }
 
   /**
