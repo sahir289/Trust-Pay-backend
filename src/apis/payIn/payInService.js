@@ -190,7 +190,7 @@ const buildPayInProcessIdempotencyBaseKey = (payload = {}) => {
 
 export const generatePayInUrlByHashService = async (req) => {
   try {
-    const { user_id, code, ot, key, amount } = req.query;
+    const { user_id, code, ot, amount } = req.query;
     const { role_id, role } = req.user;
     if (!user_id || !code || !ot) {
       const data = {
@@ -299,13 +299,13 @@ export const generatePayInUrlByHashService = async (req) => {
     }
 
     // Create a deterministic hash
-    const hash = createHash(`${code}:${key}`);
+    // const hash = createHash(`${code}:${key}`);
 
     // Encode the hash to make it URL-safe
-    const encodedHash = encodeURIComponent(hash);
+    // const encodedHash = encodeURIComponent(hash);
 
     const updateRes = {
-      payInUrl: `${config.reactPaymentOrigin}/transaction/${encodedHash}?${query}`,
+      payInUrl: `${config.reactPaymentOrigin}/transaction?${query}`,
     };
     return updateRes;
   } catch (error) {
