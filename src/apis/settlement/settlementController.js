@@ -3,7 +3,7 @@ import {
   UPDATE_SETTLEMENT_SCHEMA,
   VALIDATE_SETTLEMENT_BY_ID_DELETE,
 } from '../../schemas/settlementSchema.js';
-import { NotFoundError, ValidationError } from '../../utils/appErrors.js';
+import { BadRequestError, NotFoundError, ValidationError } from '../../utils/appErrors.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import {
   createSettlementService,
@@ -18,7 +18,10 @@ import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import { Role } from '../../constants/index.js';
 import { getBankaccountDao } from '../bankAccounts/bankaccountDao.js';
 import { logger } from '../../utils/logger.js';
-import { generateCacheKey } from '../../utils/redishashkey.js';
+import {
+  generateCacheKey,
+  setCachedDataIfNotExists,
+} from '../../utils/redishashkey.js';
 import {
   normalizeQueryForCache,
   readJsonCache,
@@ -205,10 +208,36 @@ const createSettlementController = async (req, res) => {
   }
 
   payload.user_id = payload.user_id === null ? User_id : payload.user_id; // no codes sent when vendor login
-
   const joiValidation = CREATE_SETTLEMENT_SCHEMA.validate(payload);
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
+  }
+  const settlementCacheKey = generateCacheKey(
+    {
+      company_id: payload.company_id ?? null,
+      user_id: payload.user_id ?? null,
+      amount: payload.amount ?? null,
+      utr: payload.utr ?? null,
+      method: payload.method ?? null,
+      bank_name: payload.bank_name ?? null,
+      acc_holder_name: payload.acc_holder_name ?? null,
+      acc_no: payload.acc_no ?? null,
+      bank_id: payload.bank_id ?? null,
+      ifsc: payload.ifsc ?? null,
+      description: payload.description ?? null,
+      wallet_balance: payload.wallet_balance ?? null,
+      debit_credit: payload.config?.debit_credit ?? null,
+    },
+    'createSettlement',
+  );
+  const lockAcquired = await setCachedDataIfNotExists(
+    settlementCacheKey,
+    '1',
+    5,
+    'createSettlement_inflight',
+  );
+  if (!lockAcquired) {
+    throw new BadRequestError('Duplicate settlement request is already being processed');
   }
   //-- utr and amount for internal tranfer case
   if (
