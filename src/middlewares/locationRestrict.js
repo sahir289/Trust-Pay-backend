@@ -1,12 +1,13 @@
-import axios from 'axios';
 // import { europeanCountries } from '../constants/index.js';
 // import { COUNTRIES } from '../constants/index.js';
 import { logger } from '../utils/logger.js';
 import { processPayInRestricted } from '../utils/updateRestrictedLocationPayin.js';
 import { getPayInwithMerchantDao } from '../apis/payIn/payInDao.js';
+import { checkProxyAndVpn } from '../utils/proxyCheckService.js';
+import { sendError } from '../utils/responseHandlers.js';
+import { BadRequestError } from '../utils/appErrors.js';
 const BLOCK_LAT = process.env.BLOCK_LAT;
 const BLOCK_LONG = process.env.BLOCK_LONG;
-const PROXY_CHECK_URL = process.env.PROXY_CHECK_URL;
 const TestingIp = process.env.LOCAL_IP;
 
 const getUserLocationMiddleware = async (req, res, next) => {
@@ -24,17 +25,18 @@ const getUserLocationMiddleware = async (req, res, next) => {
   const radiusKm = 60;
   // let restrictedStates = ['Haryana', 'Rajasthan'];
   try {
-    // Get the user's IP address (checking for reverse proxy headers)
-    // Send a request to proxycheck.io to fetch the geolocation data
-    let url = PROXY_CHECK_URL.replace('$%7BuserIp%7D', userIp);
-    const response = await axios.get(url);
-
-    const userData = response.data[userIp];
-     if (!userData) {
-       logger.warn('User location data not found, skipping checks');
-        req.user_location = {user_ip: userIp};
-       return next();
-     }
+    // Resolve geolocation + VPN/proxy status via the cache-backed IP
+    // Intelligence Service (proxycheck.io is only hit on a cold cache miss).
+    const proxyResult = await checkProxyAndVpn(userIp);
+    const userData = proxyResult?.raw;
+    // STRICT: if the network/VPN status cannot be verified, the payment page
+    // must not open (fail closed).
+    if (!userData) {
+      logger.warn('Unable to verify VPN/location. Access denied.', { userIp });
+      return next(new BadRequestError(
+          'Unable to verify your network. Please disable any VPN/proxy and try again.',
+        ));
+    }
     const { latitude, longitude, vpn, region, country } = userData;
     const user = {
       user_ip: userIp,
@@ -50,9 +52,7 @@ const getUserLocationMiddleware = async (req, res, next) => {
     };
     const payInUrl = await getPayInwithMerchantDao(req.params.merchantOrderId);
        if (!payInUrl) {
-         return res.status(403).json({
-           error: { message: 'Payment is Expired!', data: { } },
-         });
+         return sendError(res, 403, 'Payment is Expired!');
        }
     const isIpBlocked = payInUrl?.blocked_users_ip[0]?.user_ip.includes(userIp);
     if (isIpBlocked) {
@@ -61,9 +61,7 @@ const getUserLocationMiddleware = async (req, res, next) => {
         `Restricted User IP: ${userIp}`,
       );
       logger.warn('Blocked user IP. Access denied.', { userIp });
-      return res.status(403).json({
-        error: { message: 'Access Denied!', data: { url } },
-      });
+      return sendError(res, 403, 'Access Denied!', { url });
     }
     const isIdBlocked = payInUrl?.blocked_users_id[0]?.userId.includes(
       payInUrl?.userid,
@@ -79,7 +77,8 @@ const getUserLocationMiddleware = async (req, res, next) => {
       });
     }
     //remove vpn restriction for main
-    if (vpn === 'yes') {
+    // STRICT: block VPN or proxy usage on the payment page.
+    if (proxyResult.isVpn || vpn === 'yes') {
       // const id = req.params.merchantOrderId;
       payInUrl.config = {
         ...payInUrl.config,

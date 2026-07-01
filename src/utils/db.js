@@ -386,6 +386,9 @@ if (config.env === 'production') {
 // Keep one connection alive per pool by issuing a trivial `SELECT 1` slightly
 // more often than the idle timeout, so the request path almost always reuses an
 // already-established connection. Disable with DB_KEEP_WARM_ENABLED=false.
+
+
+// -----------------------------------------------------------
 const keepWarmEnabled =
   String(process.env.DB_KEEP_WARM_ENABLED ?? 'true').toLowerCase() !== 'false';
 

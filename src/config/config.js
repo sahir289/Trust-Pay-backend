@@ -358,6 +358,27 @@ function config(Env) {
     proxyCheck: {
       proxyCheckUrl: Env?.PROXY_CHECK_URL,
     },
+    // Internal IP Intelligence Service (IPIS). Caches proxycheck.io lookups
+    // (Redis L2 -> Postgres L3) so the vendor is called only on a cold miss
+    // instead of on every request.
+    // See docs/architecture/ip-intelligence-service-design.md.
+    ipIntelligence: {
+      cacheKeyVersion: Env?.IP_INTEL_CACHE_VERSION || 'v1',
+      ttls: {
+        blockSec: parsePositiveInt(Env?.IP_INTEL_TTL_BLOCK_SEC, 86400),
+        cleanSec: parsePositiveInt(Env?.IP_INTEL_TTL_CLEAN_SEC, 21600),
+        lowConfidenceSec: parsePositiveInt(Env?.IP_INTEL_TTL_LOW_CONF_SEC, 1800),
+        negativeSec: parsePositiveInt(Env?.IP_INTEL_TTL_NEGATIVE_SEC, 180),
+      },
+      provider: {
+        timeoutMs: parsePositiveInt(Env?.IP_INTEL_PROVIDER_TIMEOUT_MS, 2500),
+        breakerFailureThreshold: parsePositiveInt(Env?.IP_INTEL_BREAKER_FAILS, 5),
+        breakerCooldownMs: parsePositiveInt(
+          Env?.IP_INTEL_BREAKER_COOLDOWN_MS,
+          30000,
+        ),
+      },
+    },
     payeasy: {
       url: Env?.PAYEASY_API_URL,
       payeasyClientId: Env?.PAYEASY_CLIENT_ID,
