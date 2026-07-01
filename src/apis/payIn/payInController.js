@@ -48,7 +48,7 @@ import {
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { streamToBase64 } from '../../helpers/index.js';
 import { s3 } from '../../helpers/Aws.js';
-import { createHash } from '../../utils/hashUtils.js';
+// import { createHash } from '../../utils/hashUtils.js';
 import { logger } from '../../utils/logger.js';
 import { getRolesById } from '../roles/rolesDao.js';
 import { Role, Status } from '../../constants/index.js';
@@ -98,7 +98,7 @@ export const generatePayInUrl = async (req, res) => {
   }
   let apiKey = key ? key : x_api_key;
 
-  const generatedHash = createHash(`${code}`);
+  // const generatedHash = createHash(`${code}`);
   // // Decode the provided hash before comparison
   // const decodedHashCode = hash_code ? decodeURIComponent(hash_code) : null;
 
@@ -187,7 +187,7 @@ export const generatePayInUrl = async (req, res) => {
     updateRes = {
       ...baseRes,
       expirationDate: result?.expiration_date,
-      payInUrl: `${config.reactPaymentOrigin}/transaction/${generatedHash}${queryStr}`,
+      payInUrl: `${config.reactPaymentOrigin}/transaction${queryStr}`,
       isAdmin: role === Role.ADMIN,
     };
     message = 'PayIn is generated & url is sent successfully';
