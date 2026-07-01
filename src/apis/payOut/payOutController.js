@@ -25,7 +25,6 @@ import {
   RUPEEFLOW_BULK_PAYOUT_SCHEMA,
 } from '../../schemas/payoutSchema.js';
 import { ValidationError } from '../../utils/appErrors.js';
-// import { generateCacheKey } from '../../utils/redishashkey.js';
 import {
   // normalizeQueryForCache,
   // readJsonCache,
@@ -43,7 +42,10 @@ import { publishBulkPayoutCreate } from '../../rabbitmq/producer.js';
 // import { BadRequestError } from '../../utils/appErrors.js';
 
 // const { controllerCacheTtls } = config;
-
+import {
+  generateCacheKey,
+  setCachedDataIfNotExists,
+} from '../../utils/redishashkey.js';
 const invalidatePayoutCache = async (companyId) =>
   invalidateCompanyCacheByPrefix(companyId, 'payout:read:', 'PayOut cache');
 
@@ -65,7 +67,38 @@ const createPayout = async (req, res) => {
   }
   payload.user = payload.user_id ? payload.user_id : payload.user;
   delete payload?.user_id;
-
+  if (req?.user?.company_id) {
+    payload.company_id = req.user.company_id;
+  }
+  const cacheKey = generateCacheKey(
+    {
+      company_id: payload.company_id ?? null,
+      user: payload.user ?? null,
+      code: payload.code ?? null,
+      merchant_code: payload.merchant_code ?? null,
+      merchant_order_id: payload.merchant_order_id ?? null,
+      ifsc_code: payload.ifsc_code ?? null,
+      method: payload.method ?? null,
+      bank_acc_id: payload.bank_acc_id ?? null,
+      reason: payload.reason ?? null,
+      acc_holder_name: payload.acc_holder_name ?? null,
+      acc_no: payload.acc_no ?? null,
+      bank_name: payload.bank_name ?? null,
+      amount: payload.amount ?? null,
+      utr_id: payload.utr_id ?? null,
+      notifyUrl: payload.notifyUrl ?? null,
+    },
+    'createPayout',
+  );
+  const lockAcquired = await setCachedDataIfNotExists(
+    cacheKey,
+    '1',
+    5,
+    'createPayout_inflight',
+  );
+  if (!lockAcquired) {
+    return sendError(res, 'Duplicate payout request is already being processed', 429);
+  }
   let result = {};
   if (req?.user) {
     const { company_id, role, user_id } = req.user;
