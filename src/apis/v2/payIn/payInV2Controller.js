@@ -8,7 +8,7 @@ import {
   generatePayInUrlV2Service,
 } from './payInV2Service.js';
 import { BadRequestError, ValidationError } from '../../../utils/appErrors.js';
-import { sendV2Success, sendV2Error } from '../../../utils/responseHandlers.js';
+import { sendError, sendSuccess } from '../../../utils/responseHandlers.js';
 import { STATUS_ERROR_CODES, V2_ERROR_CODES } from '../../../constants/index.js';
 
 /**
@@ -16,7 +16,7 @@ import { STATUS_ERROR_CODES, V2_ERROR_CODES } from '../../../constants/index.js'
  *
  * Reuses the EXACT same `checkPayInStatusService` as v1 (no business-logic
  * duplication); only the response envelope differs (standardized v2 contract via
- * sendV2Success / sendV2Error). The v1 controller/route is left untouched.
+ * sendSuccess / sendError). The v1 controller/route is left untouched.
  *
  * Validation and expected service errors are returned as v2 envelopes here
  * rather than thrown, so a v2 client always receives the v2 shape.
@@ -25,7 +25,7 @@ export const checkPayInStatusV2 = async (req, res) => {
   const merchant  = req.merchant;
   const joiValidation = VALIDATE_CHECK_PAY_IN_V2_STATUS.validate(req.body);
   if (joiValidation.error) {
-    return sendV2Error(res, joiValidation.error.message, 400, V2_ERROR_CODES.VALIDATION_ERROR, {
+    return sendError(res, joiValidation.error.message, 400, V2_ERROR_CODES.VALIDATION_ERROR, {
       details: joiValidation.error.details,
     });
   }
@@ -37,10 +37,10 @@ export const checkPayInStatusV2 = async (req, res) => {
 
   if (data.status === 400 || data.status === 404) {
     const code = STATUS_ERROR_CODES[data.status] || V2_ERROR_CODES.ERROR;
-    return sendV2Error(res, data.message, data.status, code);
+    return sendError(res, data.message, data.status, code);
   }
 
-  return sendV2Success(res, data, 'PayIn status fetched successfully');
+  return sendSuccess(res, data, 'PayIn status fetched successfully');
 };
 
 /**
@@ -85,7 +85,7 @@ export const generatePayInV2 = async (req, res) => {
 
   if (result.status === 400 || result.status === 404) {
     const code = STATUS_ERROR_CODES[result.status] || V2_ERROR_CODES.ERROR;
-    return sendV2Error(res, result.message, result.status, code);
+    return sendError(res, result.message, result.status, code);
   }
 
   const baseRes = {
@@ -95,7 +95,7 @@ export const generatePayInV2 = async (req, res) => {
   };
 
   if (result.merchant?.h2h) {
-    return sendV2Success(
+    return sendSuccess(
       res,
       {
         ...baseRes,
@@ -112,5 +112,5 @@ export const generatePayInV2 = async (req, res) => {
     expirationDate: result?.expiration_date,
     payInUrl: `${config.reactPaymentOrigin}/transaction?order=${result?.merchant_order_id}`,
   };
-  return sendV2Success(res, data, 'PayIn is generated & url is sent successfully');
+  return sendSuccess(res, data, 'PayIn is generated & url is sent successfully');
 };
