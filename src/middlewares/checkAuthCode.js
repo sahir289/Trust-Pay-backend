@@ -30,109 +30,127 @@ const normalizeWhitelist = (whitelistIps) =>
     .filter(Boolean);
 
 export const checkAuthCode = async (req, res, next) => {
-  const x_auth_code = req.headers['x-auth-code'];
-  const userIp = resolveMerchantClientIp(req);
+  try {
+    const x_auth_code = req.headers['x-auth-code'];
+    const userIp = resolveMerchantClientIp(req);
 
-  if (x_auth_code) {
-    const merchantInfo = await getMerchantsByAuthCodeDao(x_auth_code);
+    if (x_auth_code) {
+      const merchantInfo = await getMerchantsByAuthCodeDao(x_auth_code);
 
-    if (!merchantInfo) {
-      return sendError(res, 'Invalid merchant code or API key', 400);
-    }
-
-    if (merchantInfo?.config?.whitelist_ips) {
-      const whitelist = normalizeWhitelist(merchantInfo.config.whitelist_ips);
-      if (whitelist.length > 0 && !whitelist.includes(userIp)) {
-        // return sendError(res, 'IP not whitelisted', 400);
+      if (!merchantInfo) {
+        return sendError(res, 'Invalid merchant code or API key', 400);
       }
+
+      if (merchantInfo?.config?.whitelist_ips) {
+        const whitelist = normalizeWhitelist(merchantInfo.config.whitelist_ips);
+        if (whitelist.length > 0 && !whitelist.includes(userIp)) {
+          // return sendError(res, 'IP not whitelisted', 400);
+        }
+      }
+      req.merchant = merchantInfo;
+    } else {
+      return sendError(res, 'x-auth-code header is missing', 401);
     }
-    req.merchant = merchantInfo;
-  } else {
-    return sendError(res, 'x-auth-code header is missing', 401);
+    next();
+  } catch (error) {
+    // A DB / connection failure here must produce a proper error response via
+    // the global errorHandler, not escape as an unhandled rejection.
+    next(error);
   }
-  next();
 };
 
 export const checkApiWallet = async (req, res, next) => {
-  const x_api_key = req.headers['x-api-key'];
-  const code = req.headers['code'];
-  const userIp = resolveMerchantClientIp(req);
+  try {
+    const x_api_key = req.headers['x-api-key'];
+    const code = req.headers['code'];
+    const userIp = resolveMerchantClientIp(req);
 
-  // Fail closed: the wallet balance endpoint must never be reachable without
-  // a merchant API key (previously a missing key skipped all validation).
-  if (!x_api_key) {
-    return sendError(res, 'x-api-key header is missing', 401);
-  }
-
-  const merchantArr = await getMerchantsByCodeAndApiKeyDao(code, x_api_key);
-  const merchant = merchantArr[0];
-  if (!merchant) {
-    return sendError(res, 'Invalid merchant code or API key', 400);
-  }
-
-  if (merchant?.config?.whitelist_ips) {
-    const whitelist = normalizeWhitelist(merchant.config.whitelist_ips);
-    if (whitelist.length > 0 && !whitelist.includes(userIp)) {
-      return sendError(res, 'IP not whitelisted', 400);
+    // Fail closed: the wallet balance endpoint must never be reachable without
+    // a merchant API key (previously a missing key skipped all validation).
+    if (!x_api_key) {
+      return sendError(res, 'x-api-key header is missing', 401);
     }
-  }
 
-  next();
+    const merchantArr = await getMerchantsByCodeAndApiKeyDao(code, x_api_key);
+    const merchant = merchantArr[0];
+    if (!merchant) {
+      return sendError(res, 'Invalid merchant code or API key', 400);
+    }
+
+    if (merchant?.config?.whitelist_ips) {
+      const whitelist = normalizeWhitelist(merchant.config.whitelist_ips);
+      if (whitelist.length > 0 && !whitelist.includes(userIp)) {
+        return sendError(res, 'IP not whitelisted', 400);
+      }
+    }
+
+    next();
+  } catch (error) {
+    next(error);
+  }
 };
 export const checkPayoutApiKey = async (req, res, next) => {
-  const payload = req.body;
-  const x_api_key = req.headers['x-api-key'];
-  const userIp = resolveMerchantClientIp(req);
+  try {
+    const payload = req.body;
+    const x_api_key = req.headers['x-api-key'];
+    const userIp = resolveMerchantClientIp(req);
 
-  const { code } = payload;
+    const { code } = payload;
 
-  if (!x_api_key) {
-    return sendError(res, 'x-api-key header is missing', 403);
-  }
-
-  const merchantArr = await getMerchantsByCodeAndApiKeyDao(code, x_api_key);
-  const merchant = merchantArr[0];
-  if (!merchant) {
-    return sendError(res, 'Invalid merchant code or API key', 400);
-  }
-
-  if (merchant?.config?.whitelist_ips) {
-    const whitelist = normalizeWhitelist(merchant.config.whitelist_ips);
-    if (whitelist.length > 0 && !whitelist.includes(userIp)) {
-      return sendError(res, 'IP not whitelisted', 400);
+    if (!x_api_key) {
+      return sendError(res, 'x-api-key header is missing', 403);
     }
-  }
 
-  next();
+    const merchantArr = await getMerchantsByCodeAndApiKeyDao(code, x_api_key);
+    const merchant = merchantArr[0];
+    if (!merchant) {
+      return sendError(res, 'Invalid merchant code or API key', 400);
+    }
+
+    if (merchant?.config?.whitelist_ips) {
+      const whitelist = normalizeWhitelist(merchant.config.whitelist_ips);
+      if (whitelist.length > 0 && !whitelist.includes(userIp)) {
+        return sendError(res, 'IP not whitelisted', 400);
+      }
+    }
+
+    next();
+  } catch (error) {
+    next(error);
+  }
 };
 
 // Generic, fail-closed merchant API-key guard for endpoints that carry the
 // merchant `code` in a header/body/query and the key in the `x-api-key` header.
 // Use this on merchant-facing routes that were previously unauthenticated.
 export const checkMerchantApiKey = async (req, res, next) => {
-  const x_api_key = req.headers['x-api-key'];
-  const code = req.headers['code'] || req.body?.code || req.query?.code;
-  const userIp = resolveMerchantClientIp(req);
+  try {
+    const x_api_key = req.headers['x-api-key'];
+    const code = req.headers['code'] || req.body?.code || req.query?.code;
+    const userIp = resolveMerchantClientIp(req);
 
-  if (!x_api_key) {
-    return sendError(res, 'x-api-key header is missing', 401);
-  }
-
-  const merchantArr = await getMerchantsByCodeAndApiKeyDao(code, x_api_key);
-  const merchant = merchantArr[0];
-  if (!merchant) {
-    return sendError(res, 'Invalid merchant code or API key', 400);
-  }
-
-  if (merchant?.config?.whitelist_ips) {
-    const whitelist = normalizeWhitelist(merchant.config.whitelist_ips);
-    if (whitelist.length > 0 && !whitelist.includes(userIp)) {
-      return sendError(res, 'IP not whitelisted', 403);
+    if (!x_api_key) {
+      return sendError(res, 'x-api-key header is missing', 401);
     }
-  }
 
-  req.merchant = merchant;
-  next();
+    const merchantArr = await getMerchantsByCodeAndApiKeyDao(code, x_api_key);
+    const merchant = merchantArr[0];
+    if (!merchant) {
+      return sendError(res, 'Invalid merchant code or API key', 400);
+    }
+
+    if (merchant?.config?.whitelist_ips) {
+      const whitelist = normalizeWhitelist(merchant.config.whitelist_ips);
+      if (whitelist.length > 0 && !whitelist.includes(userIp)) {
+        return sendError(res, 'IP not whitelisted', 403);
+      }
+    }
+
+    req.merchant = merchant;
+    next();
+  } catch (error) {
+    next(error);
+  }
 };
 
 // V2 variant of checkMerchantApiKey: identical fail-closed merchant API-key +
