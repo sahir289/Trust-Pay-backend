@@ -11,7 +11,8 @@ CREATE TABLE IF NOT EXISTS "DeliveryAttempt" (
   "status_code" integer,
   "error" text,
   "duration_ms" integer,
-  "created_at" TIMESTAMPTZ DEFAULT (now())
+  "created_at" TIMESTAMPTZ DEFAULT (now()),
+  "is_obsolete" boolean NOT NULL DEFAULT false
 );
 
 -- Indexes for the common audit queries (by channel, by outcome, recent-first,

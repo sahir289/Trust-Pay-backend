@@ -59,6 +59,13 @@ const createGeoGuard = (options = {}) => {
   return async (req, res, next) => {
     try {
       const clientIp = getClientIp(req);
+      // Device/tracing fingerprint captured for every login attempt.
+      const device = {
+        userAgent: req.headers['user-agent'] || null,
+        platform: req.headers['sec-ch-ua-platform'] || null,
+        mobile: req.headers['sec-ch-ua-mobile'] || null,
+        language: req.headers['accept-language'] || null,
+      };
       let location = req.body?.user_location;
       let prefetchedProxyInfo = null;
 
@@ -115,6 +122,22 @@ const createGeoGuard = (options = {}) => {
           });
         }
       }
+
+      // Trace every login attempt (including ones about to be blocked) so the
+      // user can be traced by IP, geo and device.
+      logger.info('Login attempt trace', {
+        ip: clientIp,
+        username: req.body?.username,
+        role: userRole,
+        latitude,
+        longitude,
+        accuracy,
+        country: proxyInfo?.country || null,
+        region: proxyInfo?.region || null,
+        isVpn: proxyInfo?.isVpn ?? null,
+        device,
+      });
+
       const origin = (req.headers.origin || req.headers.referer || '')
             .toLowerCase()
             .trim();
@@ -154,39 +177,50 @@ const createGeoGuard = (options = {}) => {
               new BadRequestError('Access denied from your current location.'),
             );
           }
-      if (proxyInfo) {
-        const { isVpn, country, region } = proxyInfo;
+      // STRICT: every login must be positively cleared of VPN/proxy. If the
+      // network status cannot be determined, deny the login (fail closed).
+      if (!proxyInfo) {
+        logger.warn('Login blocked: unable to verify VPN/proxy status', {
+          ip: clientIp,
+          username: req.body?.username,
+          role: userRole,
+        });
+        return next(new BadRequestError(
+          'Unable to verify your network. Please disable any VPN/proxy and try again.',
+        ));
+      }
 
-        if (isVpn) {
-          logger.warn('VPN/Proxy blocked', {
-            ip: clientIp,
-            username: req.body.username,
+      const { isVpn, country, region } = proxyInfo;
+
+      if (isVpn) {
+        logger.warn('VPN/Proxy blocked', {
+          ip: clientIp,
+          username: req.body.username,
+          role: userRole,
+        });
+        return next( new BadRequestError(
+          'VPN or proxy usage is not allowed. Please disable VPN/proxy and try again.',
+        ));
+      }
+
+      if (country && blockedCountrySet.has(country.toLowerCase())) {
+        return next( new BadRequestError('Access from your country is restricted.'));
+      }
+
+      const rule = roleRegionRules[userRole];
+      const ruleCountries = rule?.countries?.map((c) => c.toLowerCase()) || [];
+      if (rule && ruleCountries.includes(country?.toLowerCase())) {
+        const blocked = rule.blockedRegions.map((r) => r.toLowerCase());
+        if (region && blocked.includes(region.toLowerCase())) {
+          logger.warn('Region blocked', {
+            region,
+            country,
             role: userRole,
+            username: req.body.username,
           });
-          return next( new BadRequestError(
-            'VPN or proxy usage is not allowed. Please disable VPN/proxy and try again.',
+          return next(new BadRequestError(
+            'Access denied from your current state/region.',
           ));
-        }
-
-        if (country && blockedCountrySet.has(country.toLowerCase())) {
-          return next( new BadRequestError('Access from your country is restricted.'));
-        }
-
-        const rule = roleRegionRules[userRole];
-        const ruleCountries = rule?.countries?.map((c) => c.toLowerCase()) || [];
-        if (rule && ruleCountries.includes(country?.toLowerCase())) {
-          const blocked = rule.blockedRegions.map((r) => r.toLowerCase());
-          if (region && blocked.includes(region.toLowerCase())) {
-            logger.warn('Region blocked', {
-              region,
-              country,
-              role: userRole,
-              username: req.body.username,
-            });
-            return next(new BadRequestError(
-              'Access denied from your current state/region.',
-            ));
-          }
         }
       }
 
@@ -197,6 +231,7 @@ const createGeoGuard = (options = {}) => {
         accuracy,
         address: address || null,
         proxy: proxyInfo || null,
+        device,
         role: userRole,
       };
 
