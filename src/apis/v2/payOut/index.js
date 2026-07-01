@@ -1,9 +1,8 @@
 import express from 'express';
 import tryCatchHandler from '../../../utils/tryCatchHandler.js';
-import { checkMerchantApiKeyV2 } from '../../../middlewares/checkApiKey.js';
 import { verifyRequestSignature } from '../../../middlewares/requestSignature.js';
-import { idempotency } from '../../../middlewares/idempotency.js';
-import { createPayoutV2 } from './payOutV2Controller.js';
+import { checkPayOutV2Status, createPayoutV2 } from './payOutV2Controller.js';
+import { checkAuthCode } from '../../../middlewares/checkAuthCode.js';
 
 const router = express.Router();
 
@@ -17,10 +16,14 @@ const router = express.Router();
 // The signature requirement is always on; idempotency activates with its flag.
 router.post(
   '/create-payout',
-  checkMerchantApiKeyV2,
+  checkAuthCode,
   verifyRequestSignature({ required: true }),
-  idempotency({ required: true }),
   tryCatchHandler(createPayoutV2),
 );
+
+router.post('/check-payout-status',
+  checkAuthCode,
+  verifyRequestSignature({ required: true }),
+   tryCatchHandler(checkPayOutV2Status));
 
 export default router;
