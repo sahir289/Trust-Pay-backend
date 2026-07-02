@@ -109,7 +109,7 @@ router.get(
  *       500:
  *         description: Server error
  */
-router.get(
+router.post(
   '/get-accounts-reports',
   isAuthenticated,
   tryCatchHandler(getClientsAccountReportController),
