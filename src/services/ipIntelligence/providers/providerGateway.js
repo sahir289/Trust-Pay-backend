@@ -65,8 +65,7 @@ export const lookup = async (ip, budgetMs) => {
     try {
       const raw = await provider.lookup(ip, timeout);
       if (!raw) {
-        // The vendor answered but simply has no info on this IP. That's not a
-        // failure, so don't trip the breaker — just try the next vendor.
+        // The vendor answered but simply has no info on this IP. That's not a failure, so don't trip the breaker — just try the next vendor.
         continue;
       }
       recordSuccess(provider.name);

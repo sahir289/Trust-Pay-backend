@@ -49,12 +49,9 @@ const timed = async (step, ipKey, fn) => {
   }
 };
 
-// Saves a freshly-resolved IP record to Postgres in the BACKGROUND. We do NOT
-// wait for this write to finish: Redis has already been updated just above, so
-// the caller gets its answer immediately instead of waiting on a (possibly
-// far-away) database. Postgres here is only the long-term backup copy — Redis
-// is what actually serves traffic — so if this write fails we just log it and
-// move on.
+// Saves a freshly-resolved IP record to Postgres in the BACKGROUND. We don't wait for this write to finish: Redis has already been updated just above, so the caller gets its answer immediately instead of waiting on a (possibly
+// far-away) database. Postgres here is only the long-term backup copy — Redis 
+// is what actually serves traffic — so if this write fails we just log it and move on.
 const persistAsync = (intel, ipKey) => {
   const startedAt = TIMING_ENABLED ? Date.now() : 0;
   dao
@@ -149,8 +146,7 @@ const coldLookup = async (ip, ipKey, budgetMs) => {
       gateway.lookup(ip, budgetMs),
     );
     if (!provided) {
-      // Couldn't resolve it — remember that for a while (negative cache) so we
-      // don't keep retrying the same dead IP on every request.
+      // Couldn't resolve it — remember that for a while (negative cache) so we don't keep retrying the same dead IP on every request.
       await cache.setNegative(ipKey);
       return null;
     }
@@ -203,8 +199,7 @@ export const getIntelligence = async (ip, budgetMs = 300) => {
       return { ...cached, source: 'cache' };
     }
 
-    // 2) Not in Redis — do we have a saved copy in Postgres? If so, use it and
-    //    warm Redis with it so the next request is fast.
+    // 2) Not in Redis — do we have a saved copy in Postgres? If so, use it and warm Redis with it so the next request is fast.
     const stored = await timed('db.lookupByIpKey', ipKey, () =>
       dao.lookupByIpKey(ipKey),
     );

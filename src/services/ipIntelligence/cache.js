@@ -58,8 +58,7 @@ export const setIntel = async (ipKey, intel) => {
   await setCachedData(intelKey(ipKey), intel, withJitter(ttlForIntel(intel)), 'ip-intel');
 };
 
-// Negative cache: when even the provider has no data on an IP, we remember that
-// for a short while so we don't re-run the whole expensive lookup for the same unknown IP on every single request.
+// Negative cache: when even the provider has no data on an IP, we remember that for a short while so we don't re-run the whole expensive lookup for the same unknown IP on every single request.
 export const getNegative = async (ipKey) => {
   if (!ipKey) return null;
   return getCachedData(negKey(ipKey), 'ip-intel-neg');
@@ -94,7 +93,7 @@ export const acquireLock = async (ipKey, ms = 800) => {
     const result = await redisClient.set(lockKey(ipKey), '1', 'PX', ms, 'NX');
     return result === 'OK';
   } catch (err) {
-    // If Redis itself is having a moment, pretend someone else already holds the lock. That's the safe choice: better to wait than to let every request rush the provider at once.
+    // If Redis is down, we don't want to throw and break the request, just log it and let the caller proceed without a lock. The worst that can happen is a few duplicate provider calls for the same IP.
     logger.warn('ip-intel lock acquire failed', { err: err.message });
     return false;
   }
