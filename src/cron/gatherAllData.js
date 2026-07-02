@@ -309,16 +309,6 @@ const gatherAllData = async (
     let totalBankDepositAllVendors = 0;
     let totalBankWithdrawalAllVendors = 0;
 
-    // Get all vendor hierarchies to identify sub-vendor relationships
-    const allVendorHierarchies = await getUserHierarchysDashBoardReportDao({
-      company_id: company_id,
-    });
-    const subVendorIds = new Set();
-    allVendorHierarchies.forEach((hierarchy) => {
-      const subVendors = hierarchy?.config?.siblings?.sub_vendors || [];
-      subVendors.forEach((subVendorId) => subVendorIds.add(subVendorId));
-    });
-
     const banksData = await getBankaccountDashBoardReportDao({
       bank_used_for: 'PayIn',
       company_id: company_id,
@@ -346,47 +336,15 @@ const gatherAllData = async (
         const vendor = vendorData[0];
         const vendorCode = vendor.code;
 
-        // Only include parent vendors (not sub-vendors) in the main structure
-        if (!subVendorIds.has(bank.user_id)) {
-          if (!vendorObjpayIn[vendorCode]) {
-            vendorObjpayIn[vendorCode] = { banks: [] };
-          }
-
-          vendorObjpayIn[vendorCode].banks.push({
-            bankName: bank.bankName,
-            TotalDeposit: bank.TotalDeposit,
-            TotalCount: bank.TotalCount,
-          });
-
-          // Get vendor hierarchy and aggregate sub-vendor data
-          const vendorHier = await getUserHierarchysDashBoardReportDao({
-            user_id: bank.user_id,
-            company_id: company_id,
-          });
-          const subVendors =
-            vendorHier.length > 0
-              ? vendorHier[0]?.config?.siblings?.sub_vendors || []
-              : [];
-
-          // Add sub-vendor bank data to parent vendor
-          if (subVendors.length > 0) {
-            for (const subVendorId of subVendors) {
-              const subVendorBanks = banksData.filter(
-                (bankData) =>
-                  bankData.user_id === subVendorId &&
-                  bankData.today_balance !== 0,
-              );
-
-              for (const subVendorBank of subVendorBanks) {
-                vendorObjpayIn[vendorCode].banks.push({
-                  bankName: `${subVendorBank.nick_name} (Sub)`,
-                  TotalDeposit: subVendorBank.today_balance,
-                  TotalCount: subVendorBank.payin_count,
-                });
-              }
-            }
-          }
+        if (!vendorObjpayIn[vendorCode]) {
+          vendorObjpayIn[vendorCode] = { banks: [] };
         }
+
+        vendorObjpayIn[vendorCode].banks.push({
+          bankName: bank.bankName,
+          TotalDeposit: bank.TotalDeposit,
+          TotalCount: bank.TotalCount,
+        });
       }
     }
 
@@ -416,47 +374,15 @@ const gatherAllData = async (
         const vendor = vendorDataOut[0];
         const vendorCode = vendor.code;
 
-        // Only include parent vendors (not sub-vendors) in the main structure
-        if (!subVendorIds.has(banksO.user_id)) {
-          if (!vendorObjpayOut[vendorCode]) {
-            vendorObjpayOut[vendorCode] = { banks: [] };
-          }
-
-          vendorObjpayOut[vendorCode].banks.push({
-            bankName: banksO.bankName,
-            TotalDeposit: banksO.TotalDeposit,
-            TotalCount: banksO.TotalCount,
-          });
-
-          // Get vendor hierarchy and aggregate sub-vendor data
-          const vendorHierOut = await getUserHierarchysDashBoardReportDao({
-            user_id: banksO.user_id,
-            company_id: company_id,
-          });
-          const subVendorsOut =
-            vendorHierOut.length > 0
-              ? vendorHierOut[0]?.config?.siblings?.sub_vendors || []
-              : [];
-
-          // Add sub-vendor bank data to parent vendor
-          if (subVendorsOut.length > 0) {
-            for (const subVendorId of subVendorsOut) {
-              const subVendorBanks = banksDataOut.filter(
-                (bankData) =>
-                  bankData.user_id === subVendorId &&
-                  bankData.today_balance !== 0,
-              );
-
-              for (const subVendorBank of subVendorBanks) {
-                vendorObjpayOut[vendorCode].banks.push({
-                  bankName: `${subVendorBank.nick_name} (Sub)`,
-                  TotalDeposit: subVendorBank.today_balance,
-                  TotalCount: subVendorBank.payin_count,
-                });
-              }
-            }
-          }
+        if (!vendorObjpayOut[vendorCode]) {
+          vendorObjpayOut[vendorCode] = { banks: [] };
         }
+
+        vendorObjpayOut[vendorCode].banks.push({
+          bankName: banksO.bankName,
+          TotalDeposit: banksO.TotalDeposit,
+          TotalCount: banksO.TotalCount,
+        });
       }
     }
 
