@@ -130,1480 +130,1292 @@ const mockUser = {
   role_id: 1,
   designation_id: 1,
 };
-
-beforeEach(() => {
-  jest.clearAllMocks();
-
-  cache.readJsonCache.mockResolvedValue(null);
-  cache.shouldServeCachedResponse.mockReturnValue(false);
-  cache.writeJsonCache.mockResolvedValue();
-  cache.invalidateCompanyCacheByPrefix.mockResolvedValue();
-
-  responseHandlers.sendSuccess.mockImplementation(
-    (res, data, message) => ({
-      res,
-      data,
-      message,
-    })
-  );
-});
-describe('getUsersController - getUsers', () => {
-  const mockReq = (query = {}, user = {}) => ({
-    query,
-    user,
-  });
-
-  const mockRes = () => {
-    const res = {};
-    res.status = jest.fn().mockReturnThis();
-    res.json = jest.fn().mockReturnThis();
-    return res;
-  };
-
+describe("User Controller", () => {
   beforeEach(() => {
     jest.clearAllMocks();
-  });
-
-  it('should return paginated users successfully', async () => {
-    const req = mockReq(
-      { page: 1, limit: 10 },
-      { role: 'ADMIN', userId: 1 }
-    );
-    const res = mockRes();
-
-    const mockData = {
-      data: [{ id: 1, name: 'User1' }],
-      total: 1,
-      page: 1,
-      limit: 10,
-    };
-
-    userService.getUsersService.mockResolvedValue(mockData);
-
-    expect(userService.getUsersService).toHaveBeenCalledWith(
-      expect.objectContaining({
-        page: 1,
-        limit: 10,
-        user: req.user,
-      })
-    );
-
-    expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith(
-      expect.objectContaining({
-        success: true,
-        data: mockData.data,
-      })
-    );
-  });
-
-  it('should apply default pagination when query is missing', async () => {
-    const req = mockReq({}, { role: 'ADMIN', userId: 1 });
-    const res = mockRes();
-
-    const mockData = {
-      data: [],
-      total: 0,
-      page: 1,
-      limit: 10,
-    };
-
-    userService.getUsersService.mockResolvedValue(mockData);
-
-    await getUsers(req, res);
-
-    expect(userService.getUsersService).toHaveBeenCalledWith(
-        expect.objectContaining({
-            company_id: req.user.company_id,
-        }),
-        req.user.role,
-        undefined,
-        undefined,
-        req.user.designation,
-        req.user.user_id,
-    );
-    expect(res.status).toHaveBeenCalledWith(200);
-  });
-
-  it('should handle merchant role filtering', async () => {
-    const req = mockReq(
-      { page: 1, limit: 10 },
-      { role: 'MERCHANT', userId: 10 }
-    );
-    const res = mockRes();
-
-    userService.getUsersService.mockResolvedValue({
-      data: [{ id: 2, name: 'MerchantUser' }],
-      total: 1,
-    });
-
-    expect(userService.getUsersService).toHaveBeenCalledWith(
-      expect.objectContaining({
-        user: expect.objectContaining({ role: 'MERCHANT' }),
-      })
-    );
-
-    expect(res.status).toHaveBeenCalledWith(200);
-  });
-
-  it('should handle vendor role filtering', async () => {
-    const req = mockReq(
-      { page: 2, limit: 5 },
-      { role: 'VENDOR', userId: 20 }
-    );
-    const res = mockRes();
-
-    userService.getUsersService.mockResolvedValue({
-      data: [{ id: 3, name: 'VendorUser' }],
-      total: 1,
-    });
-
-    expect(userService.getUsersService).toHaveBeenCalled();
-    expect(res.json).toHaveBeenCalledWith(
-      expect.objectContaining({
-        success: true,
-      })
-    );
-  });
-
-  it('should handle sub-vendor role filtering', async () => {
-    const req = mockReq(
-      { page: 1, limit: 10 },
-      { role: 'SUB_VENDOR', userId: 30 }
-    );
-    const res = mockRes();
-
-    userService.getUsersService.mockResolvedValue({
-      data: [],
-      total: 0,
-    });
-
-
-    expect(userService.getUsersService).toHaveBeenCalledWith(
-        expect.any(Object),
-        "SUB_VENDOR",
-        expect.anything(),
-        expect.anything(),
-        expect.anything(),
-        expect.anything(),
-    );
-  });
-
-  it('should handle service throwing error', async () => {
-    const req = mockReq({ page: 1, limit: 10 }, { role: 'ADMIN' });
-    const res = mockRes();
-
-    userService.getUsersService.mockRejectedValue(new Error('DB error'));
-
-  });
-
-  it('should ensure numeric conversion of pagination params', async () => {
-    const req = mockReq(
-      { page: '3', limit: '15' },
-      { role: 'ADMIN' }
-    );
-    const res = mockRes();
-
-    userService.getUsersService.mockResolvedValue({
-      data: [],
-      total: 0,
-    });
-
-
-    expect(userService.getUsersService).toHaveBeenCalledWith(
-      expect.objectContaining({
-        page: expect.any(Number),
-        limit: expect.any(Number),
-      })
-    );
-  });
-
-  it('should return correct response structure', async () => {
-    const req = mockReq({ page: 1, limit: 10 }, { role: 'ADMIN' });
-    const res = mockRes();
-
-    userService.getUsersService.mockResolvedValue({
-      data: [{ id: 1 }],
-      total: 1,
-      page: 1,
-      limit: 10,
-    });
-
-
-    expect(res.json).toHaveBeenCalledWith(
-      expect.objectContaining({
-        success: true,
-        data: expect.any(Array),
-      })
-    );
-  });
-});
-describe('getUsersController - names & search', () => {
-  const mockReq = (query = {}, user = {}) => ({
-    query,
-    user,
-  });
-
-  const mockRes = () => {
-    const res = {};
-    res.status = jest.fn().mockReturnThis();
-    res.json = jest.fn().mockReturnThis();
-    return res;
-  };
-
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
-
-  it('should return all user names successfully (getUsersNames)', async () => {
-    const req = mockReq({}, { role: 'ADMIN', userId: 1 });
-    const res = mockRes();
-
-    const mockData = [
-      { id: 1, name: 'Alice' },
-      { id: 2, name: 'Bob' },
-    ];
-
-    userService.getUsersService.mockResolvedValue(mockData);
-
-    await getUsersNamesController(req, res);
-
-    expect(userService.getUsersService).toHaveBeenCalledWith(
-      expect.objectContaining({
-        type: 'NAMES',
-        user: req.user,
-      })
-    );
-
-    expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith(
-      expect.objectContaining({
-        success: true,
-        data: mockData,
-      })
-    );
-  });
-
-  it('should return empty list when no users exist (getUsersNames)', async () => {
-    const req = mockReq({}, { role: 'ADMIN' });
-    const res = mockRes();
-
-    userService.getUsersService.mockResolvedValue([]);
-
-    await getUsersNamesController(req, res);
-
-    expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith(
-      expect.objectContaining({
-        success: true,
-        data: [],
-      })
-    );
-  });
-
-  it('should apply role-based filtering in getUsersNames', async () => {
-    const req = mockReq({}, { role: 'MERCHANT', userId: 10 });
-    const res = mockRes();
-
-    userService.getUsersService.mockResolvedValue([
-      { id: 5, name: 'Merchant A' },
-    ]);
-
-    await getUsersNamesController(req, res);
-
-    expect(userService.getUsersService).toHaveBeenCalledWith(
-        expect.any(Object),
-        "MERCHANT",
-        expect.anything(),
-        expect.anything(),
-        expect.anything(),
-        expect.anything(),
-    );
-  });
-
-  it('should handle service error in getUsersNames', async () => {
-    const req = mockReq({}, { role: 'ADMIN' });
-    const res = mockRes();
-
-    userService.getUsersService.mockRejectedValue(new Error('DB error'));
-
-    await expect(getUsersNamesController(req, res)).rejects.toThrow(
-      'DB error'
-    );
-  });
-
-
-});
-describe('User Controller - getByUserName, getById, createUser', () => {
-  const mockReq = (data = {}, user = {}) => ({
-    body: data,
-    params: data,
-    query: data,
-    user,
-  });
-
-  const mockRes = () => {
-    const res = {};
-    res.status = jest.fn().mockReturnThis();
-    res.json = jest.fn().mockReturnThis();
-    return res;
-  };
-
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
-
-  it('should return user by username successfully', async () => {
-    const req = mockReq({ username: 'john_doe' }, { role: 'ADMIN' });
-    const res = mockRes();
-
-    const mockData = {
-      id: 1,
-      username: 'john_doe',
-      name: 'John Doe',
-    };
-
-    getUsersService.mockResolvedValue(mockData);
-
-    await getUsersByUserNameController(req, res);
-
-    expect(getUsersService).toHaveBeenCalledWith(
-      expect.objectContaining({
-        username: 'john_doe',
-        user: req.user,
-      })
-    );
-
-    expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith(
-      expect.objectContaining({
-        success: true,
-        data: mockData,
-      })
-    );
-  });
-
-  it('should return 404 when username not found', async () => {
-    const req = mockReq({ username: 'unknown' }, { role: 'ADMIN' });
-    const res = mockRes();
-
-    getUsersService.mockResolvedValue(null);
-
-    await getUsersByUserNameController(req, res);
-
-    expect(res.status).toHaveBeenCalledWith(404);
-    expect(res.json).toHaveBeenCalledWith(
-      expect.objectContaining({
-        success: false,
-      })
-    );
-  });
-
-  it('should handle service error in getUsersByUserName', async () => {
-    const req = mockReq({ username: 'john_doe' }, { role: 'ADMIN' });
-    const res = mockRes();
-
-    getUsersService.mockRejectedValue(new Error('DB error'));
-
-    await expect(
-      getUsersByUserNameController(req, res)
-    ).rejects.toThrow('DB error');
-  });
-
-  it('should trim username before searching', async () => {
-    const req = mockReq({ username: '  john_doe  ' }, { role: 'ADMIN' });
-    const res = mockRes();
-
-    getUsersService.mockResolvedValue({
-      id: 1,
-      username: 'john_doe',
-    });
-
-    await getUsersByUserNameController(req, res);
-
-    expect(getUsersService).toHaveBeenCalledWith(
-      expect.objectContaining({
-        username: expect.any(String),
-      })
-    );
-  });
-
-  it('should return user by ID successfully', async () => {
-    const req = mockReq({ id: 1 }, { role: 'ADMIN' });
-    const res = mockRes();
-
-    const mockData = {
-      id: 1,
-      name: 'John Doe',
-    };
-
-    userService.getUserByIdService.mockResolvedValue(mockData);
-
-    await getUserByIdController(req, res);
-
-    expect(userService.getUserByIdService).toHaveBeenCalledWith(1);
-
-    expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith(
-      expect.objectContaining({
-        success: true,
-        data: mockData,
-      })
-    );
-  });
-
-  it('should return 404 when user ID not found', async () => {
-    const req = mockReq({ id: 999 }, { role: 'ADMIN' });
-    const res = mockRes();
-
-    getUserByIdService.mockResolvedValue(null);
-
-    await getUserByIdController(req, res);
-
-    expect(res.status).toHaveBeenCalledWith(404);
-    expect(res.json).toHaveBeenCalledWith(
-      expect.objectContaining({
-        success: false,
-      })
-    );
-  });
-
-  it('should handle invalid ID format', async () => {
-    const req = mockReq({ id: 'abc' }, { role: 'ADMIN' });
-    const res = mockRes();
-
-    await expect(
-      getUserByIdController(req, res)
-    ).rejects.toThrow();
-  });
-
-  it('should handle service error in getUserById', async () => {
-    const req = mockReq({ id: 1 }, { role: 'ADMIN' });
-    const res = mockRes();
-
-    getUserByIdService.mockRejectedValue(new Error('DB error'));
-
-    await expect(
-      getUserByIdController(req, res)
-    ).rejects.toThrow('DB error');
-  });
-
-  it('should create user successfully', async () => {
-    const req = mockReq(
-      {
-        username: 'new_user',
-        email: 'new@test.com',
-        password: 'Password123',
-      },
-      { role: 'ADMIN' }
-    );
-    const res = mockRes();
-
-    const mockCreatedUser = {
-      id: 10,
-      username: 'new_user',
-      email: 'new@test.com',
-    };
-
-    createUserService.mockResolvedValue(mockCreatedUser);
-
-    await createUserController(req, res);
-
-    expect(createUserService).toHaveBeenCalledWith(
-      expect.objectContaining({
-        username: 'new_user',
-        email: 'new@test.com',
-        password: 'Password123',
-        user: req.user,
-      })
-    );
-
-    expect(res.status).toHaveBeenCalledWith(201);
-    expect(res.json).toHaveBeenCalledWith(
-      expect.objectContaining({
-        success: true,
-        data: mockCreatedUser,
-      })
-    );
-  });
-
-  it('should throw validation error when required fields missing', async () => {
-    const req = mockReq(
-      { username: '' },
-      { role: 'ADMIN' }
-    );
-    const res = mockRes();
-
-    createUserService.mockRejectedValue(
-      new Error('Validation error')
-    );
-
-    await expect(
-      createUserController(req, res)
-    ).rejects.toThrow('Validation error');
-  });
-
-  it('should handle duplicate user creation error', async () => {
-    const req = mockReq(
-      {
-        username: 'existing_user',
-        email: 'exist@test.com',
-        password: 'Password123',
-      },
-      { role: 'ADMIN' }
-    );
-    const res = mockRes();
-
-    createUserService.mockRejectedValue(
-      new Error('User already exists')
-    );
-
-    await expect(
-      createUserController(req, res)
-    ).rejects.toThrow('User already exists');
-  });
-
-  it('should pass correct payload to createUserService', async () => {
-    const req = mockReq(
-      {
-        username: 'test_user',
-        email: 'test@test.com',
-        password: 'Test123',
-        role: 'USER',
-      },
-      { role: 'ADMIN' }
-    );
-    const res = mockRes();
-
-    createUserService.mockResolvedValue({
-      id: 20,
-      username: 'test_user',
-    });
-
-    await createUserController(req, res);
-
-    expect(createUserService).toHaveBeenCalledWith(
-      expect.objectContaining({
-        username: 'test_user',
-        email: 'test@test.com',
-        role: 'USER',
-        user: req.user,
-      })
-    );
-  });
-
-  it('should return 500 when unexpected error occurs in createUser', async () => {
-    const req = mockReq(
-      {
-        username: 'fail_user',
-        email: 'fail@test.com',
-        password: '123456',
-      },
-      { role: 'ADMIN' }
-    );
-    const res = mockRes();
-
-    createUserService.mockRejectedValue(
-      new Error('Unexpected DB failure')
-    );
-
-    await expect(
-      createUserController(req, res)
-    ).rejects.toThrow('Unexpected DB failure');
-  });
-});
-describe('User Controller - updateUser, mail, 2FA flows', () => {
-  const mockReq = (data = {}, user = {}) => ({
-    body: data,
-    params: data,
-    query: data,
-    user,
-  });
-
-  const mockRes = () => {
-    const res = {};
-    res.status = jest.fn().mockReturnThis();
-    res.json = jest.fn().mockReturnThis();
-    return res;
-  };
-
-  beforeEach(() => {
-    jest.clearAllMocks();
-  });
-
-  it('should update user successfully', async () => {
-    const req = mockReq(
-      { id: 1, name: 'Updated Name', email: 'test@update.com' },
-      { role: 'ADMIN' }
-    );
-    const res = mockRes();
-
-    const mockUpdated = {
-      id: 1,
-      name: 'Updated Name',
-      email: 'test@update.com',
-    };
-
-    updateUserService.mockResolvedValue(mockUpdated);
-
-    await updateUserController(req, res);
-
-    expect(updateUserService).toHaveBeenCalledWith(
-      expect.objectContaining({
-        id: 1,
-        name: 'Updated Name',
-        email: 'test@update.com',
-        user: req.user,
-      })
-    );
-
-    expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith(
-      expect.objectContaining({
-        success: true,
-        data: mockUpdated,
-      })
-    );
-  });
-
-  it('should handle updateUser not found case', async () => {
-    const req = mockReq({ id: 999, name: 'X' }, { role: 'ADMIN' });
-    const res = mockRes();
-
-    updateUserService.mockResolvedValue(null);
-
-    await updateUserController(req, res);
-
-    expect(res.status).toHaveBeenCalledWith(404);
-    expect(res.json).toHaveBeenCalledWith(
-      expect.objectContaining({
-        success: false,
-      })
-    );
-  });
-
-  it('should throw error when updateUser service fails', async () => {
-    const req = mockReq({ id: 1, name: 'Fail' }, { role: 'ADMIN' });
-    const res = mockRes();
-
-    updateUserService.mockRejectedValue(new Error('DB error'));
-
-    await expect(updateUserController(req, res)).rejects.toThrow(
-      'DB error'
-    );
-  });
-
-  it('should send mail successfully', async () => {
-    const req = mockReq(
-      { email: 'test@mail.com', subject: 'Hello', message: 'Hi' },
-      { role: 'ADMIN' }
-    );
-    const res = mockRes();
-
-    userService.sendMailService.mockResolvedValue({ success: true });
-
-    await sendMailController(req, res);
-
-    expect(userService.sendMailService).toHaveBeenCalledWith(
-      expect.objectContaining({
-        email: 'test@mail.com',
-        subject: 'Hello',
-        message: 'Hi',
-        user: req.user,
-      })
-    );
-
-    expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith(
-      expect.objectContaining({
-        success: true,
-      })
-    );
-  });
-
-  it('should handle sendMail failure', async () => {
-    const req = mockReq(
-      { email: 'fail@mail.com' },
-      { role: 'ADMIN' }
-    );
-    const res = mockRes();
-
-    userService.sendMailService.mockRejectedValue(new Error('SMTP error'));
-
-    await expect(sendMailController(req, res)).rejects.toThrow(
-      'SMTP error'
-    );
-  });
-
-  it('should validate required email field in sendMail', async () => {
-    const req = mockReq({ subject: 'No email' }, { role: 'ADMIN' });
-    const res = mockRes();
-
-    userService.sendMailService.mockRejectedValue(
-      new Error('Validation error')
-    );
-
-    await expect(sendMailController(req, res)).rejects.toThrow(
-      'Validation error'
-    );
-  });
-
-  it('should reset user 2FA successfully', async () => {
-    const req = mockReq({ userId: 2 }, { role: 'ADMIN' });
-    const res = mockRes();
-
-    resetUser2FAService.mockResolvedValue({
-      userId: 2,
-      reset: true,
-    });
-
-    await resetUser2FAController(req, res);
-
-    expect(resetUser2FAService).toHaveBeenCalledWith(
-      expect.objectContaining({
-        userId: 2,
-        user: req.user,
-      })
-    );
-
-    expect(res.status).toHaveBeenCalledWith(200);
-    expect(res.json).toHaveBeenCalledWith(
-      expect.objectContaining({
-        success: true,
-      })
-    );
-  });
-
-  it('should handle resetUser2FA failure', async () => {
-    const req = mockReq({ userId: 2 }, { role: 'ADMIN' });
-    const res = mockRes();
-
-    resetUser2FAService.mockRejectedValue(
-      new Error('Reset failed')
-    );
-
-    await expect(resetUser2FAController(req, res)).rejects.toThrow(
-      'Reset failed'
-    );
-  });
-
-  it('should enable 2FA exemption successfully', async () => {
-    const req = mockReq({ userId: 3, exempt: true }, { role: 'ADMIN' });
-    const res = mockRes();
-
-    const mockResult = {
-      userId: 3,
-      twoFAExempt: true,
-    };
-
-    userService.toggleUser2FAExemptionService.mockResolvedValue(mockResult);
-
-    await toggleUser2FAExemptionController(req, res);
-
-    expect(userService.toggleUser2FAExemptionService).toHaveBeenCalledWith(
-      expect.objectContaining({
-        userId: 3,
-        exempt: true,
-        user: req.user,
-      })
-    );
-
-    expect(res.status).toHaveBeenCalledWith(200);
-  });
-
-  it('should disable 2FA exemption successfully', async () => {
-    const req = mockReq({ userId: 3, exempt: false }, { role: 'ADMIN' });
-    const res = mockRes();
-
-    userService.toggleUser2FAExemptionService.mockResolvedValue({
-      userId: 3,
-      twoFAExempt: false,
-    });
-
-    await toggleUser2FAExemptionController(req, res);
-
-    expect(res.status).toHaveBeenCalledWith(200);
-  });
-
-  it('should handle toggleUser2FAExemption failure', async () => {
-    const req = mockReq({ userId: 3 }, { role: 'ADMIN' });
-    const res = mockRes();
-
-    userService.toggleUser2FAExemptionService.mockRejectedValue(
-      new Error('Exemption error')
-    );
-
-    await expect(
-      userService.toggleUser2FAExemptionController(req, res)
-    ).rejects.toThrow('Exemption error');
-  });
-});
-
-describe("getUsers", () => {
-  let req;
-
-  beforeEach(() => {
-    jest.clearAllMocks();
-
-    req = {
-      user: { ...mockUser },
-      query: {
-        page: "1",
-        limit: "10",
-      },
-    };
 
     cache.readJsonCache.mockResolvedValue(null);
     cache.shouldServeCachedResponse.mockReturnValue(false);
     cache.writeJsonCache.mockResolvedValue();
+
+    responseHandlers.sendSuccess.mockReturnValue("success");
   });
 
-  test("should return cached response when cache exists", async () => {
-    const cached = {
-      Users: [{ id: 1 }],
-      totalCount: 1,
-    };
+  describe("getUsers", () => {
+    it("should return cached users when cache exists", async () => {
+      const cached = {
+        rows: [{ id: 1 }],
+        count: 1,
+      };
 
-    cache.readJsonCache.mockResolvedValue(cached);
-    cache.shouldServeCachedResponse.mockReturnValue(true);
+      cache.readJsonCache.mockResolvedValue(cached);
+      cache.shouldServeCachedResponse.mockReturnValue(true);
 
-    await getUsers(req, mockRes);
+      const req = {
+        user: mockUser,
+        query: {
+          page: 1,
+          limit: 10,
+        },
+      };
 
-    expect(cache.readJsonCache).toHaveBeenCalledTimes(1);
+      await getUsers(req, mockRes);
 
-    expect(userService.getUsersService).not.toHaveBeenCalled();
+      expect(redis.generateCacheKey).toHaveBeenCalled();
 
-    expect(cache.writeJsonCache).not.toHaveBeenCalled();
+      expect(cache.readJsonCache).toHaveBeenCalled();
 
-    expect(responseHandlers.sendSuccess).toHaveBeenCalledWith(
-      mockRes,
-      cached,
-      "getUsers successfully"
-    );
+      expect(userService.getUsersService).not.toHaveBeenCalled();
+
+      expect(responseHandlers.sendSuccess).toHaveBeenCalledWith(
+        mockRes,
+        cached,
+        "getUsers successfully"
+      );
+    });
+
+    it("should fetch users when cache misses", async () => {
+      const users = {
+        rows: [{ id: 10 }],
+        count: 1,
+      };
+
+      userService.getUsersService.mockResolvedValue(users);
+
+      const req = {
+        user: mockUser,
+        query: {
+          page: 2,
+          limit: 20,
+          search: "john",
+        },
+      };
+
+      await getUsers(req, mockRes);
+
+      expect(userService.getUsersService).toHaveBeenCalledWith(
+        {
+          company_id: 10,
+          page: 2,
+          limit: 20,
+          search: "john",
+        },
+        Role.ADMIN,
+        2,
+        20,
+        Role.ADMIN,
+        1
+      );
+
+      expect(cache.writeJsonCache).toHaveBeenCalledWith(
+        expect.any(String),
+        users,
+        60
+      );
+
+      expect(responseHandlers.sendSuccess).toHaveBeenCalledWith(
+        mockRes,
+        users,
+        "getUsers successfully"
+      );
+    });
+
+    it("should propagate service error", async () => {
+      const error = new Error("Database failed");
+
+      userService.getUsersService.mockRejectedValue(error);
+
+      const req = {
+        user: mockUser,
+        query: {},
+      };
+
+      await expect(getUsers(req, mockRes)).rejects.toThrow(
+        "Database failed"
+      );
+    });
+
+    it("should generate cache key", async () => {
+      userService.getUsersService.mockResolvedValue({});
+
+      const req = {
+        user: mockUser,
+        query: {},
+      };
+
+      await getUsers(req, mockRes);
+
+      expect(redis.generateCacheKey).toHaveBeenCalledTimes(1);
+
+      expect(cache.normalizeQueryForCache).toHaveBeenCalled();
+    });
   });
 
-  test("should fetch users when cache misses", async () => {
-    const serviceData = {
-      Users: [{ id: 10 }],
-      totalCount: 1,
-    };
+  describe("getUsersnames", () => {
+    it("should return cached usernames", async () => {
+      const cached = [
+        {
+          id: 1,
+          user_name: "admin",
+        },
+      ];
 
-    userService.getUsersService.mockResolvedValue(serviceData);
+      cache.readJsonCache.mockResolvedValue(cached);
+      cache.shouldServeCachedResponse.mockReturnValue(true);
 
-    await getUsers(req, mockRes);
+      const req = {
+        user: mockUser,
+        query: {},
+      };
 
-    expect(redis.generateCacheKey).toHaveBeenCalled();
+      await getUsersnames(req, mockRes);
 
-    expect(userService.getUsersService).toHaveBeenCalledWith(
+      expect(userService.getUsersNameService).not.toHaveBeenCalled();
+
+      expect(responseHandlers.sendSuccess).toHaveBeenCalledWith(
+        mockRes,
+        cached,
+        "getUsersName successfully"
+      );
+    });
+
+    it("should fetch usernames when cache misses", async () => {
+      const data = [
+        {
+          id: 1,
+          user_name: "admin",
+        },
+      ];
+
+      userService.getUsersNameService.mockResolvedValue(data);
+
+      const req = {
+        user: mockUser,
+        query: {},
+      };
+
+      await getUsersnames(req, mockRes);
+
+      expect(userService.getUsersNameService).toHaveBeenCalledWith({
+        company_id: 10,
+      });
+
+      expect(cache.writeJsonCache).toHaveBeenCalledWith(
+        expect.any(String),
+        data,
+        60
+      );
+
+      expect(responseHandlers.sendSuccess).toHaveBeenCalledWith(
+        mockRes,
+        data,
+        "getUsersname successfully"
+      );
+    });
+
+    it("should propagate username service error", async () => {
+      userService.getUsersNameService.mockRejectedValue(
+        new Error("service failed")
+      );
+
+      const req = {
+        user: mockUser,
+        query: {},
+      };
+
+      await expect(getUsersnames(req, mockRes)).rejects.toThrow(
+        "service failed"
+      );
+    });
+  });
+
+  describe("getUsersBySearch", () => {
+    it("should return cached search result", async () => {
+      const cached = {
+        rows: [{ id: 1 }],
+        count: 1,
+      };
+
+      cache.readJsonCache.mockResolvedValue(cached);
+      cache.shouldServeCachedResponse.mockReturnValue(true);
+
+      const req = {
+        user: mockUser,
+        query: {
+          search: "john",
+          page: 1,
+          limit: 10,
+        },
+      };
+
+      await getUsersBySearch(req, mockRes);
+
+      expect(userService.getUsersBySearchService).not.toHaveBeenCalled();
+
+      expect(responseHandlers.sendSuccess).toHaveBeenCalledWith(
+        mockRes,
+        cached,
+        "getUsers successfully"
+      );
+    });
+
+    it("should fetch users by search when cache misses", async () => {
+      const result = {
+        rows: [{ id: 10 }],
+        count: 1,
+      };
+
+      userService.getUsersBySearchService.mockResolvedValue(result);
+
+      const req = {
+        user: mockUser,
+        query: {
+          search: "admin",
+          page: 2,
+          limit: 20,
+        },
+      };
+
+      await getUsersBySearch(req, mockRes);
+
+      expect(userService.getUsersBySearchService).toHaveBeenCalledWith(
+        {
+          company_id: 10,
+          search: "admin",
+          page: 2,
+          limit: 20,
+        },
+        Role.ADMIN,
+        2,
+        20,
+        Role.ADMIN,
+        1
+      );
+
+      expect(cache.writeJsonCache).toHaveBeenCalledWith(
+        expect.any(String),
+        result,
+        60
+      );
+
+      expect(responseHandlers.sendSuccess).toHaveBeenCalledWith(
+        mockRes,
+        result,
+        "getUsers successfully"
+      );
+    });
+
+    it("should generate cache key", async () => {
+      userService.getUsersBySearchService.mockResolvedValue({});
+
+      const req = {
+        user: mockUser,
+        query: {},
+      };
+
+      await getUsersBySearch(req, mockRes);
+
+      expect(redis.generateCacheKey).toHaveBeenCalledTimes(1);
+      expect(cache.normalizeQueryForCache).toHaveBeenCalled();
+    });
+
+    it("should propagate service error", async () => {
+      userService.getUsersBySearchService.mockRejectedValue(
+        new Error("search failed")
+      );
+
+      const req = {
+        user: mockUser,
+        query: {},
+      };
+
+      await expect(getUsersBySearch(req, mockRes)).rejects.toThrow(
+        "search failed"
+      );
+    });
+  });
+
+  describe("getUsersInfoBySearch", () => {
+    it("should return cached result", async () => {
+      const cached = {
+        rows: [{ id: 1 }],
+      };
+
+      cache.readJsonCache.mockResolvedValue(cached);
+      cache.shouldServeCachedResponse.mockReturnValue(true);
+
+      const req = {
+        user: mockUser,
+        query: {
+          startDate: "2025-01-01",
+          endDate: "2025-01-31",
+        },
+      };
+
+      await getUsersInfoBySearch(req, mockRes);
+
+      expect(userService.getUsersInfoBySearchService).not.toHaveBeenCalled();
+
+      expect(responseHandlers.sendSuccess).toHaveBeenCalledWith(
+        mockRes,
+        cached,
+        "getUsersInfo successfully"
+      );
+    });
+
+    it("should fetch user info when cache misses", async () => {
+      const result = {
+        rows: [{ id: 100 }],
+      };
+
+      userService.getUsersInfoBySearchService.mockResolvedValue(result);
+
+      const req = {
+        user: mockUser,
+        query: {
+          page: 1,
+          limit: 10,
+          startDate: "2025-01-01",
+          endDate: "2025-01-31",
+        },
+      };
+
+      await getUsersInfoBySearch(req, mockRes);
+
+      expect(userService.getUsersInfoBySearchService).toHaveBeenCalledWith(
+        {
+          company_id: 10,
+          page: 1,
+          limit: 10,
+          startDate: "2025-01-01",
+          endDate: "2025-01-31",
+        },
+        Role.ADMIN,
+        1,
+        10,
+        "2025-01-01",
+        "2025-01-31"
+      );
+
+      expect(cache.writeJsonCache).toHaveBeenCalledWith(
+        expect.any(String),
+        result,
+        60
+      );
+
+      expect(responseHandlers.sendSuccess).toHaveBeenCalledWith(
+        mockRes,
+        result,
+        "getUsers successfully"
+      );
+    });
+
+    it("should normalize query before generating cache key", async () => {
+      userService.getUsersInfoBySearchService.mockResolvedValue({});
+
+      const req = {
+        user: mockUser,
+        query: {},
+      };
+
+      await getUsersInfoBySearch(req, mockRes);
+
+      expect(cache.normalizeQueryForCache).toHaveBeenCalled();
+      expect(redis.generateCacheKey).toHaveBeenCalled();
+    });
+
+    it("should propagate service error", async () => {
+      userService.getUsersInfoBySearchService.mockRejectedValue(
+        new Error("info failed")
+      );
+
+      const req = {
+        user: mockUser,
+        query: {},
+      };
+
+      await expect(getUsersInfoBySearch(req, mockRes)).rejects.toThrow(
+        "info failed"
+      );
+    });
+  });
+
+  describe("getUsersByUserName", () => {
+    it("should return cached user", async () => {
+      const cached = {
+        id: 1,
+        user_name: "admin",
+      };
+
+      cache.readJsonCache.mockResolvedValue(cached);
+      cache.shouldServeCachedResponse.mockReturnValue(true);
+
+      const req = {
+        user: mockUser,
+        body: {
+          username: "admin",
+        },
+        query: {},
+      };
+
+      await getUsersByUserName(req, mockRes);
+
+      expect(userService.getUsersByUserNameService).not.toHaveBeenCalled();
+
+      expect(responseHandlers.sendSuccess).toHaveBeenCalledWith(
+        mockRes,
+        cached,
+        "getUsers successfully"
+      );
+    });
+
+    it("should fetch user by username", async () => {
+      const result = {
+        id: 1,
+        user_name: "admin",
+      };
+
+      userService.getUsersByUserNameService.mockResolvedValue(result);
+
+      const req = {
+        user: mockUser,
+        body: {
+          username: "admin",
+        },
+        query: {},
+      };
+
+      await getUsersByUserName(req, mockRes);
+
+      expect(userService.getUsersByUserNameService).toHaveBeenCalledWith(
+        "admin",
+        {
+          company_id: 10,
+        },
+        Role.ADMIN
+      );
+
+      expect(cache.writeJsonCache).toHaveBeenCalledWith(
+        expect.any(String),
+        result,
+        60
+      );
+
+      expect(responseHandlers.sendSuccess).toHaveBeenCalledWith(
+        mockRes,
+        result,
+        "getUsers successfully"
+      );
+    });
+
+    it("should throw when username is missing", async () => {
+      const req = {
+        user: mockUser,
+        body: {},
+        query: {},
+      };
+
+      await expect(
+        getUsersByUserName(req, mockRes)
+      ).rejects.toThrow("Username is required");
+
+      expect(loggerModule.logger.error).toHaveBeenCalledWith(
+        "Username is required"
+      );
+    });
+
+    it("should generate cache key", async () => {
+      userService.getUsersByUserNameService.mockResolvedValue({});
+
+      const req = {
+        user: mockUser,
+        body: {
+          username: "john",
+        },
+        query: {},
+      };
+
+      await getUsersByUserName(req, mockRes);
+
+      expect(redis.generateCacheKey).toHaveBeenCalled();
+    });
+
+    it("should propagate service error", async () => {
+      userService.getUsersByUserNameService.mockRejectedValue(
+        new Error("lookup failed")
+      );
+
+      const req = {
+        user: mockUser,
+        body: {
+          username: "admin",
+        },
+        query: {},
+      };
+
+      await expect(
+        getUsersByUserName(req, mockRes)
+      ).rejects.toThrow("lookup failed");
+    });
+  });
+
+  describe("getUserById", () => {
+    it("should return cached user", async () => {
+      const cached = {
+        id: 11,
+        user_name: "admin",
+      };
+
+      cache.readJsonCache.mockResolvedValue(cached);
+      cache.shouldServeCachedResponse.mockReturnValue(true);
+
+      const req = {
+        user: mockUser,
+        params: {
+          id: 11,
+        },
+        query: {},
+      };
+
+      await getUserById(req, mockRes);
+
+      expect(userService.getUserByIdService).not.toHaveBeenCalled();
+
+      expect(responseHandlers.sendSuccess).toHaveBeenCalledWith(
+        mockRes,
+        cached,
+        "getting User by id successfully"
+      );
+    });
+
+    it("should fetch user by id when cache misses", async () => {
+      const result = {
+        id: 11,
+        user_name: "admin",
+      };
+
+      userService.getUserByIdService.mockResolvedValue(result);
+
+      const req = {
+        user: mockUser,
+        params: {
+          id: 11,
+        },
+        query: {},
+      };
+
+      await getUserById(req, mockRes);
+
+      expect(userService.getUserByIdService).toHaveBeenCalledWith(
+        {
+          role_id: 1,
+          designation_id: 1,
+          company_id: 10,
+          id: 11,
+        },
+        Role.ADMIN
+      );
+
+      expect(cache.writeJsonCache).toHaveBeenCalledWith(
+        expect.any(String),
+        result,
+        60
+      );
+
+      expect(responseHandlers.sendSuccess).toHaveBeenCalledWith(
+        mockRes,
+        result,
+        "getting User by id successfully"
+      );
+    });
+
+    it("should generate cache key", async () => {
+      userService.getUserByIdService.mockResolvedValue({});
+
+      const req = {
+        user: mockUser,
+        params: {
+          id: 5,
+        },
+        query: {},
+      };
+
+      await getUserById(req, mockRes);
+
+      expect(cache.readJsonCache).toHaveBeenCalled();
+      expect(cache.writeJsonCache).toHaveBeenCalled();
+    });
+
+    it("should propagate service error", async () => {
+      userService.getUserByIdService.mockRejectedValue(
+        new Error("user lookup failed")
+      );
+
+      const req = {
+        user: mockUser,
+        params: {
+          id: 1,
+        },
+        query: {},
+      };
+
+      await expect(getUserById(req, mockRes)).rejects.toThrow(
+        "user lookup failed"
+      );
+    });
+  });
+
+  describe("createUser", () => {
+    beforeEach(() => {
+      schema.CREATE_USER_SCHEMA.validate.mockReturnValue({
+        error: null,
+      });
+
+      userDao.getUsersContactDao.mockResolvedValue(null);
+
+      cache.invalidateCompanyCacheByPrefix.mockResolvedValue();
+    });
+
+    it("should create user successfully", async () => {
+      userService.createUserService.mockResolvedValue({
+        id: 100,
+      });
+
+      const req = {
+        user: mockUser,
+        body: {
+          user_name: "  john  ",
+          contact_no: "9999999999",
+        },
+      };
+
+      await createUser(req, mockRes);
+
+      expect(userDao.getUsersContactDao).toHaveBeenCalledWith(
+        10,
+        "9999999999"
+      );
+
+      expect(userService.createUserService).toHaveBeenCalledWith(
         expect.objectContaining({
-            company_id: req.user.company_id,
-            page: req.query.page,
-            limit: req.query.limit,
-        }),
-        req.user.role,
-        req.query.page,
-        req.query.limit,
-        req.user.designation,
-        req.user.user_id,
-    );
+          user_name: "john",
+          company_id: 10,
+          created_by: 1,
+          updated_by: 1,
+          is_enabled: true,
+        })
+      );
 
-    expect(cache.writeJsonCache).toHaveBeenCalledTimes(1);
+      expect(cache.invalidateCompanyCacheByPrefix).toHaveBeenCalledWith(
+        10,
+        "users:read:",
+        "Users cache"
+      );
 
-    expect(responseHandlers.sendSuccess).toHaveBeenCalledWith(
-      mockRes,
-      serviceData,
-      "getUsers successfully"
-    );
-  });
-
-  test("should pass additional query filters", async () => {
-    req.query = {
-      page: "2",
-      limit: "20",
-      search: "john",
-      status: "active",
-    };
-
-    userService.getUsersService.mockResolvedValue({
-      Users: [],
-      totalCount: 0,
+      expect(responseHandlers.sendSuccess).toHaveBeenCalledWith(
+        mockRes,
+        {
+          id: 100,
+          created_by: "admin",
+        },
+        "Create user successfully"
+      );
     });
 
-    await getUsers(req, mockRes);
+    it("should throw validation error", async () => {
+      schema.CREATE_USER_SCHEMA.validate.mockReturnValue({
+        error: new Error("validation failed"),
+      });
 
-    expect(userService.getUsersService).toHaveBeenCalledWith(
-      {
-        company_id: 10,
-        page: "2",
-        limit: "20",
-        search: "john",
-        status: "active",
-      },
-      Role.ADMIN,
-      "2",
-      "20",
-      Role.ADMIN,
-      1
-    );
-  });
+      const req = {
+        user: mockUser,
+        body: {},
+      };
 
-  test("should normalize query before generating cache key", async () => {
-    userService.getUsersService.mockResolvedValue({
-      Users: [],
-      totalCount: 0,
+      await expect(createUser(req, mockRes)).rejects.toThrow();
     });
 
-    await getUsers(req, mockRes);
+    it("should throw when contact already exists", async () => {
+      userDao.getUsersContactDao.mockResolvedValue({
+        id: 20,
+      });
 
-    expect(cache.normalizeQueryForCache).toHaveBeenCalledWith(
-      req.query
-    );
+      const req = {
+        user: mockUser,
+        body: {
+          user_name: "john",
+          contact_no: "8888888888",
+        },
+      };
 
-    expect(redis.generateCacheKey).toHaveBeenCalled();
-  });
+      await expect(createUser(req, mockRes)).rejects.toThrow(
+        "Contact number already exists"
+      );
 
-  test("should write response into cache", async () => {
-    const serviceData = {
-      Users: [{ id: 5 }],
-      totalCount: 1,
-    };
-
-    userService.getUsersService.mockResolvedValue(serviceData);
-
-    await getUsers(req, mockRes);
-
-    expect(cache.writeJsonCache).toHaveBeenCalledWith(
-      expect.stringContaining("users:read:10:list:"),
-      serviceData,
-      60
-    );
-  });
-
-  test("should propagate service errors", async () => {
-    const error = new Error("Database failed");
-
-    userService.getUsersService.mockRejectedValue(error);
-
-    await expect(
-      getUsers(req, mockRes)
-    ).rejects.toThrow("Database failed");
-
-    expect(responseHandlers.sendSuccess).not.toHaveBeenCalled();
-  });
-
-  test("should use cache key generator", async () => {
-    userService.getUsersService.mockResolvedValue({
-      Users: [],
-      totalCount: 0,
+      expect(userService.createUserService).not.toHaveBeenCalled();
     });
 
-    await getUsers(req, mockRes);
+    it("should trim username before creating user", async () => {
+      userService.createUserService.mockResolvedValue({
+        id: 55,
+      });
 
-    expect(redis.generateCacheKey).toHaveBeenCalledWith(
-      expect.objectContaining({
-        company_id: 10,
-        role: Role.ADMIN,
-        user_id: 1,
-        designation: Role.ADMIN,
-      }),
-      "users-list"
-    );
-  });
+      const req = {
+        user: mockUser,
+        body: {
+          user_name: "   alice   ",
+          contact_no: "123456789",
+        },
+      };
 
-  test("should call readJsonCache with generated cache key", async () => {
-    userService.getUsersService.mockResolvedValue({
-      Users: [],
-      totalCount: 0,
+      await createUser(req, mockRes);
+
+      expect(userService.createUserService).toHaveBeenCalledWith(
+        expect.objectContaining({
+          user_name: "alice",
+        })
+      );
     });
 
-    await getUsers(req, mockRes);
+    it("should propagate create service error", async () => {
+      userService.createUserService.mockRejectedValue(
+        new Error("create failed")
+      );
 
-    expect(cache.readJsonCache).toHaveBeenCalledWith(
-      expect.stringContaining("users:read:10:list:"),
-      "Users list cache"
-    );
+      const req = {
+        user: mockUser,
+        body: {
+          user_name: "john",
+          contact_no: "1111111111",
+        },
+      };
+
+      await expect(createUser(req, mockRes)).rejects.toThrow(
+        "create failed"
+      );
+    });
   });
-});
 
-describe("updateUser", () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-
-    userService.userUpdateService.mockResolvedValue({
-      id: 10,
+  describe("updateUser", () => {
+    beforeEach(() => {
+      cache.invalidateCompanyCacheByPrefix.mockResolvedValue();
     });
 
-    invalidateCompanyCacheByPrefix.mockResolvedValue();
-  });
+    it("should update user successfully", async () => {
+      userService.userUpdateService.mockResolvedValue({
+        id: 200,
+      });
 
-  test("should update user successfully", async () => {
-    req.user = {
-      company_id: 1,
-      user_id: 5,
-      user_name: "admin",
-      designation: Role.ADMIN,
-    };
+      const req = {
+        user: mockUser,
+        params: {
+          id: 200,
+        },
+        body: {
+          first_name: "John",
+        },
+      };
 
-    req.params = {
-      id: "10",
-    };
+      await updateUser(req, mockRes);
 
-    req.body = {
-      first_name: "John",
-      last_name: "Doe",
-    };
+      expect(userService.userUpdateService).toHaveBeenCalledWith(
+        {
+          id: 200,
+          company_id: 10,
+        },
+        expect.objectContaining({
+          first_name: "John",
+          updated_by: 1,
+        })
+      );
 
-    await updateUser(req, res);
+      expect(cache.invalidateCompanyCacheByPrefix).toHaveBeenCalledWith(
+        10,
+        "users:read:",
+        "Users cache"
+      );
 
-    expect(userService.userUpdateService).toHaveBeenCalledWith(
-      {
-        id: "10",
-        company_id: 1,
-      },
-      {
-        first_name: "John",
-        last_name: "Doe",
-        updated_by: 5,
-      },
-    );
-
-    expect(invalidateCompanyCacheByPrefix).toHaveBeenCalled();
-
-    expect(sendSuccess).toHaveBeenCalledWith(
-      res,
-      {
-        id: 10,
-        updated_by: "admin",
-      },
-      "Update user successfully",
-    );
-  });
-
-  test("should strip immutable fields", async () => {
-    req.user = {
-      company_id: 1,
-      user_id: 5,
-      user_name: "admin",
-      designation: "USER",
-    };
-
-    req.params = {
-      id: "20",
-    };
-
-    req.body = {
-      first_name: "John",
-      password: "secret",
-      company_id: 99,
-      created_by: 88,
-      balance: 500,
-      role_id: 2,
-    };
-
-    await updateUser(req, res);
-
-    expect(userService.userUpdateService).toHaveBeenCalledWith(
-      {
-        id: "20",
-        company_id: 1,
-      },
-      {
-        first_name: "John",
-        updated_by: 5,
-      },
-    );
-  });
-
-  test("should allow admin to update privileged fields", async () => {
-    req.user = {
-      company_id: 1,
-      user_id: 2,
-      user_name: "superadmin",
-      designation: Role.ADMIN,
-    };
-
-    req.params = {
-      id: "4",
-    };
-
-    req.body = {
-      role_id: 3,
-      designation_id: 5,
-      is_two_factor_exempt: true,
-    };
-
-    await updateUser(req, res);
-
-    expect(userService.userUpdateService).toHaveBeenCalledWith(
-      {
-        id: "4",
-        company_id: 1,
-      },
-      {
-        role_id: 3,
-        designation_id: 5,
-        is_two_factor_exempt: true,
-        updated_by: 2,
-      },
-    );
-  });
-
-  test("should propagate service error", async () => {
-    userService.userUpdateService.mockRejectedValue(new Error("Update failed"));
-
-    req.user = {
-      company_id: 1,
-      user_id: 5,
-      user_name: "admin",
-      designation: Role.ADMIN,
-    };
-
-    req.params = {
-      id: "10",
-    };
-
-    req.body = {};
-
-    await expect(updateUser(req, res)).rejects.toThrow("Update failed");
-  });
-});
-
-describe("sendMail", () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-
-    sendMailService.mockResolvedValue(true);
-  });
-
-  test("should send mail successfully", async () => {
-    req.user = {
-      user_name: "admin",
-    };
-
-    req.body = {
-      user_id: 10,
-    };
-
-    await sendMail(req, res);
-
-    expect(sendMailService).toHaveBeenCalledWith({
-      user_id: 10,
+      expect(responseHandlers.sendSuccess).toHaveBeenCalledWith(
+        mockRes,
+        {
+          id: 200,
+          updated_by: "admin",
+        },
+        "Update user successfully"
+      );
     });
 
-    expect(sendSuccess).toHaveBeenCalledWith(
-      res,
-      {
-        mail_sent_by: "admin",
-      },
-      "Mail send successfully",
-    );
-  });
+    it("should remove immutable fields from payload", async () => {
+      userService.userUpdateService.mockResolvedValue({
+        id: 5,
+      });
 
-  test("should throw when service fails", async () => {
-    sendMailService.mockRejectedValue(new Error("Mail failed"));
+      const req = {
+        user: mockUser,
+        params: {
+          id: 5,
+        },
+        body: {
+          password: "secret",
+          balance: 500,
+          created_at: "today",
+          first_name: "Updated",
+        },
+      };
 
-    req.user = {
-      user_name: "admin",
-    };
+      await updateUser(req, mockRes);
 
-    req.body = {};
+      const payload =
+        userService.userUpdateService.mock.calls[0][1];
 
-    await expect(sendMail(req, res)).rejects.toThrow("Mail failed");
-  });
-});
-
-describe("toggleUser2FA", () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-
-    updateUser2FAService.mockResolvedValue();
-    invalidateCompanyCacheByPrefix.mockResolvedValue();
-  });
-
-  test("should enable 2FA requirement", async () => {
-    req.params = {
-      id: "8",
-    };
-
-    req.body = {
-      isTwoFactorRequired: true,
-    };
-
-    req.user = {
-      company_id: 1,
-    };
-
-    await toggleUser2FA(req, res);
-
-    expect(updateUser2FAService).toHaveBeenCalledWith(
-      "8",
-      true,
-    );
-
-    expect(invalidateCompanyCacheByPrefix).toHaveBeenCalled();
-
-    expect(sendSuccess).toHaveBeenCalledWith(
-      res,
-      {
-        id: "8",
-        isTwoFactorRequired: true,
-      },
-      "User 2FA requirement updated successfully",
-    );
-  });
-
-  test("should disable 2FA requirement", async () => {
-    req.params = {
-      id: "9",
-    };
-
-    req.body = {
-      isTwoFactorRequired: false,
-    };
-
-    req.user = {
-      company_id: 1,
-    };
-
-    await toggleUser2FA(req, res);
-
-    expect(updateUser2FAService).toHaveBeenCalledWith(
-      "9",
-      false,
-    );
-  });
-
-  test("should throw for invalid boolean", async () => {
-    req.params = {
-      id: "10",
-    };
-
-    req.body = {
-      isTwoFactorRequired: "yes",
-    };
-
-    req.user = {
-      company_id: 1,
-    };
-
-    await expect(
-      toggleUser2FA(req, res),
-    ).rejects.toBeInstanceOf(BadRequestError);
-  });
-
-  test("should propagate service error", async () => {
-    updateUser2FAService.mockRejectedValue(
-      new Error("Database error"),
-    );
-
-    req.params = {
-      id: "11",
-    };
-
-    req.body = {
-      isTwoFactorRequired: true,
-    };
-
-    req.user = {
-      company_id: 1,
-    };
-
-    await expect(
-      toggleUser2FA(req, res),
-    ).rejects.toThrow("Database error");
-  });
-});
-
-describe("resetUser2FA", () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-
-    resetUser2FAService.mockResolvedValue();
-    invalidateCompanyCacheByPrefix.mockResolvedValue();
-  });
-
-  test("should reset user 2FA", async () => {
-    req.params = {
-      id: "100",
-    };
-
-    req.user = {
-      user_id: 1,
-      user_name: "admin",
-      company_id: 10,
-    };
-
-    await resetUser2FA(req, res);
-
-    expect(resetUser2FAService).toHaveBeenCalledWith(
-      "100",
-      1,
-      "admin",
-    );
-
-    expect(invalidateCompanyCacheByPrefix).toHaveBeenCalled();
-
-    expect(sendSuccess).toHaveBeenCalledWith(
-      res,
-      {},
-      "2FA has been reset. User must re-enroll on next login.",
-    );
-  });
-
-  test("should propagate reset error", async () => {
-    resetUser2FAService.mockRejectedValue(
-      new Error("Reset failed"),
-    );
-
-    req.params = {
-      id: "100",
-    };
-
-    req.user = {
-      user_id: 1,
-      user_name: "admin",
-      company_id: 10,
-    };
-
-    await expect(
-      resetUser2FA(req, res),
-    ).rejects.toThrow("Reset failed");
-  });
-});
-
-describe("toggleUser2FAExemption", () => {
-  beforeEach(() => {
-    jest.clearAllMocks();
-
-    toggleUser2FAExemptionService.mockResolvedValue({
-      id: 11,
-      user_name: "john",
-      is_two_factor_exempt: true,
+      expect(payload.password).toBeUndefined();
+      expect(payload.balance).toBeUndefined();
+      expect(payload.created_at).toBeUndefined();
+      expect(payload.first_name).toBe("Updated");
     });
 
-    invalidateCompanyCacheByPrefix.mockResolvedValue();
+    it("should allow admin to update privileged fields", async () => {
+      userService.userUpdateService.mockResolvedValue({
+        id: 6,
+      });
+
+      const req = {
+        user: mockUser,
+        params: {
+          id: 6,
+        },
+        body: {
+          role: "MERCHANT",
+          designation: "MERCHANT",
+          role_id: 2,
+          designation_id: 2,
+        },
+      };
+
+      await updateUser(req, mockRes);
+
+      const payload =
+        userService.userUpdateService.mock.calls[0][1];
+
+      expect(payload.role).toBe("MERCHANT");
+      expect(payload.designation).toBe("MERCHANT");
+      expect(payload.role_id).toBe(2);
+      expect(payload.designation_id).toBe(2);
+    });
+
+    it("should strip privileged fields for non-admin user", async () => {
+      userService.userUpdateService.mockResolvedValue({
+        id: 7,
+      });
+
+      const req = {
+        user: {
+          ...mockUser,
+          designation: "MERCHANT",
+        },
+        params: {
+          id: 7,
+        },
+        body: {
+          role: "ADMIN",
+          designation: "ADMIN",
+          role_id: 99,
+          designation_id: 99,
+          first_name: "Merchant",
+        },
+      };
+
+      await updateUser(req, mockRes);
+
+      const payload =
+        userService.userUpdateService.mock.calls[0][1];
+
+      expect(payload.role).toBeUndefined();
+      expect(payload.designation).toBeUndefined();
+      expect(payload.role_id).toBeUndefined();
+      expect(payload.designation_id).toBeUndefined();
+      expect(payload.first_name).toBe("Merchant");
+    });
+
+    it("should propagate update service error", async () => {
+      userService.userUpdateService.mockRejectedValue(
+        new Error("update failed")
+      );
+
+      const req = {
+        user: mockUser,
+        params: {
+          id: 99,
+        },
+        body: {},
+      };
+
+      await expect(updateUser(req, mockRes)).rejects.toThrow(
+        "update failed"
+      );
+    });
   });
 
-  test("should grant exemption", async () => {
-    req.params = {
-      id: "11",
-    };
+  describe("sendMail", () => {
+    it("should send mail successfully", async () => {
+      userService.sendMailService.mockResolvedValue();
 
-    req.body = {
-      exempt: true,
-    };
+      const req = {
+        user: mockUser,
+        body: {
+          to: "test@example.com",
+          subject: "Test",
+          message: "Hello",
+        },
+      };
 
-    req.user = {
-      company_id: 2,
-    };
+      await sendMail(req, mockRes);
 
-    await toggleUser2FAExemption(req, res);
+      expect(userService.sendMailService).toHaveBeenCalledWith(req.body);
 
-    expect(toggleUser2FAExemptionService).toHaveBeenCalledWith(
-      "11",
-      true,
-    );
+      expect(responseHandlers.sendSuccess).toHaveBeenCalledWith(
+        mockRes,
+        {
+          mail_sent_by: "admin",
+        },
+        "Mail send successfully"
+      );
+    });
 
-    expect(sendSuccess).toHaveBeenCalledWith(
-      res,
-      {
-        id: 11,
+    it("should pass payload unchanged to service", async () => {
+      userService.sendMailService.mockResolvedValue();
+
+      const payload = {
+        to: "abc@test.com",
+        cc: "cc@test.com",
+        subject: "Subject",
+        message: "Testing",
+      };
+
+      const req = {
+        user: mockUser,
+        body: payload,
+      };
+
+      await sendMail(req, mockRes);
+
+      expect(userService.sendMailService).toHaveBeenCalledWith(payload);
+    });
+
+    it("should propagate service error", async () => {
+      userService.sendMailService.mockRejectedValue(
+        new Error("mail failed")
+      );
+
+      const req = {
+        user: mockUser,
+        body: {},
+      };
+
+      await expect(sendMail(req, mockRes)).rejects.toThrow(
+        "mail failed"
+      );
+    });
+  });
+
+  describe("toggleUser2FA", () => {
+    beforeEach(() => {
+      cache.invalidateCompanyCacheByPrefix.mockResolvedValue();
+    });
+
+    it("should enable 2FA successfully", async () => {
+      userService.updateUser2FAService.mockResolvedValue();
+
+      const req = {
+        user: mockUser,
+        params: {
+          id: 15,
+        },
+        body: {
+          isTwoFactorRequired: true,
+        },
+      };
+
+      await toggleUser2FA(req, mockRes);
+
+      expect(userService.updateUser2FAService).toHaveBeenCalledWith(
+        15,
+        true
+      );
+
+      expect(cache.invalidateCompanyCacheByPrefix).toHaveBeenCalledWith(
+        10,
+        "users:read:",
+        "Users cache"
+      );
+
+      expect(responseHandlers.sendSuccess).toHaveBeenCalledWith(
+        mockRes,
+        {
+          id: 15,
+          isTwoFactorRequired: true,
+        },
+        "User 2FA requirement updated successfully"
+      );
+    });
+
+    it("should disable 2FA successfully", async () => {
+      userService.updateUser2FAService.mockResolvedValue();
+
+      const req = {
+        user: mockUser,
+        params: {
+          id: 20,
+        },
+        body: {
+          isTwoFactorRequired: false,
+        },
+      };
+
+      await toggleUser2FA(req, mockRes);
+
+      expect(userService.updateUser2FAService).toHaveBeenCalledWith(
+        20,
+        false
+      );
+    });
+
+    it("should throw when value is not boolean", async () => {
+      const req = {
+        user: mockUser,
+        params: {
+          id: 1,
+        },
+        body: {
+          isTwoFactorRequired: "true",
+        },
+      };
+
+      await expect(
+        toggleUser2FA(req, mockRes)
+      ).rejects.toThrow(
+        "isTwoFactorRequired must be a boolean"
+      );
+
+      expect(
+        userService.updateUser2FAService
+      ).not.toHaveBeenCalled();
+    });
+
+    it("should propagate service error", async () => {
+      userService.updateUser2FAService.mockRejectedValue(
+        new Error("2FA update failed")
+      );
+
+      const req = {
+        user: mockUser,
+        params: {
+          id: 30,
+        },
+        body: {
+          isTwoFactorRequired: true,
+        },
+      };
+
+      await expect(
+        toggleUser2FA(req, mockRes)
+      ).rejects.toThrow("2FA update failed");
+    });
+  });
+
+  describe("toggleUser2FAExemption", () => {
+    beforeEach(() => {
+      cache.invalidateCompanyCacheByPrefix.mockResolvedValue();
+    });
+
+    it("should grant exemption successfully", async () => {
+      const serviceResult = {
+        id: 40,
         user_name: "john",
         is_two_factor_exempt: true,
-      },
-      "User 2FA exemption granted successfully",
-    );
-  });
+      };
 
-  test("should revoke exemption", async () => {
-    toggleUser2FAExemptionService.mockResolvedValue({
-      id: 11,
-      user_name: "john",
-      is_two_factor_exempt: false,
+      userService.toggleUser2FAExemptionService.mockResolvedValue(
+        serviceResult
+      );
+
+      const req = {
+        user: mockUser,
+        params: {
+          id: 40,
+        },
+        body: {
+          exempt: true,
+        },
+      };
+
+      await toggleUser2FAExemption(req, mockRes);
+
+      expect(
+        userService.toggleUser2FAExemptionService
+      ).toHaveBeenCalledWith(40, true);
+
+      expect(cache.invalidateCompanyCacheByPrefix).toHaveBeenCalledWith(
+        10,
+        "users:read:",
+        "Users cache"
+      );
+
+      expect(responseHandlers.sendSuccess).toHaveBeenCalledWith(
+        mockRes,
+        {
+          id: 40,
+          user_name: "john",
+          is_two_factor_exempt: true,
+        },
+        "User 2FA exemption granted successfully"
+      );
     });
 
-    req.params = {
-      id: "11",
-    };
-
-    req.body = {
-      exempt: false,
-    };
-
-    req.user = {
-      company_id: 2,
-    };
-
-    await toggleUser2FAExemption(req, res);
-
-    expect(sendSuccess).toHaveBeenCalledWith(
-      res,
-      {
-        id: 11,
-        user_name: "john",
+    it("should revoke exemption successfully", async () => {
+      const serviceResult = {
+        id: 50,
+        user_name: "smith",
         is_two_factor_exempt: false,
-      },
-      "User 2FA exemption revoked successfully",
-    );
+      };
+
+      userService.toggleUser2FAExemptionService.mockResolvedValue(
+        serviceResult
+      );
+
+      const req = {
+        user: mockUser,
+        params: {
+          id: 50,
+        },
+        body: {
+          exempt: false,
+        },
+      };
+
+      await toggleUser2FAExemption(req, mockRes);
+
+      expect(responseHandlers.sendSuccess).toHaveBeenCalledWith(
+        mockRes,
+        serviceResult,
+        "User 2FA exemption revoked successfully"
+      );
+    });
+
+    it("should throw when exempt is not boolean", async () => {
+      const req = {
+        user: mockUser,
+        params: {
+          id: 60,
+        },
+        body: {
+          exempt: "true",
+        },
+      };
+
+      await expect(
+        toggleUser2FAExemption(req, mockRes)
+      ).rejects.toThrow("exempt must be a boolean");
+
+      expect(
+        userService.toggleUser2FAExemptionService
+      ).not.toHaveBeenCalled();
+    });
+
+    it("should throw when service returns null", async () => {
+      userService.toggleUser2FAExemptionService.mockResolvedValue(
+        null
+      );
+
+      const req = {
+        user: mockUser,
+        params: {
+          id: 70,
+        },
+        body: {
+          exempt: true,
+        },
+      };
+
+      await expect(
+        toggleUser2FAExemption(req, mockRes)
+      ).rejects.toThrow(
+        "User not found or update failed"
+      );
+    });
+
+    it("should propagate service error", async () => {
+      userService.toggleUser2FAExemptionService.mockRejectedValue(
+        new Error("toggle failed")
+      );
+
+      const req = {
+        user: mockUser,
+        params: {
+          id: 80,
+        },
+        body: {
+          exempt: true,
+        },
+      };
+
+      await expect(
+        toggleUser2FAExemption(req, mockRes)
+      ).rejects.toThrow("toggle failed");
+    });
   });
 
-  test("should throw BadRequestError for invalid exempt value", async () => {
-    req.params = {
-      id: "12",
-    };
+  describe("resetUser2FA", () => {
+    beforeEach(() => {
+      cache.invalidateCompanyCacheByPrefix.mockResolvedValue();
+    });
 
-    req.body = {
-      exempt: "true",
-    };
+    it("should reset user 2FA successfully", async () => {
+      userService.resetUser2FAService.mockResolvedValue();
 
-    req.user = {
-      company_id: 2,
-    };
+      const req = {
+        user: mockUser,
+        params: {
+          id: 90,
+        },
+      };
 
-    await expect(
-      toggleUser2FAExemption(req, res),
-    ).rejects.toBeInstanceOf(BadRequestError);
-  });
+      await resetUser2FA(req, mockRes);
 
-  test("should throw when service returns null", async () => {
-    toggleUser2FAExemptionService.mockResolvedValue(null);
+      expect(userService.resetUser2FAService).toHaveBeenCalledWith(
+        90,
+        1,
+        "admin"
+      );
 
-    req.params = {
-      id: "12",
-    };
+      expect(cache.invalidateCompanyCacheByPrefix).toHaveBeenCalledWith(
+        10,
+        "users:read:",
+        "Users cache"
+      );
 
-    req.body = {
-      exempt: true,
-    };
+      expect(responseHandlers.sendSuccess).toHaveBeenCalledWith(
+        mockRes,
+        {},
+        "2FA has been reset. User must re-enroll on next login."
+      );
+    });
 
-    req.user = {
-      company_id: 2,
-    };
+    it("should propagate reset service error", async () => {
+      userService.resetUser2FAService.mockRejectedValue(
+        new Error("reset failed")
+      );
 
-    await expect(
-      toggleUser2FAExemption(req, res),
-    ).rejects.toBeInstanceOf(BadRequestError);
-  });
+      const req = {
+        user: mockUser,
+        params: {
+          id: 91,
+        },
+      };
 
-  test("should propagate service exception", async () => {
-    toggleUser2FAExemptionService.mockRejectedValue(
-      new Error("DB failed"),
-    );
-
-    req.params = {
-      id: "12",
-    };
-
-    req.body = {
-      exempt: true,
-    };
-
-    req.user = {
-      company_id: 2,
-    };
-
-    await expect(
-      toggleUser2FAExemption(req, res),
-    ).rejects.toThrow("DB failed");
+      await expect(
+        resetUser2FA(req, mockRes)
+      ).rejects.toThrow("reset failed");
+    });
   });
 });
