@@ -178,7 +178,7 @@ const coldLookup = async (ip, ipKey, budgetMs) => {
  * - It returns null only when the IP is real but no layer could resolve it.
  * - It never throws.
  */
-export const getIntelligence = async (ip, budgetMs = 300) => {
+export const getIntelligence = async (ip, budgetMs = 1500) => {
   const value = normalizeIp(ip);
   if (!value || isLoopback(value)) {
     return defaultIntel(value, null);

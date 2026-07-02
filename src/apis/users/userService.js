@@ -359,8 +359,8 @@ const getUsersInfoBySearchService = async (
 ) => {
   try {  
 
-    const pageNumber = parseInt(page, 10) || 1;
-    const pageSize = parseInt(limit, 10) || 10;
+    const pageNumber = Number.parseInt(page, 10) || 1;
+    const pageSize = Number.parseInt(limit, 10) || 10;
 
     let searchTerms;
     if (ids.search) {
