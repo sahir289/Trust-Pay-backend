@@ -57,7 +57,7 @@ router.post('/success_ratio', tryCatchHandler(calculateSuccessRatios));
  *       500:
  *         description: Internal server error
  */
-router.get(
+router.post(
   '/',
   [isAuthenticated, authorized(AccessRoles.CALCULATION)],
   tryCatchHandler(getCalculation),
