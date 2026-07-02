@@ -71,7 +71,7 @@ const getCalculationById = async (req, res) => {
 const getCalculation = async (req, res) => {
   // You can add additional validation here if needed, depending on the request
   const { company_id, user_id, designation, role } = req.user;
-  const normalizedQuery = normalizeQueryForCache(req.query);
+  const normalizedQuery = normalizeQueryForCache(req.body || req.query);
   const cacheKey = `calculation:read:${company_id}:list:${generateCacheKey(
     {
       company_id,
@@ -84,7 +84,7 @@ const getCalculation = async (req, res) => {
   )}`;
 
   const cached = await readJsonCache(cacheKey, 'Calculation list cache');
-  if (shouldServeCachedResponse(cached, req.query)) {
+  if (shouldServeCachedResponse(cached, req.body || req.query)) {
     return sendSuccess(res, cached, 'Get Calculations successfully');
   }
 
@@ -93,9 +93,9 @@ const getCalculation = async (req, res) => {
       company_id,
       user_id,
       designation,
-      users: req.query.users,
-      startDate: req.query.startDate,
-      endDate: req.query.endDate,
+      users: req.body.users,
+      startDate: req.body.startDate,
+      endDate: req.body.endDate,
     },
     role,
   );
