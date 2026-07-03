@@ -1,4 +1,4 @@
-import { sendV2Success } from './responseHandlers.js';
+import { sendSuccess } from './responseHandlers.js';
 
 // ---------------------------------------------------------------------------
 // V2 response adapter
@@ -46,7 +46,7 @@ const adaptResponseToV2 = (res) => {
           }
 
           // Emit on the REAL res (target) so we don't recurse through the proxy.
-          return sendV2Success(target, data, message, statusCode, pagination);
+          return sendSuccess(target, data, message, statusCode, pagination);
         };
       }
 

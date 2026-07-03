@@ -3,7 +3,7 @@ import {
   getPayOutReportService,
   getClientsAccountReportService,
 } from '../../reports/reportsService.js';
-import { sendV2Success } from '../../../utils/responseHandlers.js';
+import { sendSuccess } from '../../../utils/responseHandlers.js';
 
 /**
  * v2 twins of the v1 reports endpoints. Each reuses the exact same service as
@@ -14,15 +14,15 @@ import { sendV2Success } from '../../../utils/responseHandlers.js';
  */
 export const getPayInReportV2 = async (req, res) => {
   const result = await getPayInReportService(req);
-  return sendV2Success(res, result, 'Got Pay-In report');
+  return sendSuccess(res, result, 'Got Pay-In report');
 };
 
 export const getPayOutReportV2 = async (req, res) => {
   const result = await getPayOutReportService(req);
-  return sendV2Success(res, result, 'Got Pay-Out report');
+  return sendSuccess(res, result, 'Got Pay-Out report');
 };
 
 export const getClientsAccountReportV2 = async (req, res) => {
   const result = await getClientsAccountReportService(req);
-  return sendV2Success(res, result, 'Reports fetched successfully');
+  return sendSuccess(res, result, 'Reports fetched successfully');
 };

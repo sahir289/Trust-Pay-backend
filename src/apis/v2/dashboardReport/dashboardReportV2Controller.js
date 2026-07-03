@@ -1,5 +1,5 @@
 import gatherDataForCompany from '../../dashboardReport/dashboardReportService.js';
-import { sendV2Success } from '../../../utils/responseHandlers.js';
+import { sendSuccess } from '../../../utils/responseHandlers.js';
 import { BadRequestError } from '../../../utils/appErrors.js';
 
 /**
@@ -19,7 +19,7 @@ const gatherCompanyDataV2 = async (req, res) => {
   }
 
   const result = await gatherDataForCompany(company_id, date);
-  return sendV2Success(
+  return sendSuccess(
     res,
     result,
     'Data gathered and Telegram report sent successfully',

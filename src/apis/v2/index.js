@@ -1,7 +1,7 @@
 import express from 'express';
 import { auditLogMiddleware } from '../../middlewares/auditLog.js';
 import { globalRateLimitMiddleware } from '../../middlewares/rateLimiter.js';
-import { sendV2Success } from '../../utils/responseHandlers.js';
+import { sendSuccess } from '../../utils/responseHandlers.js';
 import { getVersionString } from '../../../version.js';
 import v2ErrorHandler from '../../middlewares/v2ErrorHandler.js';
 import payInV2 from './payIn/index.js';
@@ -37,11 +37,11 @@ v2Router.use(globalRateLimitMiddleware);
 // Liveness + version, exposed through the standardized v2 envelope so clients
 // can validate the v2 contract shape.
 v2Router.get('/version', (req, res) =>
-  sendV2Success(res, { version: getVersionString(), apiVersion: 'v2' }, 'OK'),
+  sendSuccess(res, { version: getVersionString(), apiVersion: 'v2' }, 'OK'),
 );
 
 v2Router.get('/health', (req, res) =>
-  sendV2Success(
+  sendSuccess(
     res,
     { status: 'ok', uptimeSeconds: Math.round(process.uptime()) },
     'OK',
