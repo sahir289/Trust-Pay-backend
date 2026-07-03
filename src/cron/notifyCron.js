@@ -7,6 +7,7 @@ import {
 import { merchantPayinCallback } from '../callBacksAndWebHook/merchantCallBacks.js';
 import { logger } from '../utils/logger.js';
 import { calculateDuration } from '../helpers/index.js';
+import { getMerchantsKeysDao } from '../apis/merchants/merchantDao.js';
 
 const parsePositiveInt = (value, fallback) => {
   const parsed = Number.parseInt(value, 10);
@@ -269,8 +270,10 @@ async function processPayinNotifications(payins) {
     };
     try {
       if (payin?.config?.urls?.notify) {
+          const Key = await getMerchantsKeysDao(payin?.merchant_id);
+          const secretKey = Key?.private || null;
         // This is async function but it's just the callback sending function there fore we are not using await
-        merchantPayinCallback(payin?.config?.urls?.notify, notificationData);
+        merchantPayinCallback(payin?.config?.urls?.notify, notificationData, secretKey);
         await updatePayInUrlDao(payin.id, { is_notified: 'true' });
       } else {
         logger.warn('Notify URL is missing for payin', { payinId: payin?.id });

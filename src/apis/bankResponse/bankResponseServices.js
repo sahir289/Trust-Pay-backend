@@ -36,7 +36,7 @@ import {
   getPayInsForResetBankResDao,
   updatePayInUrlDao,
 } from '../payIn/payInDao.js';
-import { getMerchantsBankResponseDao } from '../merchants/merchantDao.js';
+import { getMerchantsBankResponseDao, getMerchantsKeysDao } from '../merchants/merchantDao.js';
 import { calculateCommission } from '../../utils/calculation.js';
 import {
   getVendorsDao,
@@ -626,6 +626,9 @@ const createBankResponseService = async (
             updateBotResponseDao(botRes.id, { is_used: true }, conn),
           ]);
 
+          const Key = await getMerchantsKeysDao(payInUtr.merchant_id, conn);
+          const secretKey = Key?.private || null;
+
           const currentPayinBank = await getBankaccountDashBoardReportDao(
             {
               id: payInUtr.bank_acc_id,
@@ -676,7 +679,7 @@ const createBankResponseService = async (
               amount: botRes.amount,
               reqAmount: updatePayInDataRes.amount,
               utrId: updatePayInDataRes.user_submitted_utr,
-            });
+            }, secretKey);
           }
           // await sendNotification(Status.BANK_MISMATCH, {
           //   id: payInUtr.id,
@@ -850,6 +853,8 @@ const createBankResponseService = async (
             conn,
           );
           await updateBotResponseDao(botRes.id, { is_used: true }, conn);
+          const Key = await getMerchantsKeysDao(payInUtr.merchant_id, conn);
+          const secretKey = Key?.private || null;
 
           const obj = {
             id: updatePayin.id,
@@ -892,7 +897,7 @@ const createBankResponseService = async (
             amount: botRes.amount,
             reqAmount: updatePayin.amount,
             utrId: updatePayin.user_submitted_utr,
-          });
+          }, secretKey);
           const merchantDataBalance = merchantData[0].balance + amount;
           if (isNaN(merchantDataBalance)) {
             throw new BadRequestError('Invalid amount or commission');
@@ -961,6 +966,8 @@ const createBankResponseService = async (
             updateBotResponseDao(botRes.id, { is_used: true }, conn),
           ]);
           let obj = {};
+          const Key = await getMerchantsKeysDao(payInUtr?.merchant_id, conn);
+          const secretKey = Key?.private || null;
           if (updatePayInDataRes) {
             obj = {
               id: updatePayInDataRes.id,
@@ -1003,7 +1010,7 @@ const createBankResponseService = async (
               amount: botRes.amount,
               reqAmount: updatePayInDataRes.amount,
               utrId: updatePayInDataRes.user_submitted_utr,
-            });
+            }, secretKey);
           }
 
           // await sendNotification(Status.DISPUTE, {
