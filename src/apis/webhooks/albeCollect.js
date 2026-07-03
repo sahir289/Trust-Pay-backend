@@ -9,6 +9,7 @@ import { getConnection, beginTransaction, commit, rollback } from '../../utils/d
 
 export const albeCollectWebhook = async (req, res) => {
   let lockKey;
+  let hasDistributedLock = false;
   let conn;
   let committed = false;
   try {
@@ -29,9 +30,10 @@ export const albeCollectWebhook = async (req, res) => {
     const lockAcquired = await acquireLock(lockKey, 'albeCollect');
     if (!lockAcquired) {
       logger.warn(
-        `Duplicate concurrent webhook skipped for ${lockKey} and clientRefNo ${clientRefNo}`,
+        `Distributed lock not acquired for ${lockKey} and clientRefNo ${clientRefNo}, continuing without lock`,
       );
-      return;
+    } else {
+      hasDistributedLock = true;
     }
 
     conn = await getConnection();
@@ -94,7 +96,7 @@ export const albeCollectWebhook = async (req, res) => {
         logger.error('Error releasing DB connection:', releaseErr);
       }
     }
-    if (lockKey) {
+    if (lockKey && hasDistributedLock) {
       await releaseLock(lockKey, 'albeCollect');
     }
   }
