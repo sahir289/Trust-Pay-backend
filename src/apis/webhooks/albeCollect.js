@@ -30,11 +30,11 @@ export const albeCollectWebhook = async (req, res) => {
     const lockAcquired = await acquireLock(lockKey, 'albeCollect');
     if (!lockAcquired) {
       logger.warn(
-        `Duplicate concurrent webhook skipped for ${lockKey} and clientRefNo ${clientRefNo}`,
+        `Distributed lock not acquired for ${lockKey} and clientRefNo ${clientRefNo}, continuing without lock`,
       );
-      return;
+    } else {
+      hasDistributedLock = true;
     }
-    hasDistributedLock = true;
 
     conn = await getConnection();
     await beginTransaction(conn);
