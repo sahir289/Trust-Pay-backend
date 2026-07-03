@@ -5,38 +5,42 @@ const API_VERSION_V1 = 'v1';
 
 const sendSuccess = (
   res,
-  Data = {},
+  data = {},
   message = '',
   status = 200,
   total,
   page,
 ) => {
-  let finalRes = {
+  const requestId = res.req?.identifier || null;
+  let body = {
+    success: true,
     statusCode: status,
-    apiVersion: API_VERSION_V1,
-    error: {},
+    apiVersion: API_VERSION_V2,
+    requestId,
+    timestamp: new Date().toISOString(),
+    message: message || '',
+    data: data ?? {},
     meta: {},
-    data: {},
   };
 
   if (message) {
-    finalRes.meta.message = message;
+    body.meta.message = message;
   }
-  if (Data) {
-    finalRes.data = Data;
+  if (data) {
+    body.data = data;
   }
   if (total) {
-    finalRes = { ...finalRes, total };
+    body = { ...body, total };
   }
   if (page) {
-    finalRes = { ...finalRes, page };
+    body = { ...body, page };
   }
-  if (res.req.method != 'GET') {
-    logger.info(message, { status, data: finalRes.data });
-  } else {
+  if (res.req.method == 'GET') {
     logger.info(message, { status });
+  } else {
+    logger.info(message, { status, data: body.data });
   }
-  return res.status(status).json(finalRes);
+  return res.status(status).json(body);
 };
 
 const sendNewSuccess = (res, Data = {}, message = '', status = 200) => {
