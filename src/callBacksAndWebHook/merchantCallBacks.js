@@ -1,9 +1,9 @@
 import axios from 'axios';
-import crypto from 'crypto';
 import { logger } from '../utils/logger.js';
 import { BadRequestError } from '../utils/appErrors.js';
 import { assertSafeOutboundUrl } from '../utils/ssrfGuard.js';
 import { publishMerchantCallback } from '../rabbitmq/producer.js';
+import { generateSignature } from '../utils/signaturegenrate.js';
 
 // When enabled, merchant callbacks are published to a durable RabbitMQ queue
 // (retry + DLQ) and delivered by a dedicated consumer, so a slow/failing
@@ -26,10 +26,10 @@ const CALLBACK_MAX_CONTENT_LENGTH = Number(
 // computed at actual send time (here), so it is correct for both the direct and
 // queued delivery paths and stays fresh across retries; the secret is read from
 // the environment and never travels through the queue.
-const CALLBACK_SIGNING_ENABLED =
-  String(process.env.CALLBACK_SIGNING_ENABLED || '').toLowerCase() === 'true';
-const CALLBACK_SIGNING_SECRET = process.env.CALLBACK_SIGNING_SECRET || '';
-const CALLBACK_SIGNATURE_VERSION = 'v1';
+// const CALLBACK_SIGNING_ENABLED =
+//   String(process.env.CALLBACK_SIGNING_ENABLED || '').toLowerCase() === 'true';
+// const CALLBACK_SIGNING_SECRET = process.env.CALLBACK_SIGNING_SECRET || '';
+// const CALLBACK_SIGNATURE_VERSION = 'v1';
 
 /**
  * Builds the request body + headers for a callback. When signing is enabled and
@@ -41,24 +41,26 @@ const CALLBACK_SIGNATURE_VERSION = 'v1';
  * Signature scheme: HMAC-SHA256(secret, `${timestamp}.${rawBody}`), hex.
  * Headers: X-TrustPay-Timestamp, X-TrustPay-Signature (t=<ts>,v1=<sig>).
  */
-const buildSignedRequest = (data) => {
-  if (!CALLBACK_SIGNING_ENABLED || !CALLBACK_SIGNING_SECRET) {
+const buildSignedRequest = (data, secretKey) => {
+  // if (!CALLBACK_SIGNING_ENABLED || !CALLBACK_SIGNING_SECRET) {
+  //   return { body: data, headers: {} };
+  // }
+
+  if(!secretKey){
     return { body: data, headers: {} };
   }
 
   const rawBody = JSON.stringify(data ?? {});
   const timestamp = Math.floor(Date.now() / 1000);
-  const signature = crypto
-    .createHmac('sha256', CALLBACK_SIGNING_SECRET)
-    .update(`${timestamp}.${rawBody}`)
-    .digest('hex');
+
+  const signature = generateSignature(secretKey, timestamp, rawBody);
 
   return {
     body: rawBody,
     headers: {
       'Content-Type': 'application/json',
-      'X-TrustPay-Timestamp': String(timestamp),
-      'X-TrustPay-Signature': `t=${timestamp},${CALLBACK_SIGNATURE_VERSION}=${signature}`,
+      'X-Webhook-Timestamp': String(timestamp),
+      'X-Webhook-Signature': {signature},
     },
   };
 };
@@ -68,7 +70,7 @@ const buildSignedRequest = (data) => {
  * queue consumer can drive retry/DLQ. SSRF-guarded: merchant-supplied notify
  * URLs must not target internal / loopback / link-local / metadata ranges.
  */
-export const deliverMerchantNotification = async (url, data, type) => {
+export const deliverMerchantNotification = async (url, data, type, secretKey) => {
   if (!url) {
     logger.error(`No URL provided for ${type} Notification`);
     throw new BadRequestError('Notify Url not found!');
@@ -79,7 +81,7 @@ export const deliverMerchantNotification = async (url, data, type) => {
   logger.info(`Sending ${type} Notification to Merchant`, {
     notify_url: url,
   });
-  const { body, headers } = buildSignedRequest(data);
+  const { body, headers } = buildSignedRequest(data, secretKey);
   const response = await axios.post(url, body, {
     timeout: CALLBACK_TIMEOUT_MS,
     maxRedirects: 0,
@@ -100,9 +102,9 @@ export const deliverMerchantNotification = async (url, data, type) => {
  * error object — preserving the original fire-and-forget semantics for the
  * non-queued path.
  */
-const sendMerchantNotificationDirect = async (url, data, type) => {
+const sendMerchantNotificationDirect = async (url, data, type, secretKey) => {
   try {
-    return await deliverMerchantNotification(url, data, type);
+    return await deliverMerchantNotification(url, data, type, secretKey);
   } catch (error) {
     const errorMessage = error?.message || 'Unknown error';
     const statusCode = error?.response?.status || 'N/A';
@@ -124,10 +126,10 @@ const sendMerchantNotificationDirect = async (url, data, type) => {
  * Routes a callback through the durable queue when enabled; otherwise (or if
  * the publish fails) delivers directly so a callback is never lost.
  */
-const dispatchMerchantNotification = async (url, data, type) => {
+const dispatchMerchantNotification = async (url, data, type, secretKey) => {
   if (CALLBACK_QUEUE_ENABLED) {
     try {
-      await publishMerchantCallback({ url, data, type });
+      await publishMerchantCallback({ url, data, type, secretKey });
       logger.info(`[Callback] ${type} notification queued`, { url });
       return { queued: true };
     } catch (error) {
@@ -139,10 +141,10 @@ const dispatchMerchantNotification = async (url, data, type) => {
     }
   }
 
-  return sendMerchantNotificationDirect(url, data, type);
+  return sendMerchantNotificationDirect(url, data, type, secretKey);
 };
 
-export const merchantPayinCallback = async (url, data) =>
-  dispatchMerchantNotification(url, data, 'Payin');
-export const merchantPayoutCallback = async (url, data) =>
-  dispatchMerchantNotification(url, data, 'Payout');
+export const merchantPayinCallback = async (url, data, secretKey) =>
+  dispatchMerchantNotification(url, data, 'Payin', secretKey);
+export const merchantPayoutCallback = async (url, data, secretKey) =>
+  dispatchMerchantNotification(url, data, 'Payout', secretKey);

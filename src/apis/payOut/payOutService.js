@@ -24,6 +24,7 @@ import {
   getMerchantByUserIdDao,
   getMerchantsByCodeDao,
   getMerchantByIdDao,
+  getMerchantsKeysDao,
 } from '../merchants/merchantDao.js';
 import {
   getVendorByIdDao,
@@ -1518,6 +1519,8 @@ const _updatePayoutServiceInternal = async (
       data.approved_at !== null;
 
     const notifyUrl = data.config?.urls?.notify || merchant?.payout_notify;
+       const Key = await getMerchantsKeysDao(merchant.id);
+        const secretKey = Key?.private || null;
 
     // Early return if not approved
     if (!data.approved_at && data.status !== Status.PENDING && !data.rejected_at) {
@@ -1528,7 +1531,7 @@ const _updatePayoutServiceInternal = async (
         amount: data.amount,
         status: data.status,
         utr_id: data.utr_id || '',
-      });
+      }, secretKey);
       earlyReturnResult = data;
     }
 
@@ -1679,7 +1682,7 @@ await updateBankAccountBalanceDao(
         amount: data.amount,
         status: data.status,
         utr_id: data.utr_id || '',
-      });
+      }, secretKey);
     }
 
     const finalResult = filterResponse(data, filterColumns);
@@ -1916,6 +1919,9 @@ const updatePayoutWebhookService = async (ids, payload, conn = null) => {
       data.config?.urls?.notify ||
       merchant?.config?.urls?.payout_notify ||
       merchant?.payout_notify;
+
+      const Key = await getMerchantsKeysDao(merchant.id);
+      const secretKey = Key?.private || null;
     if (data.status !== Status.PENDING) {
       merchantPayoutCallback(notifyUrl, {
         code: merchant.code,
@@ -1924,7 +1930,7 @@ const updatePayoutWebhookService = async (ids, payload, conn = null) => {
         amount: data.amount,
         status: data.status,
         utr_id: data.utr_id || '',
-      });
+      }, secretKey);
     }
     emitTableEntryAsync(tableName.PAYOUT, responseObj);
     return data;

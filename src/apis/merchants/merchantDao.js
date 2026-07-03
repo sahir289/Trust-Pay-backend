@@ -587,6 +587,38 @@ export const getMerchantsByAuthCodeDao = async (
   }
 };
 
+export const getMerchantsKeysDao = async (
+  merchantId,
+  conn = null,
+) => {
+  try {
+    if (!merchantId) return {};
+    const merchant_id = merchantId.trim();
+
+    const query = `
+      SELECT 
+        m.id,
+        m.config->'keys'->>'private' AS private_key,
+        m.company_id
+      FROM "Merchant" m
+      WHERE 
+        m.is_enabled = TRUE
+        AND m.is_obsolete = FALSE
+        AND m.id = $1
+      LIMIT 1;
+    `;
+
+    const params = [merchant_id];
+
+    const result = await executeQuery(query, params, conn);
+    return result?.rows[0] ?? {} ;
+  } catch (error) {
+    logger.error('Error in getMerchantsByCodeAndApiKeyDao:', error);
+    throw error;
+  }
+};
+
+
 export const getMerchantsByCodeAndApiKeyDao = async (
   code,
   api_key,
