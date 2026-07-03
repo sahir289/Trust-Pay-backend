@@ -674,8 +674,8 @@ const createBankResponseService = async (
               merchantOrderId: updatePayInDataRes.merchant_order_id,
               payinId: updatePayInDataRes.id,
               amount: botRes.amount,
-              req_amount: updatePayInDataRes.amount,
-              utr_id: updatePayInDataRes.user_submitted_utr,
+              reqAmount: updatePayInDataRes.amount,
+              utrId: updatePayInDataRes.user_submitted_utr,
             });
           }
           // await sendNotification(Status.BANK_MISMATCH, {
@@ -890,8 +890,8 @@ const createBankResponseService = async (
             merchantOrderId: updatePayin.merchant_order_id,
             payinId: updatePayin.id,
             amount: botRes.amount,
-            req_amount: updatePayin.amount,
-            utr_id: updatePayin.user_submitted_utr,
+            reqAmount: updatePayin.amount,
+            utrId: updatePayin.user_submitted_utr,
           });
           const merchantDataBalance = merchantData[0].balance + amount;
           if (isNaN(merchantDataBalance)) {
@@ -1001,8 +1001,8 @@ const createBankResponseService = async (
               merchantOrderId: updatePayInDataRes.merchant_order_id,
               payinId: updatePayInDataRes.id,
               amount: botRes.amount,
-              req_amount: updatePayInDataRes.amount,
-              utr_id: updatePayInDataRes.user_submitted_utr,
+              reqAmount: updatePayInDataRes.amount,
+              utrId: updatePayInDataRes.user_submitted_utr,
             });
           }
 
