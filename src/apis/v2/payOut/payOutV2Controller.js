@@ -1,10 +1,10 @@
 import { createPayoutService } from '../../payOut/payOutService.js';
 import { PAYOUT_DETAILS_V2_SCHEMA, VALIDATE_CHECK_PAY_OUT_V2_STATUS } from '../../../schemas/payoutSchema.js';
-import { ValidationError } from '../../../utils/appErrors.js';
+import { BadRequestError, ValidationError } from '../../../utils/appErrors.js';
 import { invalidateCompanyCacheByPrefix } from '../../../utils/controllerCache.js';
-import { sendV2Success, sendV2Error } from '../../../utils/responseHandlers.js';
+import { sendError, sendSuccess } from '../../../utils/responseHandlers.js';
 import { STATUS_ERROR_CODES } from '../../../constants/index.js';
-import { checkPayOutStatusV2Service } from './payOutV2Service.js';
+import { checkPayOutStatusV2Service, getWalletBalanceService } from './payOutV2Service.js';
 
 /**
  * POST /v2/payOut/create-payout
@@ -20,7 +20,7 @@ import { checkPayOutStatusV2Service } from './payOutV2Service.js';
  * -> idempotency({ required: true }). All replay/signature protection is
  * default-OFF and activates only when its feature flag is enabled.
  */
-const createPayoutV2 = async (req, res) => {
+export const createPayoutV2 = async (req, res) => {
   const code = req.headers['x-auth-code'];
   const payload = req.body;
 
@@ -32,7 +32,7 @@ const createPayoutV2 = async (req, res) => {
   const result = await createPayoutService(req.headers, {...payload, code});
 
   if (result.status === 400 || result.status === 404) {
-    return sendV2Error(
+    return sendError(
       res,
       result.message,
       result.status,
@@ -51,7 +51,7 @@ const createPayoutV2 = async (req, res) => {
     payoutId: result.id,
     amount: result.amount,
   };
-  return sendV2Success(res, data, 'Payout created successfully', 201);
+  return sendSuccess(res, data, 'Payout created successfully', 201);
 };
 
 export const checkPayOutV2Status = async (req, res) => {
@@ -66,10 +66,17 @@ export const checkPayOutV2Status = async (req, res) => {
   );
   // sendSuccess(res, data);
   if (data.status === 400 || data.status === 404) {
-    return sendV2Error(res, data.message, data.status);
+    return sendError(res, data.message, data.status);
   } else {
-    return sendV2Success(res, data, 'PayOut status fetched successfully');
+    return sendSuccess(res, data, 'PayOut status fetched successfully');
   }
 };
 
-export { createPayoutV2 };
+export const getWalletBalanceV2 = async (req, res) => {
+  const code = req.headers['x-auth-code'];
+  if (!code) throw new BadRequestError('x-auth-code is required');
+
+  const data = await getWalletBalanceService(code);
+  return sendSuccess(res, data, 'Wallet balance fetched successfully');
+};
+

@@ -1,5 +1,5 @@
 import { getMerchantsByCodeAndApiKeyDao } from '../apis/merchants/merchantDao.js';
-import { sendError, sendV2Error } from '../utils/responseHandlers.js';
+import { sendError } from '../utils/responseHandlers.js';
 import { V2_ERROR_CODES } from '../constants/index.js';
 import { getVendorByAuthCodeDao } from '../apis/vendors/vendorDao.js';
 
@@ -144,19 +144,19 @@ export const checkMerchantApiKeyV2 = async (req, res, next) => {
     const userIp = resolveMerchantClientIp(req);
 
     if (!x_public_key) {
-      return sendV2Error(res, 'x-api-key header is missing', 401, V2_ERROR_CODES.API_KEY_MISSING);
+      return sendError(res, 'x-api-key header is missing', 401, V2_ERROR_CODES.API_KEY_MISSING);
     }
 
     const merchantArr = await getMerchantsByCodeAndApiKeyDao(code, x_public_key);
     const merchant = merchantArr[0];
     if (!merchant) {
-      return sendV2Error(res, 'Invalid merchant code or API key', 401, V2_ERROR_CODES.INVALID_API_KEY);
+      return sendError(res, 'Invalid merchant code or API key', 401, V2_ERROR_CODES.INVALID_API_KEY);
     }
 
     if (merchant?.config?.whitelist_ips) {
       const whitelist = normalizeWhitelist(merchant.config.whitelist_ips);
       if (whitelist.length > 0 && !whitelist.includes(userIp)) {
-        return sendV2Error(res, 'IP not whitelisted', 403, V2_ERROR_CODES.IP_NOT_WHITELISTED);
+        return sendError(res, 'IP not whitelisted', 403, V2_ERROR_CODES.IP_NOT_WHITELISTED);
       }
     }
 

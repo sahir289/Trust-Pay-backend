@@ -1,4 +1,4 @@
-import { sendV2Success } from '../../../utils/responseHandlers.js';
+import { sendSuccess } from '../../../utils/responseHandlers.js';
 import { getWalletBalanceService } from '../../walletBalance/walletBalanceService.js';
 import { BadRequestError } from '../../../utils/appErrors.js';
 
@@ -20,5 +20,5 @@ export const getWalletBalanceV2 = async (req, res) => {
   if (!xApiKey) throw new BadRequestError('x-api-key is required');
 
   const data = await getWalletBalanceService({ code, xApiKey });
-  return sendV2Success(res, data, 'Wallet balance fetched successfully');
+  return sendSuccess(res, data, 'Wallet balance fetched successfully');
 };

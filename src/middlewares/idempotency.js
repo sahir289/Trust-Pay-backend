@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 import { executeQuery } from '../utils/db.js';
-import { sendV2Error } from '../utils/responseHandlers.js';
+import { sendError } from '../utils/responseHandlers.js';
 import { logger } from '../utils/logger.js';
 import { V2_ERROR_CODES } from '../constants/index.js';
 
@@ -165,7 +165,7 @@ const idempotency = (options = {}) => {
 
     if (!key) {
       if (required) {
-        return sendV2Error(
+        return sendError(
           res,
           'A server-generated idempotency key could not be derived for this request',
           400,
@@ -203,7 +203,7 @@ const idempotency = (options = {}) => {
     }
 
     if (row.request_hash !== requestHash) {
-      return sendV2Error(
+      return sendError(
         res,
         'Idempotency-Key was reused with a different request payload',
         422,
@@ -217,7 +217,7 @@ const idempotency = (options = {}) => {
     }
 
     // status === 'in_progress' — a concurrent request with the same key.
-    return sendV2Error(
+    return sendError(
       res,
       'A request with this Idempotency-Key is already being processed',
       409,

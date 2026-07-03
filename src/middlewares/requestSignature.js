@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { sendV2Error } from '../utils/responseHandlers.js';
+import { sendError } from '../utils/responseHandlers.js';
 import { V2_ERROR_CODES } from '../constants/index.js';
 import { generateSignature } from '../utils/signaturegenrate.js';
 
@@ -89,7 +89,7 @@ const verifyRequestSignature = (options = {}) => {
     const secret = req.merchant?.config?.keys?.private || req.vendor?.config?.keys?.private;
     if (!secret) {
       // Either merchant-auth did not run or the merchant has no signing secret.
-      return sendV2Error(
+      return sendError(
         res,
         'Request signature is required but no signing secret is available',
         401,
@@ -100,7 +100,7 @@ const verifyRequestSignature = (options = {}) => {
     const signature = req.headers['x-signature'];
     const timestamp = req.headers['x-timestamp'];
     if (!signature || !timestamp) {
-      return sendV2Error(
+      return sendError(
         res,
         'Missing x-signature or x-timestamp header',
         401,
@@ -110,7 +110,7 @@ const verifyRequestSignature = (options = {}) => {
 
     const ts = Number(timestamp);
     if (!Number.isFinite(ts) || Math.abs(Date.now() - ts) > maxSkewMs) {
-      return sendV2Error(
+      return sendError(
         res,
         'Request signature timestamp is invalid or expired',
         401,
@@ -118,12 +118,16 @@ const verifyRequestSignature = (options = {}) => {
       );
     }
 
-    const payload = req.method === 'POST' && req.rawBody || '';
+    const methodsWithBody = ['POST', 'PUT', 'PATCH'];
+
+    const payload = methodsWithBody.includes(req.method)
+      ? (req.rawBody || '')
+      : '';
 
     const expected = generateSignature(secret, timestamp, payload);
 
     if (!safeEqualHex(expected, String(signature))) {
-      return sendV2Error(res, 'Invalid request signature', 401, V2_ERROR_CODES.INVALID_SIGNATURE);
+      return sendError(res, 'Invalid request signature', 401, V2_ERROR_CODES.INVALID_SIGNATURE);
     }
 
     return next();

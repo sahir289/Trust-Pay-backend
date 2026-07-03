@@ -1,5 +1,5 @@
 import { HTTPError, CustomError } from '../utils/appErrors.js';
-import { sendV2Error } from '../utils/responseHandlers.js';
+import { sendError } from '../utils/responseHandlers.js';
 import { logger } from '../utils/logger.js';
 import { STATUS_ERROR_CODES, V2_ERROR_CODES } from '../constants/index.js';
 
@@ -53,7 +53,7 @@ const v2ErrorHandler = (error, req, res, next) => {
     requestId: req?.identifier,
   });
 
-  return sendV2Error(res, message, statusCode, code);
+  return sendError(res, message, statusCode, code);
 };
 
 export default v2ErrorHandler;

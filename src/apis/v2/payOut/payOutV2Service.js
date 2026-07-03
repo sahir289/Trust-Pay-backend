@@ -1,6 +1,8 @@
+import { NotFoundError } from "../../../utils/appErrors.js";
 import logger from "../../../utils/logger.js";
-import { getMerchantsDao } from "../../merchants/merchantDao.js";
+import { getMerchantsByAuthCodeDao, getMerchantsDao } from "../../merchants/merchantDao.js";
 import { getPayoutsDao } from "../../payOut/payOutDao.js";
+import { getLatestNetBalanceByMerchantUserIdDao } from "../../walletBalance/walletBalanceDao.js";
 
 // Public API Used by Merchants
 export const checkPayOutStatusV2Service = async (
@@ -63,6 +65,29 @@ export const checkPayOutStatusV2Service = async (
     };
   } catch (error) {
     logger.error('Error check payout status:', error);
+    throw error;
+  }
+};
+
+export const getWalletBalanceService = async (code) => {
+  try {
+    // Merchant auth -> fetch merchant/user_id
+    const merchant = await getMerchantsByAuthCodeDao(code);
+
+    if (!merchant) {
+      throw new NotFoundError('Invalid merchant code or API key');
+    }
+
+    const netBalance = await getLatestNetBalanceByMerchantUserIdDao(
+      merchant.user_id,
+    );
+
+    if (netBalance === null || netBalance === undefined) {
+      return { balance: 0 };
+    }
+    return { balance: netBalance };
+  } catch (error) {
+    console.error('Error in getWalletBalanceService:', error);
     throw error;
   }
 };
