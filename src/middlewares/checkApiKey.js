@@ -1,5 +1,6 @@
 import { getMerchantsByCodeAndApiKeyDao } from '../apis/merchants/merchantDao.js';
 import { sendError } from '../utils/responseHandlers.js';
+import { logger } from '../utils/logger.js';
 
 const LOCALHOST_IPS = new Set(['::1', '127.0.0.1', '::ffff:127.0.0.1']);
 
@@ -26,6 +27,7 @@ const normalizeWhitelist = (whitelistIps) =>
     .filter(Boolean);
 
 export const checkApiKey = async (req, res, next) => {
+  try {
   const payload = req.query;
   const x_api_key = req.headers['x-api-key'];
   const userIp = resolveMerchantClientIp(req);
@@ -47,8 +49,13 @@ export const checkApiKey = async (req, res, next) => {
   }
 
   next();
+  } catch (error) {
+    logger.error('checkApiKey middleware error:', error.message);
+    return sendError(res, 'Service temporarily unavailable', 503);
+  }
 };
 export const checkApiWallet = async (req, res, next) => {
+  try {
   const x_api_key = req.headers['x-api-key'];
   const code = req.headers['code'];
   const userIp = resolveMerchantClientIp(req);
@@ -73,8 +80,13 @@ export const checkApiWallet = async (req, res, next) => {
   }
 
   next();
+  } catch (error) {
+    logger.error('checkApiWallet middleware error:', error.message);
+    return sendError(res, 'Service temporarily unavailable', 503);
+  }
 };
 export const checkPayoutApiKey = async (req, res, next) => {
+  try {
   const payload = req.body;
   const x_api_key = req.headers['x-api-key'];
   const userIp = resolveMerchantClientIp(req);
@@ -99,12 +111,17 @@ export const checkPayoutApiKey = async (req, res, next) => {
   }
 
   next();
+  } catch (error) {
+    logger.error('checkPayoutApiKey middleware error:', error.message);
+    return sendError(res, 'Service temporarily unavailable', 503);
+  }
 };
 
 // Generic, fail-closed merchant API-key guard for endpoints that carry the
 // merchant `code` in a header/body/query and the key in the `x-api-key` header.
 // Use this on merchant-facing routes that were previously unauthenticated.
 export const checkMerchantApiKey = async (req, res, next) => {
+  try {
   const x_api_key = req.headers['x-api-key'];
   const code = req.headers['code'] || req.body?.code || req.query?.code;
   const userIp = resolveMerchantClientIp(req);
@@ -128,4 +145,8 @@ export const checkMerchantApiKey = async (req, res, next) => {
 
   req.merchant = merchant;
   next();
+  } catch (error) {
+    logger.error('checkMerchantApiKey middleware error:', error.message);
+    return sendError(res, 'Service temporarily unavailable', 503);
+  }
 };
