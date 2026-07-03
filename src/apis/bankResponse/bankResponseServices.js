@@ -42,7 +42,6 @@ import {
   getVendorsDao,
   // updateVendorDao,
   getVendorsBankReponseDao,
-  updateVendorDao,
 } from '../vendors/vendorDao.js';
 import {
   columns,
@@ -439,13 +438,13 @@ const createBankResponseService = async (
           throw new BadRequestError('Invalid amount or commission');
         }
 
-        // NOTE: keep these sequential in the same transaction.
-        // If the balance update hits a lock timeout (55P03), parallel queries on the
-        // same connection can trigger noisy 25P02 cascades (transaction aborted).
-        const res = await atomicUpdateBankBalanceDao(
+        const res = await updateBankAccountBalanceDao(
           { id: botRes?.bank_id, company_id: companyId },
-          parseFloat(botRes.amount),
-          null,
+          {
+            balance: parseFloat(botRes.amount),
+            today_balance: parseFloat(botRes.amount),
+            payin_count: 1,
+          },
           conn,
         );
 
@@ -462,16 +461,16 @@ const createBankResponseService = async (
           role,
           conn,
         );
-        if (isNaN(vendor[0].balance)) {
-          throw new BadRequestError('Invalid amount or commission');
-        }
-        await updateVendorDao(
-          { id: vendor[0].id },
-          {
-            balance: parseFloat(vendor[0].balance) + parseFloat(botRes.amount),
-          },
-          conn,
-        );
+        // if (isNaN(vendor[0].balance)) {
+        //   throw new BadRequestError('Invalid amount or commission');
+        // }
+        // await updateVendorDao(
+        //   { id: vendor[0].id },
+        //   {
+        //     balance: parseFloat(vendor[0].balance) + parseFloat(botRes.amount),
+        //   },
+        //   conn,
+        // );
         const payinVendorCommission = calculateCommission(
           botRes.amount,
           vendor[0].payin_commission,
@@ -1260,13 +1259,14 @@ const createBankResponseWebHookService = async (
         //   null,
         //   conn,
         // );
-         const res=   await updateBankAccountBalanceDao(
+        const res = await updateBankAccountBalanceDao(
           { id: botRes?.bank_id, company_id: companyId },
           {
             balance: parseFloat(botRes.amount),
             today_balance: parseFloat(botRes.amount),
             payin_count: 1,
-          }
+          },
+          conn,
         );
         await _updateBankaccountInternal(
           { id: botRes?.bank_id, company_id: companyId },

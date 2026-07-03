@@ -9,6 +9,7 @@ import { getConnection, beginTransaction, commit, rollback } from '../../utils/d
 
 export const albeCollectWebhook = async (req, res) => {
   let lockKey;
+  let hasDistributedLock = false;
   let conn;
   let committed = false;
   try {
@@ -33,6 +34,7 @@ export const albeCollectWebhook = async (req, res) => {
       );
       return;
     }
+    hasDistributedLock = true;
 
     conn = await getConnection();
     await beginTransaction(conn);
@@ -94,7 +96,7 @@ export const albeCollectWebhook = async (req, res) => {
         logger.error('Error releasing DB connection:', releaseErr);
       }
     }
-    if (lockKey) {
+    if (lockKey && hasDistributedLock) {
       await releaseLock(lockKey, 'albeCollect');
     }
   }
