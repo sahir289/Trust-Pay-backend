@@ -77,6 +77,7 @@ import {
   getMerchantByUserIdDao,
   updateMerchantBalanceDao,
   getMerchantsByCodesDao,
+  getMerchantsKeysDao,
 } from '../merchants/merchantDao.js';
 import {
   getAllCalculationforCronDao,
@@ -618,6 +619,8 @@ export const getPayInUrlService = async (
   try {
     const currentTime = Date.now();
     const payIn = await getPayinsForServiccDao({ merchant_order_id: id }, conn);
+    const Key = await getMerchantsKeysDao(id);
+    const secretKey = Key?.private || null;
 
     if (!payIn) {
       throw new NotFoundError('Payment Url is incorrect');
@@ -654,7 +657,7 @@ export const getPayInUrlService = async (
         amount: null,
         req_amount: payIn.amount,
         utr_id: payIn.utr,
-      });
+      }, secretKey);
       // throw new InternalServerError('PayIn Expired');
     }
 
@@ -670,6 +673,8 @@ export const expirePayInUrlService = async (payInId) => {
   try {
     // const currentTime = Date.now();
     const payIn = await getPayinsForServiccDao({ id: payInId });
+    const Key = await getMerchantsKeysDao(payIn.merchant_id );
+    const secretKey = Key?.private || null;
     if (!payIn) {
       throw new NotFoundError('PayIn not found!');
     }
@@ -679,6 +684,7 @@ export const expirePayInUrlService = async (payInId) => {
       is_url_expires: true,
       status: Status.DROPPED,
     });
+
     // This is async function but it's just the callback sending function there fore we are not using await
     merchantPayinCallback(config.urls?.notify, {
       status: Status.DROPPED,
@@ -687,7 +693,7 @@ export const expirePayInUrlService = async (payInId) => {
       amount: null,
       req_amount: payIn.amount,
       utr_id: payIn.utr,
-    });
+    }, secretKey);
   } catch (error) {
     logger.error('Error expire payin url:', error);
     throw error;
@@ -780,6 +786,7 @@ export const assignedBankToPayInUrlService = async (
         is_url_expires: true,
         status: Status.FAILED,
       });
+
       merchantPayinCallback(payInConfig.urls?.notify, {
         status: Status.FAILED,
         merchantOrderId: payIn.merchant_order_id,
@@ -787,7 +794,7 @@ export const assignedBankToPayInUrlService = async (
         amount: null,
         req_amount: payIn.amount,
         utr_id: payIn.utr,
-      });
+      }, payIn.config?.keys?.private);
       throw new NotFoundError(
         `No bank found with valid amount range for ${amt}!`,
       );
@@ -824,6 +831,7 @@ export const assignedBankToPayInUrlService = async (
         is_url_expires: true,
         status: Status.DROPPED,
       });
+
       // This is async function but it's just the callback sending function there fore we are not using await
       merchantPayinCallback(payInConfig.urls?.notify, {
         status: Status.DROPPED,
@@ -832,7 +840,7 @@ export const assignedBankToPayInUrlService = async (
         amount: null,
         req_amount: payIn.amount,
         utr_id: payIn.utr,
-      });
+      }, payIn.config?.keys?.private);
       throw new NotFoundError(`No enabled bank found!`);
     }
     // Randomly assign one enabled bank account
@@ -1183,6 +1191,9 @@ export const updatePaymentNotificationStatusService = async (
         company_id,
       });
 
+       const Key = await getMerchantsKeysDao(payIn.merchant_id);
+        const secretKey = Key?.private || null;
+
       data = await merchantPayinCallback(payIn.config?.urls?.notify, {
         status: payIn.status,
         merchantOrderId: payIn.merchant_order_id,
@@ -1190,7 +1201,7 @@ export const updatePaymentNotificationStatusService = async (
         amount: bankResponse?.amount || null,
         req_amount: payIn.amount,
         utr_id: bankResponse?.utr ? bankResponse.utr : payIn.user_submitted_utr, //--utr_id either bankres and payin
-      });
+      }, secretKey);
     } else if (type === Type.PAYOUT) {
       // find on the basis of payoutId
       // const payouts = await getPayoutsDao({ id: payInId, company_id });
@@ -1207,6 +1218,8 @@ export const updatePaymentNotificationStatusService = async (
       if (!merchant) {
         throw new NotFoundError('Merchant or payout notify URL not found.');
       }
+      const Key = await getMerchantsKeysDao(merchant.id);
+      const secretKey = Key?.private || null;
       ///payout notify url change
       data = await merchantPayoutCallback(
         payouts[0].payout_details.urls.notify,
@@ -1217,7 +1230,7 @@ export const updatePaymentNotificationStatusService = async (
           amount: payout.amount,
           status: payout.status,
           utr_id: payout.utr_id || '',
-        },
+        },secretKey
       );
     }
     return data;
@@ -1514,7 +1527,9 @@ export const updateDepositStatusService = async (
       req_amount: payInData.amount,
       amount: bankResponse.amount,
       utr_id: bankResponse.utr || '',
-    });
+    }, payInData.config?.keys?.private);
+    logger.info(` payInData : ${payInData}`);
+
 
     await commit(conn);
     committed = true;
@@ -1890,6 +1905,8 @@ export const _processPayInServiceInternal = async (
     }
   }
   const payIn = await getPayInUrlService(merchantOrderId, tele_check, conn);
+  const Key = await getMerchantsKeysDao(payIn.merchant_id);
+  const secretKey = Key?.private_key
   if (
     Object.keys(payIn).length === 2 &&
     'error' in payIn &&
@@ -2031,8 +2048,9 @@ export const _processPayInServiceInternal = async (
       result.utr_id =
         bankResponse.utr || payIn.user_submitted_utr || userSubmittedUtr;
     }
+
     // This is async function but it's just the callback sending function there fore we are not using await
-    merchantPayinCallback(payIn.config?.urls?.notify, result);
+    merchantPayinCallback(payIn.config?.urls?.notify, result, secretKey);
     return result;
   }
   if (otherPayIns.length || bankResponse.is_used) {
@@ -2072,8 +2090,9 @@ export const _processPayInServiceInternal = async (
     };
 
     await newTableEntry(tableName.PAYIN, responseObj);
+
     // This is async function but it's just the callback sending function there fore we are not using await
-    merchantPayinCallback(payIn.config?.urls?.notify, result);
+    merchantPayinCallback(payIn.config?.urls?.notify, result, secretKey);
     return {
       ...result,
       message: 'Duplicate entry found!',
@@ -2145,8 +2164,9 @@ export const _processPayInServiceInternal = async (
       company_id: payIn.company_id,
     };
     await newTableEntry(tableName.BANK_RESPONSE, obj);
+
     // This is async function but it's just the callback sending function there fore we are not using await
-    merchantPayinCallback(payIn.config?.urls?.notify, result);
+    merchantPayinCallback(payIn.config?.urls?.notify, result, secretKey);
 
     if (from_telegram) {
       const botBank = await getBankaccountDao(
@@ -2375,8 +2395,9 @@ export const _processPayInServiceInternal = async (
   ) {
     await newTableEntry(tableName.BANK_RESPONSE, obj);
   }
+
   // This is async function but it's just the callback sending function there fore we are not using await
-  merchantPayinCallback(payIn.config?.urls?.notify, result);
+  merchantPayinCallback(payIn.config?.urls?.notify, result, secretKey);
 
   if (from_telegram) {
     if (
@@ -2525,6 +2546,8 @@ export const processPayInWebHookService = async (payload, updated_by, conn) => {
       },
       conn,
     );
+    const Key = await getMerchantsKeysDao(payIn.merchant_id);
+    const secretKey = Key?.private_key
     const [bank] = await getBankaccountDao(
       {
         id: payIn?.bank_acc_id,
@@ -2684,8 +2707,9 @@ export const processPayInWebHookService = async (payload, updated_by, conn) => {
     };
 
     await newTableEntry(tableName.PAYIN, responseObj);
+
     // This is async function but it's just the callback sending function there fore we are not using await
-    merchantPayinCallback(payIn.config?.urls?.notify, result);
+    merchantPayinCallback(payIn.config?.urls?.notify, result, secretKey);
 
     return result;
   } catch (error) {
@@ -3343,6 +3367,7 @@ export const disputeDuplicateTransactionService = async (
       } else {
         updateBalance = false;
       }
+
       // This is async function but it's just the callback sending function there fore we are not using await
       merchantPayinCallback(payIn.config?.urls?.notify, {
         status: newStatus,
@@ -3351,7 +3376,7 @@ export const disputeDuplicateTransactionService = async (
         amount: toAmount,
         req_amount: newStatus === Status.SUCCESS ? toAmount : payInData.amount,
         utr_id: bankResponse.utr,
-      });
+      }, payInData.config?.keys?.private);
     }
 
     const updatePayload = {
@@ -3417,6 +3442,7 @@ export const disputeDuplicateTransactionService = async (
     //   conn,
     // );
     // This is async function but it's just the callback sending function there fore we are not using await
+
     merchantPayinCallback(payIn.config?.urls?.notify, {
       status: updatePayload.status,
       merchantOrderId: payIn.merchant_order_id,
@@ -3425,7 +3451,7 @@ export const disputeDuplicateTransactionService = async (
       req_amount:
         updatePayload.status === Status.SUCCESS ? toAmount : payIn.amount,
       utr_id: bankResponse.utr,
-    });
+    }, payIn.config?.keys?.private);
 
     if (updateBalance && !isMismatch) {
       await updateMerchantBalanceDao(
@@ -3835,7 +3861,7 @@ export const checkPendingPayinStatusService = async (
                 amount: bankResponse.amount,
                 req_amount: updatePayInDataRes.amount,
                 utr_id: updatePayInDataRes.utr,
-              });
+              }, updatePayInDataRes.config?.keys?.private);
             }
             await commit(conn);
             committed = true;
@@ -3878,7 +3904,7 @@ export const checkPendingPayinStatusService = async (
                 amount: bankResponse.amount,
                 req_amount: updatePayInDataRes.amount,
                 utr_id: updatePayInDataRes.utr,
-              });
+              }, updatePayInDataRes.config?.keys?.private);
             }
             await commit(conn);
             committed = true;
@@ -3929,7 +3955,7 @@ export const checkPendingPayinStatusService = async (
               amount: bankResponse.amount,
               req_amount: updatePayInDataRes.amount,
               utr_id: updatePayInDataRes.utr,
-            });
+            }, updatePayInDataRes.config?.keys?.private);
             await commit(conn);
             committed = true;
             logger.log(`Valid match found for payin ${currentPayin.id}`);

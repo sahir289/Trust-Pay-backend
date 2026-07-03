@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { sendV2Error } from '../utils/responseHandlers.js';
 import { V2_ERROR_CODES } from '../constants/index.js';
+import { generateSignature } from '../utils/signaturegenrate.js';
 
 // ---------------------------------------------------------------------------
 // Request-signature verification middleware (default OFF)
@@ -119,12 +120,7 @@ const verifyRequestSignature = (options = {}) => {
 
     const payload = req.method === 'POST' && req.rawBody || '';
 
-    const stringToSign = timestamp + payload;
-
-    const expected = crypto
-      .createHmac("sha256", secret)
-      .update(stringToSign, "utf8")
-      .digest("hex");
+    const expected = generateSignature(secret, timestamp, payload);
 
     if (!safeEqualHex(expected, String(signature))) {
       return sendV2Error(res, 'Invalid request signature', 401, V2_ERROR_CODES.INVALID_SIGNATURE);

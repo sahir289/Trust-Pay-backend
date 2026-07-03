@@ -25,14 +25,14 @@ function elapsedMs(startedAt) {
 }
 
 async function processCallbackJob(messagePayload) {
-  const { url, data, type } = messagePayload || {};
+  const { url, data, type, secretKey} = messagePayload || {};
 
   if (!url) {
     throw new Error('Invalid merchant callback message: missing url');
   }
 
   // deliverMerchantNotification THROWS on failure, which drives retry/DLQ.
-  await deliverMerchantNotification(url, data, type || 'Callback');
+  await deliverMerchantNotification(url, data, type || 'Callback', secretKey);
 }
 
 async function handleMessage(msg) {
