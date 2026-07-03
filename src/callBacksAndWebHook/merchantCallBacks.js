@@ -50,8 +50,11 @@ const buildSignedRequest = (data, secretKey) => {
     return { body: data, headers: {} };
   }
 
-  const rawBody = JSON.stringify(data ?? {});
-  const timestamp = Math.floor(Date.now() / 1000);
+  const rawBody =
+  typeof data === "string"
+    ? data
+    : JSON.stringify(data);
+  const timestamp = Date.now().toString();
 
   const signature = generateSignature(secretKey, timestamp, rawBody);
 
@@ -59,8 +62,8 @@ const buildSignedRequest = (data, secretKey) => {
     body: rawBody,
     headers: {
       'Content-Type': 'application/json',
-      'X-Webhook-Timestamp': String(timestamp),
-      'X-Webhook-Signature': {signature},
+      'X-Webhook-Timestamp': timestamp,
+      'X-Webhook-Signature': signature,
     },
   };
 };
