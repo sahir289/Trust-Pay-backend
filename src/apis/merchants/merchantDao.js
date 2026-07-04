@@ -544,6 +544,81 @@ export const getMerchantsByCodeDao = async (code, api_key, conn = null) => {
   }
 };
 
+export const getMerchantsByAuthCodeDao = async (
+  code,
+  conn = null,
+) => {
+  try {
+    if (!code) return {};
+    const cleanCode = code.trim();
+
+    const query = `
+      SELECT 
+        m.id,
+        m.user_id,
+        m.code,
+        m.min_payin,
+        m.max_payin,
+        jsonb_build_object(
+          'keys', m.config->'keys',
+          'urls', m.config->'urls',
+          'is_h2h', (m.config->>'is_h2h')::boolean,
+          'allow_intent', (m.config->>'allow_intent')::boolean,
+          'whitelist_ips', m.config->'whitelist_ips'
+        ) AS config,
+        m.company_id,
+        (u.first_name || ' ' || u.last_name) AS full_name
+      FROM "Merchant" m
+      INNER JOIN "User" u ON m.user_id = u.id
+      WHERE 
+        m.is_enabled = TRUE
+        AND m.is_obsolete = FALSE
+        AND m.code = $1
+      LIMIT 1;
+    `;
+
+    const params = [cleanCode];
+
+    const result = await executeQuery(query, params, conn);
+    return result?.rows[0] ?? {} ;
+  } catch (error) {
+    logger.error('Error in getMerchantsByCodeAndApiKeyDao:', error);
+    throw error;
+  }
+};
+
+export const getMerchantsKeysDao = async (
+  merchantId,
+  conn = null,
+) => {
+  try {
+    if (!merchantId) return {};
+    const merchant_id = merchantId.trim();
+
+    const query = `
+      SELECT 
+        m.id,
+        m.config->'keys'->>'private' AS private_key,
+        m.company_id
+      FROM "Merchant" m
+      WHERE 
+        m.is_enabled = TRUE
+        AND m.is_obsolete = FALSE
+        AND m.id = $1
+      LIMIT 1;
+    `;
+
+    const params = [merchant_id];
+
+    const result = await executeQuery(query, params, conn);
+    return result?.rows[0] ?? {} ;
+  } catch (error) {
+    logger.error('Error in getMerchantsByCodeAndApiKeyDao:', error);
+    throw error;
+  }
+};
+
+
 export const getMerchantsByCodeAndApiKeyDao = async (
   code,
   api_key,

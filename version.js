@@ -5,3 +5,5 @@ const pkg = require('./package.json');
 export const getVersion = (req, res) => {
   res.json({ version: pkg.version });
 };
+
+export const getVersionString = () => pkg.version;

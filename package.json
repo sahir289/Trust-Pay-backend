@@ -1,9 +1,10 @@
 {
   "name": "trust-pay-new-backend",
-  "version": "2.0.110",
+  "version": "2.0.111",
   "main": "server.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "test:ipintel": "node --test src/services/ipIntelligence/__tests__/*.test.js",
     "start": "TZ='Asia/Kolkata' eslint . && nodemon server.js",
     "start:windows": "SET TZ=Asia/Kolkata eslint . && nodemon server.js",
     "dev": "nodemon --exec \"npm run lint && npm run start:windows\"",

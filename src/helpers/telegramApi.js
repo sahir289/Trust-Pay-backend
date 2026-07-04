@@ -2,6 +2,17 @@ import axios from 'axios';
 import config from '../config/config.js';
 import { logger } from '../utils/logger.js';
 import { BadRequestError } from '../utils/appErrors.js';
+import { publishTelegramMessage } from '../rabbitmq/producer.js';
+
+// When enabled, Telegram text messages are published to a durable RabbitMQ
+// queue (retry + DLQ) and delivered by a dedicated rate-limited consumer, so a
+// slow/throttled Telegram API never ties up the cron/worker event loop. When
+// disabled (default) or if publishing fails, delivery falls back to the
+// original in-process rate-limited queue below — behavior is unchanged until
+// the flag is flipped, and no alert is lost.
+const TELEGRAM_QUEUE_ENABLED =
+  String(process.env.TELEGRAM_QUEUE_ENABLED || '').toLowerCase() === 'true';
+
 const messageQueue = [];
 let isProcessingQueue = false;
 const RATE_LIMIT_MS = 500;
@@ -84,6 +95,27 @@ export const createTelegramSender = () => {
       );
     }
 
+    // Durable, off-loaded delivery path. Resolve true once enqueued; on a
+    // publish failure, fall back to the in-process queue below so no alert is
+    // lost.
+    if (TELEGRAM_QUEUE_ENABLED) {
+      try {
+        await publishTelegramMessage({
+          chatId,
+          message,
+          replyToMessageId,
+          token,
+        });
+        return true;
+      } catch (error) {
+        logger.error(
+          '[Telegram] Enqueue failed; falling back to in-memory queue',
+          { error: error.message, chatId },
+        );
+        // fall through to the in-memory queue below
+      }
+    }
+
     return new Promise((resolve, reject) => {
       messageQueue.push({
         chatId,
@@ -96,6 +128,36 @@ export const createTelegramSender = () => {
       processQueue();
     });
   };
+};
+
+/**
+ * Core single-message Telegram delivery used by the queue consumer. THROWS on
+ * any failure (including HTTP 429) so the consumer can drive retry/DLQ.
+ */
+export const deliverTelegramMessage = async (
+  chatId,
+  message,
+  replyToMessageId,
+  token = config?.telegramBotToken,
+) => {
+  if (!token) {
+    throw new BadRequestError(
+      'TELEGRAM_BOT_TOKEN is required either via argument or config.',
+    );
+  }
+
+  const sendMessageUrl = `${config.telegram.telegram_url}${token}/sendMessage`;
+  const payload = {
+    chat_id: chatId,
+    text: message,
+    parse_mode: 'HTML',
+  };
+  if (replyToMessageId != null) {
+    payload.reply_to_message_id = replyToMessageId;
+  }
+
+  await axios.post(sendMessageUrl, payload);
+  return true;
 };
 
 /**

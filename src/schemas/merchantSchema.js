@@ -14,7 +14,7 @@ const VALIDATE_MERCHANT_SCHEMA = Joi.object({
     .required()
     .messages({
       'string.guid': 'Role_ID must be a valid UUID',
-      'any.required': 'Rokle_ID is required',
+      'any.required': 'Role_ID is required',
     }),
   first_name: Joi.string().min(1).max(255).required().messages({
     'string.min': 'First Name must be at least 1 character long',
