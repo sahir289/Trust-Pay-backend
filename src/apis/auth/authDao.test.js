@@ -848,7 +848,9 @@ describe("authDao - Part 1", () => {
 
       const res = await changePasswordDao(1, "pass");
 
-      expect(res).toBeDefined();
+      expect(res).toEqual({
+        rows:[{ user_id: 1 }],
+      });
     });
 
     test("should return undefined when no rows", async () => {
@@ -856,7 +858,7 @@ describe("authDao - Part 1", () => {
 
       const res = await changePasswordDao(1, "pass");
 
-      expect(res).toBeUndefined();
+      expect(res).toEqual({ rows: [] });
     });
   });
 
