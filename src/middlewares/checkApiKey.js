@@ -2,7 +2,6 @@ import { getMerchantsByCodeAndApiKeyDao } from '../apis/merchants/merchantDao.js
 import { sendError } from '../utils/responseHandlers.js';
 import { V2_ERROR_CODES } from '../constants/index.js';
 import logger from '../utils/logger.js';
-import { logger } from '../utils/logger.js';
 
 const LOCALHOST_IPS = new Set(['::1', '127.0.0.1', '::ffff:127.0.0.1']);
 
@@ -29,7 +28,6 @@ const normalizeWhitelist = (whitelistIps) =>
     .filter(Boolean);
 
 export const checkApiKey = async (req, res, next) => {
-  try {
   const payload = req.query;
   const x_api_key = req.headers['x-api-key'];
   try {
@@ -61,7 +59,6 @@ export const checkApiKey = async (req, res, next) => {
   }
 };
 export const checkApiWallet = async (req, res, next) => {
-  try {
   const x_api_key = req.headers['x-api-key'];
   const code = req.headers['code'];
   try {
@@ -93,7 +90,6 @@ export const checkApiWallet = async (req, res, next) => {
   }
 };
 export const checkPayoutApiKey = async (req, res, next) => {
-  try {
   const payload = req.body;
   const x_api_key = req.headers['x-api-key'];
   try {
@@ -129,7 +125,6 @@ export const checkPayoutApiKey = async (req, res, next) => {
 // merchant `code` in a header/body/query and the key in the `x-api-key` header.
 // Use this on merchant-facing routes that were previously unauthenticated.
 export const checkMerchantApiKey = async (req, res, next) => {
-  try {
   const x_api_key = req.headers['x-api-key'];
   const code = req.headers['code'] || req.body?.code || req.query?.code;
   try {
@@ -158,7 +153,7 @@ export const checkMerchantApiKey = async (req, res, next) => {
     logger.error('checkMerchantApiKey middleware error:', error.message);
     return sendError(res, 'Service temporarily unavailable', 503);
   }
-};
+}
 
 // V2 variant of checkMerchantApiKey: identical fail-closed merchant API-key +
 // IP-allowlist validation (and it attaches `req.merchant`, exposing the
