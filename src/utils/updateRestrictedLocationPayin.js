@@ -4,6 +4,7 @@ import { merchantPayinCallback } from '../callBacksAndWebHook/merchantCallBacks.
 // import { NotFoundError } from './appErrors.js';
 import { logger } from './logger.js';
 import { calculateDuration } from '../helpers/index.js';
+import { getMerchantsKeysDao } from '../apis/merchants/merchantDao.js';
 async function processPayInRestricted(payin, restrictionReason) {
   try {
     if (payin.status == Status.INITIATED || payin.status == Status.ASSIGNED) {
@@ -33,8 +34,10 @@ async function processPayInRestricted(payin, restrictionReason) {
       };
       await updatePayInUrlDao(payin.id, data);
       if (payin?.config?.urls?.notify) {
+          const Key = await getMerchantsKeysDao(payin?.merchant_id);
+          const secretKey = Key?.private || null;
         // This is async function but it's just the callback sending function therefore we are not using await
-        merchantPayinCallback(payin.config.urls.notify, notificationData);
+        merchantPayinCallback(payin.config.urls.notify, notificationData, secretKey);
       }
     }
     else {
