@@ -2,8 +2,10 @@ import { getMerchantsByCodeAndApiKeyDao } from '../apis/merchants/merchantDao.js
 import { sendError } from '../utils/responseHandlers.js';
 import { V2_ERROR_CODES } from '../constants/index.js';
 import logger from '../utils/logger.js';
+import { getCachedData, setCachedData } from '../utils/redishashkey.js';
 
 const LOCALHOST_IPS = new Set(['::1', '127.0.0.1', '::ffff:127.0.0.1']);
+const MERCHANT_API_CACHE_TTL_SEC = 60;
 
 // Resolve the real client IP for merchant IP-allowlist checks.
 // `trust proxy` is set to 1 in app.js, so Express's `req.ip` is the address of
@@ -27,6 +29,22 @@ const normalizeWhitelist = (whitelistIps) =>
     .map((ip) => ip.trim())
     .filter(Boolean);
 
+const getMerchantApiCacheKey = (code, x_api_key) =>
+  code && x_api_key ? `merchant_api:${code}:${x_api_key}` : null;
+
+const getMerchantFromCacheOrDb = async (code, x_api_key) => {
+  const cacheKey = getMerchantApiCacheKey(code, x_api_key);
+  const cachedMerchant = await getCachedData(cacheKey, 'merchant_api');
+  if (cachedMerchant) {
+    return cachedMerchant;
+  }
+  const merchantArr = await getMerchantsByCodeAndApiKeyDao(code, x_api_key);
+  const merchant = merchantArr[0] || null;
+  if (merchant) {
+    await setCachedData(cacheKey, merchant, MERCHANT_API_CACHE_TTL_SEC, 'merchant_api');
+  }
+  return merchant;
+};
 export const checkApiKey = async (req, res, next) => {
   const payload = req.query;
   const x_api_key = req.headers['x-api-key'];
@@ -35,8 +53,7 @@ export const checkApiKey = async (req, res, next) => {
     const { code } = payload;
 
     if (x_api_key) {
-      const merchantArr = await getMerchantsByCodeAndApiKeyDao(code, x_api_key);
-      const merchant = merchantArr[0];
+      const merchant = await getMerchantFromCacheOrDb(code, x_api_key);
       if (!merchant) {
         return sendError(res, 'Invalid merchant code or API key', 400);
       }
@@ -47,6 +64,8 @@ export const checkApiKey = async (req, res, next) => {
           return sendError(res, 'IP not whitelisted', 400);
         }
       }
+
+      req.merchant = merchant;
     }
 
     next();
@@ -70,8 +89,7 @@ export const checkApiWallet = async (req, res, next) => {
       return sendError(res, 'x-api-key header is missing', 401);
     }
 
-    const merchantArr = await getMerchantsByCodeAndApiKeyDao(code, x_api_key);
-    const merchant = merchantArr[0];
+    const merchant = await getMerchantFromCacheOrDb(code, x_api_key);
     if (!merchant) {
       return sendError(res, 'Invalid merchant code or API key', 400);
     }
@@ -82,6 +100,7 @@ export const checkApiWallet = async (req, res, next) => {
         return sendError(res, 'IP not whitelisted', 400);
       }
     }
+    req.merchant = merchant;
 
     next();
   } catch (error) {
@@ -101,8 +120,7 @@ export const checkPayoutApiKey = async (req, res, next) => {
       return sendError(res, 'x-api-key header is missing', 403);
     }
 
-    const merchantArr = await getMerchantsByCodeAndApiKeyDao(code, x_api_key);
-    const merchant = merchantArr[0];
+    const merchant = await getMerchantFromCacheOrDb(code, x_api_key);
     if (!merchant) {
       return sendError(res, 'Invalid merchant code or API key', 400);
     }
@@ -113,6 +131,8 @@ export const checkPayoutApiKey = async (req, res, next) => {
         return sendError(res, 'IP not whitelisted', 400);
       }
     }
+
+    req.merchant = merchant;
 
     next();
   } catch (error) {
@@ -134,8 +154,7 @@ export const checkMerchantApiKey = async (req, res, next) => {
       return sendError(res, 'x-api-key header is missing', 401);
     }
 
-    const merchantArr = await getMerchantsByCodeAndApiKeyDao(code, x_api_key);
-    const merchant = merchantArr[0];
+    const merchant = await getMerchantFromCacheOrDb(code, x_api_key);
     if (!merchant) {
       return sendError(res, 'Invalid merchant code or API key', 400);
     }
@@ -180,8 +199,7 @@ export const checkMerchantApiKeyV2 = async (req, res, next) => {
       );
     }
 
-    const merchantArr = await getMerchantsByCodeAndApiKeyDao(code, x_api_key);
-    const merchant = merchantArr[0];
+    const merchant = await getMerchantFromCacheOrDb(code, x_api_key);
     if (!merchant) {
       return sendError(
         res,
