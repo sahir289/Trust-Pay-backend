@@ -21,6 +21,18 @@ import {
   stopDlqReplayConsumer,
 } from './consumers/dlqReplayConsumer.js';
 import { startBulkPayoutCreateConsumer } from './consumers/CreateBulkPayoutConsumer.js';
+import {
+  startMerchantCallbackConsumer,
+  stopMerchantCallbackConsumer,
+} from './consumers/merchantCallbackConsumer.js';
+import {
+  startTelegramMessageConsumer,
+  stopTelegramMessageConsumer,
+} from './consumers/telegramMessageConsumer.js';
+import {
+  startTelegramOcrConsumer,
+  stopTelegramOcrConsumer,
+} from './consumers/telegramOcrConsumer.js';
 
 let consumersStarted = false;
 
@@ -36,6 +48,9 @@ export async function startRabbitMQConsumers() {
     startBulkPayoutConsumer(),
     startBulkPayoutCreateConsumer(),
     startPayInProcessConsumer(),
+    startMerchantCallbackConsumer(),
+    startTelegramMessageConsumer(),
+    startTelegramOcrConsumer(),
     startDlqReplayConsumer(),
   ]);
 
@@ -50,6 +65,9 @@ export async function stopRabbitMQ() {
       stopBankResponseBulkConsumer(),
       stopBulkPayoutConsumer(),
       stopPayInProcessConsumer(),
+      stopMerchantCallbackConsumer(),
+      stopTelegramMessageConsumer(),
+      stopTelegramOcrConsumer(),
       stopDlqReplayConsumer(),
     ]);
   }

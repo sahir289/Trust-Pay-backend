@@ -20,6 +20,20 @@ export const PAYOUT_DETAILS_SCHEMA = Joi.object({
   notifyUrl: Joi.string().uri().label('notify_url').optional(),
 });
 
+export const PAYOUT_DETAILS_V2_SCHEMA = Joi.object({
+  user: Joi.string().label('user').required(),
+  ifsc_code: Joi.string().label('ifsc_code').required(),
+  acc_holder_name: Joi.string().label('acc_holder_name').required(),
+  acc_no: Joi.string().label('acc_no').required(),
+  bank_name: Joi.string().label('bank_name').required(),
+  amount: Joi.number().label('amount').required(),
+  merchant_order_id: Joi.string()
+    .allow('')
+    .label('merchant_order_id')
+    .optional(),
+  notifyUrl: Joi.string().uri().label('notify_url').optional(),
+});
+
 export const WALLET_PAYOUT_DETAILS_SCHEMA = Joi.object({
   amount: Joi.number().label('amount').required(),
   mode: Joi.string().label('transaction_type').required(),
@@ -88,6 +102,10 @@ export const VALIDATE_CHECK_PAY_OUT_STATUS = Joi.object({
     .label('payOutId')
     .optional(),
   merchantCode: Joi.string().label('merchantCode').required(),
+  merchantOrderId: Joi.string().label('merchantOrderId').required(),
+});
+
+export const VALIDATE_CHECK_PAY_OUT_V2_STATUS = Joi.object({
   merchantOrderId: Joi.string().label('merchantOrderId').required(),
 });
 

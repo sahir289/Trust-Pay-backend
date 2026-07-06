@@ -1253,3 +1253,47 @@ export const SettlementResponses = {
     'code',
   ],
 };
+
+// Stable, self-describing v2 API error codes (single source of truth). Every v2
+// controller and guard middleware MUST reference these instead of inlining the
+// string, so the wire contract stays consistent.
+export const V2_ERROR_CODES = {
+  // Generic / status-derived
+  ERROR: 'ERROR',
+  BAD_REQUEST: 'BAD_REQUEST',
+  UNAUTHORIZED: 'UNAUTHORIZED',
+  FORBIDDEN: 'FORBIDDEN',
+  NOT_FOUND: 'NOT_FOUND',
+  CONFLICT: 'CONFLICT',
+  VALIDATION_ERROR: 'VALIDATION_ERROR',
+  RATE_LIMITED: 'RATE_LIMITED',
+  INTERNAL_ERROR: 'INTERNAL_ERROR',
+  UPSTREAM_ERROR: 'UPSTREAM_ERROR',
+  // Merchant API-key auth (checkMerchantApiKeyV2)
+  API_KEY_MISSING: 'API_KEY_MISSING',
+  INVALID_API_KEY: 'INVALID_API_KEY',
+  IP_NOT_WHITELISTED: 'IP_NOT_WHITELISTED',
+  // Request signature (verifyRequestSignature)
+  SIGNATURE_REQUIRED: 'SIGNATURE_REQUIRED',
+  SIGNATURE_EXPIRED: 'SIGNATURE_EXPIRED',
+  INVALID_SIGNATURE: 'INVALID_SIGNATURE',
+  // Idempotency
+  IDEMPOTENCY_KEY_REQUIRED: 'IDEMPOTENCY_KEY_REQUIRED',
+  IDEMPOTENCY_KEY_REUSED: 'IDEMPOTENCY_KEY_REUSED',
+  IDEMPOTENCY_IN_PROGRESS: 'IDEMPOTENCY_IN_PROGRESS',
+};
+
+// Maps an HTTP status code to its canonical v2 error code (drawn from
+// V2_ERROR_CODES). Centralized so every v2 controller and the v2 error handler
+// resolve the same code for a given status (single source of truth).
+export const STATUS_ERROR_CODES = {
+  400: V2_ERROR_CODES.BAD_REQUEST,
+  401: V2_ERROR_CODES.UNAUTHORIZED,
+  403: V2_ERROR_CODES.FORBIDDEN,
+  404: V2_ERROR_CODES.NOT_FOUND,
+  409: V2_ERROR_CODES.CONFLICT,
+  422: V2_ERROR_CODES.VALIDATION_ERROR,
+  429: V2_ERROR_CODES.RATE_LIMITED,
+  500: V2_ERROR_CODES.INTERNAL_ERROR,
+  502: V2_ERROR_CODES.UPSTREAM_ERROR,
+};

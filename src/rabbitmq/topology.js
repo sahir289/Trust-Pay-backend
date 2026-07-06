@@ -6,6 +6,9 @@ export const QUEUES = {
   BULK_PAYOUT: process.env.RABBITMQ_BULK_PAYOUT_QUEUE || 'bulk_payout_queue',
   PAYIN_PROCESS: process.env.RABBITMQ_PAYIN_PROCESS_QUEUE || 'payin_process_queue',
   BULK_PAYOUT_CREATE: process.env.RABBITMQ_BULK_PAYOUT_CREATE_QUEUE || 'bulk_payout_create_queue',
+  MERCHANT_CALLBACK: process.env.RABBITMQ_MERCHANT_CALLBACK_QUEUE || 'merchant_callback_queue',
+  TELEGRAM_MESSAGE: process.env.RABBITMQ_TELEGRAM_MESSAGE_QUEUE || 'telegram_message_queue',
+  TELEGRAM_OCR: process.env.RABBITMQ_TELEGRAM_OCR_QUEUE || 'telegram_ocr_queue',
 };
 
 const DLQ_ROUTING_KEY = 'dead';
@@ -42,6 +45,18 @@ export const TOPOLOGY = {
     QUEUES.PAYIN_PROCESS,
     Number(process.env.PAYIN_PROCESS_RETRY_DELAY_MS || 10000),
   ),
+  merchantCallback: queueTopology(
+    QUEUES.MERCHANT_CALLBACK,
+    Number(process.env.MERCHANT_CALLBACK_RETRY_DELAY_MS || 10000),
+  ),
+  telegramMessage: queueTopology(
+    QUEUES.TELEGRAM_MESSAGE,
+    Number(process.env.TELEGRAM_MESSAGE_RETRY_DELAY_MS || 10000),
+  ),
+  telegramOcr: queueTopology(
+    QUEUES.TELEGRAM_OCR,
+    Number(process.env.TELEGRAM_OCR_RETRY_DELAY_MS || 15000),
+  ),
 };
 
 export async function assertQueueTopology(channel, topology) {
@@ -73,6 +88,9 @@ export async function assertAllTopologies(channel) {
   await assertQueueTopology(channel, TOPOLOGY.bulkPayout);
   await assertQueueTopology(channel, TOPOLOGY.bulkPayoutCreate);
   await assertQueueTopology(channel, TOPOLOGY.payinProcess);
+  await assertQueueTopology(channel, TOPOLOGY.merchantCallback);
+  await assertQueueTopology(channel, TOPOLOGY.telegramMessage);
+  await assertQueueTopology(channel, TOPOLOGY.telegramOcr);
   logger.info('[RabbitMQ] Queue topology ensured', {
     bankResponseQueue: TOPOLOGY.bankResponse.queue,
     bankResponseRetryQueue: TOPOLOGY.bankResponse.retryQueue,
@@ -87,5 +105,14 @@ export async function assertAllTopologies(channel) {
     payinProcessQueue: TOPOLOGY.payinProcess.queue,
     payinProcessRetryQueue: TOPOLOGY.payinProcess.retryQueue,
     payinProcessDLQ: TOPOLOGY.payinProcess.dlq,
+    merchantCallbackQueue: TOPOLOGY.merchantCallback.queue,
+    merchantCallbackRetryQueue: TOPOLOGY.merchantCallback.retryQueue,
+    merchantCallbackDLQ: TOPOLOGY.merchantCallback.dlq,
+    telegramMessageQueue: TOPOLOGY.telegramMessage.queue,
+    telegramMessageRetryQueue: TOPOLOGY.telegramMessage.retryQueue,
+    telegramMessageDLQ: TOPOLOGY.telegramMessage.dlq,
+    telegramOcrQueue: TOPOLOGY.telegramOcr.queue,
+    telegramOcrRetryQueue: TOPOLOGY.telegramOcr.retryQueue,
+    telegramOcrDLQ: TOPOLOGY.telegramOcr.dlq,
   });
 }
