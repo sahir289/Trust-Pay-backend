@@ -4,6 +4,13 @@ export const CREATE_BANK_RESPONSE_SCHEMA = Joi.object({
   body: Joi.string().required().label('body'),
 });
 
+export const CREATE_BANK_RESPONSE_V2_SCHEMA = Joi.object({
+  amount: Joi.number().required().label('amount'),
+  bank_id: Joi.string().required().label('bank_id'),
+  utr: Joi.string().required().label('utr'),
+  upi_short_code: Joi.string().optional().label('upi_short_code'),
+});
+
 export const UPDATE_BANK_RESPONSE_SCHEMA = Joi.object({
   amount: Joi.number().optional().label('amount'),
   utr: Joi.string().optional().label('utr'),

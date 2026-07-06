@@ -32,11 +32,14 @@ import settings from './settings/index.js';
 import walletBalance from './walletBalance/index.js';
 import { getVersion } from '../../version.js';
 import { globalRateLimitMiddleware } from '../middlewares/rateLimiter.js';
+import v2Router from './v2/index.js';
 // import notifications from './notifications/index.js';
 
 const parentRouter = express.Router();
 const router = express.Router();
 parentRouter.use('/v1', router);
+// v2 API surface — additive and backward-compatible. /v1 above is unchanged.
+parentRouter.use('/v2', v2Router);
 
 // Apply authorization middleware for specific routes
 router.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpecs));

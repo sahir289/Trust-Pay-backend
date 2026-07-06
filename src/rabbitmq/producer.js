@@ -103,6 +103,18 @@ export async function publishPayInProcess(payload) {
   return publishMessage(QUEUES.PAYIN_PROCESS, payload);
 }
 
+export async function publishMerchantCallback(payload) {
+  return publishMessage(QUEUES.MERCHANT_CALLBACK, payload);
+}
+
+export async function publishTelegramMessage(payload) {
+  return publishMessage(QUEUES.TELEGRAM_MESSAGE, payload);
+}
+
+export async function publishTelegramOcr(payload) {
+  return publishMessage(QUEUES.TELEGRAM_OCR, payload);
+}
+
 rabbitMQConnectionManager.onReconnect(async () => {
   producerChannel = null;
   isTopologyReady = false;

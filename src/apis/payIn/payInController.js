@@ -34,7 +34,7 @@ import {
   processPayInService,
   resetDepositService,
   telegramCheckUTRService,
-  telegramResponseService,
+  dispatchTelegramResponse,
   updateDepositStatusService,
   updatePaymentNotificationStatusService,
   getPayinsBySearchService,
@@ -48,7 +48,7 @@ import {
 import { GetObjectCommand } from '@aws-sdk/client-s3';
 import { streamToBase64 } from '../../helpers/index.js';
 import { s3 } from '../../helpers/Aws.js';
-import { createHash } from '../../utils/hashUtils.js';
+// import { createHash } from '../../utils/hashUtils.js';
 import { logger } from '../../utils/logger.js';
 import { getRolesById } from '../roles/rolesDao.js';
 import { Role, Status } from '../../constants/index.js';
@@ -98,7 +98,7 @@ export const generatePayInUrl = async (req, res) => {
   }
   let apiKey = key ? key : x_api_key;
 
-  const generatedHash = createHash(`${code}`);
+  // const generatedHash = createHash(`${code}`);
   // // Decode the provided hash before comparison
   // const decodedHashCode = hash_code ? decodeURIComponent(hash_code) : null;
 
@@ -126,20 +126,22 @@ export const generatePayInUrl = async (req, res) => {
     role = roleData.role;
   }
 
-  let merchantData = null;
-  if (role === Role.ADMIN || !apiKey) {
+  let merchantData = req.merchant || null;
+  if (!merchantData && (role === Role.ADMIN || !apiKey)) {
     // Internal admin flow: the caller is an authenticated ADMIN (verified via
     // roleToken). Derive the merchant's key from its record.
     const data = await getMerchantsByCodeDao(code);
     if (data.length === 0) {
       throw new NotFoundError('Merchant not found');
     }
-    if (data[0]?.config?.is_h2h && !payload?.amount) {
-      throw new NotFoundError('amount is required');
-    }
     merchantData = data[0];
-    apiKey = data[0]?.config?.keys?.public;
-  } 
+  }
+  if (merchantData?.config?.is_h2h && !payload?.amount) {
+    throw new NotFoundError('amount is required');
+  }
+  if (!apiKey && merchantData) {
+    apiKey = merchantData?.config?.keys?.public;
+  }
   // else {
   //   // External merchant flow: a valid API key is mandatory and must match the
   //   // merchant identified by `code`. We must NOT fall back to the merchant's
@@ -187,7 +189,7 @@ export const generatePayInUrl = async (req, res) => {
     updateRes = {
       ...baseRes,
       expirationDate: result?.expiration_date,
-      payInUrl: `${config.reactPaymentOrigin}/transaction/${generatedHash}${queryStr}`,
+      payInUrl: `${config.reactPaymentOrigin}/transaction${queryStr}`,
       isAdmin: role === Role.ADMIN,
     };
     message = 'PayIn is generated & url is sent successfully';
@@ -530,6 +532,7 @@ export const processPayInH2H = async (req, res) => {
 
   sendSuccess(res, data, 'PayIn request queued successfully', 202);
 };
+
 export const processPayInIMGUTR = async (req, res) => {
   const payload = {
     ...req.body,
@@ -553,7 +556,7 @@ export const telegramOCR = async (req, res) => {
     return;
   }
 
-  await telegramResponseService(message);
+  await dispatchTelegramResponse(message);
 };
 
 export const processPayInByImage = async (req, res) => {

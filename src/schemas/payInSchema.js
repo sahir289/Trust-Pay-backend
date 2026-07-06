@@ -16,6 +16,14 @@ export const ASSIGN_PAYIN_SCHEMA = Joi.object({
   fromUi: Joi.boolean().label('fromUi').optional(),
 });
 
+export const GENERATE_PAYIN_V2_SCHEMA = Joi.object({
+  amount: Joi.number().positive().label('amount').optional(),
+  merchant_order_id: Joi.string().label('merchant_order_id').optional(),
+  user_id: Joi.string().label('user_id').required(),
+  returnUrl: Joi.string().label('returnUrl').optional(),
+  notifyUrl: Joi.string().label('notifyUrl').optional(),
+});
+
 export const VALIDATE_PAYIN_SCHEMA = Joi.object({
   merchantOrderId: Joi.string().label('merchantOrderId').required(),
   oneTimeUsed: Joi.boolean().optional(),
@@ -52,6 +60,10 @@ export const VALIDATE_CHECK_PAY_IN_STATUS = Joi.object({
     .label('payInId')
     .required(),
   merchantCode: Joi.string().label('merchantCode').required(),
+  merchantOrderId: Joi.string().label('merchantOrderId').required(),
+});
+
+export const VALIDATE_CHECK_PAY_IN_V2_STATUS = Joi.object({
   merchantOrderId: Joi.string().label('merchantOrderId').required(),
 });
 

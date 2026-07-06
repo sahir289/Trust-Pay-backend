@@ -136,9 +136,13 @@ export const getImageContentFromOCr = async (image) => {
       return;
     }
 
-    const res = await axios.post(`${config.ocr.url}`, {
-      image,
-    });
+    const res = await axios.post(
+      `${config.ocr.url}`,
+      {
+        image,
+      },
+      { timeout: config.ocr.timeoutMs },
+    );
 
     if (res.data.status === 'failure') {
       logger.log('Unable to get content from image with ocr', res.data);
@@ -166,9 +170,13 @@ export const getImageContentFromOCrForPayout = async (image) => {
       return;
     }
 
-    const res = await axios.post(`${config.ocr.payoutUrl}`, {
-      image,
-    });
+    const res = await axios.post(
+      `${config.ocr.payoutUrl}`,
+      {
+        image,
+      },
+      { timeout: config.ocr.timeoutMs },
+    );
 
     if (res.data.status === 'failure') {
       logger.log('Unable to get content from image with ocr', res.data);

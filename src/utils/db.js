@@ -63,8 +63,26 @@ export const createPool = (connectionString, name) => {
   };
 
   const isWriter = name === 'Writer';
-  const defaultMax = config.env === 'production' ? 20 : 10;
-  const defaultMin = config.env === 'production' ? 2 : 1;
+
+  // When the app sits behind RDS Proxy / PgBouncer (transaction pooling), the
+  // proxy multiplexes a small pool of real backend connections across many
+  // client connections. Per-process pools should stay small and release idle
+  // connections quickly so the proxy can share them; large per-process pools
+  // just reserve proxy slots and defeat multiplexing.
+  const behindProxy = config.dbBehindProxy === true;
+  const isProd = config.env === 'production';
+  let defaultMax;
+  if (behindProxy) {
+    defaultMax = isProd ? 10 : 5;
+  } else {
+    defaultMax = isProd ? 20 : 10;
+  }
+  let defaultMin;
+  if (behindProxy) {
+    defaultMin = 0;
+  } else {
+    defaultMin = isProd ? 2 : 1;
+  }
 
   const globalMax = parsePositiveInt(process.env.DB_POOL_MAX, defaultMax);
   const globalMin = parsePositiveInt(process.env.DB_POOL_MIN, defaultMin);
@@ -86,6 +104,26 @@ export const createPool = (connectionString, name) => {
     10000,
   );
 
+  // Reader statement_timeout caps a single slow analytical query (e.g. deep
+  // OFFSET pagination) so it cannot monopolize a reader connection and exhaust
+  // the reader pool. Writers are left untouched to avoid killing legitimate
+  // long write transactions. Override via DB_READER_STATEMENT_TIMEOUT_MS.
+  const readerStatementTimeoutMs = parsePositiveInt(
+    process.env.DB_READER_STATEMENT_TIMEOUT_MS,
+    10000,
+  );
+
+  // Behind RDS Proxy / PgBouncer, apply timezone (and reader statement_timeout)
+  // via PostgreSQL *startup* options instead of post-connect `SET` statements.
+  // A session-level `SET` pins the proxied connection to one client for its
+  // lifetime and defeats transaction pooling; startup parameters are applied at
+  // connect time without pinning. On a direct connection we keep using `SET`.
+  const startupOptionParts = ['-c timezone=Asia/Kolkata'];
+  if (!isWriter) {
+    startupOptionParts.push(`-c statement_timeout=${readerStatementTimeoutMs}`);
+  }
+  const startupOptions = behindProxy ? startupOptionParts.join(' ') : undefined;
+
   const pool = new Pool({
     connectionString: connectionString,
     ssl:
@@ -100,30 +138,31 @@ export const createPool = (connectionString, name) => {
     idleTimeoutMillis: poolIdleTimeout,
     connectionTimeoutMillis: poolConnectionTimeout,
     keepAlive: true,
-    // Lower default maxUses so long-lived connections recycle more often.
-    // This is important for Aurora reader endpoint balancing: DNS only
-    // load-balances on connection establishment, so recycling connections
-    // periodically re-resolves DNS and redistributes reader traffic.
-    maxUses: parsePositiveInt(process.env.DB_POOL_MAX_USES, 1000),
+    // Startup parameters (timezone / reader statement_timeout). Only set when
+    // behind a proxy; otherwise undefined and applied via `SET` on connect.
+    options: startupOptions,
+    // maxUses recycles connections so a direct Aurora connection re-resolves the
+    // reader DNS and rebalances traffic. Behind RDS Proxy the proxy handles
+    // reader balancing, so recycling is disabled (Infinity) by default.
+    maxUses: parsePositiveInt(
+      process.env.DB_POOL_MAX_USES,
+      behindProxy ? Infinity : 1000,
+    ),
   });
 
-  // Apply statement_timeout to reader connections so a single slow analytical
-  // query (e.g. deep OFFSET pagination) cannot monopolize a reader connection
-  // and exhaust the reader pool. Writers are left untouched to avoid killing
-  // legitimate long write transactions. Override via DB_READER_STATEMENT_TIMEOUT_MS.
-  const readerStatementTimeoutMs = parsePositiveInt(
-    process.env.DB_READER_STATEMENT_TIMEOUT_MS,
-    10000,
-  );
-
   pool.on('connect', async (client) => {
+    // Behind a proxy, timezone/statement_timeout are already applied via the
+    // startup `options` above. Running them here as session-level `SET` would
+    // pin the proxied connection and defeat transaction pooling.
+    if (behindProxy) return;
     try {
-      await client.query("SET TIME ZONE 'Asia/Kolkata'");
-      if (!isWriter) {
-        await client.query(
-          `SET statement_timeout = ${readerStatementTimeoutMs}`,
-        );
-      }
+      // Apply session params in a SINGLE round trip. On a high-latency link
+      // (e.g. a cross-region RDS) every extra round trip on a fresh connection
+      // is added directly to the first query's latency.
+      const sessionSql = isWriter
+        ? "SET TIME ZONE 'Asia/Kolkata'"
+        : `SET TIME ZONE 'Asia/Kolkata'; SET statement_timeout = ${readerStatementTimeoutMs}`;
+      await client.query(sessionSql);
     } catch (err) {
       logger.error(`Failed to initialize session for ${name}:`, err);
       throw err; // Reject the connection if initialization fails
@@ -718,9 +757,14 @@ export const executeQuery = async (query, queryParams = [], conn = null) => {
 
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     let client = null;
-    const db = conn ?? (client = await pool.connect());
 
     try {
+      // Acquire the connection INSIDE the try so a connection-acquisition
+      // failure (e.g. "Connection terminated due to connection timeout" on a
+      // slow / cross-region link) is handled by the same transient-retry logic
+      // below and wrapped in DbError — instead of escaping raw and bubbling up
+      // as an unhandled rejection that can crash the process.
+      const db = conn ?? (client = await pool.connect());
       const result = await db.query(query, queryParams);
       return result;
     } catch (error) {
@@ -731,7 +775,8 @@ export const executeQuery = async (query, queryParams = [], conn = null) => {
       logger.error(`DB Error (Attempt ${attempt})`, {
         query,
         params: queryParams,
-        error,
+        errorCode: error.code,
+        error: error.message,
       });
 
       // IMPORTANT: never retry on an externally managed transaction connection.

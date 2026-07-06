@@ -1,5 +1,6 @@
 import {
   CREATE_BANK_RESPONSE_SCHEMA,
+  CREATE_BANK_RESPONSE_V2_SCHEMA,
   IMPORT_BANK_RESPONSE_SCHEMA,
   RESET_BANK_RESPONSE_SCHEMA,
   UPDATE_BANK_RESPONSE_SCHEMA,
@@ -139,14 +140,29 @@ const createBankBotResponse = async (req, res) => {
     throw new ValidationError(error);
   }
 
+  const splitData = payload.split(' ');
+  const amount = Number.parseFloat(splitData[0]);
+  const upi_short_code = splitData.length > 1 ? splitData[1] : '';
+  const utr = splitData[2];
+  const bank_id = splitData[3];
+  const from_UI = splitData[4];
+
+  const newPayload = {
+    amount: amount,
+    utr: utr,
+    bank_id: bank_id,
+    upi_short_code: upi_short_code,
+    FromUI: from_UI || false,
+  }
+
   const bankResponseObject = {
-    payload,
+    payload: newPayload,
     x_auth_token,
     role:Role.BOT,
   };
   const result = await publishBankResponse(bankResponseObject);
   // const result = await createBankResponseService(
-  //   payload,
+  //   newPayload,
   //   x_auth_token,
   //   Role.BOT,
   //   null,
@@ -177,7 +193,7 @@ const createBankBotResponseBulk = async (req, res) => {
   const validMessages = [];
 
   payloads.forEach((payload, idx) => {
-    const { error } = CREATE_BANK_RESPONSE_SCHEMA.validate({ body: payload });
+    const { error } = CREATE_BANK_RESPONSE_V2_SCHEMA.validate(payload);
     if (error) {
       invalidIndexes.push(idx);
       invalidPayloads.push({ index: idx, payload, error: error.message });

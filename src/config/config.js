@@ -50,6 +50,7 @@ function config(Env) {
     ocr: {
       url: Env?.OCR_URL,
       payoutUrl: Env?.OCR_PAYOUT_URL,
+      timeoutMs: Number(Env?.OCR_TIMEOUT_MS) || 15000,
     },
     redis: {
       url: Env?.REDIS_URL || 'redis://localhost:6379',
@@ -339,6 +340,11 @@ function config(Env) {
         byId: parsePositiveInt(Env?.CALCULATION_BY_ID_CACHE_TTL_SEC, 15),
         list: parsePositiveInt(Env?.CALCULATION_LIST_CACHE_TTL_SEC, 20),
       },
+      reports: {
+        payin: parsePositiveInt(Env?.REPORTS_PAYIN_CACHE_TTL_SEC, 30),
+        payout: parsePositiveInt(Env?.REPORTS_PAYOUT_CACHE_TTL_SEC, 30),
+        accounts: parsePositiveInt(Env?.REPORTS_ACCOUNTS_CACHE_TTL_SEC, 30),
+      },
     },
     orvixPay: {
       url: Env?.ORVIX_PAY_API_URL,
@@ -356,6 +362,27 @@ function config(Env) {
     },
     proxyCheck: {
       proxyCheckUrl: Env?.PROXY_CHECK_URL,
+    },
+    // Internal IP Intelligence Service (IPIS). Caches proxycheck.io lookups
+    // (Redis L2 -> Postgres L3) so the vendor is called only on a cold miss
+    // instead of on every request.
+    // See docs/architecture/ip-intelligence-service-design.md.
+    ipIntelligence: {
+      cacheKeyVersion: Env?.IP_INTEL_CACHE_VERSION || 'v1',
+      ttls: {
+        blockSec: parsePositiveInt(Env?.IP_INTEL_TTL_BLOCK_SEC, 86400),
+        cleanSec: parsePositiveInt(Env?.IP_INTEL_TTL_CLEAN_SEC, 21600),
+        lowConfidenceSec: parsePositiveInt(Env?.IP_INTEL_TTL_LOW_CONF_SEC, 1800),
+        negativeSec: parsePositiveInt(Env?.IP_INTEL_TTL_NEGATIVE_SEC, 180),
+      },
+      provider: {
+        timeoutMs: parsePositiveInt(Env?.IP_INTEL_PROVIDER_TIMEOUT_MS, 2500),
+        breakerFailureThreshold: parsePositiveInt(Env?.IP_INTEL_BREAKER_FAILS, 5),
+        breakerCooldownMs: parsePositiveInt(
+          Env?.IP_INTEL_BREAKER_COOLDOWN_MS,
+          30000,
+        ),
+      },
     },
     payeasy: {
       url: Env?.PAYEASY_API_URL,
@@ -385,6 +412,14 @@ function config(Env) {
       .split(',')
       .map((s) => s.trim())
       .filter(Boolean),
+    // When 'true'/'1'/'yes', the app runs behind RDS Proxy / PgBouncer in
+    // transaction-pooling mode. The DB layer then uses small per-process pools
+    // and applies session settings via connection startup options instead of
+    // post-connect `SET` statements (which would pin a proxied connection to one
+    // client and defeat multiplexing). Default false => direct connection.
+    dbBehindProxy: ['true', '1', 'yes'].includes(
+      String(Env?.DB_BEHIND_PROXY || '').toLowerCase(),
+    ),
     accessTokenSecretKey: Env?.ACCESS_TOKEN_SECRET_KEY,
     accessTokenExpireTime: 24 * 60 * 60, // in seconds
     reactFrontOrigin1: Env?.REACT_FRONT_ORIGIN_1,
