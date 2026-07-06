@@ -794,7 +794,7 @@ export const assignedBankToPayInUrlService = async (
         amount: null,
         req_amount: payIn.amount,
         utr_id: payIn.utr,
-      }, payIn.config?.keys?.private);
+      }, merchant.config?.keys?.private);
       throw new NotFoundError(
         `No bank found with valid amount range for ${amt}!`,
       );
@@ -840,7 +840,7 @@ export const assignedBankToPayInUrlService = async (
         amount: null,
         req_amount: payIn.amount,
         utr_id: payIn.utr,
-      }, payIn.config?.keys?.private);
+      }, merchant.config?.keys?.private);
       throw new NotFoundError(`No enabled bank found!`);
     }
     // Randomly assign one enabled bank account
@@ -1527,7 +1527,7 @@ export const updateDepositStatusService = async (
       req_amount: payInData.amount,
       amount: bankResponse.amount,
       utr_id: bankResponse.utr || '',
-    }, payInData.config?.keys?.private);
+    }, merchant.config?.keys?.private);
     logger.info(` payInData : ${payInData}`);
 
 
@@ -3376,7 +3376,7 @@ export const disputeDuplicateTransactionService = async (
         amount: toAmount,
         req_amount: newStatus === Status.SUCCESS ? toAmount : payInData.amount,
         utr_id: bankResponse.utr,
-      }, payInData.config?.keys?.private);
+      }, merchant.config?.keys?.private);
     }
 
     const updatePayload = {
@@ -3451,7 +3451,7 @@ export const disputeDuplicateTransactionService = async (
       req_amount:
         updatePayload.status === Status.SUCCESS ? toAmount : payIn.amount,
       utr_id: bankResponse.utr,
-    }, payIn.config?.keys?.private);
+    }, merchant.config?.keys?.private);
 
     if (updateBalance && !isMismatch) {
       await updateMerchantBalanceDao(
@@ -3861,7 +3861,7 @@ export const checkPendingPayinStatusService = async (
                 amount: bankResponse.amount,
                 req_amount: updatePayInDataRes.amount,
                 utr_id: updatePayInDataRes.utr,
-              }, updatePayInDataRes.config?.keys?.private);
+              }, merchantData[0]?.config?.keys?.private);
             }
             await commit(conn);
             committed = true;
@@ -3904,7 +3904,7 @@ export const checkPendingPayinStatusService = async (
                 amount: bankResponse.amount,
                 req_amount: updatePayInDataRes.amount,
                 utr_id: updatePayInDataRes.utr,
-              }, updatePayInDataRes.config?.keys?.private);
+              }, merchantData[0]?.config?.keys?.private);
             }
             await commit(conn);
             committed = true;
@@ -3955,7 +3955,7 @@ export const checkPendingPayinStatusService = async (
               amount: bankResponse.amount,
               req_amount: updatePayInDataRes.amount,
               utr_id: updatePayInDataRes.utr,
-            }, updatePayInDataRes.config?.keys?.private);
+            }, merchantData[0]?.config?.keys?.private);
             await commit(conn);
             committed = true;
             logger.log(`Valid match found for payin ${currentPayin.id}`);
