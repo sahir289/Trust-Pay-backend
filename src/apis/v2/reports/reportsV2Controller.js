@@ -15,19 +15,7 @@ import config from '../../../config/config.js';
 
 const { controllerCacheTtls } = config;
 
-/**
- * v2 twins of the v1 reports endpoints. Each reuses the exact same service as
- * v1 (services read directly from `req`); only the response envelope differs
- * (sendV2Success). Thrown errors are converted by the v2ErrorHandler. The
- * `isAuthenticated` middleware (reused from v1) already forwards auth errors via
- * next(), so those are returned as v2 envelopes too.
- *
- * Reports are read-only aggregate queries scoped to the authenticated user's
- * company, so each endpoint is served from a short-lived per-(company, filter)
- * Redis cache to cut repeated heavy DB aggregation under dashboard polling.
- * `shouldServeCachedResponse` avoids serving a cached-empty payload for a
- * specific filtered query (falls back to the DB in that case).
- */
+
 export const getPayInReportV2 = async (req, res) => {
   const { company_id, role } = req.user || {};
   const criteria = normalizeQueryForCache(req.query);
@@ -66,8 +54,7 @@ export const getPayOutReportV2 = async (req, res) => {
 
 export const getClientsAccountReportV2 = async (req, res) => {
   const { company_id, role } = req.user || {};
-  // The accounts report reads its filters from the request BODY (not the query),
-  // so key the cache on the body snapshot to keep distinct filters separate.
+
   const criteria = normalizeQueryForCache(req.body || {});
   const cacheKey = `reports:read:${company_id}:accounts:${generateCacheKey(
     { company_id, role, criteria },

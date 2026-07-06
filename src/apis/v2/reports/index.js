@@ -9,8 +9,6 @@ import {
 
 const router = express.Router();
 
-// v2 twins of the v1 /reports routes. Read-only; same services + isAuthenticated
-// middleware, standardized v2 response envelope.
 router.get(
   '/get-payouts-report',
   isAuthenticated,

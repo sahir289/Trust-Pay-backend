@@ -6,20 +6,10 @@ import { sendError, sendSuccess } from '../../../utils/responseHandlers.js';
 import { STATUS_ERROR_CODES } from '../../../constants/index.js';
 import { checkPayOutStatusV2Service, getWalletBalanceService } from './payOutV2Service.js';
 
-/**
- * POST /v2/payOut/create-payout
- *
- * v2 twin of the v1 `createPayout`. Reuses the SAME `createPayoutService`
- * (identical financial behavior) and the same validation + cache invalidation;
- * only the response envelope is the standardized v2 shape. The service returns
- * a non-throwing { status, message } object for expected 400/404 outcomes,
- * which is mapped to sendV2Error; unexpected errors throw and are shaped by the
- * v2 error handler.
- *
- * Route guards (see ./index.js): checkMerchantApiKeyV2 -> verifyRequestSignature
- * -> idempotency({ required: true }). All replay/signature protection is
- * default-OFF and activates only when its feature flag is enabled.
- */
+
+
+// idempotency({ required: true }). All replay/signature protection is default-OFF and activates only when its feature flag is enabled.
+
 export const createPayoutV2 = async (req, res) => {
   const code = req.headers['x-auth-code'];
   const payload = req.body;

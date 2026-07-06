@@ -8,7 +8,6 @@ import { createBankBotV2Response } from './bankRespopnseV2Controller.js';
 
 const router = express.Router();
 
-// Mirror the v1 payIn router's per-request DB connection-scope tracking.
 router.use(dbConnScope);
 
 router.post('/create-bot-message',
