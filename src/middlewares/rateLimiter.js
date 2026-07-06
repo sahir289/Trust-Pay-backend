@@ -84,6 +84,75 @@ const getRateLimitKey = (req) => {
   return `ip:${resolveClientIp(req)}`;
 };
 
+// Per-MERCHANT bucket key for the merchant-facing endpoints. Derives the key
+// from the auth material every merchant request already carries so one merchant
+// cannot exhaust capacity for the others (the generic getRateLimitKey falls back
+// to IP for merchant traffic, which buckets all merchants behind one NAT/proxy
+// together). Supports both v2 auth styles: `x-auth-code` (checkAuthCode) and
+// `code` + `x-api-key` (checkMerchantApiKeyV2). Falls back to IP when no
+// merchant identity is present.
+const getMerchantRateLimitKey = (req) => {
+  const authCode = req.headers?.['x-auth-code'];
+  if (authCode) {
+    return `merchant:${hashToken(authCode)}`;
+  }
+
+  const code = req.headers?.['code'] || req.body?.code || req.query?.code;
+  if (code) {
+    const apiKey = req.headers?.['x-api-key'] || '';
+    const identity = `${code}:${apiKey}`;
+    return `merchant:${hashToken(identity)}`;
+  }
+
+  return `ip:${resolveClientIp(req)}`;
+};
+
+// Per-merchant rate limiter for the v2 merchant endpoints (payIn / payOut /
+// walletBalance). Reuses the shared `merchantIntegration` limiter + profile and
+// the same helpers as the other limiters; it only differs in the bucket key
+// (per-merchant instead of per-IP/user/token) and runs at the route level in
+// addition to the global limiter mounted on the v2 router (layered defense).
+export const merchantApiRateLimiter = async (req, res, next) => {
+  const key = getMerchantRateLimitKey(req);
+  const limiter = globalRateLimiters.merchantIntegration;
+  const appliedProfile = limiterProfiles.merchantIntegration || config.rateLimiter;
+  const limit = appliedProfile?.points || fallbackProfile.points;
+
+  try {
+    const rlRes = await limiter.consume(key);
+    const remaining = Math.max(0, rlRes?.remainingPoints ?? 0);
+    const resetSeconds = Math.max(0, Math.ceil((rlRes?.msBeforeNext || 0) / 1000));
+
+    res.setHeader('X-RateLimit-Limit', String(limit));
+    res.setHeader('X-RateLimit-Remaining', String(remaining));
+    res.setHeader('X-RateLimit-Reset', String(resetSeconds));
+    res.setHeader('X-RateLimit-Scope', 'merchant');
+
+    return next();
+  } catch (error_) {
+    const retryAfter = Math.max(1, Math.ceil((error_?.msBeforeNext || 0) / 1000));
+
+    logger.warn(`Merchant rate limit exceeded for key: ${key}`, {
+      key,
+      retryAfter,
+      path: req.path,
+      method: req.method,
+    });
+
+    res.setHeader('X-RateLimit-Limit', String(limit));
+    res.setHeader('X-RateLimit-Remaining', '0');
+    res.setHeader('X-RateLimit-Reset', String(retryAfter));
+    res.setHeader('X-RateLimit-Scope', 'merchant');
+    res.setHeader('Retry-After', String(retryAfter));
+
+    return res.status(429).json({
+      statusCode: 429,
+      success: false,
+      message: 'Too many requests. Please try again later.',
+    });
+  }
+};
+
 export const rateLimitMiddleware = async (req, res, next) => {
   const key = getRateLimitKey(req);
 

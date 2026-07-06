@@ -340,6 +340,11 @@ function config(Env) {
         byId: parsePositiveInt(Env?.CALCULATION_BY_ID_CACHE_TTL_SEC, 15),
         list: parsePositiveInt(Env?.CALCULATION_LIST_CACHE_TTL_SEC, 20),
       },
+      reports: {
+        payin: parsePositiveInt(Env?.REPORTS_PAYIN_CACHE_TTL_SEC, 30),
+        payout: parsePositiveInt(Env?.REPORTS_PAYOUT_CACHE_TTL_SEC, 30),
+        accounts: parsePositiveInt(Env?.REPORTS_ACCOUNTS_CACHE_TTL_SEC, 30),
+      },
     },
     orvixPay: {
       url: Env?.ORVIX_PAY_API_URL,

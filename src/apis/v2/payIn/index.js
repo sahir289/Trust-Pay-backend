@@ -4,6 +4,7 @@ import dbConnScope from '../../../middlewares/dbConnScope.js';
 import { checkAuthCode } from '../../../middlewares/checkAuthCode.js';
 import { verifyRequestSignature } from '../../../middlewares/requestSignature.js';
 import { idempotency } from '../../../middlewares/idempotency.js';
+import { merchantApiRateLimiter } from '../../../middlewares/rateLimiter.js';
 import { adaptResponseToV2 } from '../../../utils/v2ResponseAdapter.js';
 import { processPayInH2H } from '../../payIn/payInController.js';
 import {
@@ -15,6 +16,11 @@ const router = express.Router();
 
 // Mirror the v1 payIn router's per-request DB connection-scope tracking.
 router.use(dbConnScope);
+
+// Per-merchant rate limiting (in addition to the global limiter mounted on the
+// v2 router). Buckets by merchant identity so one merchant cannot exhaust the
+// payIn capacity for the others.
+router.use(merchantApiRateLimiter);
 
 // v2 twin of POST /v1/payIn/check-payin-status. Read-only status check, but it
 // is still a merchant-facing endpoint, so the v2 twin is fail-closed: it

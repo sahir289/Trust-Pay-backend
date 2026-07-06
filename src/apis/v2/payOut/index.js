@@ -1,10 +1,16 @@
 import express from 'express';
 import tryCatchHandler from '../../../utils/tryCatchHandler.js';
 import { verifyRequestSignature } from '../../../middlewares/requestSignature.js';
+import { merchantApiRateLimiter } from '../../../middlewares/rateLimiter.js';
 import { checkPayOutV2Status, createPayoutV2, getWalletBalanceV2 } from './payOutV2Controller.js';
 import { checkAuthCode } from '../../../middlewares/checkAuthCode.js';
 
 const router = express.Router();
+
+// Per-merchant rate limiting (in addition to the global limiter mounted on the
+// v2 router). Buckets by merchant identity so one merchant cannot exhaust the
+// payOut capacity for the others.
+router.use(merchantApiRateLimiter);
 
 // Mutating merchant endpoint — full Phase-2 guard chain:
 //   1. checkMerchantApiKeyV2     -> fail-closed API key + IP allowlist, attaches
