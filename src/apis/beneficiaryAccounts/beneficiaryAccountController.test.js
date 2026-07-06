@@ -1479,20 +1479,23 @@ describe("Beneficiary Account Controller", () => {
         sendSuccess.mockReturnValue({});
     });
 
-    it("should handle req.query undefined", async () => {
-        await expect(
-        getBeneficiaryAccount(
-            {
+    it("should handle empty query object", async () => {
+        const req = {
             user: {
-                company_id: 1,
-                role: Role.ADMIN,
-                user_id: 1,
+            company_id: 1,
+            role: Role.ADMIN,
+            user_id: 1,
             },
-            },
-            {}
-        )
-        ).resolves.not.toThrow();
-    });
+            query: {},
+        };
+
+        cache.readJsonCache.mockResolvedValue(null);
+        cache.shouldServeCachedResponse.mockReturnValue(false);
+        beneficiaryService.getBeneficiaryAccountService.mockResolvedValue([]);
+        sendSuccess.mockReturnValue({});
+
+        await expect(getBeneficiaryAccount(req, res)).resolves.toBeDefined();
+        });
 
     it("should handle req.body empty", async () => {
         BENEFICIARY_ACCOUNT_SCHEMA.validate.mockReturnValue({ error: null });
