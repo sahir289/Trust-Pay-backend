@@ -126,20 +126,22 @@ export const generatePayInUrl = async (req, res) => {
     role = roleData.role;
   }
 
-  let merchantData = null;
-  if (role === Role.ADMIN || !apiKey) {
+  let merchantData = req.merchant || null;
+  if (!merchantData && (role === Role.ADMIN || !apiKey)) {
     // Internal admin flow: the caller is an authenticated ADMIN (verified via
     // roleToken). Derive the merchant's key from its record.
     const data = await getMerchantsByCodeDao(code);
     if (data.length === 0) {
       throw new NotFoundError('Merchant not found');
     }
-    if (data[0]?.config?.is_h2h && !payload?.amount) {
-      throw new NotFoundError('amount is required');
-    }
     merchantData = data[0];
-    apiKey = data[0]?.config?.keys?.public;
-  } 
+  }
+  if (merchantData?.config?.is_h2h && !payload?.amount) {
+    throw new NotFoundError('amount is required');
+  }
+  if (!apiKey && merchantData) {
+    apiKey = merchantData?.config?.keys?.public;
+  }
   // else {
   //   // External merchant flow: a valid API key is mandatory and must match the
   //   // merchant identified by `code`. We must NOT fall back to the merchant's
