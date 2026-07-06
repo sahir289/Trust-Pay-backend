@@ -598,6 +598,7 @@ export const generatePayInUrlService = async (payload, role) => {
     if (merchant.config?.is_h2h && assignedBankData) {
       return {
         ...result,
+        status: Status.INITIATED,
         merchant: { h2h: merchant?.config?.is_h2h || false },
         bank: assignedBankData.bank,
         type: type,

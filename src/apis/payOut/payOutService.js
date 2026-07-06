@@ -201,8 +201,8 @@ const _createPayoutServiceInternal = async (
     //     : role === Role.VENDOR
     //       ? vendorColumns.PAYOUT
     //       : columns.PAYOUT;
-    const { code, amount, returnUrl, notifyUrl } = payload;
-    const details = await getMerchantsByCodeDao(code);
+    const { code, amount, returnUrl, notifyUrl, _merchantData } = payload;
+    const details = _merchantData ? [_merchantData] : await getMerchantsByCodeDao(code);
 
     if (!details[0] || details[0].length === 0) {
       const error = new BadRequestError(
@@ -243,6 +243,7 @@ const _createPayoutServiceInternal = async (
     const payoutAmount = Number(amount);
     const balanceRestriction = config.balanceRestriction;
     const merchant_order_id = payload.merchant_order_id ?? uuidv4();
+    delete payload._merchantData;
     delete payload.code;
     payload.merchant_id = details[0].id;
     payload.merchant_order_id = merchant_order_id;
