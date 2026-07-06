@@ -65,7 +65,7 @@ export const ekoTransactionStatusCallback = async (req, res) => {
         payoutId: singleWithdrawData.id,
         amount: singleWithdrawData.amount,
         status: payload.status,
-        utr_id: payload.utr ? payload.utr : '',
+        utrId: payload.utr ? payload.utr : '',
       });
     }
 

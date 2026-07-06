@@ -28,9 +28,8 @@ async function processPayInRestricted(payin, restrictionReason) {
         payinId: payin?.id || null,
         amount: null,
         requestedAmount: payin?.amount || null,
-        req_amount: payin?.amount || null,
+        reqAmount: payin?.amount || null,
         utrId: payin?.user_submitted_utr || null,
-        utr_id: payin?.user_submitted_utr || null,
       };
       await updatePayInUrlDao(payin.id, data);
       if (payin?.config?.urls?.notify) {

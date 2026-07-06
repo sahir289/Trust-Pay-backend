@@ -1530,7 +1530,7 @@ const _updatePayoutServiceInternal = async (
         payoutId: data.id,
         amount: data.amount,
         status: data.status,
-        utr_id: data.utr_id || '',
+        utrId: data.utr_id || '',
       }, secretKey);
       earlyReturnResult = data;
     }
@@ -1681,7 +1681,7 @@ await updateBankAccountBalanceDao(
         payoutId: data.id,
         amount: data.amount,
         status: data.status,
-        utr_id: data.utr_id || '',
+        utrId: data.utr_id || '',
       }, secretKey);
     }
 
@@ -1929,7 +1929,7 @@ const updatePayoutWebhookService = async (ids, payload, conn = null) => {
         payoutId: data.id,
         amount: data.amount,
         status: data.status,
-        utr_id: data.utr_id || '',
+        utrId: data.utr_id || '',
       }, secretKey);
     }
     emitTableEntryAsync(tableName.PAYOUT, responseObj);

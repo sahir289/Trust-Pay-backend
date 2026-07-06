@@ -655,8 +655,8 @@ export const getPayInUrlService = async (
         merchantOrderId: payIn.merchant_order_id,
         payinId: payIn.id,
         amount: null,
-        req_amount: payIn.amount,
-        utr_id: payIn.utr,
+        reqAmount: payIn.amount,
+        utrId: payIn.utr,
       }, secretKey);
       // throw new InternalServerError('PayIn Expired');
     }
@@ -691,8 +691,8 @@ export const expirePayInUrlService = async (payInId) => {
       merchantOrderId: payIn.merchant_order_id,
       payinId: payIn.id,
       amount: null,
-      req_amount: payIn.amount,
-      utr_id: payIn.utr,
+      reqAmount: payIn.amount,
+      utrId: payIn.utr,
     }, secretKey);
   } catch (error) {
     logger.error('Error expire payin url:', error);
@@ -792,8 +792,8 @@ export const assignedBankToPayInUrlService = async (
         merchantOrderId: payIn.merchant_order_id,
         payinId: payIn.id,
         amount: null,
-        req_amount: payIn.amount,
-        utr_id: payIn.utr,
+        reqAmount: payIn.amount,
+        utrId: payIn.utr,
       }, merchant.config?.keys?.private);
       throw new NotFoundError(
         `No bank found with valid amount range for ${amt}!`,
@@ -838,8 +838,8 @@ export const assignedBankToPayInUrlService = async (
         merchantOrderId: payIn.merchant_order_id,
         payinId: payIn.id,
         amount: null,
-        req_amount: payIn.amount,
-        utr_id: payIn.utr,
+        reqAmount: payIn.amount,
+        utrId: payIn.utr,
       }, merchant.config?.keys?.private);
       throw new NotFoundError(`No enabled bank found!`);
     }
@@ -1199,8 +1199,8 @@ export const updatePaymentNotificationStatusService = async (
         merchantOrderId: payIn.merchant_order_id,
         payinId: payIn.id,
         amount: bankResponse?.amount || null,
-        req_amount: payIn.amount,
-        utr_id: bankResponse?.utr ? bankResponse.utr : payIn.user_submitted_utr, //--utr_id either bankres and payin
+        reqAmount: payIn.amount,
+        utrId: bankResponse?.utr ? bankResponse.utr : payIn.user_submitted_utr, //--utr_id either bankres and payin
       }, secretKey);
     } else if (type === Type.PAYOUT) {
       // find on the basis of payoutId
@@ -1229,7 +1229,7 @@ export const updatePaymentNotificationStatusService = async (
           payoutId: payout.id,
           amount: payout.amount,
           status: payout.status,
-          utr_id: payout.utr_id || '',
+          utrId: payout.utr_id || '',
         },secretKey
       );
     }
@@ -1524,9 +1524,9 @@ export const updateDepositStatusService = async (
       status: updatePayInRes.status,
       merchantOrderId: updatePayInRes.merchant_order_id,
       payinId: updatePayInRes.id,
-      req_amount: payInData.amount,
+      reqAmount: payInData.amount,
       amount: bankResponse.amount,
-      utr_id: bankResponse.utr || '',
+      utrId: bankResponse.utr || '',
     }, merchant.config?.keys?.private);
     logger.info(` payInData : ${payInData}`);
 
@@ -2032,8 +2032,8 @@ export const _processPayInServiceInternal = async (
     merchantOrderId: payIn.merchant_order_id,
     payinId: payIn.id,
     amount: bankResponse.amount || null,
-    req_amount: payIn.amount,
-    utr_id: payIn.user_submitted_utr,
+    reqAmount: payIn.amount,
+    utrId: payIn.user_submitted_utr,
   };
 
   if (
@@ -2057,7 +2057,7 @@ export const _processPayInServiceInternal = async (
     updatePayInData.status = Status.DUPLICATE;
     result.status = Status.DUPLICATE;
     updatePayInData.duration = duration;
-    result.utr_id =
+    result.utrId =
       bankResponse.utr || payIn.user_submitted_utr || userSubmittedUtr;
     await updatePayInUrlDao(payIn.id, updatePayInData, conn);
 
@@ -2130,7 +2130,7 @@ export const _processPayInServiceInternal = async (
     updatePayInData.duration = duration;
     // updatePayInData.approved_at = new Date().toISOString();
     result.status = Status.BANK_MISMATCH;
-    result.utr_id =
+    result.utrId =
       bankResponse.utr || payIn.user_submitted_utr || userSubmittedUtr;
     await updatePayInUrlDao(payIn.id, updatePayInData, conn);
 
@@ -2204,11 +2204,11 @@ export const _processPayInServiceInternal = async (
         ? new Date().toISOString()
         : null;
     result.amount = bankResponse.amount;
-    result.utr_id =
+    result.utrId =
       bankResponse.utr || payIn.user_submitted_utr || userSubmittedUtr;
   } else {
     updatePayInData.status = Status.PENDING;
-    result.utr_id =
+    result.utrId =
       bankResponse.utr || payIn.user_submitted_utr || userSubmittedUtr;
   }
 
@@ -2666,8 +2666,8 @@ export const processPayInWebHookService = async (payload, updated_by, conn) => {
       merchantOrderId: payIn.merchant_order_id,
       payinId: payIn.id,
       amount: bankResponse.amount || null,
-      req_amount: payIn.amount,
-      utr_id: userSubmittedUtr,
+      reqAmount: payIn.amount,
+      utrId: userSubmittedUtr,
     };
     logger.info('Webhook processing result:', result);
 
@@ -3374,8 +3374,8 @@ export const disputeDuplicateTransactionService = async (
         merchantOrderId: merchantOrderId,
         payinId: payInData.id,
         amount: toAmount,
-        req_amount: newStatus === Status.SUCCESS ? toAmount : payInData.amount,
-        utr_id: bankResponse.utr,
+        reqAmount: newStatus === Status.SUCCESS ? toAmount : payInData.amount,
+        utrId: bankResponse.utr,
       }, merchant.config?.keys?.private);
     }
 
@@ -3448,9 +3448,9 @@ export const disputeDuplicateTransactionService = async (
       merchantOrderId: payIn.merchant_order_id,
       payinId: payIn.id,
       amount: toAmount,
-      req_amount:
+      reqAmount:
         updatePayload.status === Status.SUCCESS ? toAmount : payIn.amount,
-      utr_id: bankResponse.utr,
+      utrId: bankResponse.utr,
     }, merchant.config?.keys?.private);
 
     if (updateBalance && !isMismatch) {
@@ -3859,8 +3859,8 @@ export const checkPendingPayinStatusService = async (
                 merchantOrderId: updatePayInDataRes.merchant_order_id,
                 payinId: updatePayInDataRes.id,
                 amount: bankResponse.amount,
-                req_amount: updatePayInDataRes.amount,
-                utr_id: updatePayInDataRes.utr,
+                reqAmount: updatePayInDataRes.amount,
+                utrId: updatePayInDataRes.utr,
               }, merchantData[0]?.config?.keys?.private);
             }
             await commit(conn);
@@ -3902,8 +3902,8 @@ export const checkPendingPayinStatusService = async (
                 merchantOrderId: updatePayInDataRes.merchant_order_id,
                 payinId: updatePayInDataRes.id,
                 amount: bankResponse.amount,
-                req_amount: updatePayInDataRes.amount,
-                utr_id: updatePayInDataRes.utr,
+                reqAmount: updatePayInDataRes.amount,
+                utrId: updatePayInDataRes.utr,
               }, merchantData[0]?.config?.keys?.private);
             }
             await commit(conn);
@@ -3953,8 +3953,8 @@ export const checkPendingPayinStatusService = async (
               merchantOrderId: updatePayInDataRes.merchant_order_id,
               payinId: updatePayInDataRes.id,
               amount: bankResponse.amount,
-              req_amount: updatePayInDataRes.amount,
-              utr_id: updatePayInDataRes.utr,
+              reqAmount: updatePayInDataRes.amount,
+              utrId: updatePayInDataRes.utr,
             }, merchantData[0]?.config?.keys?.private);
             await commit(conn);
             committed = true;
