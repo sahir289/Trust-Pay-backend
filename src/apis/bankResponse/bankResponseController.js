@@ -121,8 +121,23 @@ const createBankResponse = async (req, res) => {
     throw new ValidationError(error);
   }
   
+  const splitData = payload.split(' ');
+  const amount = Number.parseFloat(splitData[0]);
+  const upi_short_code = splitData.length > 1 ? splitData[1] : '';
+  const utr = splitData[2];
+  const bank_id = splitData[3];
+  const from_UI = splitData[4];
+
+  const newPayload = {
+    amount: amount,
+    utr: utr,
+    bank_id: bank_id,
+    upi_short_code: upi_short_code,
+    FromUI: from_UI || false,
+  }
+
   const bankResponseObject = {
-    payload,
+    payload: newPayload,
     x_auth_token: company_id,
     role,
     name: user_name,
