@@ -415,7 +415,11 @@ export const generatePayInUrlService = async (payload, role) => {
       // Parallelize company + bank fetch — they only need merchant.company_id / merchant.id
       const [companyRows, rawBankAssigned] = await Promise.all([
         getCompanyByIDDao({ id: merchant.company_id }),
-        getMerchantBankDao({ config_merchants_contains: merchant.id }),
+       getMerchantBankDao({
+                config_merchants_contains: merchant.id,
+                company_id: merchant.company_id,
+                is_obsolete: false,
+              }),
       ]);
       company = companyRows[0];
       bankAssigned = rawBankAssigned ?? [];
@@ -754,7 +758,11 @@ export const assignedBankToPayInUrlService = async (
     }
     const [merchant, banks] = await Promise.all([
       getMerchantForAssignDao(payIn.merchant_id),
-      getMerchantBankDao({ config_merchants_contains: payIn.merchant_id }),
+      getMerchantBankDao({
+        config_merchants_contains: payIn.merchant_id,
+        company_id: payIn.company_id,
+        is_obsolete: false,
+      }),
     ]);
     if (!merchant) {
       throw new NotFoundError('No merchant found');
