@@ -10,6 +10,7 @@ import {
 } from './middlewares/requestExtension.js';
 import { requestTimeoutMiddleware } from './middlewares/requestTimeout.js';
 import { requestSanitizerMiddleware } from './middlewares/requestSanitizer.js';
+import { edgeGuard } from './middlewares/edgeGuard.js';
 import apis from './apis/index.js';
 import errorHandler from './middlewares/errorHandler.js';
 import config from './config/config.js';
@@ -82,6 +83,8 @@ app.use(requestSanitizerMiddleware);
 app.use(requestTimeoutMiddleware);
 
 app.use(addLogIdInRequest);
+// Reject requests that did not transit the trusted edge (nginx)
+app.use(edgeGuard);
 app.use(apis);
 // Timeout: 10s for production, 30s for development (calculations can be slow)
 app.use(timeout(config?.env === 'production' ? '20s' : '30s'));
