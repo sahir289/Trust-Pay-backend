@@ -214,6 +214,8 @@ export const generatePayInUrlByHashService = async (req) => {
     }
     const bankAssigned = await getMerchantBankDao({
       config_merchants_contains: merchantArr[0].id,
+      company_id: merchantArr[0].company_id,
+      is_obsolete: false,
     });
     const [company] = await getCompanyByIDDao({
       id: merchantArr[0].company_id,
@@ -4235,6 +4237,8 @@ const _verifyPayinsServiceInternal = async (
     } else {
       banks = await getMerchantLinkBankDao({
         config_merchants_contains: merchant[0].id,
+        company_id: merchant[0].company_id,
+        is_obsolete: false,
       });
     }
     const VALID_INTENTS = new Set([
