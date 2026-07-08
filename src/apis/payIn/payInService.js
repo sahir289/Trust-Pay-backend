@@ -203,7 +203,6 @@ const getValidatePayinMerchantFromCacheOrDb = async (merchantId) => {
       'Payin validate merchant cache',
     );
     if (cachedMerchant) {
-      console.log('Returning cached merchant data for merchantId:', merchantId);
       return cachedMerchant;
     }
     const merchantRows = await getMerchantsForValidatePayinDao({ id: merchantId });
