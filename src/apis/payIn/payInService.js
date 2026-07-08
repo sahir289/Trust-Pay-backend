@@ -166,6 +166,9 @@ import { createFreechipsTransaction } from '../../intent/createFreeChipsIntentTr
 const PAYIN_IDEMPOTENCY_INFLIGHT_TTL_SEC = Number(
   process.env.PAYIN_IDEMPOTENCY_INFLIGHT_TTL_SEC || 60,
 );
+const PAYIN_VALIDATE_MERCHANT_CACHE_TTL_SEC = 60;
+const PAYIN_VALIDATE_BANK_CACHE_TTL_SEC = 60;
+const PAYIN_VALIDATE_VENDOR_CACHE_TTL_SEC = 60;
 
 const normalizePayInAmount = (amount) => {
   const parsed = Number.parseFloat(amount);
@@ -187,6 +190,88 @@ const buildPayInProcessIdempotencyBaseKey = (payload = {}) => {
 
   const amountToken = normalizePayInAmount(payload?.amount);
   return `idem:payin:process:${merchantOrderId}:${normalizedUtr}:${amountToken}`;
+};
+
+const getValidatePayinMerchantFromCacheOrDb = async (merchantId) => {
+  try {
+    if (!merchantId) {
+      return [];
+    }
+    const cacheKey = `payin:validate:merchant:${merchantId}`;
+    const cachedMerchant = await getCachedData(
+      cacheKey,
+      'Payin validate merchant cache',
+    );
+    if (cachedMerchant) {
+      console.log('Returning cached merchant data for merchantId:', merchantId);
+      return cachedMerchant;
+    }
+    const merchantRows = await getMerchantsForValidatePayinDao({ id: merchantId });
+    await setCachedData(
+      cacheKey,
+      merchantRows,
+      PAYIN_VALIDATE_MERCHANT_CACHE_TTL_SEC,
+      'Payin validate merchant cache',
+    );
+    return merchantRows;
+  } catch (error) {
+    logger.error('Error in getValidatePayinMerchantFromCacheOrDb:', error);
+    throw error;
+  }
+};
+
+const getValidatePayinBankAccountFromCacheOrDb = async (bankAccId) => {
+  try {
+    if (!bankAccId) {
+      return [];
+    }
+    const cacheKey = `payin:validate:bank:${bankAccId}`;
+    const cachedBank = await getCachedData(
+      cacheKey,
+      'Payin validate bank cache',
+    );
+    if (cachedBank) {
+      return cachedBank;
+    }
+    const bankRows = await getBankaccountPayinDao({ id: bankAccId });
+    await setCachedData(
+      cacheKey,
+      bankRows,
+      PAYIN_VALIDATE_BANK_CACHE_TTL_SEC,
+      'Payin validate bank cache',
+    );
+    return bankRows;
+  } catch (error) {
+    logger.error('Error in getValidatePayinBankAccountFromCacheOrDb:', error);
+    throw error;
+  }
+};
+
+const getValidatePayinVendorFromCacheOrDb = async (userId) => {
+  try {
+    if (!userId) {
+      return [];
+    }
+    const cacheKey = `payin:validate:vendor:${userId}`;
+    const cachedVendor = await getCachedData(
+      cacheKey,
+      'Payin validate vendor cache',
+    );
+    if (cachedVendor) {
+      return cachedVendor;
+    }
+    const vendorRows = await getVendorsPayinsDao({ user_id: userId });
+    await setCachedData(
+      cacheKey,
+      vendorRows,
+      PAYIN_VALIDATE_VENDOR_CACHE_TTL_SEC,
+      'Payin validate vendor cache',
+    );
+    return vendorRows;
+  } catch (error) {
+    logger.error('Error in getValidatePayinVendorFromCacheOrDb:', error);
+    throw error;
+  }
 };
 
 export const generatePayInUrlByHashService = async (req) => {
@@ -620,10 +705,13 @@ export const getPayInUrlService = async (
   id,
   tele_check = true,
   conn = null,
+  payInUrl = null,
 ) => {
   try {
     const currentTime = Date.now();
-    const payIn = await getPayinsForServiccDao({ merchant_order_id: id }, conn);
+    const payIn = payInUrl
+      ? payInUrl
+      : await getPayinsForServiccDao({ merchant_order_id: id }, conn);
     const Key = await getMerchantsKeysDao(id);
     const secretKey = Key?.private || null;
     const api_version = Key?.api_version || 'v1';
@@ -4113,9 +4201,15 @@ const _verifyPayinsServiceInternal = async (
   merchantOrderId,
   user_location,
   oneTimeUsed,
+  payInUrl = null,
 ) => {
   try {
-    const payIn = await getPayInUrlService(merchantOrderId, null);
+    const payIn = await getPayInUrlService(
+      merchantOrderId,
+      null,
+      null,
+      payInUrl,
+    );
 
     if (!payIn) {
       throw new BadRequestError('Invalid merchant order id');
@@ -4147,21 +4241,20 @@ const _verifyPayinsServiceInternal = async (
         redirect_url: payIn.config?.urls?.return,
       };
 
-      const merchantArr = await getMerchantsForValidatePayinDao({
-        id: payIn.merchant_id,
-      });
+      const merchantArr = await getValidatePayinMerchantFromCacheOrDb(
+        payIn.merchant_id,
+      );
       const merchant = merchantArr[0] || {};
 
       let bankAccountDetails = [];
       let vendorData = [];
       if (payIn.bank_acc_id) {
-        bankAccountDetails = await getBankaccountPayinDao({
-          id: payIn.bank_acc_id,
-        });
-
-        vendorData = await getVendorsPayinsDao({
-          user_id: bankAccountDetails[0].user_id,
-        });
+        bankAccountDetails = await getValidatePayinBankAccountFromCacheOrDb(
+          payIn.bank_acc_id,
+        );
+        vendorData = await getValidatePayinVendorFromCacheOrDb(
+          bankAccountDetails[0]?.user_id,
+        );
       }
 
       const responseObj = {
@@ -4224,9 +4317,10 @@ const _verifyPayinsServiceInternal = async (
     //   return { error: `This payin url is already used`, result };
     // }
 
-    const merchant = await getMerchantsForValidatePayinDao({
-      id: payIn.merchant_id,
-    });
+    const merchantArr = await getValidatePayinMerchantFromCacheOrDb(
+      payIn.merchant_id,
+    );
+    const merchant = merchantArr[0] || {};
     let banks = [];
     if (payIn.bank_acc_id) {
       banks = await getMerchantLinkBankDao({
@@ -4234,7 +4328,7 @@ const _verifyPayinsServiceInternal = async (
       });
     } else {
       banks = await getMerchantLinkBankDao({
-        config_merchants_contains: merchant[0].id,
+        config_merchants_contains: merchant.id,
       });
     }
     const VALID_INTENTS = new Set([
@@ -4273,7 +4367,7 @@ const _verifyPayinsServiceInternal = async (
       .map((b) => b.config?.is_intent)
       .filter((i) => VALID_INTENTS.has(String(i)));
 
-    const merchantIntent = merchant[0]?.config?.allow_intent;
+    const merchantIntent = merchant?.config?.allow_intent;
     let cashfreeDetails = null;
     let selectedIntent = null;
     let paytmdetails = null;
@@ -4373,8 +4467,8 @@ const _verifyPayinsServiceInternal = async (
           cashfreeDetails?.allow_tytl) ||
         false,
       status: payIn.status,
-      min_amount: merchant[0].min_payin,
-      max_amount: merchant[0].max_payin,
+      min_amount: merchant.min_payin,
+      max_amount: merchant.max_payin,
       is_qr: enabledBanks.some((bank) => bank.is_qr),
       is_phonepay: enabledBanks.some((bank) => bank.config?.is_phonepay),
       is_bank: enabledBanks.some((bank) => bank.is_bank),
@@ -4404,12 +4498,14 @@ export const verifyPayinsService = async (
   merchantOrderId,
   user_location,
   oneTimeUsed,
+  payInUrl = null,
 ) => {
   try {
     return await _verifyPayinsServiceInternal(
       merchantOrderId,
       user_location,
       oneTimeUsed,
+      payInUrl,
     );
   } catch (error) {
     logger.error('Error in verifyPayinsService:', error);
