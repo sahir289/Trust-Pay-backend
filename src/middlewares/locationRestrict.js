@@ -147,6 +147,7 @@ const getUserLocationMiddleware = async (req, res, next) => {
       latitude: userData.latitude,
       longitude: userData.longitude,
     };
+    req.payInUrl = payInUrl;
     next();
   } catch (error) {
     logger.error('Error fetching user location:', error.message);
