@@ -3,7 +3,7 @@
   "version": "2.0.111",
   "main": "server.js",
   "scripts": {
-    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js",
+    "test": "jest",
     "test:ipintel": "node --test src/services/ipIntelligence/__tests__/*.test.js",
     "start": "TZ='Asia/Kolkata' eslint . && nodemon server.js",
     "start:windows": "SET TZ=Asia/Kolkata eslint . && nodemon server.js",
