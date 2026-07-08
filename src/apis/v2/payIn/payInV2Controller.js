@@ -11,16 +11,6 @@ import { BadRequestError, ValidationError } from '../../../utils/appErrors.js';
 import { sendError, sendSuccess } from '../../../utils/responseHandlers.js';
 import { STATUS_ERROR_CODES, V2_ERROR_CODES } from '../../../constants/index.js';
 
-/**
- * POST /v2/payIn/check-payin-status — v2 twin of the v1 status-check endpoint.
- *
- * Reuses the EXACT same `checkPayInStatusService` as v1 (no business-logic
- * duplication); only the response envelope differs (standardized v2 contract via
- * sendSuccess / sendError). The v1 controller/route is left untouched.
- *
- * Validation and expected service errors are returned as v2 envelopes here
- * rather than thrown, so a v2 client always receives the v2 shape.
- */
 export const checkPayInStatusV2 = async (req, res) => {
   const merchant  = req.merchant;
   const joiValidation = VALIDATE_CHECK_PAY_IN_V2_STATUS.validate(req.body);
@@ -44,16 +34,6 @@ export const checkPayInStatusV2 = async (req, res) => {
 };
 
 /**
- * GET /v2/payIn/generate-payin — v2 twin of the v1 generate-payin endpoint.
- *
- * Reuses the EXACT same `generatePayInUrlService` as v1 (no business-logic
- * duplication); only the response envelope differs (standardized v2 contract).
- * The service returns a non-throwing { status, message } object for expected
- * 400/404 outcomes, which is mapped to sendV2Error; validation/order-id errors
- * are thrown and shaped by the v2 error handler. The v1 controller/route is
- * left untouched.
- *
- * Route guards (see ./index.js): checkMerchantApiKeyV2 -> verifyRequestSignature
  * -> idempotency. checkMerchantApiKeyV2 authenticates the merchant via the
  * `x-api-key` header (v2 standardizes on header auth — no API keys in query
  * strings) and attaches req.merchant; there is no admin/roleToken backdoor, so

@@ -553,6 +553,7 @@ export const getPayInsForCronByDateRangeDao = async (
       amount,
       user_submitted_utr,
       config,
+      merchant_id,
       created_at,
       updated_at
     `;

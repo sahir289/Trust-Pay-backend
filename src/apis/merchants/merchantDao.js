@@ -599,6 +599,7 @@ export const getMerchantsKeysDao = async (
       SELECT 
         m.id,
         m.config->'keys'->>'private' AS private_key,
+        m.config->'apiVersion' AS api_version,
         m.company_id
       FROM "Merchant" m
       WHERE 

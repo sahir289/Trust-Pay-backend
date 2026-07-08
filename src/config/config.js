@@ -340,6 +340,11 @@ function config(Env) {
         byId: parsePositiveInt(Env?.CALCULATION_BY_ID_CACHE_TTL_SEC, 15),
         list: parsePositiveInt(Env?.CALCULATION_LIST_CACHE_TTL_SEC, 20),
       },
+      reports: {
+        payin: parsePositiveInt(Env?.REPORTS_PAYIN_CACHE_TTL_SEC, 30),
+        payout: parsePositiveInt(Env?.REPORTS_PAYOUT_CACHE_TTL_SEC, 30),
+        accounts: parsePositiveInt(Env?.REPORTS_ACCOUNTS_CACHE_TTL_SEC, 30),
+      },
     },
     orvixPay: {
       url: Env?.ORVIX_PAY_API_URL,
@@ -462,6 +467,34 @@ function config(Env) {
       payin: Env?.PAYIN_WHITELIST_IPS ,
       payout: Env?.PAYOUT_WHITELIST_IPS ,
       localIp: Env?.LOCAL_IP ,
+    },
+    // Interface the HTTP server binds to. Leave empty to bind all interfaces
+    // (current behaviour). Set to 127.0.0.1 when nginx runs on the same host so
+    // the app port is unreachable from off-box; use a firewall/security group
+    // instead when nginx is on a separate host.
+    bindHost: Env?.BIND_HOST || '',
+    // Edge guard: proves a request transited nginx via a shared secret header.
+    // mode: 'off' | 'monitor' (log-only) | 'enforce' (403 on violation).
+    // Defaults to monitor in production (zero blocking) and off elsewhere so
+    // enabling it never breaks a running deployment until an operator opts in.
+    edgeGuard: {
+      mode: (
+        Env?.EDGE_GUARD_MODE ||
+        (Env?.NODE_ENV === 'production' ? 'monitor' : 'off')
+      )
+        .toString()
+        .toLowerCase(),
+      secret: Env?.EDGE_AUTH_SECRET || '',
+      headerName: (Env?.EDGE_AUTH_HEADER || 'x-edge-auth')
+        .toString()
+        .toLowerCase(),
+      exemptPaths: (
+        Env?.EDGE_GUARD_EXEMPT_PATHS ||
+        '/ping,/health,/version,/v1/api-docs,/favicon.ico'
+      )
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean),
     },
   };
 }

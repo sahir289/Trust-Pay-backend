@@ -56,7 +56,7 @@ export const breakerState = (providerName) =>
 export const lookup = async (ip, budgetMs) => {
   // Use the smaller of the configured vendor timeout and the caller's budget, so
   // a single vendor call can never outlast the time we were given.
-  const configured = config.ipIntelligence?.provider?.timeoutMs ?? 2500;
+  const configured = config.ipIntelligence?.provider?.timeoutMs ?? 3000;
   const timeout = Math.min(configured, budgetMs || configured);
 
   for (const provider of providers) {

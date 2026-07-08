@@ -23,15 +23,9 @@ import {
 
 const router = express.Router();
 
-// V2 auth reuses the V1 controllers verbatim — same services, same brute-force
-// counters, same refresh-token cookies, same 2FA gating — and only adapts the
-// success envelope to V2 via `adaptResponseToV2`. Failures throw and are shaped
-// by the v2ErrorHandler. The V1 auth controllers/routes stay untouched.
 const v2 = (controller) =>
   tryCatchHandler((req, res) => controller(req, adaptResponseToV2(res)));
 
-// Same dedicated, stricter per-IP rate limiting as V1 (shared limiter instance,
-// so the budget cannot be bypassed by switching versions).
 router.use(authApiRateLimiter);
 
 router.post('/login', geoLocationGuard, loginBruteGuard, v2(loginController));

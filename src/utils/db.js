@@ -775,7 +775,8 @@ export const executeQuery = async (query, queryParams = [], conn = null) => {
       logger.error(`DB Error (Attempt ${attempt})`, {
         query,
         params: queryParams,
-        error,
+        errorCode: error.code,
+        error: error.message,
       });
 
       // IMPORTANT: never retry on an externally managed transaction connection.
