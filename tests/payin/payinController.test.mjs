@@ -15,6 +15,7 @@ jest.unstable_mockModule('../../src/apis/payin/payinService.js', () => ({
   processPayInService: jest.fn(),
   resetDepositService: jest.fn(),
   telegramCheckUTRService: jest.fn(),
+  dispatchTelegramResponse: jest.fn(),
   telegramResponseService: jest.fn(),
   updateDepositStatusService: jest.fn(),
   updatePaymentNotificationStatusService: jest.fn(),
@@ -136,6 +137,7 @@ beforeEach(() => {
     payinService.processPayInService = jest.fn();
     payinService.resetDepositService = jest.fn();
     payinService.telegramCheckUTRService = jest.fn();
+    payinService.dispatchTelegramResponse = jest.fn();
     payinService.telegramResponseService = jest.fn();
     payinService.updateDepositStatusService = jest.fn();
     payinService.updatePaymentNotificationStatusService = jest.fn();
@@ -469,13 +471,13 @@ describe('payinController', () => {
 
   describe('telegramOCR', () => {
     it('should send success and call telegramResponseService if message is object', async () => {
-      payinService.telegramResponseService.mockResolvedValue();
+      payinService.dispatchTelegramResponse.mockResolvedValue();
       const { req, res } = mockReqRes({ body: { message: { foo: 'bar' } } });
       await controllerModule.telegramOCR(req, res);
       // We can check if the success response handler was called
       expect(responseHandlers.sendSuccess).toHaveBeenCalled();
-      // We can check if the telegramResponseService was called to process the OCR result
-      expect(payinService.telegramResponseService).toHaveBeenCalled();
+      // We can check if dispatchTelegramResponse was called to process the OCR result
+      expect(payinService.dispatchTelegramResponse).toHaveBeenCalled();
     });
     it('should log error if message is missing or not object', async () => {
       const logger = await import('../../src/utils/logger.js');

@@ -48,6 +48,7 @@ describe('calculationController', () => {
           designation: 'ADMIN',
           role: 'ADMIN',
         },
+        body: {},
         query: {},
       };
       res = {};

@@ -415,8 +415,11 @@ describe('payoutService', () => {
           balance: 100,
         },
       ]);
-      payoutDao.getPayoutByMerchantOrderIdDao.mockResolvedValue(true);
-      // This test checks if the service correctly throws an error when a payout with the same merchant order ID already exists, which is important to prevent duplicate payouts and maintain the integrity of the payout records. This ensures that the service enforces uniqueness of merchant order IDs and does not allow the creation of multiple payouts with the same identifier, which could lead to confusion and issues in tracking payouts.
+      payoutDao.createPayoutDao.mockRejectedValue({
+        code: '23505',
+        message: 'duplicate key value violates unique constraint merchant_order_id',
+      });
+      // Duplicate merchant order IDs are now detected by a DB unique-constraint error raised during insert.
       await expect(
         service.createPayoutService(
           {},

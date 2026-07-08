@@ -32,6 +32,7 @@ jest.unstable_mockModule('../../src/rabbitmq/producer.js', () => ({
 
 jest.unstable_mockModule('../../src/schemas/bankResponseSchema.js', () => ({
   CREATE_BANK_RESPONSE_SCHEMA: { validate: jest.fn() },
+  CREATE_BANK_RESPONSE_V2_SCHEMA: { validate: jest.fn() },
   VALIDATE_BANK_RESPONSE_BY_ID: { validate: jest.fn() },
   UPDATE_BANK_RESPONSE_SCHEMA: { validate: jest.fn() },
   RESET_BANK_RESPONSE_SCHEMA: { validate: jest.fn() },
@@ -232,7 +233,7 @@ describe('bankResponseController', () => {
           user_name: 'Shadow',
           company_id: '2cb29af7-21c1-442a-969f-a90e06c772ca',
         },
-        body: { body: { foo: 'bar' } },
+        body: { body: '100 UPI123 UTR123 BANK123 true' },
       };
       res = {};
       publishBankResponseMock = jest.spyOn(producer, 'publishBankResponse');
@@ -282,7 +283,7 @@ describe('bankResponseController', () => {
     beforeEach(() => {
       req = {
         headers: { 'x-auth-token': 'token' },
-        body: { body: { foo: 'bar' } },
+        body: { body: '100 UPI123 UTR123 BANK123 true' },
       };
       res = {};
       publishBankResponseMock = jest.spyOn(producer, 'publishBankResponse');
@@ -333,12 +334,12 @@ describe('bankResponseController', () => {
       req = {
         headers: { 'x-auth-token': 'token' },
         body: {
-          body: [{ foo: 'bar', amount: 1, utr: 'utr', bank_id: 1 }],
+          body: [{ amount: 1, utr: 'utr-1', bank_id: 'bank-1', upi_short_code: 'UPI1' }],
         },
       };
       res = {};
 
-      schema.CREATE_BANK_RESPONSE_SCHEMA.validate = jest.fn().mockReturnValue({});
+      schema.CREATE_BANK_RESPONSE_V2_SCHEMA.validate = jest.fn().mockReturnValue({});
 
       publishBankResponseBotBulkMock = jest
         .spyOn(producer, 'publishBankResponseBotBulk')

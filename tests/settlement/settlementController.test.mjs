@@ -20,6 +20,10 @@ jest.unstable_mockModule('../../src/utils/controllerCache.js', () => ({
   normalizeQueryForCache: jest.fn(),
   invalidateCompanyCacheByPrefix: jest.fn(),
 }));
+jest.unstable_mockModule('../../src/utils/redishashkey.js', () => ({
+  generateCacheKey: jest.fn(() => 'settlement-test-key'),
+  setCachedDataIfNotExists: jest.fn(() => Promise.resolve(true)),
+}));
 jest.unstable_mockModule('../../src/utils/logger.js', () => ({
   logger: { info: jest.fn() },
 }));
@@ -33,12 +37,13 @@ function mockReqRes({ body = {}, params = {}, query = {}, headers = {}, user = {
 }
 
 // -------------------- IMPORTS (via beforeAll) ----------------------
-let controllerModule, responseHandlers, services, controllerCache;
+let controllerModule, responseHandlers, services, controllerCache, redisHashKey;
 beforeAll(async () => {
   controllerModule = await import('../../src/apis/settlement/settlementController.js');
   responseHandlers = await import('../../src/utils/responseHandlers.js');
   services = await import('../../src/apis/settlement/settlementServices.js');
   controllerCache = await import('../../src/utils/controllerCache.js');
+  redisHashKey = await import('../../src/utils/redishashkey.js');
 });
 
 beforeEach(() => {
@@ -58,6 +63,10 @@ beforeEach(() => {
     controllerCache.readJsonCache = jest.fn();
     controllerCache.writeJsonCache = jest.fn();
     controllerCache.shouldServeCachedResponse = jest.fn();
+  }
+  if (redisHashKey) {
+    redisHashKey.generateCacheKey = jest.fn(() => 'settlement-test-key');
+    redisHashKey.setCachedDataIfNotExists = jest.fn().mockResolvedValue(true);
   }
 });
 

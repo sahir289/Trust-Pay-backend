@@ -1,53 +1,54 @@
 // Unit tests for the proxycheck.io provider adapter's normalize() (pure mapping).
-import { test } from 'node:test';
-import assert from 'node:assert/strict';
+/* global describe, it, expect, */
 import { normalize, name } from '../providers/proxyCheckProvider.js';
 
-test('adapter exposes a stable provider name', () => {
-  assert.equal(name, 'proxycheck');
-});
+describe('proxyCheckProvider', () => {
+  it('adapter exposes a stable provider name', () => {
+    expect(name).toBe('proxycheck');
+  });
 
-test('maps vpn=yes to a high-confidence VPN verdict', () => {
-  const r = normalize({ vpn: 'yes', isocode: 'US' });
-  assert.equal(r.isVpn, true);
-  assert.equal(r.confidence, 0.9);
-  assert.equal(r.country, 'US');
-});
+  it('maps vpn=yes to a high-confidence VPN verdict', () => {
+    const r = normalize({ vpn: 'yes', isocode: 'US' });
+    expect(r.isVpn).toBe(true);
+    expect(r.confidence).toBe(0.9);
+    expect(r.country).toBe('US');
+  });
 
-test('maps proxy=yes', () => {
-  const r = normalize({ proxy: 'yes' });
-  assert.equal(r.isProxy, true);
-});
+  it('maps proxy=yes', () => {
+    const r = normalize({ proxy: 'yes' });
+    expect(r.isProxy).toBe(true);
+  });
 
-test('detects TOR and hosting via type and boolean fields', () => {
-  assert.equal(normalize({ type: 'TOR' }).isTor, true);
-  assert.equal(normalize({ tor: 'yes' }).isTor, true);
-  assert.equal(normalize({ type: 'Hosting' }).isHosting, true);
-  assert.equal(normalize({ type: 'Data Center' }).isHosting, true);
-  assert.equal(normalize({ hosting: 'yes' }).isHosting, true);
-});
+  it('detects TOR and hosting via type and boolean fields', () => {
+    expect(normalize({ type: 'TOR' }).isTor).toBe(true);
+    expect(normalize({ tor: 'yes' }).isTor).toBe(true);
+    expect(normalize({ type: 'Hosting' }).isHosting).toBe(true);
+    expect(normalize({ type: 'Data Center' }).isHosting).toBe(true);
+    expect(normalize({ hosting: 'yes' }).isHosting).toBe(true);
+  });
 
-test('parses ASN from AS-prefixed strings', () => {
-  assert.equal(normalize({ asn: 'AS12345' }).asn, 12345);
-  assert.equal(normalize({ asn: 12345 }).asn, 12345);
-  assert.equal(normalize({}).asn, null);
-});
+  it('parses ASN from AS-prefixed strings', () => {
+    expect(normalize({ asn: 'AS12345' }).asn).toBe(12345);
+    expect(normalize({ asn: 12345 }).asn).toBe(12345);
+    expect(normalize({}).asn).toBeNull();
+  });
 
-test('clamps risk into 0..100 and defaults invalid to 0', () => {
-  assert.equal(normalize({ risk: '85' }).riskScore, 85);
-  assert.equal(normalize({ risk: 150 }).riskScore, 100);
-  assert.equal(normalize({ risk: 'n/a' }).riskScore, 0);
-});
+  it('clamps risk into 0..100 and defaults invalid to 0', () => {
+    expect(normalize({ risk: '85' }).riskScore).toBe(85);
+    expect(normalize({ risk: 150 }).riskScore).toBe(100);
+    expect(normalize({ risk: 'n/a' }).riskScore).toBe(0);
+  });
 
-test('prefers ISO code over full country name', () => {
-  assert.equal(normalize({ isocode: 'IN', country: 'India' }).country, 'IN');
-  assert.equal(normalize({ country: 'India' }).country, 'India');
-});
+  it('prefers ISO code over full country name', () => {
+    expect(normalize({ isocode: 'IN', country: 'India' }).country).toBe('IN');
+    expect(normalize({ country: 'India' }).country).toBe('India');
+  });
 
-test('clean IP gets a moderate confidence and no flags', () => {
-  const r = normalize({ isocode: 'IN' });
-  assert.equal(r.isVpn, false);
-  assert.equal(r.isProxy, false);
-  assert.equal(r.confidence, 0.7);
-  assert.deepEqual(r.metadata, { raw: { isocode: 'IN' } });
+  it('clean IP gets a moderate confidence and no flags', () => {
+    const r = normalize({ isocode: 'IN' });
+    expect(r.isVpn).toBe(false);
+    expect(r.isProxy).toBe(false);
+    expect(r.confidence).toBe(0.7);
+    expect(r.metadata).toEqual({ raw: { isocode: 'IN' } });
+  });
 });
