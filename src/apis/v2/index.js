@@ -1,5 +1,5 @@
 import express from 'express';
-import { auditLogMiddleware } from '../../middlewares/auditLog.js';
+// import { auditLogMiddleware } from '../../middlewares/auditLog.js';
 import { globalRateLimitMiddleware } from '../../middlewares/rateLimiter.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import { getVersionString } from '../../../version.js';
@@ -14,7 +14,7 @@ import BankResponseV2 from './bankResponse/index.js';
 
 const v2Router = express.Router();
 
-v2Router.use(auditLogMiddleware);
+// v2Router.use(auditLogMiddleware);
 v2Router.use(globalRateLimitMiddleware);
 
 v2Router.get('/version', (req, res) =>

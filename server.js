@@ -151,7 +151,15 @@ process.on('unhandledRejection', (reason) => {
   gracefulShutdown('Unhandled Rejection', err);
 });
 
-server.listen(PORT, onListening);
+// Optional interface binding. When BIND_HOST is set (e.g. 127.0.0.1 for an
+// on-host nginx), the app port is unreachable from other machines; when empty
+// it binds all interfaces as before, so existing deployments are unaffected.
+const BIND_HOST = config?.bindHost || '';
+if (BIND_HOST) {
+  server.listen(PORT, BIND_HOST, onListening);
+} else {
+  server.listen(PORT, onListening);
+}
 
 server.on('error', onError);
 

@@ -105,7 +105,7 @@ export const generatePayInUrlV2Service = async (payload, role) => {
       // Parallelize company + bank fetch — they only need merchant.company_id / merchant.id
       const [companyRows, rawBankAssigned] = await Promise.all([
         getCompanyByIDDao({ id: merchant.company_id }),
-        getMerchantBankDao({ config_merchants_contains: merchant.id }),
+        getMerchantBankDao({ config_merchants_contains: merchant.id, company_id: merchant.company_id, is_obsolete: false }),
       ]);
       company = companyRows[0];
       bankAssigned = rawBankAssigned ?? [];

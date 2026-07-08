@@ -1,3 +1,4 @@
+import { V2_ERROR_CODES } from '../constants/index.js';
 import { generateUUID } from '../utils/generateUUID.js';
 import { logger } from '../utils/logger.js';
 
@@ -6,13 +7,14 @@ const methodNotFound = (req, res) => {
   const err = new Error('Not Found');
   err.status = 404;
   let finalRes = {
+    success: false,
     statusCode: err.status,
     message: `the url: ${req.originalUrl} you are trying to reach is not hosted on our server`,
+    code: V2_ERROR_CODES.ERROR,
     meta: {},
     data: {},
   };
   res.status(err.status).json(finalRes);
-  // next(err);
 };
 
 const addLogIdInRequest = (req, res, next) => {
