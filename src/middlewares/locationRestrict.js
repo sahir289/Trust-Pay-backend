@@ -72,32 +72,26 @@ const getUserLocationMiddleware = async (req, res, next) => {
         `Restricted User: ${payInUrl.userid}`,
       );
       logger.warn('Blocked user ID. Access denied.');
-      return res.status(403).json({
-        error: { message: 'Access Denied!', data: { url } },
-      });
+      return sendError(res, 403, 'Access Denied!', { url });
     }
     //remove vpn restriction for main
     // STRICT: block VPN or proxy usage on the payment page.
     if (proxyResult.isVpn || vpn === 'yes') {
-      // const id = req.params.merchantOrderId;
+
       payInUrl.config = {
         ...payInUrl.config,
         user: user,
       };
       const url = await processPayInRestricted(payInUrl, 'VPN detected');
       logger.warn('VPN detected. Access denied.', userData);
-      return res.status(403).json({
-        error: { message: 'VPN is Not Allowed!', data: { url } },
-      });
+      return sendError(res, 403, 'VPN is Not Allowed!', { url });
     }
-    // let rakpayId = 'eb58a8cb-dee6-46fb-878b-3f24272cf980';
+
     if (payInUrl?.unblockedcountries) {
       const countryData = payInUrl?.unblockedcountries.find(
         (c) => c.country === country,
       );
       if (!countryData) {
-        // Country not in unblockedcountries
-        // const id = req.params.merchantOrderId;
         payInUrl.config = {
           ...payInUrl.config,
           user: user,
@@ -107,10 +101,9 @@ const getUserLocationMiddleware = async (req, res, next) => {
           `Restricted country: ${country}`,
         );
         logger.error(`Access restricted for users from ${country}.`, userData);
-        return res.status(403).json({
-          error: { message: 'Oops ! Service not available', data: { url } },
-        });
+        return sendError(res, 403, 'Oops ! Service not available', { url });
       }
+
       if (
         countryData?.regions?.length > 0 &&
         !countryData?.regions?.includes(region)
@@ -119,18 +112,15 @@ const getUserLocationMiddleware = async (req, res, next) => {
           ...payInUrl.config,
           user: user,
         };
-        // const id = req.params.merchantOrderId;
         const url = await processPayInRestricted(
           payInUrl,
           `Restricted region: ${region}`,
         );
         logger.error(`Access restricted for users in ${region}.`, userData);
-        return res.status(403).json({
-          error: { message: 'Oops ! Service not available', data: { url } },
-        });
+        return sendError(res, 403, 'Oops ! Service not available', { url });
       }
     }
-    if (!isNaN(latitude) && !isNaN(longitude)) {
+    if (!Number.isNaN(latitude) && !Number.isNaN(longitude)) {
       // Check if the user is in the restricted region
       if (
         isLocationBlocked(
@@ -142,11 +132,11 @@ const getUserLocationMiddleware = async (req, res, next) => {
         )
       ) {
         logger.error('Access restricted in your region.', userData);
-        return res.status(403).send('Access Denied!');
+        return sendError(res, 403, 'Access Denied!');
       }
     } else {
       logger.warn('Invalid latitude/longitude data received.');
-      return res.status(500).send('500: Access denied');
+      return sendError(res, 403, 'Access denied');
     }
     req.user_location = {
       user_ip: userIp,
@@ -163,9 +153,10 @@ const getUserLocationMiddleware = async (req, res, next) => {
     next();
   } catch (error) {
     logger.error('Error fetching user location:', error.message);
-    res.status(500).json({ message: 'Error fetching user location' });
+    return sendError(res, 500, 'Error fetching user location');
   }
 };
+
 const isLocationBlocked = (
   userLat,
   userLon,
