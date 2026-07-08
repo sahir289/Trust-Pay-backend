@@ -6,6 +6,7 @@ import { getPayInwithMerchantDao } from '../apis/payIn/payInDao.js';
 import { checkProxyAndVpn } from '../utils/proxyCheckService.js';
 import { sendError } from '../utils/responseHandlers.js';
 import { BadRequestError } from '../utils/appErrors.js';
+import { V2_ERROR_CODES } from '../constants/index.js';
 const BLOCK_LAT = process.env.BLOCK_LAT;
 const BLOCK_LONG = process.env.BLOCK_LONG;
 const TestingIp = process.env.LOCAL_IP;
@@ -52,7 +53,7 @@ const getUserLocationMiddleware = async (req, res, next) => {
     };
     const payInUrl = await getPayInwithMerchantDao(req.params.merchantOrderId);
        if (!payInUrl) {
-         return sendError(res, 403, 'Payment is Expired!');
+         return sendError(res, 'Payment is Expired!', 403);
        }
     const isIpBlocked = payInUrl?.blocked_users_ip[0]?.user_ip.includes(userIp);
     if (isIpBlocked) {
@@ -61,7 +62,7 @@ const getUserLocationMiddleware = async (req, res, next) => {
         `Restricted User IP: ${userIp}`,
       );
       logger.warn('Blocked user IP. Access denied.', { userIp });
-      return sendError(res, 403, 'Access Denied!', { url });
+      return sendError(res, 'Access Denied!', 403, V2_ERROR_CODES.FORBIDDEN, { url });
     }
     const isIdBlocked = payInUrl?.blocked_users_id[0]?.userId.includes(
       payInUrl?.userid,
@@ -72,7 +73,7 @@ const getUserLocationMiddleware = async (req, res, next) => {
         `Restricted User: ${payInUrl.userid}`,
       );
       logger.warn('Blocked user ID. Access denied.');
-      return sendError(res, 403, 'Access Denied!', { url });
+      return sendError(res, 'Access Denied!', 403, V2_ERROR_CODES.FORBIDDEN, { url });
     }
     //remove vpn restriction for main
     // STRICT: block VPN or proxy usage on the payment page.
@@ -84,7 +85,7 @@ const getUserLocationMiddleware = async (req, res, next) => {
       };
       const url = await processPayInRestricted(payInUrl, 'VPN detected');
       logger.warn('VPN detected. Access denied.', userData);
-      return sendError(res, 403, 'VPN is Not Allowed!', { url });
+      return sendError(res, 'VPN is Not Allowed!', 403, V2_ERROR_CODES.FORBIDDEN, { url });
     }
 
     if (payInUrl?.unblockedcountries) {
@@ -101,7 +102,7 @@ const getUserLocationMiddleware = async (req, res, next) => {
           `Restricted country: ${country}`,
         );
         logger.error(`Access restricted for users from ${country}.`, userData);
-        return sendError(res, 403, 'Oops ! Service not available', { url });
+        return sendError(res, 'Oops ! Service not available', 403, V2_ERROR_CODES.FORBIDDEN, { url });
       }
 
       if (
@@ -117,7 +118,7 @@ const getUserLocationMiddleware = async (req, res, next) => {
           `Restricted region: ${region}`,
         );
         logger.error(`Access restricted for users in ${region}.`, userData);
-        return sendError(res, 403, 'Oops ! Service not available', { url });
+        return sendError(res, 'Oops ! Service not available', 403, V2_ERROR_CODES.FORBIDDEN, { url });
       }
     }
     if (!Number.isNaN(latitude) && !Number.isNaN(longitude)) {
@@ -132,11 +133,11 @@ const getUserLocationMiddleware = async (req, res, next) => {
         )
       ) {
         logger.error('Access restricted in your region.', userData);
-        return sendError(res, 403, 'Access Denied!');
+        return sendError(res, 'Access Denied!', 403, V2_ERROR_CODES.FORBIDDEN);
       }
     } else {
       logger.warn('Invalid latitude/longitude data received.');
-      return sendError(res, 403, 'Access denied');
+      return sendError(res, 'Access denied', 403, V2_ERROR_CODES.FORBIDDEN);
     }
     req.user_location = {
       user_ip: userIp,
@@ -153,7 +154,10 @@ const getUserLocationMiddleware = async (req, res, next) => {
     next();
   } catch (error) {
     logger.error('Error fetching user location:', error.message);
-    return sendError(res, 500, 'Error fetching user location');
+    if (res.headersSent) {
+      return;
+    }
+    return sendError(res, 'Error fetching user location', 500);
   }
 };
 
