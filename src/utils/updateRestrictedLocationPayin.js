@@ -22,7 +22,7 @@ async function processPayInRestricted(payin, restrictionReason) {
         is_notified: true,
         duration,
       };
-      const notificationData = {
+      let notificationData = {
         status: finalStatus,
         merchantOrderId: payin?.merchant_order_id || null,
         payinId: payin?.id || null,
@@ -36,6 +36,18 @@ async function processPayInRestricted(payin, restrictionReason) {
       if (payin?.config?.urls?.notify) {
           const Key = await getMerchantsKeysDao(payin?.merchant_id);
           const secretKey = Key?.private || null;
+          const api_version = Key?.api_version || 'v1';
+
+          if (api_version === "v2") {
+            notificationData = {
+              ...notificationData,
+              reqAmount: notificationData.req_amount,
+              utrId: notificationData.utr_id,
+            };
+        
+            delete notificationData.req_amount;
+            delete notificationData.utr_id;
+          }
         // This is async function but it's just the callback sending function therefore we are not using await
         merchantPayinCallback(payin.config.urls.notify, notificationData, secretKey);
       }

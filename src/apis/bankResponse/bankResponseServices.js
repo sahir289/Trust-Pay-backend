@@ -628,6 +628,7 @@ const createBankResponseService = async (
 
           const Key = await getMerchantsKeysDao(payInUtr.merchant_id, conn);
           const secretKey = Key?.private || null;
+          const api_version = Key?.api_version || 'v1';
 
           const currentPayinBank = await getBankaccountDashBoardReportDao(
             {
@@ -677,8 +678,14 @@ const createBankResponseService = async (
               merchantOrderId: updatePayInDataRes.merchant_order_id,
               payinId: updatePayInDataRes.id,
               amount: botRes.amount,
-              req_amount: updatePayInDataRes.amount,
-              utr_id: updatePayInDataRes.user_submitted_utr,
+              ...(api_version === 'v2' ? {
+                reqAmount: updatePayInDataRes.amount,
+                utrId: updatePayInDataRes.user_submitted_utr,
+              }: {
+                req_amount: updatePayInDataRes.amount,
+                utr_id: updatePayInDataRes.user_submitted_utr,
+              }
+              )
             }, secretKey);
           }
           // await sendNotification(Status.BANK_MISMATCH, {
@@ -855,6 +862,7 @@ const createBankResponseService = async (
           await updateBotResponseDao(botRes.id, { is_used: true }, conn);
           const Key = await getMerchantsKeysDao(payInUtr.merchant_id, conn);
           const secretKey = Key?.private || null;
+          const api_version = Key?.api_version || 'v1';
 
           const obj = {
             id: updatePayin.id,
@@ -895,8 +903,14 @@ const createBankResponseService = async (
             merchantOrderId: updatePayin.merchant_order_id,
             payinId: updatePayin.id,
             amount: botRes.amount,
-            req_amount: updatePayin.amount,
-            utr_id: updatePayin.user_submitted_utr,
+            ...(api_version === 'v2' ? {
+              reqAmount: updatePayin.amount,
+              utrId: updatePayin.user_submitted_utr,
+            }: {
+              req_amount: updatePayin.amount,
+              utr_id: updatePayin.user_submitted_utr,
+            }
+            )
           }, secretKey);
           const merchantDataBalance = merchantData[0].balance + amount;
           if (isNaN(merchantDataBalance)) {
@@ -968,6 +982,8 @@ const createBankResponseService = async (
           let obj = {};
           const Key = await getMerchantsKeysDao(payInUtr?.merchant_id, conn);
           const secretKey = Key?.private || null;
+          const api_version = Key?.api_version || 'v1';
+
           if (updatePayInDataRes) {
             obj = {
               id: updatePayInDataRes.id,
@@ -1008,8 +1024,14 @@ const createBankResponseService = async (
               merchantOrderId: updatePayInDataRes.merchant_order_id,
               payinId: updatePayInDataRes.id,
               amount: botRes.amount,
-              req_amount: updatePayInDataRes.amount,
-              utr_id: updatePayInDataRes.user_submitted_utr,
+              ...(api_version === 'v2' ? {
+                reqAmount: updatePayInDataRes.amount,
+                utrId: updatePayInDataRes.user_submitted_utr,
+              }: {
+                req_amount: updatePayInDataRes.amount,
+                utr_id: updatePayInDataRes.user_submitted_utr,
+              }
+              )
             }, secretKey);
           }
 
