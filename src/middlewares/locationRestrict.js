@@ -1,11 +1,9 @@
-// import { europeanCountries } from '../constants/index.js';
-// import { COUNTRIES } from '../constants/index.js';
+
 import { logger } from '../utils/logger.js';
 import { processPayInRestricted } from '../utils/updateRestrictedLocationPayin.js';
 import { getPayInwithMerchantDao } from '../apis/payIn/payInDao.js';
 import { checkProxyAndVpn } from '../utils/proxyCheckService.js';
 import { sendError } from '../utils/responseHandlers.js';
-import { BadRequestError } from '../utils/appErrors.js';
 import { V2_ERROR_CODES } from '../constants/index.js';
 const BLOCK_LAT = process.env.BLOCK_LAT;
 const BLOCK_LONG = process.env.BLOCK_LONG;
@@ -20,11 +18,11 @@ const getUserLocationMiddleware = async (req, res, next) => {
   const userIpShouldBlock = '13.41.235.43';
   if (userIp === userIpShouldBlock) {
     logger.warn('Fraud User. Access denied.', userIp);
-    return res.status(403).send('403: Access denied');
+    return sendError(res, 'Access Denied!', 403, V2_ERROR_CODES.FORBIDDEN);
   }
   const restrictedLocation = { latitude: BLOCK_LAT, longitude: BLOCK_LONG };
   const radiusKm = 60;
-  // let restrictedStates = ['Haryana', 'Rajasthan'];
+
   try {
     // Resolve geolocation + VPN/proxy status via the cache-backed IP
     // Intelligence Service (proxycheck.io is only hit on a cold cache miss).
@@ -34,9 +32,7 @@ const getUserLocationMiddleware = async (req, res, next) => {
     // must not open (fail closed).
     if (!userData) {
       logger.warn('Unable to verify VPN/location. Access denied.', { userIp });
-      return next(new BadRequestError(
-          'Unable to verify your network. Please disable any VPN/proxy and try again.',
-        ));
+      return next();
     }
     const { latitude, longitude, vpn, region, country } = userData;
     const user = {
