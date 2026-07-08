@@ -4,3 +4,5 @@ export const getVersion = async (req, res) => {
   const pkg = (await import('./package.json')).default;
   res.json({ version: pkg.version });
 };
+
+export const getVersionString = () => pkg.version;

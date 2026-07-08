@@ -6,15 +6,19 @@ const parseIpList = (value = '') =>
 		.map((ip) => ip.trim())
 		.filter(Boolean);
 const getRequestIp = (req) => {
-	const forwardedFor = req.headers['x-forwarded-for'];
-	const rawIp = forwardedFor || req.connection?.remoteAddress || req.ip || '';
+	// Prefer req.ip: with `trust proxy` set, Express derives it from the proxy
+	// chain and it cannot be spoofed by a client-supplied X-Forwarded-For. Only
+	// fall back to the raw socket address if req.ip is somehow unset.
+	const rawIp = req.ip || req.connection?.remoteAddress || '';
 	const requestIp = String(rawIp).split(',')[0].trim();
 	if (requestIp === '::1') {
+		// currently i have added from "config" but in future we can remove this and use only from db and store bank-bots ips
 		return config.ipWhitelists.localIp;
 	}
 	return requestIp;
 };
 const ipAccessControl = (whitelistKey) => (req, res, next) => {
+	// currently i have added from "config" but in future we can remove this and use only from db and store bank-bots ips
 	const rawWhitelist = config.ipWhitelists[whitelistKey] || '';
 	const whitelist = parseIpList(rawWhitelist);
 	const localIp = config.ipWhitelists.localIp;

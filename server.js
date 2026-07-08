@@ -108,13 +108,28 @@ process.on('SIGINT', () => gracefulShutdown('SIGINT received'));
 // docker / kubernetes or PM2 stop
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM received'));
 
+// A transient DB / network connection error (e.g. a cross-region RDS connect
+// timeout) only affects the in-flight request; the pg pool auto-recovers. These
+// must NOT tear down the whole process — doing so drops all in-flight work and
+// triggers a cold-restart storm that causes even more cold-connect timeouts.
+// Recognize them by error code OR by pg's connection-timeout messages, which
+// carry no error code.
+const isRecoverableConnectionError = (err) => {
+  const code = err?.code;
+  if (code === 'ECONNRESET' || code === 'EPIPE' || code === 'ETIMEDOUT') {
+    return true;
+  }
+  const message = err?.message || '';
+  return (
+    message.includes('Connection terminated due to connection timeout') ||
+    message.includes('timeout exceeded when trying to connect') ||
+    message.includes('Connection terminated unexpectedly')
+  );
+};
+
 process.on('uncaughtException', (err) => {
   // Don't shutdown on recoverable connection errors - they auto-retry
-  if (
-    err.code === 'ECONNRESET' ||
-    err.code === 'EPIPE' ||
-    err.code === 'ETIMEDOUT'
-  ) {
+  if (isRecoverableConnectionError(err)) {
     logger.error('Connection error (will auto-retry):', err);
     return;
   }
@@ -125,11 +140,7 @@ process.on('unhandledRejection', (reason) => {
   const err = reason instanceof Error ? reason : new Error(String(reason));
 
   // Don't shutdown on recoverable connection errors - they auto-retry
-  if (
-    err.code === 'ECONNRESET' ||
-    err.code === 'EPIPE' ||
-    err.code === 'ETIMEDOUT'
-  ) {
+  if (isRecoverableConnectionError(err)) {
     logger.error(
       'Unhandled Rejection (connection error, will auto-retry):',
       err,
@@ -140,7 +151,15 @@ process.on('unhandledRejection', (reason) => {
   gracefulShutdown('Unhandled Rejection', err);
 });
 
-server.listen(PORT, onListening);
+// Optional interface binding. When BIND_HOST is set (e.g. 127.0.0.1 for an
+// on-host nginx), the app port is unreachable from other machines; when empty
+// it binds all interfaces as before, so existing deployments are unaffected.
+const BIND_HOST = config?.bindHost || '';
+if (BIND_HOST) {
+  server.listen(PORT, BIND_HOST, onListening);
+} else {
+  server.listen(PORT, onListening);
+}
 
 server.on('error', onError);
 

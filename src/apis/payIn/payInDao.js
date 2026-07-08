@@ -284,6 +284,45 @@ export const getPayInForCheckStatusDao = async (filters, conn = null) => {
   }
 };
 
+// Single-round-trip status lookup: fetches the PayIn together with its linked
+// BankResponse (LEFT JOIN) so the status endpoint does not need a second
+// sequential query/connection checkout to read the bank response amount + utr.
+// Returns the most recent PayIn for the given merchant_order_id.
+export const getPayInWithBankResponseForStatusDao = async (
+  merchantOrderId,
+  conn = null,
+) => {
+  try {
+    const sql = `
+      SELECT
+        p.id,
+        p.merchant_order_id,
+        p.amount,
+        p.status,
+        p.merchant_id,
+        p.bank_response_id,
+        p.company_id,
+        p.user_submitted_utr,
+        br.amount AS bank_response_amount,
+        br.utr AS bank_response_utr
+      FROM "${tableName.PAYIN}" p
+      LEFT JOIN "${tableName.BANK_RESPONSE}" br
+        ON br.id = p.bank_response_id
+       AND br.company_id = p.company_id
+       AND br.is_obsolete = false
+      WHERE p.merchant_order_id = $1
+        AND p.is_obsolete = false
+      ORDER BY p.created_at DESC
+      LIMIT 1
+    `;
+    const result = await executeQuery(sql, [merchantOrderId], conn);
+    return result.rows[0] || null;
+  } catch (error) {
+    logger.error('Error getting PayIn with bank response for status:', error);
+    throw error;
+  }
+};
+
 export const getPayinsForServiccDao = async (filters, conn = null) => {
   try {
     let [sql, params] = buildSelectQuery(
@@ -514,6 +553,7 @@ export const getPayInsForCronByDateRangeDao = async (
       amount,
       user_submitted_utr,
       config,
+      merchant_id,
       created_at,
       updated_at
     `;
@@ -1557,9 +1597,7 @@ export const getPayinsWithoutHistoryDao = async (
       conditions.push(`
         (
           p.user_submitted_utr = $${paramIndex}
-          OR p.bank_response_id IN (
-            SELECT id FROM public."BankResponse" WHERE utr = $${paramIndex}
-          )
+          OR br.utr = $${paramIndex}
         )
       `);
       queryParams.push(filters.user_submitted_utr.trim());

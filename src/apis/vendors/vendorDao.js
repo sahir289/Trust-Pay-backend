@@ -89,6 +89,41 @@ export const getVendorsBankReponseDao = async (filters = {}, conn = null) => {
   }
 };
 
+export const getVendorByAuthCodeDao = async (filters = {}, conn = null) => {
+  try {
+    let sql = `
+      SELECT 
+        v.id,
+        v.user_id,
+        v.code,
+        v.balance,
+        v.payin_commission,
+        v.config,
+        v.company_id
+      FROM "${tableName.VENDOR}" v 
+      JOIN "${tableName.USER}" u ON v.user_id = u.id 
+      WHERE v.is_obsolete = false AND u.is_obsolete = false
+    `;
+
+    const params = [];
+    let paramIndex = 1;
+
+    if (filters.code) {
+      sql += ` AND v.code = $${paramIndex}`;
+      params.push(filters.code);
+      paramIndex++;
+    }
+
+    sql += ` ORDER BY v.created_at DESC LIMIT 1`;
+
+    const result = await executeQuery(sql, params, conn);
+    return result.rows?.[0] || {};
+  } catch (error) {
+    logger.error('Error fetching vendor data:', error);
+    throw error;
+  }
+};
+
 export const getVendorsDashBoardReportDao = async (filters = {}, conn = null) => {
   try {
     const selectColumns = `
@@ -1199,6 +1234,21 @@ export const getVendorByUserId = async (user_id, conn = null) => {
 };
 
 // Batch fetch vendors by array of user_ids
+export const getVendorForAssignDao = async (user_id, conn = null) => {
+  try {
+    const sql = `
+      SELECT code, user_id
+      FROM "Vendor"
+      WHERE user_id = $1 AND is_obsolete = false
+      LIMIT 1
+    `;
+    const result = await executeQuery(sql, [user_id], conn);
+    return result.rows[0] || null;
+  } catch (error) {
+    logger.error('Error in getVendorForAssignDao:', error);
+    throw error;
+  }
+};
 export const getVendorsByUserIdsDao = async (user_ids = [], conn = null) => {
   if (!Array.isArray(user_ids) || user_ids.length === 0) return [];
   try {

@@ -377,11 +377,7 @@ const getUsersInfoBySearchDao = async (
 ) => {
   let query = `
 SELECT
-  at.id,
-  at.user_id,
   u.user_name,
-  at.company_id,
-  at.session_id,
   at.config->'user_info'->>'user_ip' AS user_ip,
   at.config->'user_info'->>'browser' AS browser,
   at.config->'user_info'->>'os' AS os,
@@ -393,11 +389,8 @@ SELECT
   (at.config->'user_info'->'user_location'->'proxy'->>'isVpn')::boolean AS is_vpn,
   at.config->'user_info'->'user_location'->'proxy'->'raw'->>'country' AS country,
   at.config->'user_info'->'user_location'->'proxy'->'raw'->>'city' AS city,
-  at.config->'user_info'->'user_location'->>'role' AS role,
   at.config->'user_info'->'user_location'->'proxy'->'raw'->>'provider' AS provider,
-  at.is_obsolete,
-  at.created_at,
-  at.updated_at
+  at.created_at
 FROM public."AccessToken" at
 LEFT JOIN public."User" u
   ON at.user_id = u.id

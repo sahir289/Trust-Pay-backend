@@ -36,13 +36,12 @@ import {
   getPayInsForResetBankResDao,
   updatePayInUrlDao,
 } from '../payIn/payInDao.js';
-import { getMerchantsBankResponseDao } from '../merchants/merchantDao.js';
+import { getMerchantsBankResponseDao, getMerchantsKeysDao } from '../merchants/merchantDao.js';
 import { calculateCommission } from '../../utils/calculation.js';
 import {
   getVendorsDao,
   // updateVendorDao,
   getVendorsBankReponseDao,
-  updateVendorDao,
 } from '../vendors/vendorDao.js';
 import {
   columns,
@@ -135,7 +134,7 @@ const shouldApplyDefaultBankResponseDateWindow = (payload = {}) => {
   );
 };
 
-const applyBankResponseTxTimeouts = async (conn) => {
+export const applyBankResponseTxTimeouts = async (conn) => {
   await conn.query(
     `SET LOCAL lock_timeout = '${BANK_RESPONSE_LOCK_TIMEOUT_MS}ms'`,
   );
@@ -145,7 +144,7 @@ const applyBankResponseTxTimeouts = async (conn) => {
 };
 
 
-const runPostCommitTasks = (tasks, context) => {
+export const runPostCommitTasks = (tasks, context) => {
   if (!Array.isArray(tasks) || tasks.length === 0) {
     return;
   }
@@ -165,7 +164,7 @@ const runPostCommitTasks = (tasks, context) => {
 };
 
 // Helper function to check if vendor is sub-vendor and get parent info
-const getSubVendorParentInfo = async (vendor, conn = null) => {
+export const getSubVendorParentInfo = async (vendor, conn = null) => {
   try {
     // Check if vendor designation is SUB_VENDOR
     if (
@@ -222,7 +221,7 @@ const getSubVendorParentInfo = async (vendor, conn = null) => {
 };
 
 // Helper function to calculate commission for parent vendor
-const updateParentVendorCalculation = async (
+export const updateParentVendorCalculation = async (
   parentUserId,
   amount,
   vendorCommissionRate,
@@ -259,13 +258,13 @@ const createBankResponseService = async (
   let conn;
   let committed = false;
   const postCommitTasks = [];
-
-  const splitData = payload.split(' ');
-  const amount = Number.parseFloat(splitData[0]);
-  const upi_short_code = splitData.length > 1 ? splitData[1] : '';
-  const utr = splitData[2];
-  const bank_id = splitData[3];
-  const from_UI = splitData[4];
+  const { amount, upi_short_code, utr,bank_id, from_UI } = payload;
+  // const splitData = payload.split(' ');
+  // const amount = Number.parseFloat(payload.amount[0]);
+  // const upi_short_code = splitData.length > 1 ? splitData[1] : '';
+  // const utr = splitData[2];
+  // const bank_id = splitData[3];
+  // const from_UI = splitData[4];
   let vendor;
 
   // Check for concurrent duplicate UTR immediately (in-memory check)
@@ -439,13 +438,13 @@ const createBankResponseService = async (
           throw new BadRequestError('Invalid amount or commission');
         }
 
-        // NOTE: keep these sequential in the same transaction.
-        // If the balance update hits a lock timeout (55P03), parallel queries on the
-        // same connection can trigger noisy 25P02 cascades (transaction aborted).
-        const res = await atomicUpdateBankBalanceDao(
+        const res = await updateBankAccountBalanceDao(
           { id: botRes?.bank_id, company_id: companyId },
-          parseFloat(botRes.amount),
-          null,
+          {
+            balance: parseFloat(botRes.amount),
+            today_balance: parseFloat(botRes.amount),
+            payin_count: 1,
+          },
           conn,
         );
 
@@ -462,16 +461,16 @@ const createBankResponseService = async (
           role,
           conn,
         );
-        if (isNaN(vendor[0].balance)) {
-          throw new BadRequestError('Invalid amount or commission');
-        }
-        await updateVendorDao(
-          { id: vendor[0].id },
-          {
-            balance: parseFloat(vendor[0].balance) + parseFloat(botRes.amount),
-          },
-          conn,
-        );
+        // if (isNaN(vendor[0].balance)) {
+        //   throw new BadRequestError('Invalid amount or commission');
+        // }
+        // await updateVendorDao(
+        //   { id: vendor[0].id },
+        //   {
+        //     balance: parseFloat(vendor[0].balance) + parseFloat(botRes.amount),
+        //   },
+        //   conn,
+        // );
         const payinVendorCommission = calculateCommission(
           botRes.amount,
           vendor[0].payin_commission,
@@ -627,6 +626,10 @@ const createBankResponseService = async (
             updateBotResponseDao(botRes.id, { is_used: true }, conn),
           ]);
 
+          const Key = await getMerchantsKeysDao(payInUtr.merchant_id, conn);
+          const secretKey = Key?.private || null;
+          const api_version = Key?.api_version || 'v1';
+
           const currentPayinBank = await getBankaccountDashBoardReportDao(
             {
               id: payInUtr.bank_acc_id,
@@ -675,9 +678,15 @@ const createBankResponseService = async (
               merchantOrderId: updatePayInDataRes.merchant_order_id,
               payinId: updatePayInDataRes.id,
               amount: botRes.amount,
-              req_amount: updatePayInDataRes.amount,
-              utr_id: updatePayInDataRes.user_submitted_utr,
-            });
+              ...(api_version === 'v2' ? {
+                reqAmount: updatePayInDataRes.amount,
+                utrId: updatePayInDataRes.user_submitted_utr,
+              }: {
+                req_amount: updatePayInDataRes.amount,
+                utr_id: updatePayInDataRes.user_submitted_utr,
+              }
+              )
+            }, secretKey);
           }
           // await sendNotification(Status.BANK_MISMATCH, {
           //   id: payInUtr.id,
@@ -851,6 +860,9 @@ const createBankResponseService = async (
             conn,
           );
           await updateBotResponseDao(botRes.id, { is_used: true }, conn);
+          const Key = await getMerchantsKeysDao(payInUtr.merchant_id, conn);
+          const secretKey = Key?.private || null;
+          const api_version = Key?.api_version || 'v1';
 
           const obj = {
             id: updatePayin.id,
@@ -891,9 +903,15 @@ const createBankResponseService = async (
             merchantOrderId: updatePayin.merchant_order_id,
             payinId: updatePayin.id,
             amount: botRes.amount,
-            req_amount: updatePayin.amount,
-            utr_id: updatePayin.user_submitted_utr,
-          });
+            ...(api_version === 'v2' ? {
+              reqAmount: updatePayin.amount,
+              utrId: updatePayin.user_submitted_utr,
+            }: {
+              req_amount: updatePayin.amount,
+              utr_id: updatePayin.user_submitted_utr,
+            }
+            )
+          }, secretKey);
           const merchantDataBalance = merchantData[0].balance + amount;
           if (isNaN(merchantDataBalance)) {
             throw new BadRequestError('Invalid amount or commission');
@@ -962,6 +980,10 @@ const createBankResponseService = async (
             updateBotResponseDao(botRes.id, { is_used: true }, conn),
           ]);
           let obj = {};
+          const Key = await getMerchantsKeysDao(payInUtr?.merchant_id, conn);
+          const secretKey = Key?.private || null;
+          const api_version = Key?.api_version || 'v1';
+
           if (updatePayInDataRes) {
             obj = {
               id: updatePayInDataRes.id,
@@ -1002,9 +1024,15 @@ const createBankResponseService = async (
               merchantOrderId: updatePayInDataRes.merchant_order_id,
               payinId: updatePayInDataRes.id,
               amount: botRes.amount,
-              req_amount: updatePayInDataRes.amount,
-              utr_id: updatePayInDataRes.user_submitted_utr,
-            });
+              ...(api_version === 'v2' ? {
+                reqAmount: updatePayInDataRes.amount,
+                utrId: updatePayInDataRes.user_submitted_utr,
+              }: {
+                req_amount: updatePayInDataRes.amount,
+                utr_id: updatePayInDataRes.user_submitted_utr,
+              }
+              )
+            }, secretKey);
           }
 
           // await sendNotification(Status.DISPUTE, {
@@ -1260,13 +1288,14 @@ const createBankResponseWebHookService = async (
         //   null,
         //   conn,
         // );
-         const res=   await updateBankAccountBalanceDao(
+        const res = await updateBankAccountBalanceDao(
           { id: botRes?.bank_id, company_id: companyId },
           {
             balance: parseFloat(botRes.amount),
             today_balance: parseFloat(botRes.amount),
             payin_count: 1,
-          }
+          },
+          conn,
         );
         await _updateBankaccountInternal(
           { id: botRes?.bank_id, company_id: companyId },

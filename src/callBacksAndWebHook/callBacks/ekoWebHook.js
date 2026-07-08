@@ -1,7 +1,7 @@
 /* eslint-disable no-unused-vars */
 // Import required functions and classes
 import { updateBankaccountByIdDao } from '../../apis/bankAccounts/bankaccountDao.js';
-import { getMerchantsDao } from '../../apis/merchants/merchantDao.js';
+import { getMerchantsDao, getMerchantsKeysDao } from '../../apis/merchants/merchantDao.js';
 import { getPayoutsDao, updatePayoutDao } from '../../apis/payOut/payOutDao.js';
 import { NotFoundError } from '../../utils/appErrors.js';
 import { merchantPayoutCallback } from '../merchantCallBacks.js';
@@ -56,6 +56,8 @@ export const ekoTransactionStatusCallback = async (req, res) => {
 
     // Log the merchant payout URL
     const merchantPayoutUrl = merchant.payout_notify_url;
+    const Key = await getMerchantsKeysDao(merchant.id);
+    const secretKey = Key?.private || null;
 
     // TODO: Implement the notification to the merchant's payout URL
     if (merchantPayoutUrl !== null) {
@@ -65,8 +67,7 @@ export const ekoTransactionStatusCallback = async (req, res) => {
         payoutId: singleWithdrawData.id,
         amount: singleWithdrawData.amount,
         status: payload.status,
-        utr_id: payload.utr ? payload.utr : '',
-      });
+      },secretKey);
     }
 
     return data;

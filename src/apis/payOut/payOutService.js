@@ -15,7 +15,7 @@ import {
   getPayoutsBySearchDao,
   updatePayoutDao,
   getAllPayoutsDao,
-  getPayoutByMerchantOrderIdDao,
+  // getPayoutByMerchantOrderIdDao,
   getPayouStatusByIdDao,
   getPayoutByUtrIdDao,
 } from './payOutDao.js';
@@ -24,6 +24,7 @@ import {
   getMerchantByUserIdDao,
   getMerchantsByCodeDao,
   getMerchantByIdDao,
+  getMerchantsKeysDao,
 } from '../merchants/merchantDao.js';
 import {
   getVendorByIdDao,
@@ -200,8 +201,8 @@ const _createPayoutServiceInternal = async (
     //     : role === Role.VENDOR
     //       ? vendorColumns.PAYOUT
     //       : columns.PAYOUT;
-    const { code, amount, returnUrl, notifyUrl } = payload;
-    const details = await getMerchantsByCodeDao(code);
+    const { code, amount, returnUrl, notifyUrl, _merchantData } = payload;
+    const details = _merchantData ? [_merchantData] : await getMerchantsByCodeDao(code);
 
     if (!details[0] || details[0].length === 0) {
       const error = new BadRequestError(
@@ -242,6 +243,7 @@ const _createPayoutServiceInternal = async (
     const payoutAmount = Number(amount);
     const balanceRestriction = config.balanceRestriction;
     const merchant_order_id = payload.merchant_order_id ?? uuidv4();
+    delete payload._merchantData;
     delete payload.code;
     payload.merchant_id = details[0].id;
     payload.merchant_order_id = merchant_order_id;
@@ -258,14 +260,13 @@ const _createPayoutServiceInternal = async (
       : details[0].company_id;
     payload.created_by = payload.created_by ? payload.created_by : user_id;
     payload.updated_by = payload.updated_by ? payload.updated_by : user_id;
-    const isOrderIdExist = await getPayoutByMerchantOrderIdDao(
-      merchant_order_id,
-      payload.company_id,
-    );
-
-    if (isOrderIdExist) {
-      throw new BadRequestError('Merchant Order ID already exists');
-    }
+    // const isOrderIdExist = await getPayoutByMerchantOrderIdDao(
+    //   merchant_order_id,
+    //   payload.company_id,
+    // );
+    // if (isOrderIdExist) {
+    //   throw new BadRequestError('Merchant Order ID already exists');
+    // }
 
     // if (!x_api_key || !merchantAPIKey) {
     //   throw new NotFoundError('Enter valid Api key');
@@ -287,7 +288,15 @@ const _createPayoutServiceInternal = async (
     }
 
     delete payload.x_api_key;
-    let data = await createPayoutDao(payload, conn);
+    let data;
+    try {
+      data = await createPayoutDao(payload, conn);
+    } catch (error) {
+      if (error.code === '23505' && error.message?.includes('merchant_order_id')) {
+        throw new BadRequestError('Merchant Order ID already exists');
+      }
+      throw error;
+    }
 
     if (balanceRestriction) {
       const { totalNetBalance } = await getCalculationDao({ user_id });
@@ -1511,6 +1520,9 @@ const _updatePayoutServiceInternal = async (
       data.approved_at !== null;
 
     const notifyUrl = data.config?.urls?.notify || merchant?.payout_notify;
+       const Key = await getMerchantsKeysDao(merchant.id);
+        const secretKey = Key?.private || null;
+        const api_version = Key?.api_version || 'v1';
 
     // Early return if not approved
     if (!data.approved_at && data.status !== Status.PENDING && !data.rejected_at) {
@@ -1520,8 +1532,14 @@ const _updatePayoutServiceInternal = async (
         payoutId: data.id,
         amount: data.amount,
         status: data.status,
-        utr_id: data.utr_id || '',
-      });
+        ...(api_version === 'v2'
+          ? {
+              utrId: data.utr_id || '',
+            }
+          : {
+              utr_id: data.utr_id || '',
+            }),
+      }, secretKey);
       earlyReturnResult = data;
     }
 
@@ -1671,8 +1689,14 @@ await updateBankAccountBalanceDao(
         payoutId: data.id,
         amount: data.amount,
         status: data.status,
-        utr_id: data.utr_id || '',
-      });
+        ...(api_version === 'v2'
+          ? {
+              utrId: data.utr_id || '',
+            }
+          : {
+              utr_id: data.utr_id || '',
+            }),
+      }, secretKey);
     }
 
     const finalResult = filterResponse(data, filterColumns);
@@ -1909,6 +1933,10 @@ const updatePayoutWebhookService = async (ids, payload, conn = null) => {
       data.config?.urls?.notify ||
       merchant?.config?.urls?.payout_notify ||
       merchant?.payout_notify;
+
+      const Key = await getMerchantsKeysDao(merchant.id);
+      const secretKey = Key?.private || null;
+      const api_version = Key?.api_version || 'v1';
     if (data.status !== Status.PENDING) {
       merchantPayoutCallback(notifyUrl, {
         code: merchant.code,
@@ -1916,8 +1944,14 @@ const updatePayoutWebhookService = async (ids, payload, conn = null) => {
         payoutId: data.id,
         amount: data.amount,
         status: data.status,
-        utr_id: data.utr_id || '',
-      });
+        ...(api_version === 'v2'
+          ? {
+              utrId: data.utr_id || '',
+            }
+          : {
+              utr_id: data.utr_id || '',
+            }),
+      }, secretKey);
     }
     emitTableEntryAsync(tableName.PAYOUT, responseObj);
     return data;

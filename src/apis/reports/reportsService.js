@@ -129,7 +129,7 @@ const getPayOutReportService = async (req) => {
 const getClientsAccountReportService = async (req) => {
   try {
     const { company_id, role } = req.user;
-    const { code, startDate, endDate, role_name, page, limit } = req.query;
+    const { code, startDate, endDate, role_name, page, limit } = req.body;
 
     let result;
     let subMerchants = [];
