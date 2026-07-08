@@ -49,7 +49,7 @@ async function processPayInRestricted(payin, restrictionReason) {
             delete notificationData.utr_id;
           }
         // This is async function but it's just the callback sending function therefore we are not using await
-        merchantPayinCallback(payin.config.urls.notify, notificationData, secretKey, api_version);
+        merchantPayinCallback(payin.config.urls.notify, notificationData, secretKey);
       }
     }
     else {
