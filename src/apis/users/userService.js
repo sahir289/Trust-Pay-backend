@@ -610,6 +610,7 @@ const _createUserServiceInternal = async (payload, conn) => {
           unblocked_countries: unblocked_countries,
           gm_code: payload.gm_code,
           whitelist_ips: payload.whitelist_ips,
+          apiVersion: 'v2',
         },
       };
       merchant = await _createMerchantServiceInternal(merchantPayload, conn);
