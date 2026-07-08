@@ -1597,7 +1597,9 @@ export const getPayinsWithoutHistoryDao = async (
       conditions.push(`
         (
           p.user_submitted_utr = $${paramIndex}
-          OR br.utr = $${paramIndex}
+          OR p.bank_response_id IN (
+            SELECT id FROM public."BankResponse" WHERE utr = $${paramIndex}
+          )
         )
       `);
       queryParams.push(filters.user_submitted_utr.trim());
