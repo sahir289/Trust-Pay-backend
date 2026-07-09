@@ -77,7 +77,6 @@ import {
   getMerchantByUserIdDao,
   updateMerchantBalanceDao,
   getMerchantsByCodesDao,
-  getMerchantsKeysDao,
 } from '../merchants/merchantDao.js';
 import {
   getAllCalculationforCronDao,
@@ -163,6 +162,7 @@ import { createPayeasyTransaction } from '../../intent/createPayeasyIntentTransa
 import { createAlbeCollectTransaction } from '../../intent/createAlbeCollectIntentTransaction.js';
 import { createPennyPayTransaction } from '../../intent/createPennyPayTransaction.js';
 import { createFreechipsTransaction } from '../../intent/createFreeChipsIntentTransactions.js';
+import { getMerchantKeysFromCacheOrDb } from '../../utils/cachedData/getmerchantkeycache.js';
 const PAYIN_IDEMPOTENCY_INFLIGHT_TTL_SEC =
   config?.controllerCacheTtls?.payin?.processInflight || 60;
 const PAYIN_VALIDATE_MERCHANT_CACHE_TTL_SEC =
@@ -720,9 +720,6 @@ export const getPayInUrlService = async (
     const payIn = payInUrl
       ? payInUrl
       : await getPayinsForServiccDao({ merchant_order_id: id }, conn);
-    const Key = await getMerchantsKeysDao(id);
-    const secretKey = Key?.private || null;
-    const api_version = Key?.api_version || 'v1';
 
     if (!payIn) {
       throw new NotFoundError('Payment Url is incorrect');
@@ -750,6 +747,10 @@ export const getPayInUrlService = async (
         },
         conn,
       );
+
+      const Key = await getMerchantKeysFromCacheOrDb(id);
+      const secretKey = Key?.private || null;
+      const api_version = Key?.api_version || 'v1';
 
       const callbackPayload = {
         status: Status.DROPPED,
@@ -786,7 +787,7 @@ export const expirePayInUrlService = async (payInId) => {
   try {
     // const currentTime = Date.now();
     const payIn = await getPayinsForServiccDao({ id: payInId });
-    const Key = await getMerchantsKeysDao(payIn.merchant_id );
+    const Key = await getMerchantKeysFromCacheOrDb(payIn.merchant_id );
     const secretKey = Key?.private || null;
     const api_version = Key?.api_version || 'v1';
     if (!payIn) {
@@ -1336,7 +1337,7 @@ export const updatePaymentNotificationStatusService = async (
         company_id,
       });
 
-       const Key = await getMerchantsKeysDao(payIn.merchant_id);
+       const Key = await getMerchantKeysFromCacheOrDb(payIn.merchant_id);
         const secretKey = Key?.private || null;
         const api_version = Key?.api_version || 'v1';
 
@@ -1373,7 +1374,7 @@ export const updatePaymentNotificationStatusService = async (
       if (!merchant) {
         throw new NotFoundError('Merchant or payout notify URL not found.');
       }
-      const Key = await getMerchantsKeysDao(merchant.id);
+      const Key = await getMerchantKeysFromCacheOrDb(merchant.id);
       const secretKey = Key?.private || null;
       const api_version = Key?.api_version || 'v1';
       ///payout notify url change
@@ -2077,8 +2078,8 @@ export const _processPayInServiceInternal = async (
     }
   }
   const payIn = await getPayInUrlService(merchantOrderId, tele_check, conn);
-  const Key = await getMerchantsKeysDao(payIn.merchant_id);
-  const secretKey = Key?.private_key
+  const Key = await getMerchantKeysFromCacheOrDb(payIn.merchant_id);
+  const secretKey = Key?.private
   const api_version = Key?.api_version || 'v1';
   if (
     Object.keys(payIn).length === 2 &&
@@ -2736,8 +2737,8 @@ export const processPayInWebHookService = async (payload, updated_by, conn) => {
       },
       conn,
     );
-    const Key = await getMerchantsKeysDao(payIn.merchant_id);
-    const secretKey = Key?.private_key
+    const Key = await getMerchantKeysFromCacheOrDb(payIn.merchant_id);
+    const secretKey = Key?.private
     const api_version = Key?.api_version || 'v1';
     const [bank] = await getBankaccountDao(
       {

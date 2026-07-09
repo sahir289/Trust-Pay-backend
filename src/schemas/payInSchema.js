@@ -121,6 +121,20 @@ export const VALIDATE_PROCESS_PAYIN = Joi.object({
   code: Joi.string().label('code').optional(),
 });
 
+export const VALIDATE_PROCESS_V2_PAYIN = Joi.object({
+  userSubmittedUtr: Joi.string()
+    .pattern(/^[A-Za-z0-9]*$/)
+    .label('userSubmittedUtr')
+    .required()
+    .messages({
+      'string.pattern.base':
+        '"userSubmittedUtr" must contain only letters and numbers (no spaces)',
+      'string.empty': '"userSubmittedUtr" is required',
+    }),
+  user_submitted_image: Joi.string(),
+  amount: Joi.number().label('amount').min(1).required(),
+});
+
 export const VALIDATE_PROCESS_PAYIN_BY_IMAGE = Joi.object({
   file: Joi.any()
     .required()

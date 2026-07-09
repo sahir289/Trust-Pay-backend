@@ -24,7 +24,6 @@ import {
   getMerchantByUserIdDao,
   getMerchantsByCodeDao,
   getMerchantByIdDao,
-  getMerchantsKeysDao,
 } from '../merchants/merchantDao.js';
 import {
   getVendorByIdDao,
@@ -88,6 +87,7 @@ import { createPayInFintechPayout } from '../../payinfintech/payinfintech.js';
 import {createPennyPayPayout} from '../../pennypay/pennypay.js';
 import { emitTableEntryAsync } from '../../utils/socket/sessionUtils.js';
 import {createFreechipsPayout} from '../../freechips/freechips.js'
+import { getMerchantKeysFromCacheOrDb } from '../../utils/cachedData/getmerchantkeycache.js';
 // import { notifyNewCalculationTableEntry } from '../../utils/sockets.js';
 
 // Helper function to check if vendor is sub-vendor and get parent info
@@ -1520,7 +1520,7 @@ const _updatePayoutServiceInternal = async (
       data.approved_at !== null;
 
     const notifyUrl = data.config?.urls?.notify || merchant?.payout_notify;
-       const Key = await getMerchantsKeysDao(merchant.id);
+       const Key = await getMerchantKeysFromCacheOrDb(merchant.id);
         const secretKey = Key?.private || null;
         const api_version = Key?.api_version || 'v1';
 
@@ -1934,7 +1934,7 @@ const updatePayoutWebhookService = async (ids, payload, conn = null) => {
       merchant?.config?.urls?.payout_notify ||
       merchant?.payout_notify;
 
-      const Key = await getMerchantsKeysDao(merchant.id);
+      const Key = await getMerchantKeysFromCacheOrDb(merchant.id);
       const secretKey = Key?.private || null;
       const api_version = Key?.api_version || 'v1';
     if (data.status !== Status.PENDING) {
