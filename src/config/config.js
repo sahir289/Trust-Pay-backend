@@ -46,6 +46,10 @@ function config(Env) {
     },
     telegram: {
       telegram_url: Env?.TELEGRAM_URL,
+      bankAlertCooldownSec: parsePositiveInt(
+        Env?.TELEGRAM_BANK_ALERT_COOLDOWN_SEC,
+        60,
+      ),
     },
     ocr: {
       url: Env?.OCR_URL,
@@ -268,8 +272,34 @@ function config(Env) {
           'PAYIN_CACHE_TTL_SEC',
           10,
         ),
+        count: parsePositiveInt(Env?.PAYIN_COUNT_CACHE_TTL_SEC, 60),
+        validateMerchant: parsePositiveInt(
+          Env?.PAYIN_VALIDATE_MERCHANT_CACHE_TTL_SEC,
+          20,
+        ),
+        validateBank: parsePositiveInt(
+          Env?.PAYIN_VALIDATE_BANK_CACHE_TTL_SEC,
+          10,
+        ),
+        validateVendor: parsePositiveInt(
+          Env?.PAYIN_VALIDATE_VENDOR_CACHE_TTL_SEC,
+          60,
+        ),
+        routing: parsePositiveInt(Env?.PAYIN_ROUTING_CACHE_TTL_SEC, 60),
+        processInflight: parsePositiveInt(
+          Env?.PAYIN_IDEMPOTENCY_INFLIGHT_TTL_SEC,
+          60,
+        ),
+        depositStatusCooldown: parsePositiveInt(
+          Env?.PAYIN_DEPOSIT_STATUS_COOLDOWN_SEC,
+          3,
+        ),
       },
       payout: {
+        createInflight: parsePositiveInt(
+          Env?.PAYOUT_CREATE_INFLIGHT_TTL_SEC,
+          5,
+        ),
         byId: withLegacy(
           Env,
           'PAYOUT_BY_ID_CACHE_TTL_SEC',
@@ -319,6 +349,10 @@ function config(Env) {
         codes: parsePositiveInt(Env?.VENDOR_CODES_CACHE_TTL_SEC, 30),
       },
       settlement: {
+        createInflight: parsePositiveInt(
+          Env?.SETTLEMENT_CREATE_INFLIGHT_TTL_SEC,
+          5,
+        ),
         byId: parsePositiveInt(Env?.SETTLEMENT_BY_ID_CACHE_TTL_SEC, 15),
         list: parsePositiveInt(Env?.SETTLEMENT_LIST_CACHE_TTL_SEC, 20),
         search: parsePositiveInt(Env?.SETTLEMENT_SEARCH_CACHE_TTL_SEC, 20),

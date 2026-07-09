@@ -24,7 +24,6 @@ import {
   getMerchantByUserIdDao,
   getMerchantsByCodeDao,
   getMerchantByIdDao,
-  getMerchantsKeysDao,
 } from '../merchants/merchantDao.js';
 import {
   getVendorByIdDao,
@@ -88,6 +87,7 @@ import { createPayInFintechPayout } from '../../payinfintech/payinfintech.js';
 import {createPennyPayPayout} from '../../pennypay/pennypay.js';
 import { emitTableEntryAsync } from '../../utils/socket/sessionUtils.js';
 import {createFreechipsPayout} from '../../freechips/freechips.js'
+import { getMerchantKeysFromCacheOrDb } from '../../utils/cachedData/getmerchantkeycache.js';
 // import { notifyNewCalculationTableEntry } from '../../utils/sockets.js';
 
 // Helper function to check if vendor is sub-vendor and get parent info
@@ -1520,8 +1520,9 @@ const _updatePayoutServiceInternal = async (
       data.approved_at !== null;
 
     const notifyUrl = data.config?.urls?.notify || merchant?.payout_notify;
-       const Key = await getMerchantsKeysDao(merchant.id);
+       const Key = await getMerchantKeysFromCacheOrDb(merchant.id);
         const secretKey = Key?.private || null;
+        const api_version = Key?.api_version || 'v1';
 
     // Early return if not approved
     if (!data.approved_at && data.status !== Status.PENDING && !data.rejected_at) {
@@ -1531,7 +1532,13 @@ const _updatePayoutServiceInternal = async (
         payoutId: data.id,
         amount: data.amount,
         status: data.status,
-        utr_id: data.utr_id || '',
+        ...(api_version === 'v2'
+          ? {
+              utrId: data.utr_id || '',
+            }
+          : {
+              utr_id: data.utr_id || '',
+            }),
       }, secretKey);
       earlyReturnResult = data;
     }
@@ -1682,7 +1689,13 @@ await updateBankAccountBalanceDao(
         payoutId: data.id,
         amount: data.amount,
         status: data.status,
-        utr_id: data.utr_id || '',
+        ...(api_version === 'v2'
+          ? {
+              utrId: data.utr_id || '',
+            }
+          : {
+              utr_id: data.utr_id || '',
+            }),
       }, secretKey);
     }
 
@@ -1921,8 +1934,9 @@ const updatePayoutWebhookService = async (ids, payload, conn = null) => {
       merchant?.config?.urls?.payout_notify ||
       merchant?.payout_notify;
 
-      const Key = await getMerchantsKeysDao(merchant.id);
+      const Key = await getMerchantKeysFromCacheOrDb(merchant.id);
       const secretKey = Key?.private || null;
+      const api_version = Key?.api_version || 'v1';
     if (data.status !== Status.PENDING) {
       merchantPayoutCallback(notifyUrl, {
         code: merchant.code,
@@ -1930,7 +1944,13 @@ const updatePayoutWebhookService = async (ids, payload, conn = null) => {
         payoutId: data.id,
         amount: data.amount,
         status: data.status,
-        utr_id: data.utr_id || '',
+        ...(api_version === 'v2'
+          ? {
+              utrId: data.utr_id || '',
+            }
+          : {
+              utr_id: data.utr_id || '',
+            }),
       }, secretKey);
     }
     emitTableEntryAsync(tableName.PAYOUT, responseObj);

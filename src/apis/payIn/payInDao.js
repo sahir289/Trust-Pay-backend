@@ -16,6 +16,7 @@ import {
   getCachedData,
   setCachedData,
 } from '../../utils/redishashkey.js';
+import config from '../../config/config.js';
 // import {
 //   createPayinInES,
 //   // getPayinsByESSearch,
@@ -27,6 +28,10 @@ import {
 // import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
 // import { generateCacheKey ,setCachedData,getCachedData } from '../../utils/redishashkey.js';
 // import { newTableEntry } from '../../utils/sockets.js';
+const PAYIN_COUNT_CACHE_TTL_SEC =
+  config?.controllerCacheTtls?.payin?.count || 60;
+const PAYIN_SUMMARY_CACHE_TTL_SEC =
+  config?.controllerCacheTtls?.payin?.summary || 60;
 export const generatePayInUrlDao = async (data, conn = null) => {
   try {
     const [sql, params] = buildInsertQuery(tableName.PAYIN, data);
@@ -1731,8 +1736,7 @@ export const getPayinsWithoutHistoryDao = async (
     // from the count SQL + its params, so any filter change busts the cache.
     // TTL is intentionally short so newly created Payins still surface
     // promptly in the total.
-    const countCacheTtl =
-      parseInt(process.env.PAYIN_COUNT_CACHE_TTL_SEC, 10) || 60;
+    const countCacheTtl = PAYIN_COUNT_CACHE_TTL_SEC;
     const countCacheKey = generateCacheKey(
       { q: countQuery, p: countParams },
       'payin:count',
@@ -2164,8 +2168,7 @@ export const getPayinsSumAndCountByStatusDao = async (filters, conn = null) => {
     // every page change in the UI even though the numbers move slowly --
     // serving it from Redis for ~60s removes a heavy aggregation from the
     // reader pool's critical path.
-    const summaryCacheTtl =
-      Number.parseInt(process.env.PAYIN_SUMMARY_CACHE_TTL_SEC, 10) || 60;
+    const summaryCacheTtl = PAYIN_SUMMARY_CACHE_TTL_SEC;
     const summaryCacheKey = generateCacheKey(
       { company_id: filters.company_id },
       'payin:summary',

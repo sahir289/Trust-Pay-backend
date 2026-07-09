@@ -7,7 +7,7 @@ import {
 import { merchantPayinCallback } from '../callBacksAndWebHook/merchantCallBacks.js';
 import { logger } from '../utils/logger.js';
 import { calculateDuration } from '../helpers/index.js';
-import { getMerchantsKeysDao } from '../apis/merchants/merchantDao.js';
+import { getMerchantKeysFromCacheOrDb } from '../utils/cachedData/getmerchantkeycache.js';
 
 const parsePositiveInt = (value, fallback) => {
   const parsed = Number.parseInt(value, 10);
@@ -260,7 +260,7 @@ const collectPayinData = async (options = 'Asia/Kolkata') => {
 
 async function processPayinNotifications(payins) {
   for (const payin of payins) {
-    const notificationData = {
+    let notificationData = {
       status: payin.status,
       merchantOrderId: payin?.merchant_order_id || null,
       payinId: payin?.id || null,
@@ -271,10 +271,23 @@ async function processPayinNotifications(payins) {
     };
     try {
       if (payin?.config?.urls?.notify) {
-          const Key = await getMerchantsKeysDao(payin?.merchant_id);
+          const Key = await getMerchantKeysFromCacheOrDb(payin?.merchant_id);
           const secretKey = Key?.private || null;
+          const api_version = Key?.api_version || 'v1';
+
+          if (api_version === "v2") {
+            notificationData = {
+              ...notificationData,
+              reqAmount: notificationData.req_amount,
+              utrId: notificationData.utr_id,
+            };
+        
+            delete notificationData.req_amount;
+            delete notificationData.utr_id;
+          }
+
         // This is async function but it's just the callback sending function there fore we are not using await
-        merchantPayinCallback(payin?.config?.urls?.notify, notificationData, secretKey);
+        merchantPayinCallback(payin?.config?.urls?.notify, notificationData, secretKey, api_version);
         await updatePayInUrlDao(payin.id, { is_notified: 'true' });
       } else {
         logger.warn('Notify URL is missing for payin', { payinId: payin?.id });

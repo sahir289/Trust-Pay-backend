@@ -7,6 +7,7 @@ import { NotFoundError } from '../../utils/appErrors.js';
 import { merchantPayoutCallback } from '../merchantCallBacks.js';
 import { Status } from '../../constants/index.js';
 import { logger } from '../../utils/logger.js';
+import { getMerchantKeysFromCacheOrDb } from '../../utils/cachedData/getmerchantkeycache.js';
 
 // Define the optimized ekoTransactionStatusCallback function
 export const ekoTransactionStatusCallback = async (req, res) => {
@@ -56,6 +57,8 @@ export const ekoTransactionStatusCallback = async (req, res) => {
 
     // Log the merchant payout URL
     const merchantPayoutUrl = merchant.payout_notify_url;
+    const Key = await getMerchantKeysFromCacheOrDb(merchant.id);
+    const secretKey = Key?.private || null;
 
     // TODO: Implement the notification to the merchant's payout URL
     if (merchantPayoutUrl !== null) {
@@ -65,8 +68,7 @@ export const ekoTransactionStatusCallback = async (req, res) => {
         payoutId: singleWithdrawData.id,
         amount: singleWithdrawData.amount,
         status: payload.status,
-        utr_id: payload.utr ? payload.utr : '',
-      });
+      },secretKey);
     }
 
     return data;
