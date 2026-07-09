@@ -285,10 +285,6 @@ function config(Env) {
           Env?.PAYIN_VALIDATE_VENDOR_CACHE_TTL_SEC,
           60,
         ),
-        validateCompany: parsePositiveInt(
-          Env?.PAYIN_VALIDATE_COMPANY_CACHE_TTL_SEC,
-          20,
-        ),
         routing: parsePositiveInt(Env?.PAYIN_ROUTING_CACHE_TTL_SEC, 60),
         processInflight: parsePositiveInt(
           Env?.PAYIN_IDEMPOTENCY_INFLIGHT_TTL_SEC,
