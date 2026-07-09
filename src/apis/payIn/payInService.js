@@ -4383,7 +4383,7 @@ const _verifyPayinsServiceInternal = async (
     let selectedIntent = null;
     let paytmdetails = null;
     if (merchantIntent && bankIntents.length > 0) {
-      cashfreeDetails = await getCashfreeAllowByCompanyIdDao(payIn.company_id);
+      cashfreeDetails = await getCashfreeAllowByCompanyIdDao(merchant.company_id);
       const allowedIntents = bankIntents.filter(
         (intent) => cashfreeDetails?.[intent] === true,
       );
