@@ -26,7 +26,7 @@ router.post(
 );
 
 router.post(
-  '/generate-payin',
+  '/create-payin',
   checkAuthCode,
   verifyRequestSignature({ required: true }),
   idempotency({ deriveKey: (req) => req.body?.merchant_order_id }),
