@@ -2116,7 +2116,7 @@ export const _processPayInServiceInternal = async (
   }
   const payIn = await getPayInUrlService(merchantOrderId, tele_check, conn);
   const Key = await getMerchantKeysFromCacheOrDb(payIn.merchant_id);
-  const secretKey = Key?.private_key
+  const secretKey = Key?.private
   const api_version = Key?.api_version || 'v1';
   if (
     Object.keys(payIn).length === 2 &&
@@ -2775,7 +2775,7 @@ export const processPayInWebHookService = async (payload, updated_by, conn) => {
       conn,
     );
     const Key = await getMerchantKeysFromCacheOrDb(payIn.merchant_id);
-    const secretKey = Key?.private_key
+    const secretKey = Key?.private
     const api_version = Key?.api_version || 'v1';
     const [bank] = await getBankaccountDao(
       {
