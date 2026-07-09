@@ -3,9 +3,12 @@ import { sendError } from '../utils/responseHandlers.js';
 import { V2_ERROR_CODES } from '../constants/index.js';
 import logger from '../utils/logger.js';
 import { getCachedData, setCachedData } from '../utils/redishashkey.js';
+import config from '../config/config.js';
 
 const LOCALHOST_IPS = new Set(['::1', '127.0.0.1', '::ffff:127.0.0.1']);
-const MERCHANT_API_CACHE_TTL_SEC = 60;
+const MERCHANT_API_CACHE_TTL_SEC =
+  config?.controllerCacheTtls?.merchants?.byCode || 60;
+const LOCAL_IP_OVERRIDE = config?.app?.testingIp;
 
 // Resolve the real client IP for merchant IP-allowlist checks.
 // `trust proxy` is set to 1 in app.js, so Express's `req.ip` is the address of
@@ -15,8 +18,8 @@ const MERCHANT_API_CACHE_TTL_SEC = 60;
 // otherwise let a caller bypass the IP allowlist by forging a whitelisted IP.
 const resolveMerchantClientIp = (req) => {
   const ip = req.ip;
-  if (LOCALHOST_IPS.has(ip) && process.env.LOCAL_IP) {
-    return process.env.LOCAL_IP;
+  if (LOCALHOST_IPS.has(ip) && LOCAL_IP_OVERRIDE) {
+    return LOCAL_IP_OVERRIDE;
   }
   return ip;
 };

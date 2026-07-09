@@ -1058,7 +1058,7 @@ export const getMerchantsBySearchDao = async (
 export const getMerchantsForValidatePayinDao = async (filters, conn = null) => {
   try {
     let query = `
-    SELECT id, code, min_payin, max_payin, config
+    SELECT id, code, min_payin, max_payin, config, company_id
     FROM public."Merchant"
     WHERE is_obsolete = false
     and id = $1

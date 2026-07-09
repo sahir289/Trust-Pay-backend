@@ -34,6 +34,8 @@ import config from '../../config/config.js';
 const invalidateSettlementCache = async (companyId) =>
   invalidateCompanyCacheByPrefix(companyId, 'settlement:read:', 'Settlement cache');
 const { controllerCacheTtls } = config;
+const SETTLEMENT_CREATE_INFLIGHT_TTL_SEC =
+  controllerCacheTtls?.settlement?.createInflight || 5;
 
 const getSettlementControllerById = async (req, res) => {
   const { id } = req.params;
@@ -233,7 +235,7 @@ const createSettlementController = async (req, res) => {
   const lockAcquired = await setCachedDataIfNotExists(
     settlementCacheKey,
     '1',
-    5,
+    SETTLEMENT_CREATE_INFLIGHT_TTL_SEC,
     'createSettlement_inflight',
   );
   if (!lockAcquired) {

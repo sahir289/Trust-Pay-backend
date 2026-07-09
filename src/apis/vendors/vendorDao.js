@@ -284,7 +284,6 @@ export const getVendorsCodeDao = async (
 
     sql += ` GROUP BY v.id, v.code, v.user_id ORDER BY v.code ASC`;
     const result = await executeQuery(sql, queryParams, conn);
-    logger.log('Fetched Vendors:', result.rows.length, 'rows');
     return result.rows;
   } catch (error) {
     logger.error('Error executing vendor query:', error);
