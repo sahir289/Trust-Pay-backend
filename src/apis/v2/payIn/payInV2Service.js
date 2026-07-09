@@ -2,6 +2,7 @@ import dayjs from 'dayjs';
 import { Currency, Role, Status, tableName } from '../../../constants/index.js';
 import { calculateDuration } from '../../../helpers/index.js';
 import { stringifyJSON } from '../../../utils//index.js';
+import config from '../../../config/config.js';
 import logger from '../../../utils/logger.js';
 import {
   generatePayInUrlDao,
@@ -22,6 +23,8 @@ import { newTableEntry } from '../../../utils/sockets.js';
 import { nanoid } from 'nanoid';
 import { v4 as uuidv4 } from 'uuid';
 
+const PAYIN_ROUTING_CACHE_TTL_SEC =
+  config?.controllerCacheTtls?.payin?.routing || 60;
 const createPayInWithUniqueShortCode = async (data) => {
   let attempts = 0;
   while (attempts < 10) {
@@ -114,7 +117,7 @@ export const generatePayInUrlV2Service = async (payload, role) => {
       await setCachedData(
         routingCacheKey,
         { company, bankAssigned },
-        60,
+        PAYIN_ROUTING_CACHE_TTL_SEC,
         'merchant_routing',
       );
     }

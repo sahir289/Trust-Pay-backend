@@ -46,6 +46,8 @@ import {
   generateCacheKey,
   setCachedDataIfNotExists,
 } from '../../utils/redishashkey.js';
+const PAYOUT_CREATE_INFLIGHT_TTL_SEC =
+  config?.controllerCacheTtls?.payout?.createInflight || 5;
 const invalidatePayoutCache = async (companyId) =>
   invalidateCompanyCacheByPrefix(companyId, 'payout:read:', 'PayOut cache');
 
@@ -93,7 +95,7 @@ const createPayout = async (req, res) => {
   const lockAcquired = await setCachedDataIfNotExists(
     cacheKey,
     '1',
-    5,
+    PAYOUT_CREATE_INFLIGHT_TTL_SEC,
     'createPayout_inflight',
   );
   if (!lockAcquired) {

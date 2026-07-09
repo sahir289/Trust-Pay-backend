@@ -173,8 +173,6 @@ const getVendorCodes = async (req, res) => {
     isEnabled,
   );
   await writeJsonCache(cacheKey, data, controllerCacheTtls.vendors.codes);
-  // Log success message
-  // Send success response
   return sendSuccess(res, data, 'Vendors fetched successfully');
 };
 

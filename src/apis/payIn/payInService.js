@@ -163,12 +163,18 @@ import { createPayeasyTransaction } from '../../intent/createPayeasyIntentTransa
 import { createAlbeCollectTransaction } from '../../intent/createAlbeCollectIntentTransaction.js';
 import { createPennyPayTransaction } from '../../intent/createPennyPayTransaction.js';
 import { createFreechipsTransaction } from '../../intent/createFreeChipsIntentTransactions.js';
-const PAYIN_IDEMPOTENCY_INFLIGHT_TTL_SEC = Number(
-  process.env.PAYIN_IDEMPOTENCY_INFLIGHT_TTL_SEC || 60,
-);
-const PAYIN_VALIDATE_MERCHANT_CACHE_TTL_SEC = 60;
-const PAYIN_VALIDATE_BANK_CACHE_TTL_SEC = 60;
-const PAYIN_VALIDATE_VENDOR_CACHE_TTL_SEC = 60;
+const PAYIN_IDEMPOTENCY_INFLIGHT_TTL_SEC =
+  config?.controllerCacheTtls?.payin?.processInflight || 60;
+const PAYIN_VALIDATE_MERCHANT_CACHE_TTL_SEC =
+  config?.controllerCacheTtls?.merchants?.byId || 20;
+const PAYIN_VALIDATE_BANK_CACHE_TTL_SEC =
+  config?.controllerCacheTtls?.bankAccounts?.byId || 10;
+const PAYIN_VALIDATE_VENDOR_CACHE_TTL_SEC =
+  config?.controllerCacheTtls?.vendors?.byId || 60;
+const PAYIN_ROUTING_CACHE_TTL_SEC =
+  config?.controllerCacheTtls?.bankAccounts?.merchantBank || 60;
+const PAYIN_DEPOSIT_STATUS_COOLDOWN_SEC =
+  config?.controllerCacheTtls?.payin?.depositStatusCooldown || 3;
 
 const normalizePayInAmount = (amount) => {
   const parsed = Number.parseFloat(amount);
@@ -514,7 +520,7 @@ export const generatePayInUrlService = async (payload, role) => {
       await setCachedData(
         routingCacheKey,
         { merchant, company, bankAssigned },
-        60,
+        PAYIN_ROUTING_CACHE_TTL_SEC,
         'merchant_routing',
       );
     }
@@ -1405,7 +1411,7 @@ export const updateDepositStatusService = async (
   // transaction that we immediately abandon (which contaminates the pool).
   const KEY_PREFIX = company_id;
   const cacheKey = `${KEY_PREFIX}:${merchantOrderId}`;
-  const HOLD_TIME = 3;
+  const HOLD_TIME = PAYIN_DEPOSIT_STATUS_COOLDOWN_SEC;
   const cooldownActive = await getCachedData(cacheKey);
   if (cooldownActive) {
     logger.log(`Duplicate merchantOrderId ${merchantOrderId}  ${HOLD_TIME}s`);
