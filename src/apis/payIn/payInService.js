@@ -211,7 +211,7 @@ const getValidatePayinMerchantFromCacheOrDb = async (merchantId) => {
       'Payin validate merchant cache',
     );
     if (cachedMerchant) {
-      logger.log('Returning cached merchant data for merchantId:', cachedMerchant);
+      console.log('Returning cached merchant data for merchantId:', cachedMerchant);
       return cachedMerchant;
     }
     const merchantRows = await getMerchantsForValidatePayinDao({ id: merchantId });
@@ -221,7 +221,7 @@ const getValidatePayinMerchantFromCacheOrDb = async (merchantId) => {
       PAYIN_VALIDATE_MERCHANT_CACHE_TTL_SEC,
       'Payin validate merchant cache',
     );
-    logger.log('Returning  merchant data for merchantId:', merchantRows);
+    console.log('Returning  merchant data for merchantId:', merchantRows);
     return merchantRows;
   } catch (error) {
     logger.error('Error in getValidatePayinMerchantFromCacheOrDb:', error);
@@ -240,7 +240,7 @@ const getValidatePayinBankAccountFromCacheOrDb = async (bankAccId) => {
       'Payin validate bank cache',
     );
     if (cachedBank) {
-      logger.log('Returning cached bank data for bankAccId:', cachedBank);
+      console.log('Returning cached bank data for bankAccId:', cachedBank);
       return cachedBank;
     }
     const bankRows = await getBankaccountPayinDao({ id: bankAccId });
@@ -250,7 +250,7 @@ const getValidatePayinBankAccountFromCacheOrDb = async (bankAccId) => {
       PAYIN_VALIDATE_BANK_CACHE_TTL_SEC,
       'Payin validate bank cache',
     );
-    logger.log('Returning bank data for bankAccId:', bankRows);
+    console.log('Returning bank data for bankAccId:', bankRows);
     return bankRows;
   } catch (error) {
     logger.error('Error in getValidatePayinBankAccountFromCacheOrDb:', error);
@@ -269,7 +269,7 @@ const getValidatePayinVendorFromCacheOrDb = async (userId) => {
       'Payin validate vendor cache',
     );
     if (cachedVendor) {
-      logger.log('Returning cached vendor data for userId:', cachedVendor);
+      console.log('Returning cached vendor data for userId:', cachedVendor);
       return cachedVendor;
     }
     const vendorRows = await getVendorsPayinsDao({ user_id: userId });
@@ -279,7 +279,7 @@ const getValidatePayinVendorFromCacheOrDb = async (userId) => {
       PAYIN_VALIDATE_VENDOR_CACHE_TTL_SEC,
       'Payin validate vendor cache',
     );
-    logger.log('Vendor cache miss, fetching from DB for userId:', vendorRows);
+    console.log('Vendor cache miss, fetching from DB for userId:', vendorRows);
     return vendorRows;
   } catch (error) {
     logger.error('Error in getValidatePayinVendorFromCacheOrDb:', error);
@@ -297,7 +297,7 @@ const getValidatePayinCompanyFromCacheOrDb = async (companyId) => {
       'Payin validate company cache',
     );
     if (cachedCompany) {
-      logger.log('Returning cached company data for companyId:', cachedCompany);
+      console.log('Returning cached company data for companyId:', cachedCompany);
       return cachedCompany;
     }
     const company = await getCashfreeAllowByCompanyIdDao(companyId);
@@ -307,7 +307,7 @@ const getValidatePayinCompanyFromCacheOrDb = async (companyId) => {
       PAYIN_VALIDATE_COMPANY_CACHE_TTL_SEC,
       'Payin validate company cache',
     );
-     logger.log(
+     console.log(
       'Company cache miss, fetching from DB for companyId:',
       company,
     );
@@ -4250,7 +4250,7 @@ const _verifyPayinsServiceInternal = async (
   payInUrl = null,
 ) => {
   try {
-    logger.log('[verifyPayin] Start', {
+    console.log('[verifyPayin] Start', {
       merchantOrderId,
       oneTimeUsed,
       hasPayInUrlPayload: Boolean(payInUrl),
@@ -4263,7 +4263,7 @@ const _verifyPayinsServiceInternal = async (
       payInUrl,
     );
 
-    logger.log('[verifyPayin] PayIn loaded', {
+    console.log('[verifyPayin] PayIn loaded', {
       merchantOrderId,
       payInId: payIn?.id,
       status: payIn?.status,
@@ -4282,7 +4282,7 @@ const _verifyPayinsServiceInternal = async (
       role = userData?.role;
     }
 
-    logger.log('[verifyPayin] Role resolved', {
+    console.log('[verifyPayin] Role resolved', {
       merchantOrderId,
       created_by: payIn?.created_by,
       role,
@@ -4293,7 +4293,7 @@ const _verifyPayinsServiceInternal = async (
       payIn.one_time_used === true ||
       oneTimeUsed === 'true'
     ) {
-      logger.log('[verifyPayin] Already-used path triggered', {
+      console.log('[verifyPayin] Already-used path triggered', {
         merchantOrderId,
         usedTokenPresent: usedTokens.has(merchantOrderId),
         payinOneTimeUsed: payIn.one_time_used,
@@ -4321,7 +4321,7 @@ const _verifyPayinsServiceInternal = async (
       );
       const merchant = merchantArr[0] || {};
 
-      logger.log('[verifyPayin] Merchant resolved for already-used path', {
+      console.log('[verifyPayin] Merchant resolved for already-used path', {
         merchantOrderId,
         merchantId: merchant?.id || payIn?.merchant_id,
       });
@@ -4337,7 +4337,7 @@ const _verifyPayinsServiceInternal = async (
         );
       }
 
-      logger.log('[verifyPayin] Already-used path bank/vendor resolved', {
+      console.log('[verifyPayin] Already-used path bank/vendor resolved', {
         merchantOrderId,
         bankAccId: payIn?.bank_acc_id,
         bankFound: bankAccountDetails?.length > 0,
@@ -4371,7 +4371,7 @@ const _verifyPayinsServiceInternal = async (
       };
 
       await newTableEntry(tableName.PAYIN, responseObj);
-      logger.log('[verifyPayin] Already-used path completed', {
+      console.log('[verifyPayin] Already-used path completed', {
         merchantOrderId,
         responseStatus: responseObj?.status,
       });
@@ -4388,7 +4388,7 @@ const _verifyPayinsServiceInternal = async (
       config: updatedConfig,
       one_time_used: oneTimeUsed || false,
     });
-    logger.log('[verifyPayin] PayIn config updated', {
+    console.log('[verifyPayin] PayIn config updated', {
       merchantOrderId,
       payInId: payIn.id,
       one_time_used: updateResult?.one_time_used,
@@ -4418,7 +4418,7 @@ const _verifyPayinsServiceInternal = async (
       payIn.merchant_id,
     );
     const merchant = merchantArr[0] || {};
-    logger.log('[verifyPayin] Merchant resolved', {
+    console.log('[verifyPayin] Merchant resolved', {
       merchantOrderId,
       merchantId: merchant?.id || payIn?.merchant_id,
       allow_intent: merchant?.config?.allow_intent,
@@ -4436,7 +4436,7 @@ const _verifyPayinsServiceInternal = async (
         is_obsolete: false,
       });
     }
-    logger.log('[verifyPayin] Banks fetched', {
+    console.log('[verifyPayin] Banks fetched', {
       merchantOrderId,
       totalBanks: banks?.length || 0,
       fromDirectBankAccId: Boolean(payIn.bank_acc_id),
@@ -4477,7 +4477,7 @@ const _verifyPayinsServiceInternal = async (
       .map((b) => b.config?.is_intent)
       .filter((i) => VALID_INTENTS.has(String(i)));
     
-    logger.log('[verifyPayin] Bank eligibility computed', {
+    console.log('[verifyPayin] Bank eligibility computed', {
       merchantOrderId,
       enabledBankCount: enabledBanks.length,
       bankIntents,
@@ -4494,7 +4494,7 @@ const _verifyPayinsServiceInternal = async (
       const allowedIntents = bankIntents.filter(
         (intent) => cashfreeDetails?.[intent] === true,
       );
-      logger.log('[verifyPayin] Intent filtering done', {
+      console.log('[verifyPayin] Intent filtering done', {
         merchantOrderId,
         merchantIntent,
         allowedIntents,
@@ -4503,14 +4503,14 @@ const _verifyPayinsServiceInternal = async (
         selectedIntent =
           allowedIntents[Math.floor(Math.random() * allowedIntents.length)];
       }
-      logger.log('[verifyPayin] Selected intent', {
+      console.log('[verifyPayin] Selected intent', {
         merchantOrderId,
         selectedIntent,
       });
     }
     else {
    paytmdetails = await getValidatePayinCompanyFromCacheOrDb(payIn.company_id);
-      logger.log('[verifyPayin] Non-intent path company flags loaded', {
+      console.log('[verifyPayin] Non-intent path company flags loaded', {
         merchantOrderId,
         is_paytm_enabled: paytmdetails?.is_paytm_enabled || false,
       });
@@ -4612,7 +4612,7 @@ const _verifyPayinsServiceInternal = async (
       ...result,
       merchantOrderId,
     };
-    logger.log('[verifyPayin] Final response summary', {
+    console.log('[verifyPayin] Final response summary', {
       merchantOrderId,
       selectedIntent,
       allowCashfree: result.allowCashfree,
@@ -4639,7 +4639,7 @@ const _verifyPayinsServiceInternal = async (
       status: result.status,
     });
     usedTokens.add(merchantOrderId);
-    logger.log('[verifyPayin] Completed', {
+    console.log('[verifyPayin] Completed', {
       merchantOrderId,
       tokenTracked: true,
     });
