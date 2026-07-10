@@ -392,6 +392,7 @@ export const merchantColumns = {
     'is_two_factor_required',
     'is_two_factor_exempt',
     'code',
+    'is_h2h'
     // 'unique_admin_id', // REMOVED: Should not be exposed in any API
   ],
   SETTLEMENT: [
