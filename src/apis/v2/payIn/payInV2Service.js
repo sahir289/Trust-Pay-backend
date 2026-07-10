@@ -274,8 +274,8 @@ export const checkPayInStatusV2Service = async (merchantOrderId, merchant) => {
         ? null
         : (payIn.bank_response_amount ?? null),
       payinId: payIn.id,
-      req_amount: payIn.amount,
-      utr_id: [
+      reqAmount: payIn.amount,
+      utrId: [
         Status.INITIATED,
         Status.ASSIGNED,
         Status.DROPPED,
