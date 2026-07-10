@@ -61,7 +61,7 @@ export const checkPayOutStatusV2Service = async (
       merchantOrderId: payOut[0].merchant_order_id,
       amount: payOut[0].amount,
       payoutId: payOut[0].id,
-      utr_id: payOut[0].utr_id ? payOut[0].utr_id : ' ',
+      utrId: payOut[0].utr_id ? payOut[0].utr_id : ' ',
     };
   } catch (error) {
     logger.error('Error check payout status:', error);

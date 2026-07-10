@@ -18,7 +18,7 @@ export const getMerchantKeysFromCacheOrDb = async (merchantId) => {
       );
   
       if (cachedKeys) {
-        console.log('Returning cached merchant keys for merchantId:', merchantId);
+        logger.info('Returning cached merchant keys for merchantId:', merchantId);
         return cachedKeys;
       }
   
