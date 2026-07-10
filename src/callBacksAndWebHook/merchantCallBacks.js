@@ -106,7 +106,7 @@ const buildCallbackEnvelope = (response, type, apiVersion) => {
     statusCode: 200,
     apiVersion: 'v2',
     requestId: randomUUID(),
-    timestamp: new Date().toISOString(),
+    // timestamp: new Date().toISOString(),
     message,
     data: response ?? {},
     meta: { message },
