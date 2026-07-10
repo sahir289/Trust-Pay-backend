@@ -565,11 +565,17 @@ const getUserByIdDao = async (ids, conn = null) => {
         u.updated_at, 
         r.role, 
         d.designation,
-        c.config AS company_config
+        c.config AS company_config,
+        CASE 
+          WHEN d.designation IN ('MERCHANT', 'SUB_MERCHANT') 
+            THEN m.config->>'is_h2h' 
+          ELSE NULL 
+        END AS is_h2h
       FROM public."User" u
       LEFT JOIN public."Role" r ON u.role_id = r.id 
       LEFT JOIN public."Designation" d ON u.designation_id = d.id
       LEFT JOIN public."Company" c ON u.company_id = c.id
+      LEFT JOIN public."Merchant" m ON m.user_id = u.id
       WHERE u.is_obsolete = false AND (c.is_obsolete = false OR c.id IS NULL)
     `;
 
@@ -604,7 +610,16 @@ const getUserByIdDao = async (ids, conn = null) => {
       logger.error('No user found with the provided id and filters');
       return [];
     }
-    return result.rows;
+
+    // Optional: Convert is_h2h string to boolean
+    const user = result.rows;
+    user.forEach(u => {
+      if (u.is_h2h !== null) {
+        u.is_h2h = u.is_h2h === 'true';
+      }
+    });
+
+    return user;
   } catch (error) {
     logger.error('error getting while fetching user', error);
     throw error;
@@ -629,6 +644,7 @@ const getUserDao = async (id, conn = null) => {
     throw error;
   }
 };
+
 const getUsersByUserNameDao = async (ids, username, conn = null) => {
   try {
     let baseQuery = `
