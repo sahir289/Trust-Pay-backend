@@ -80,7 +80,7 @@ const sendError = (
   }
 
   logger.error('v2 error response', {
-    apiVersion: API_VERSION_V2,
+    // apiVersion: API_VERSION_V2,
     statusCode,
     code: body.error.code,
     message: body.error.message,
@@ -102,77 +102,77 @@ const sendError = (
 //   pagination  -> optional { page, pageSize, total }
 // The V1 helpers above are intentionally left untouched for backward
 // compatibility; only new /v2 endpoints should use these.
-const API_VERSION_V2 = 'v2';
+// const API_VERSION_V2 = 'v2';
 
-const sendV2Success = (
-  res,
-  data = {},
-  message = '',
-  status = 200,
-  pagination,
-) => {
-  const requestId = res.req?.identifier || null;
-  const body = {
-    success: true,
-    statusCode: status,
-    // apiVersion: API_VERSION_V2,
-    requestId,
-    timestamp: new Date().toISOString(),
-    message: message || '',
-    data: data ?? {},
-  };
+// const sendV2Success = (
+//   res,
+//   data = {},
+//   message = '',
+//   status = 200,
+//   pagination,
+// ) => {
+//   const requestId = res.req?.identifier || null;
+//   const body = {
+//     success: true,
+//     statusCode: status,
+//     // apiVersion: API_VERSION_V2,
+//     requestId,
+//     timestamp: new Date().toISOString(),
+//     message: message || '',
+//     data: data ?? {},
+//   };
 
-  if (pagination && typeof pagination === 'object') {
-    body.pagination = pagination;
-  }
+//   if (pagination && typeof pagination === 'object') {
+//     body.pagination = pagination;
+//   }
 
-  logger.info(message || 'v2 success', {
-    apiVersion: API_VERSION_V2,
-    status,
-    requestId,
-  });
-  return res.status(status).json(body);
-};
+//   logger.info(message || 'v2 success', {
+//     apiVersion: API_VERSION_V2,
+//     status,
+//     requestId,
+//   });
+//   return res.status(status).json(body);
+// };
 
-const sendV2Error = (
-  res,
-  message,
-  status = 400,
-  code = V2_ERROR_CODES.ERROR,
-  details,
-) => {
-  const requestId = res.req?.identifier || null;
-  const body = {
-    success: false,
-    statusCode: status,
-    // apiVersion: API_VERSION_V2,
-    requestId,
-    timestamp: new Date().toISOString(),
-    error: {
-      code: code || V2_ERROR_CODES.ERROR,
-      message: message || 'An error occurred',
-    },
-  };
+// const sendV2Error = (
+//   res,
+//   message,
+//   status = 400,
+//   code = V2_ERROR_CODES.ERROR,
+//   details,
+// ) => {
+//   const requestId = res.req?.identifier || null;
+//   const body = {
+//     success: false,
+//     statusCode: status,
+//     // apiVersion: API_VERSION_V2,
+//     requestId,
+//     timestamp: new Date().toISOString(),
+//     error: {
+//       code: code || V2_ERROR_CODES.ERROR,
+//       message: message || 'An error occurred',
+//     },
+//   };
 
-  if (details && typeof details === 'object') {
-    body.error.details = details;
-  }
+//   if (details && typeof details === 'object') {
+//     body.error.details = details;
+//   }
 
-  logger.error('v2 error response', {
-    apiVersion: API_VERSION_V2,
-    status,
-    code: body.error.code,
-    message: body.error.message,
-    requestId,
-  });
-  return res.status(status).json(body);
-};
+//   logger.error('v2 error response', {
+//     apiVersion: API_VERSION_V2,
+//     status,
+//     code: body.error.code,
+//     message: body.error.message,
+//     requestId,
+//   });
+//   return res.status(status).json(body);
+// };
 
 export {
   sendSuccess,
   sendError,
   sendNewSuccess,
-  sendV2Success,
-  sendV2Error,
-  API_VERSION_V2,
+  // sendV2Success,
+  // sendV2Error,
+  // API_VERSION_V2,
 };
