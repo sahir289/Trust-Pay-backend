@@ -6,7 +6,6 @@ import {
   commit,
   rollback,
 } from '../../utils/db.js';
-import { generateUUID } from '../../utils/generateUUID.js';
 import { generatePassword } from '../../utils/generatePassword.js';
 import { sendCredentialsEmail } from '../../utils/sendMailer.js';
 import { unblocked_countries } from '../../constants/index.js';
@@ -568,8 +567,7 @@ const _createUserServiceInternal = async (payload, conn) => {
         userCode = await getMerchantByUserIdDao(user_id, conn);
         sub_code = `${userCode[0].code}(${payload.code})`;
       }
-      const Private = generateUUID();
-      const Public = generateUUID();
+      const { secretKey, publicKey } = createHashApiKey();
       const merchantPayload = {
         user_id: User.id,
         role_id: payload.role_id,
@@ -597,8 +595,8 @@ const _createUserServiceInternal = async (payload, conn) => {
             site: site,
           },
           keys: {
-            private: Private,
-            public: Public,
+            private: secretKey,
+            public: publicKey,
           },
           allow_intent: false,
           allow_payout: false,
