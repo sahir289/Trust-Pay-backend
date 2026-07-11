@@ -10,7 +10,7 @@ import {
 } from './payInV2Service.js';
 import { BadRequestError, ValidationError } from '../../../utils/appErrors.js';
 import { sendError, sendSuccess } from '../../../utils/responseHandlers.js';
-import { Status, STATUS_ERROR_CODES, V2_ERROR_CODES } from '../../../constants/index.js';
+import { Status, V2_ERROR_CODES } from '../../../constants/index.js';
 import { publishPayInProcess } from '../../../rabbitmq/producer.js';
 
 export const checkPayInStatusV2 = async (req, res) => {
@@ -26,11 +26,6 @@ export const checkPayInStatusV2 = async (req, res) => {
     req.body.merchantOrderId,
     merchant,
   );
-
-  if (data.status === 400 || data.status === 404) {
-    const code = STATUS_ERROR_CODES[data.status] || V2_ERROR_CODES.ERROR;
-    return sendError(res, data.message, data.status, code);
-  }
 
   return sendSuccess(res, data, 'PayIn status fetched successfully');
 };
@@ -64,11 +59,6 @@ export const generatePayInV2 = async (req, res) => {
     { ...payload, merchant },
     role,
   );
-
-  if (result.status === 400 || result.status === 404) {
-    const code = STATUS_ERROR_CODES[result.status] || V2_ERROR_CODES.ERROR;
-    return sendError(res, result.message, result.status, code);
-  }
 
   const baseRes = {
     payinId: result?.id,

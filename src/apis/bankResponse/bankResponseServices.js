@@ -2154,9 +2154,9 @@ const handleAmountUpdate = async ({
         updateBankaccountDao(
           { id: bank.id, company_id: bank.company_id },
           {
-            balance: parseFloat(bank.balance) + parseFloat(updatedAmount),
+            balance: Number.parseFloat(bank.balance) + Number.parseFloat(updatedAmount),
             today_balance:
-              parseFloat(bank.today_balance) + parseFloat(updatedAmount),
+              Number.parseFloat(bank.today_balance) + Number.parseFloat(updatedAmount),
           },
           conn,
         ).then((res) => {

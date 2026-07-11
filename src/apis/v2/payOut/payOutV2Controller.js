@@ -2,8 +2,7 @@ import { createPayoutService } from '../../payOut/payOutService.js';
 import { PAYOUT_DETAILS_V2_SCHEMA, VALIDATE_CHECK_PAY_OUT_V2_STATUS } from '../../../schemas/payoutSchema.js';
 import { BadRequestError, ValidationError } from '../../../utils/appErrors.js';
 import { invalidateCompanyCacheByPrefix } from '../../../utils/controllerCache.js';
-import { sendError, sendSuccess } from '../../../utils/responseHandlers.js';
-import { STATUS_ERROR_CODES } from '../../../constants/index.js';
+import { sendSuccess } from '../../../utils/responseHandlers.js';
 import { checkPayOutStatusV2Service, getWalletBalanceService } from './payOutV2Service.js';
 
 
@@ -20,15 +19,6 @@ export const createPayoutV2 = async (req, res) => {
   }
 
   const result = await createPayoutService(req.headers, {...payload, code});
-
-  if (result.status === 400 || result.status === 404) {
-    return sendError(
-      res,
-      result.message,
-      result.status,
-      STATUS_ERROR_CODES[result.status],
-    );
-  }
 
   await invalidateCompanyCacheByPrefix(
     req.user?.company_id || payload.company_id,
@@ -54,12 +44,7 @@ export const checkPayOutV2Status = async (req, res) => {
     code,
     req.body.merchantOrderId,
   );
-  // sendSuccess(res, data);
-  if (data.status === 400 || data.status === 404) {
-    return sendError(res, data.message, data.status);
-  } else {
-    return sendSuccess(res, data, 'PayOut status fetched successfully');
-  }
+  return sendSuccess(res, data, 'PayOut status fetched successfully');
 };
 
 export const getWalletBalanceV2 = async (req, res) => {
