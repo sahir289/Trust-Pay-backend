@@ -175,7 +175,6 @@ const PAYIN_ROUTING_CACHE_TTL_SEC =
   config?.controllerCacheTtls?.bankAccounts?.merchantBank || 60;
 const PAYIN_DEPOSIT_STATUS_COOLDOWN_SEC =
   config?.controllerCacheTtls?.payin?.depositStatusCooldown || 3;
-
 const normalizePayInAmount = (amount) => {
   const parsed = Number.parseFloat(amount);
   return Number.isFinite(parsed) ? parsed.toFixed(2) : 'na';
@@ -2110,13 +2109,8 @@ export const _processPayInServiceInternal = async (
   }
   const lockKey = `${payIn.bank_acc_id}${userSubmittedUtr}`;
   await checkLockEdit(lockKey, true, conn);
-  const banks = await getBankaccountDao(
-    { id: payIn?.bank_acc_id, company_id: payIn.company_id },
-    null,
-    null,
-    null,
-    null,
-    conn,
+  const banks = await getValidatePayinBankAccountFromCacheOrDb(
+    payIn?.bank_acc_id
   );
   const bank = banks[0];
 
@@ -2125,15 +2119,8 @@ export const _processPayInServiceInternal = async (
   }
 
   // Fetch vendor for vendor_code
-  const vendors = await getVendorsDao(
-    { user_id: bank.user_id },
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    conn,
+  const vendors = await getValidatePayinVendorFromCacheOrDb(
+    bank.user_id
   );
   const vendor = vendors[0];
 
@@ -2437,28 +2424,11 @@ export const _processPayInServiceInternal = async (
       Number(merchant[0].payin_commission),
     );
     updatePayInData.payin_merchant_commission = Number(commissions);
-    const bank = await getBankaccountDao(
-      {
-        id: bankResponse.bank_id,
-      },
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      conn,
+    const bank = await getValidatePayinBankAccountFromCacheOrDb(
+      bankResponse?.bank_id
     );
-    const vendors = await getVendorsDao(
-      {
-        user_id: bank[0].user_id,
-      },
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      conn,
-    );
+    const vendors = await getValidatePayinVendorFromCacheOrDb(
+      bank[0].user_id);
     const vendor = vendors[0];
     const vendorCommission = calculateCommission(
       bankResponse.amount,

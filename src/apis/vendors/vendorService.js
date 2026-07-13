@@ -39,6 +39,16 @@ import { deleteBeneficiaryDao } from '../beneficiaryAccounts/beneficiaryAccountD
 import { notifyBankResponseAccessUpdate } from '../../utils/sockets.js';
 import { BadRequestError, NotFoundError } from '../../utils/appErrors.js';
 import {getSessionByIdDao} from '../auth/authDao.js';
+import { deleteCachedData } from '../../utils/redishashkey.js';
+const invalidatePayinValidateVendorCache = async (vendorUserId) => {
+  if (!vendorUserId) {
+    return;
+  }
+  await deleteCachedData(
+    `payin:validate:vendor:${vendorUserId}`,
+    'Payin validate vendor cache',
+  );
+};
 const _createVendorServiceInternal = async (payload, conn) => {
   try {
     const parentId = payload.parent_id;
@@ -447,6 +457,7 @@ const _updateVendorServiceInternal = async (ids, payload) => {
 const updateVendorService = async (ids, payload) => {
   try {
     const data = await _updateVendorServiceInternal(ids, payload);
+    await invalidatePayinValidateVendorCache(data?.user_id);
     return data;
   } catch (error) {
     logger.error('Error while updating Vendor', error);
