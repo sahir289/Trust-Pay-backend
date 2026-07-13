@@ -19,7 +19,7 @@ export const ASSIGN_PAYIN_SCHEMA = Joi.object({
 export const GENERATE_PAYIN_V2_SCHEMA = Joi.object({
   amount: Joi.number().positive().label('amount').optional(),
   merchant_order_id: Joi.string().label('merchant_order_id').optional(),
-  user_id: Joi.string().label('user_id').required(),
+  userId: Joi.string().label('user_id').required(),
   returnUrl: Joi.string().label('returnUrl').optional(),
   notifyUrl: Joi.string().label('notifyUrl').optional(),
 });
