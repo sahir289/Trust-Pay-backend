@@ -77,25 +77,25 @@ const buildSignedRequest = (data, secretKey) => {
  *
  * v1 merchants receive the original flat payload UNCHANGED,
  */
-const buildCallbackEnvelope = (response, type, apiVersion) => {
-  const version =
-    apiVersion ||
-    (response && typeof response === 'object' && ('utrId' in response || 'reqAmount' in response)
-      ? 'v2'
-      : 'v1');
+const buildCallbackEnvelope = (response, type) => {
+  // const version =
+  //   apiVersion ||
+  //   (response && typeof response === 'object' && ('utrId' in response || 'reqAmount' in response)
+  //     ? 'v2'
+  //     : 'v1');
 
-  // (v1) response: send the raw payload exactly as before.
-  if (version !== 'v2') {
-    return {...response, version};
-  }
+  // // (v1) response: send the raw payload exactly as before.
+  // if (version !== 'v2') {
+  //   return {...response, version};
+  // }
 
   // v2 response: send the standardized envelope used by the API responses (sendSuccess)
   if (
     response &&
     typeof response === 'object' &&
     response.success === true &&
-    'data' in response &&
-    'apiVersion' in response
+    'data' in response 
+    // 'apiVersion' in response
   ) {
     return response;
   }
@@ -104,7 +104,7 @@ const buildCallbackEnvelope = (response, type, apiVersion) => {
   const data = {
     success: true,
     statusCode: 200,
-    apiVersion: 'v2',
+    // apiVersion: 'v2',
     requestId: randomUUID(),
     // timestamp: new Date().toISOString(),
     message,
