@@ -44,8 +44,18 @@ import { getSessionByUserIdDao } from '../auth/authDao.js';
 import { forceLogoutUser } from '../../utils/sockets.js';
 import { generateUUID } from '../../utils/generateUUID.js';
 import { getLatestNetBalanceByMerchantUserIdDao } from '../walletBalance/walletBalanceDao.js';
+import { deleteCachedData } from '../../utils/redishashkey.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 // Create Merchant Service
+const invalidatePayinValidateMerchantCache = async (merchantId) => {
+  if (!merchantId) {
+    return;
+  }
+  await deleteCachedData(
+    `payin:validate:merchant:${merchantId}`,
+    'Payin validate merchant cache',
+  );
+};
 
 const _createMerchantServiceInternal = async (payload, conn) => {
   try {
@@ -428,6 +438,7 @@ const updateMerchantService = async (ids, payload) => {
 
   try {
     const data = await _updateMerchantServiceInternal(ids, payload);
+    await invalidatePayinValidateMerchantCache(data?.id || ids?.id);
     return data;
   } catch (error) {
     logger.error('Error while updating merchant', error);
