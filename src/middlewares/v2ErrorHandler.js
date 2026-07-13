@@ -41,9 +41,11 @@ const v2ErrorHandler = (error, req, res, next) => {
   const statusCode = resolveStatusCode(error);
   const code = STATUS_ERROR_CODES[statusCode] || V2_ERROR_CODES.ERROR;
 
-  // Never leak internal details on 5xx; surface client-error messages as-is.
+
   const message =
-    statusCode >= 500 ? 'Internal server error' : error?.message || 'Request failed';
+    statusCode >= 500 && statusCode !== 503
+      ? 'Internal server error'
+      : error?.message || 'Request failed';
 
   logger.error('v2 error handler', {
     statusCode,

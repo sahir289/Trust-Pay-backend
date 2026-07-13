@@ -6,7 +6,6 @@ import {
   commit,
   rollback,
 } from '../../utils/db.js';
-import { generateUUID } from '../../utils/generateUUID.js';
 import { generatePassword } from '../../utils/generatePassword.js';
 import { sendCredentialsEmail } from '../../utils/sendMailer.js';
 import { unblocked_countries } from '../../constants/index.js';
@@ -568,8 +567,7 @@ const _createUserServiceInternal = async (payload, conn) => {
         userCode = await getMerchantByUserIdDao(user_id, conn);
         sub_code = `${userCode[0].code}(${payload.code})`;
       }
-      const Private = generateUUID();
-      const Public = generateUUID();
+      const { secretKey, publicKey } = createHashApiKey();
       const merchantPayload = {
         user_id: User.id,
         role_id: payload.role_id,
@@ -597,8 +595,8 @@ const _createUserServiceInternal = async (payload, conn) => {
             site: site,
           },
           keys: {
-            private: Private,
-            public: Public,
+            private: secretKey,
+            public: publicKey,
           },
           allow_intent: false,
           allow_payout: false,
@@ -632,7 +630,7 @@ const _createUserServiceInternal = async (payload, conn) => {
         sub_code = `${userCode[0].code}(${payload.code})`;
         is_owned = payload.is_owned;
       }
-      const { secretKey, publicKey } = createHashApiKey();
+      const { secretKey } = createHashApiKey();
       const vendorPayload = {
         user_id: User.id,
         role_id: payload.role_id,
@@ -651,9 +649,7 @@ const _createUserServiceInternal = async (payload, conn) => {
           mediator_payout_commission: payload.mediator_payout_commission || 0,
           gm_code: payload.gm_code,
           keys: {
-            private: secretKey,
-            public: publicKey,
-          },
+            private: secretKey          },
         },
         payin_commission: Number(payload.payin_commission),
         payout_commission: Number(payload.payout_commission),
@@ -674,10 +670,8 @@ const _createUserServiceInternal = async (payload, conn) => {
           password: Password,
           code: merchant?.config ? merchant.code : '',
           secretKey: merchant?.config ? merchant.config.keys.private : '',
-          publicKey: merchant?.config ? merchant.config.keys.public : '',
           designation: designation[0]?.designation,
           unique_id,
-          h2h: payload.is_h2h,
         });
 
         if (!data) {

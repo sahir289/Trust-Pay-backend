@@ -7,7 +7,7 @@ import {
 import { merchantPayinCallback } from '../callBacksAndWebHook/merchantCallBacks.js';
 import { logger } from '../utils/logger.js';
 import { calculateDuration } from '../helpers/index.js';
-import { getMerchantsKeysDao } from '../apis/merchants/merchantDao.js';
+import { getMerchantKeysFromCacheOrDb } from '../utils/cachedData/getmerchantkeycache.js';
 
 const parsePositiveInt = (value, fallback) => {
   const parsed = Number.parseInt(value, 10);
@@ -271,7 +271,7 @@ async function processPayinNotifications(payins) {
     };
     try {
       if (payin?.config?.urls?.notify) {
-          const Key = await getMerchantsKeysDao(payin?.merchant_id);
+          const Key = await getMerchantKeysFromCacheOrDb(payin?.merchant_id);
           const secretKey = Key?.private || null;
           const api_version = Key?.api_version || 'v1';
 

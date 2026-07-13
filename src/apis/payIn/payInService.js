@@ -77,7 +77,6 @@ import {
   getMerchantByUserIdDao,
   updateMerchantBalanceDao,
   getMerchantsByCodesDao,
-  getMerchantsKeysDao,
 } from '../merchants/merchantDao.js';
 import {
   getAllCalculationforCronDao,
@@ -163,12 +162,19 @@ import { createPayeasyTransaction } from '../../intent/createPayeasyIntentTransa
 import { createAlbeCollectTransaction } from '../../intent/createAlbeCollectIntentTransaction.js';
 import { createPennyPayTransaction } from '../../intent/createPennyPayTransaction.js';
 import { createFreechipsTransaction } from '../../intent/createFreeChipsIntentTransactions.js';
-const PAYIN_IDEMPOTENCY_INFLIGHT_TTL_SEC = Number(
-  process.env.PAYIN_IDEMPOTENCY_INFLIGHT_TTL_SEC || 60,
-);
-const PAYIN_VALIDATE_MERCHANT_CACHE_TTL_SEC = 60;
-const PAYIN_VALIDATE_BANK_CACHE_TTL_SEC = 60;
-const PAYIN_VALIDATE_VENDOR_CACHE_TTL_SEC = 60;
+import { getMerchantKeysFromCacheOrDb } from '../../utils/cachedData/getmerchantkeycache.js';
+const PAYIN_IDEMPOTENCY_INFLIGHT_TTL_SEC =
+  config?.controllerCacheTtls?.payin?.processInflight || 60;
+const PAYIN_VALIDATE_MERCHANT_CACHE_TTL_SEC =
+  config?.controllerCacheTtls?.merchants?.byId || 20;
+const PAYIN_VALIDATE_BANK_CACHE_TTL_SEC =
+  config?.controllerCacheTtls?.bankAccounts?.byId || 10;
+const PAYIN_VALIDATE_VENDOR_CACHE_TTL_SEC =
+  config?.controllerCacheTtls?.vendors?.byId || 60;
+const PAYIN_ROUTING_CACHE_TTL_SEC =
+  config?.controllerCacheTtls?.bankAccounts?.merchantBank || 60;
+const PAYIN_DEPOSIT_STATUS_COOLDOWN_SEC =
+  config?.controllerCacheTtls?.payin?.depositStatusCooldown || 3;
 
 const normalizePayInAmount = (amount) => {
   const parsed = Number.parseFloat(amount);
@@ -515,7 +521,7 @@ export const generatePayInUrlService = async (payload, role) => {
       await setCachedData(
         routingCacheKey,
         { merchant, company, bankAssigned },
-        60,
+        PAYIN_ROUTING_CACHE_TTL_SEC,
         'merchant_routing',
       );
     }
@@ -714,9 +720,6 @@ export const getPayInUrlService = async (
     const payIn = payInUrl
       ? payInUrl
       : await getPayinsForServiccDao({ merchant_order_id: id }, conn);
-    const Key = await getMerchantsKeysDao(id);
-    const secretKey = Key?.private || null;
-    const api_version = Key?.api_version || 'v1';
 
     if (!payIn) {
       throw new NotFoundError('Payment Url is incorrect');
@@ -744,6 +747,10 @@ export const getPayInUrlService = async (
         },
         conn,
       );
+
+      const Key = await getMerchantKeysFromCacheOrDb(id);
+      const secretKey = Key?.private || null;
+      const api_version = Key?.api_version || 'v1';
 
       const callbackPayload = {
         status: Status.DROPPED,
@@ -780,7 +787,7 @@ export const expirePayInUrlService = async (payInId) => {
   try {
     // const currentTime = Date.now();
     const payIn = await getPayinsForServiccDao({ id: payInId });
-    const Key = await getMerchantsKeysDao(payIn.merchant_id );
+    const Key = await getMerchantKeysFromCacheOrDb(payIn.merchant_id );
     const secretKey = Key?.private || null;
     const api_version = Key?.api_version || 'v1';
     if (!payIn) {
@@ -1330,7 +1337,7 @@ export const updatePaymentNotificationStatusService = async (
         company_id,
       });
 
-       const Key = await getMerchantsKeysDao(payIn.merchant_id);
+       const Key = await getMerchantKeysFromCacheOrDb(payIn.merchant_id);
         const secretKey = Key?.private || null;
         const api_version = Key?.api_version || 'v1';
 
@@ -1367,7 +1374,7 @@ export const updatePaymentNotificationStatusService = async (
       if (!merchant) {
         throw new NotFoundError('Merchant or payout notify URL not found.');
       }
-      const Key = await getMerchantsKeysDao(merchant.id);
+      const Key = await getMerchantKeysFromCacheOrDb(merchant.id);
       const secretKey = Key?.private || null;
       const api_version = Key?.api_version || 'v1';
       ///payout notify url change
@@ -1406,7 +1413,7 @@ export const updateDepositStatusService = async (
   // transaction that we immediately abandon (which contaminates the pool).
   const KEY_PREFIX = company_id;
   const cacheKey = `${KEY_PREFIX}:${merchantOrderId}`;
-  const HOLD_TIME = 3;
+  const HOLD_TIME = PAYIN_DEPOSIT_STATUS_COOLDOWN_SEC;
   const cooldownActive = await getCachedData(cacheKey);
   if (cooldownActive) {
     logger.log(`Duplicate merchantOrderId ${merchantOrderId}  ${HOLD_TIME}s`);
@@ -2071,8 +2078,8 @@ export const _processPayInServiceInternal = async (
     }
   }
   const payIn = await getPayInUrlService(merchantOrderId, tele_check, conn);
-  const Key = await getMerchantsKeysDao(payIn.merchant_id);
-  const secretKey = Key?.private_key
+  const Key = await getMerchantKeysFromCacheOrDb(payIn.merchant_id);
+  const secretKey = Key?.private
   const api_version = Key?.api_version || 'v1';
   if (
     Object.keys(payIn).length === 2 &&
@@ -2730,8 +2737,8 @@ export const processPayInWebHookService = async (payload, updated_by, conn) => {
       },
       conn,
     );
-    const Key = await getMerchantsKeysDao(payIn.merchant_id);
-    const secretKey = Key?.private_key
+    const Key = await getMerchantKeysFromCacheOrDb(payIn.merchant_id);
+    const secretKey = Key?.private
     const api_version = Key?.api_version || 'v1';
     const [bank] = await getBankaccountDao(
       {
@@ -4376,7 +4383,7 @@ const _verifyPayinsServiceInternal = async (
     let selectedIntent = null;
     let paytmdetails = null;
     if (merchantIntent && bankIntents.length > 0) {
-      cashfreeDetails = await getCashfreeAllowByCompanyIdDao(payIn.company_id);
+      cashfreeDetails = await getCashfreeAllowByCompanyIdDao(merchant.company_id);
       const allowedIntents = bankIntents.filter(
         (intent) => cashfreeDetails?.[intent] === true,
       );

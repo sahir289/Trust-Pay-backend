@@ -23,8 +23,8 @@ export const createPennyPayTransaction = async (providerKey, deposit, amount) =>
     }
     if (!providerConfig) throw new Error(`Invalid provider: ${providerKey}`);
     const baseUrl = providerConfig.payinUrl;
-    if (!baseUrl) throw new Error(`Missing PennyPay payin url in config for ${providerKey}`);
-    if (!secretKey) throw new Error(`Missing PennyPay secretKey in config for ${providerKey}`);
+    if (!baseUrl) throw new Error(`Missing payin url in config for ${providerKey}`);
+    if (!secretKey) throw new Error(`Missing secretKey in config for ${providerKey}`);
     const formattedAmount = amount ?? deposit.amount;
     const code =  mcode;
     const user_id = deposit.user; 
@@ -32,7 +32,7 @@ export const createPennyPayTransaction = async (providerKey, deposit, amount) =>
     const merchant_order_id = deposit.merchant_order_id;
     const returnUrl = deposit.config?.urls?.return;
     if (!code || !ot || !user_id || !merchant_order_id) {
-      throw new Error('Missing required PennyPay params: code, ot, user_id, or merchant_order_id');
+      throw new Error('Missing required params: code, ot, user_id, or merchant_order_id');
     }
     const queryParams = new URLSearchParams({
       code,

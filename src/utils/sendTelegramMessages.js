@@ -1,8 +1,11 @@
 import { getBankResponseDao } from '../apis/bankResponse/bankResponseDao.js';
 import { Status } from '../constants/index.js';
 import { createTelegramSender, sendTelegramFile } from '../helpers/telegramApi.js';
+import config from '../config/config.js';
 import { logger } from './logger.js';
 import { getCachedData, setCachedData } from './redishashkey.js';
+const TELEGRAM_BANK_ALERT_COOLDOWN_SEC =
+  config?.telegram?.bankAlertCooldownSec || 60;
 const telegramSender = createTelegramSender();
 
 export async function sendTelegramDashboardReportMessage(
@@ -991,7 +994,7 @@ export async function sendBankNotAssignedAlertTelegram(
   try {
     const KEY_PREFIX = 'bank_alert';
     const cacheKey = `${KEY_PREFIX}:${code}`;
-    const HOLD_TIME = 60; 
+    const HOLD_TIME = TELEGRAM_BANK_ALERT_COOLDOWN_SEC;
     const cooldownActive = await getCachedData(cacheKey);
     if (cooldownActive) {
       logger.log(

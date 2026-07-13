@@ -2,6 +2,7 @@ import config from '../../../config/config.js';
 import {
   GENERATE_PAYIN_V2_SCHEMA,
   VALIDATE_CHECK_PAY_IN_V2_STATUS,
+  VALIDATE_PROCESS_V2_PAYIN,
 } from '../../../schemas/payInSchema.js';
 import {
   checkPayInStatusV2Service,
@@ -9,7 +10,8 @@ import {
 } from './payInV2Service.js';
 import { BadRequestError, ValidationError } from '../../../utils/appErrors.js';
 import { sendError, sendSuccess } from '../../../utils/responseHandlers.js';
-import { STATUS_ERROR_CODES, V2_ERROR_CODES } from '../../../constants/index.js';
+import { Status, V2_ERROR_CODES } from '../../../constants/index.js';
+import { publishPayInProcess } from '../../../rabbitmq/producer.js';
 
 export const checkPayInStatusV2 = async (req, res) => {
   const merchant  = req.merchant;
@@ -24,11 +26,6 @@ export const checkPayInStatusV2 = async (req, res) => {
     req.body.merchantOrderId,
     merchant,
   );
-
-  if (data.status === 400 || data.status === 404) {
-    const code = STATUS_ERROR_CODES[data.status] || V2_ERROR_CODES.ERROR;
-    return sendError(res, data.message, data.status, code);
-  }
 
   return sendSuccess(res, data, 'PayIn status fetched successfully');
 };
@@ -63,11 +60,6 @@ export const generatePayInV2 = async (req, res) => {
     role,
   );
 
-  if (result.status === 400 || result.status === 404) {
-    const code = STATUS_ERROR_CODES[result.status] || V2_ERROR_CODES.ERROR;
-    return sendError(res, result.message, result.status, code);
-  }
-
   const baseRes = {
     payinId: result?.id,
     merchantOrderId: result?.merchant_order_id,
@@ -93,4 +85,28 @@ export const generatePayInV2 = async (req, res) => {
     payInUrl: `${config.reactPaymentOrigin}/transaction?order=${result?.merchant_order_id}`,
   };
   return sendSuccess(res, data, 'PayIn is generated & url is sent successfully');
+};
+
+export const processPayInH2H = async (req, res) => {
+  const payload = {
+    ...req.body,
+    ...req.params,
+  };
+  const joiValidation = VALIDATE_PROCESS_V2_PAYIN.validate(payload);
+  if (joiValidation.error) {
+    throw new ValidationError(joiValidation.error);
+  }
+  await publishPayInProcess({
+    payload,
+    isH2H: true,
+  });
+
+  const data = {
+    queued: true,
+    merchantOrderId: payload.merchantOrderId,
+    mode: 'h2h',
+    status: Status.PROCESSING,
+  };
+
+  sendSuccess(res, data, 'PayIn request queued successfully', 202);
 };

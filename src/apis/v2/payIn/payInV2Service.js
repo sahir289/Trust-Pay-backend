@@ -2,6 +2,7 @@ import dayjs from 'dayjs';
 import { Currency, Role, Status, tableName } from '../../../constants/index.js';
 import { calculateDuration } from '../../../helpers/index.js';
 import { stringifyJSON } from '../../../utils//index.js';
+import config from '../../../config/config.js';
 import logger from '../../../utils/logger.js';
 import {
   generatePayInUrlDao,
@@ -19,9 +20,16 @@ import { getCompanyByIDDao } from '../../company/companyDao.js';
 import { getMerchantBankDao } from '../../bankAccounts/bankaccountDao.js';
 import { sendBankNotAssignedAlertTelegram } from '../../../utils/sendTelegramMessages.js';
 import { newTableEntry } from '../../../utils/sockets.js';
+import {
+  BadRequestError,
+  CustomError,
+  NotFoundError,
+} from '../../../utils/appErrors.js';
 import { nanoid } from 'nanoid';
 import { v4 as uuidv4 } from 'uuid';
 
+const PAYIN_ROUTING_CACHE_TTL_SEC =
+  config?.controllerCacheTtls?.payin?.routing || 60;
 const createPayInWithUniqueShortCode = async (data) => {
   let attempts = 0;
   while (attempts < 10) {
@@ -105,7 +113,11 @@ export const generatePayInUrlV2Service = async (payload, role) => {
       // Parallelize company + bank fetch — they only need merchant.company_id / merchant.id
       const [companyRows, rawBankAssigned] = await Promise.all([
         getCompanyByIDDao({ id: merchant.company_id }),
-        getMerchantBankDao({ config_merchants_contains: merchant.id, company_id: merchant.company_id, is_obsolete: false }),
+        getMerchantBankDao({
+          config_merchants_contains: merchant.id,
+          company_id: merchant.company_id,
+          is_obsolete: false,
+        }),
       ]);
       company = companyRows[0];
       bankAssigned = rawBankAssigned ?? [];
@@ -114,7 +126,7 @@ export const generatePayInUrlV2Service = async (payload, role) => {
       await setCachedData(
         routingCacheKey,
         { company, bankAssigned },
-        60,
+        PAYIN_ROUTING_CACHE_TTL_SEC,
         'merchant_routing',
       );
     }
@@ -123,38 +135,32 @@ export const generatePayInUrlV2Service = async (payload, role) => {
 
     if (bankAssigned.length === 0) {
       await triggerBankAlert(company, code);
-      return {
-        status: 404,
-        message: 'Bank Account has not been linked with Merchant',
-      };
+      throw new CustomError(
+        422,
+        'Bank Account has not been linked with Merchant',
+      );
     }
 
     if (bankAssigned?.every(isBankDisabled)) {
-      return {
-        status: 404,
-        message: 'All Assigned Banks are Disabled!',
-      };
+      throw new CustomError(409, 'All Assigned Banks are Disabled!');
     }
 
     // all payment methods disabled
     if (bankAssigned?.every(isPaymentMethodDisabled)) {
       await triggerBankAlert(company, code);
-      return {
-        status: 404,
-        message: 'No Payment Methods Enabled!',
-      };
+      throw new CustomError(503, 'No Payment Methods Enabled!');
     }
 
     const existingOrder = await existingOrderPromise;
     if (existingOrder) {
-      return { status: 400, message: 'Merchant Order ID already exists' };
+      throw new BadRequestError('Merchant Order ID already exists');
     }
 
     if (amount < merchant.min_payin || amount > merchant.max_payin) {
-      return {
-        status: 400,
-        message: `Amount must be between ${merchant.min_payin} and ${merchant.max_payin}`,
-      };
+      throw new CustomError(
+        422,
+        `Amount must be between ${merchant.min_payin} and ${merchant.max_payin}`,
+      );
     }
 
     const expirationDate = dayjs()
@@ -204,16 +210,16 @@ export const generatePayInUrlV2Service = async (payload, role) => {
       });
       if (validIntentBanks.length === 0) {
         await triggerBankAlert(company, code);
-        return {
-          status: 404,
-          message: 'Bank account not found for the given merchant',
-        };
+        throw new CustomError(
+          422,
+          'Bank account not found for the given merchant',
+        );
       }
       const randomBank =
         validIntentBanks[Math.floor(Math.random() * validIntentBanks.length)];
       const duration = calculateDuration(result.created_at);
       await updatePayInUrlDao(result.id, {
-        amount: parseFloat(amount || 0),
+        amount: Number.parseFloat(amount || 0),
         status: Status.ASSIGNED,
         bank_acc_id: randomBank.id,
         duration: duration,
@@ -248,18 +254,12 @@ export const checkPayInStatusV2Service = async (merchantOrderId, merchant) => {
     const payIn = await getPayInWithBankResponseForStatusDao(merchantOrderId);
 
     if (!payIn) {
-      return {
-        status: 404,
-        message: 'Order id does not exist',
-      };
+      throw new NotFoundError('Order id does not exist');
     }
 
     //check is payIn detials belongs to that merchant or not
     if (!(payIn.merchant_id === merchant.id)) {
-      return {
-        status: 404,
-        message: 'Merchant order id does not exist',
-      };
+      throw new NotFoundError('Merchant order id does not exist');
     }
 
     return {
@@ -272,17 +272,17 @@ export const checkPayInStatusV2Service = async (merchantOrderId, merchant) => {
         Status.DUPLICATE,
       ].includes(payIn.status)
         ? null
-        : payIn.bank_response_amount ?? null,
+        : (payIn.bank_response_amount ?? null),
       payinId: payIn.id,
-      req_amount: payIn.amount,
-      utr_id: [
+      reqAmount: payIn.amount,
+      utrId: [
         Status.INITIATED,
         Status.ASSIGNED,
         Status.DROPPED,
         Status.IMG_PENDING,
       ].includes(payIn.status)
         ? ' '
-        : payIn.bank_response_utr ?? payIn.user_submitted_utr,
+        : (payIn.bank_response_utr ?? payIn.user_submitted_utr),
     };
   } catch (error) {
     logger.error('Error check payin:', error);

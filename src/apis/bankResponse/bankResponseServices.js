@@ -36,7 +36,7 @@ import {
   getPayInsForResetBankResDao,
   updatePayInUrlDao,
 } from '../payIn/payInDao.js';
-import { getMerchantsBankResponseDao, getMerchantsKeysDao } from '../merchants/merchantDao.js';
+import { getMerchantsBankResponseDao } from '../merchants/merchantDao.js';
 import { calculateCommission } from '../../utils/calculation.js';
 import {
   getVendorsDao,
@@ -69,6 +69,7 @@ import { calculateDuration } from '../../helpers/index.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 import { trackVendorsNetBalance } from '../../utils/trackVendorsNetBalance.js';
 import { emitTableEntryAsync } from '../../utils/socket/sessionUtils.js';
+import { getMerchantKeysFromCacheOrDb } from '../../utils/cachedData/getmerchantkeycache.js';
 // import { acquireUTRLock } from '../../utils/advisoryLock.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 
@@ -626,7 +627,7 @@ const createBankResponseService = async (
             updateBotResponseDao(botRes.id, { is_used: true }, conn),
           ]);
 
-          const Key = await getMerchantsKeysDao(payInUtr.merchant_id, conn);
+          const Key = await getMerchantKeysFromCacheOrDb(payInUtr.merchant_id);
           const secretKey = Key?.private || null;
           const api_version = Key?.api_version || 'v1';
 
@@ -860,7 +861,7 @@ const createBankResponseService = async (
             conn,
           );
           await updateBotResponseDao(botRes.id, { is_used: true }, conn);
-          const Key = await getMerchantsKeysDao(payInUtr.merchant_id, conn);
+          const Key = await getMerchantKeysFromCacheOrDb(payInUtr.merchant_id, conn);
           const secretKey = Key?.private || null;
           const api_version = Key?.api_version || 'v1';
 
@@ -980,7 +981,7 @@ const createBankResponseService = async (
             updateBotResponseDao(botRes.id, { is_used: true }, conn),
           ]);
           let obj = {};
-          const Key = await getMerchantsKeysDao(payInUtr?.merchant_id, conn);
+          const Key = await getMerchantKeysFromCacheOrDb(payInUtr?.merchant_id, conn);
           const secretKey = Key?.private || null;
           const api_version = Key?.api_version || 'v1';
 
@@ -2153,9 +2154,9 @@ const handleAmountUpdate = async ({
         updateBankaccountDao(
           { id: bank.id, company_id: bank.company_id },
           {
-            balance: parseFloat(bank.balance) + parseFloat(updatedAmount),
+            balance: Number.parseFloat(bank.balance) + Number.parseFloat(updatedAmount),
             today_balance:
-              parseFloat(bank.today_balance) + parseFloat(updatedAmount),
+              Number.parseFloat(bank.today_balance) + Number.parseFloat(updatedAmount),
           },
           conn,
         ).then((res) => {

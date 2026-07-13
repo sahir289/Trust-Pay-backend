@@ -1,31 +1,32 @@
 import { HTTPError, CustomError } from '../utils/appErrors.js';
 import { logger } from '../utils/logger.js';
+import { STATUS_ERROR_CODES, V2_ERROR_CODES } from '../constants/index.js';
+
+// const API_VERSION_V1 = 'v1';
 
 // eslint-disable-next-line no-unused-vars
 const errorHandler = (error, req, res, next) => {
   let statusCode = 500;
   let message = 'Server encountered a problem';
 
-  const errResponse = {
-    statusCode,
-    message,
-  };
+  const additionalInfo = {};
 
   // Handle Axios / third-party API errors
   if (error.isAxiosError) {
     const { response, config, code } = error;
     statusCode = response?.status || 502;
 
-    errResponse.type = 'AxiosError';
-    errResponse.code = code || 'AXIOS_ERROR';
-    errResponse.message =
+    message =
       response?.data?.message ||
       response?.statusText ||
       error.message ||
       'Third-party API error';
 
+    additionalInfo.type = 'AxiosError';
+    additionalInfo.code = code || 'AXIOS_ERROR';
+
     // Include API metadata (if captured by interceptors)
-    errResponse.api = {
+    additionalInfo.api = {
       method: config?.method?.toUpperCase(),
       url: config?.url,
       status: response?.status,
@@ -61,24 +62,22 @@ const errorHandler = (error, req, res, next) => {
   // Handle Custom / HTTP errors
   else if (error instanceof HTTPError) {
     statusCode = error.statusCode;
-    errResponse.statusCode = error.statusCode;
-    errResponse.name = error.name;
-    errResponse.message = error.message;
+    message = error.message;
+    additionalInfo.name = error.name;
   } else if (error instanceof CustomError) {
-    statusCode = error.statusCode || statusCode;
-    errResponse.statusCode = statusCode;
-    errResponse.message = error.message || message;
-    if (error.code) errResponse.code = error.code;
+    statusCode = error.status || error.statusCode || statusCode;
+    message = error.message || message;
+    if (error.code) additionalInfo.code = error.code;
   } else if (error) {
-    errResponse.message = error.message || message;
-    if (error.code) errResponse.code = error.code;
-    if (error.type) errResponse.type = error.type;
+    message = error.message || message;
+    if (error.code) additionalInfo.code = error.code;
+    if (error.type) additionalInfo.type = error.type;
 
     if (error.response?.data) {
       const data = error.response.data;
-      errResponse.type = data.type || 'error';
-      errResponse.code = data.code || 'unknown_error';
-      errResponse.message = data.message || message;
+      additionalInfo.type = data.type || 'error';
+      additionalInfo.code = data.code || 'unknown_error';
+      message = data.message || message;
     }
   }
 
@@ -103,7 +102,20 @@ const errorHandler = (error, req, res, next) => {
     });
   }
 
-  res.status(statusCode).json({ error: errResponse });
+  const body = {
+    success: false,
+    statusCode,
+    // apiVersion: API_VERSION_V1,
+    requestId: req?.identifier || null,
+    timestamp: new Date().toISOString(),
+    error: {
+      code: STATUS_ERROR_CODES[statusCode] || V2_ERROR_CODES.ERROR,
+      message,
+    },
+    additionalInfo,
+  };
+
+  res.status(statusCode).json(body);
 };
 
 export default errorHandler;

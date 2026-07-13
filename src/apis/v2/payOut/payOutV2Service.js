@@ -1,4 +1,4 @@
-import { NotFoundError } from "../../../utils/appErrors.js";
+import { BadRequestError, NotFoundError } from "../../../utils/appErrors.js";
 import logger from "../../../utils/logger.js";
 import { getMerchantsByAuthCodeDao, getMerchantsDao } from "../../merchants/merchantDao.js";
 import { getPayoutsDao } from "../../payOut/payOutDao.js";
@@ -21,11 +21,7 @@ export const checkPayOutStatusV2Service = async (
     );
     const merchant = merchantArr[0];
     if (!merchant) {
-      const data = {
-        status: 400,
-        message: 'Merchant does not exist',
-      };
-      return data;
+      throw new BadRequestError('Merchant does not exist');
     }
 
     const payOut = await getPayoutsDao(
@@ -40,28 +36,21 @@ export const checkPayOutStatusV2Service = async (
       null,
     );
     if (payOut.length == 0) {
-      const data = {
-        status: 404,
-        message: 'Payout not found',
-      };
-      return data;
+      throw new NotFoundError('Payout not found');
     }
 
     //check is payout detials belongs to that merchant or not
     if (!(payOut[0].merchant_id === merchant.id)) {
-      const data = {
-        status: 404,
-        message:
-          'merchant_order_id does not belong to the specified merchant',
-      };
-      return data;
+      throw new NotFoundError(
+        'merchant_order_id does not belong to the specified merchant',
+      );
     }
     return {
       status: payOut[0].status,
       merchantOrderId: payOut[0].merchant_order_id,
       amount: payOut[0].amount,
       payoutId: payOut[0].id,
-      utr_id: payOut[0].utr_id ? payOut[0].utr_id : ' ',
+      utrId: payOut[0].utr_id ? payOut[0].utr_id : ' ',
     };
   } catch (error) {
     logger.error('Error check payout status:', error);
