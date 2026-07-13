@@ -6,7 +6,7 @@ import { BadRequestError } from '../../../utils/appErrors.js';
  * GET /v2/dashboardReport — v2 twin of the v1 dashboard-report endpoint.
  *
  * Reuses the exact same `gatherDataForCompany` service as v1; only the response
- * envelope differs (sendV2Success). Thrown validation errors are converted to
+ * envelope differs . Thrown validation errors are converted to
  * the v2 envelope by the v2ErrorHandler mounted on the v2 router.
  */
 const gatherCompanyDataV2 = async (req, res) => {

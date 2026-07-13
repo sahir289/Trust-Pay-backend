@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { randomUUID } from 'node:crypto';
 import { logger } from '../utils/logger.js';
 import { BadRequestError } from '../utils/appErrors.js';
 import { assertSafeOutboundUrl } from '../utils/ssrfGuard.js';
@@ -69,11 +70,57 @@ const buildSignedRequest = (data, secretKey) => {
 };
 
 /**
+ *
+ * v2 merchants receive the standardized envelope used by the API responses
+ * (sendSuccess):
+ *   { success, statusCode, apiVersion, requestId, timestamp, message, data, meta }
+ *
+ * v1 merchants receive the original flat payload UNCHANGED,
+ */
+const buildCallbackEnvelope = (response, type, apiVersion) => {
+  const version =
+    apiVersion ||
+    (response && typeof response === 'object' && ('utrId' in response || 'reqAmount' in response)
+      ? 'v2'
+      : 'v1');
+
+  // (v1) response: send the raw payload exactly as before.
+  if (version !== 'v2') {
+    return {...response, version};
+  }
+
+  // v2 response: send the standardized envelope used by the API responses (sendSuccess)
+  if (
+    response &&
+    typeof response === 'object' &&
+    response.success === true &&
+    'data' in response &&
+    'apiVersion' in response
+  ) {
+    return response;
+  }
+
+  const message = `${type} status notification sent successfully`;
+  const data = {
+    success: true,
+    statusCode: 200,
+    apiVersion: 'v2',
+    requestId: randomUUID(),
+    // timestamp: new Date().toISOString(),
+    message,
+    data: response ?? {},
+    meta: { message },
+  };
+
+  return data;
+};
+
+/**
  * Core HTTP delivery of a merchant notification. THROWS on any failure so the
  * queue consumer can drive retry/DLQ. SSRF-guarded: merchant-supplied notify
  * URLs must not target internal / loopback / link-local / metadata ranges.
  */
-export const deliverMerchantNotification = async (url, data, type, secretKey) => {
+export const deliverMerchantNotification = async (url, data, type, secretKey, apiVersion) => {
   if (!url) {
     logger.error(`No URL provided for ${type} Notification`);
     throw new BadRequestError('Notify Url not found!');
@@ -84,7 +131,8 @@ export const deliverMerchantNotification = async (url, data, type, secretKey) =>
   logger.info(`Sending ${type} Notification to Merchant`, {
     notify_url: url,
   });
-  const { body, headers } = buildSignedRequest(data, secretKey);
+  const envelope = buildCallbackEnvelope(data, type, apiVersion);
+  const { body, headers } = buildSignedRequest(envelope, secretKey);
   const response = await axios.post(url, body, {
     timeout: CALLBACK_TIMEOUT_MS,
     maxRedirects: 0,
@@ -95,7 +143,7 @@ export const deliverMerchantNotification = async (url, data, type, secretKey) =>
     //send dat in logs
     status: response?.status,
     url: url,
-    data: data,
+    data: envelope,
   });
   return response.data;
 };
@@ -105,9 +153,9 @@ export const deliverMerchantNotification = async (url, data, type, secretKey) =>
  * error object — preserving the original fire-and-forget semantics for the
  * non-queued path.
  */
-const sendMerchantNotificationDirect = async (url, data, type, secretKey) => {
+const sendMerchantNotificationDirect = async (url, data, type, secretKey, apiVersion) => {
   try {
-    return await deliverMerchantNotification(url, data, type, secretKey);
+    return await deliverMerchantNotification(url, data, type, secretKey, apiVersion);
   } catch (error) {
     const errorMessage = error?.message || 'Unknown error';
     const statusCode = error?.response?.status || 'N/A';
@@ -129,11 +177,11 @@ const sendMerchantNotificationDirect = async (url, data, type, secretKey) => {
  * Routes a callback through the durable queue when enabled; otherwise (or if
  * the publish fails) delivers directly so a callback is never lost.
  */
-const dispatchMerchantNotification = async (url, data, type, secretKey) => {
+const dispatchMerchantNotification = async (url, data, type, secretKey, apiVersion) => {
   if (CALLBACK_QUEUE_ENABLED) {
     try {
-      await publishMerchantCallback({ url, data, type, secretKey });
-      logger.info(`[Callback] ${type} notification queued`, { url });
+      await publishMerchantCallback({ url, data, type, secretKey, apiVersion });
+      logger.info(`[Callback] ${type} notification queued{}`, { url });
       return { queued: true };
     } catch (error) {
       logger.error(
@@ -144,10 +192,10 @@ const dispatchMerchantNotification = async (url, data, type, secretKey) => {
     }
   }
 
-  return sendMerchantNotificationDirect(url, data, type, secretKey);
+  return sendMerchantNotificationDirect(url, data, type, secretKey, apiVersion);
 };
 
-export const merchantPayinCallback = async (url, data, secretKey) =>
-  dispatchMerchantNotification(url, data, 'Payin', secretKey);
-export const merchantPayoutCallback = async (url, data, secretKey) =>
-  dispatchMerchantNotification(url, data, 'Payout', secretKey);
+export const merchantPayinCallback = async (url, data, secretKey, apiVersion) =>
+  dispatchMerchantNotification(url, data, 'Payin', secretKey, apiVersion);
+export const merchantPayoutCallback = async (url, data, secretKey, apiVersion) =>
+  dispatchMerchantNotification(url, data, 'Payout', secretKey, apiVersion);
