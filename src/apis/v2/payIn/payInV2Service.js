@@ -79,7 +79,7 @@ export const generatePayInUrlV2Service = async (payload, role) => {
   try {
     const {
       merchant,
-      user_id,
+      userId,
       merchant_order_id = uuidv4(),
       amount,
       returnUrl,
@@ -177,7 +177,7 @@ export const generatePayInUrlV2Service = async (payload, role) => {
       status: Status.INITIATED,
       currency: Currency.INR,
       merchant_order_id,
-      user: user_id,
+      user: userId,
       merchant_id: merchant.id,
       expiration_date: expirationDate,
       company_id: merchant.company_id,

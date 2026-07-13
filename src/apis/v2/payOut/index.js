@@ -22,7 +22,7 @@ router.post('/check-payout-status',
    tryCatchHandler(checkPayOutV2Status));
 
    router.get(
-    '/walletBalance',
+    '/wallet-balance',
     checkAuthCode,
     verifyRequestSignature({ required: true }),
     tryCatchHandler(getWalletBalanceV2),
