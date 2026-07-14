@@ -350,7 +350,7 @@ export const generatePayInUrlV2Service = async (payload, role) => {
     const {
       merchant,
       userId,
-      merchant_order_id = uuidv4(),
+      merchantOrderId = uuidv4(),
       amount,
       returnUrl,
       notifyUrl,
@@ -365,7 +365,7 @@ export const generatePayInUrlV2Service = async (payload, role) => {
     // The benign catch prevents an unhandled rejection if an earlier guard
     // returns before we await the promise.
     const existingOrderPromise =
-      getPayInWithMerchantOrderIdDao(merchant_order_id);
+      getPayInWithMerchantOrderIdDao(merchantOrderId);
     existingOrderPromise.catch(() => {});
 
     // Cache merchant routing data to reduce repeated DB reads under load.
@@ -447,7 +447,7 @@ export const generatePayInUrlV2Service = async (payload, role) => {
       amount: amount || 0,
       status: Status.INITIATED,
       currency: Currency.INR,
-      merchant_order_id,
+      merchant_order_id: merchantOrderId,
       user: userId,
       merchant_id: merchant.id,
       expiration_date: expirationDate,
@@ -499,7 +499,7 @@ export const generatePayInUrlV2Service = async (payload, role) => {
     // Assign bank if H2H
     if (merchant.config?.is_h2h) {
       const assign = await assignedBankToPayInUrlV2Service(
-        merchant_order_id,
+        merchantOrderId,
         amount,
         type,
       );
