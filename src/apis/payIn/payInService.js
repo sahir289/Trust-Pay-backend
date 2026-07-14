@@ -1672,7 +1672,6 @@ export const updateDepositStatusService = async (
       status: updatePayInRes.status,
       merchantOrderId: updatePayInRes.merchant_order_id,
       payinId: updatePayInRes.id,
-      req_amount: payInData.amount,
       amount: bankResponse.amount,
       ...(merchant.config?.apiVersion  === 'v2'
         ? {

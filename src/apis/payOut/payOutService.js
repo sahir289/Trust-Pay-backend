@@ -242,11 +242,21 @@ const _createPayoutServiceInternal = async (
     // const merchantAPIKey = config?.keys;
     const payoutAmount = Number(amount);
     const balanceRestriction = config.balanceRestriction;
-    const merchant_order_id = payload.merchant_order_id ?? uuidv4();
+    const merchant_order_id = payload.merchantOrderId ?? uuidv4();
     delete payload._merchantData;
     delete payload.code;
     payload.merchant_id = details[0].id;
     payload.merchant_order_id = merchant_order_id;
+    payload.acc_no = payload.accountNumber
+    payload.acc_holder_name = payload.accountHolderName
+    payload.ifsc_code = payload.ifscCode
+    payload.bank_name = payload.bankName  
+
+    delete payload.accountNumber
+    delete payload.accountHolderName
+    delete payload.ifscCode
+    delete payload.bankName
+    delete payload.merchantOrderId
     payload.config = stringifyJSON({
       urls: {
         return: returnUrl || details[0].config?.urls?.return || '',
