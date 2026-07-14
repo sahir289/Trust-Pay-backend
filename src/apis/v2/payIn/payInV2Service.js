@@ -159,7 +159,7 @@ export const generatePayInUrlV2Service = async (payload, role) => {
 
     if (amount < merchant.min_payin || amount > merchant.max_payin) {
       throw new CustomError(
-        422,
+        461,
         `Amount must be between ${merchant.min_payin} and ${merchant.max_payin}`,
       );
     }
