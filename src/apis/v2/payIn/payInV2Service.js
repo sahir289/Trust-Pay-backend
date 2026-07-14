@@ -1,5 +1,5 @@
 import dayjs from 'dayjs';
-import { Currency, Role, Status, tableName } from '../../../constants/index.js';
+import { BankTypes, Currency, Role, Status, tableName } from '../../../constants/index.js';
 import { calculateDuration } from '../../../helpers/index.js';
 import { stringifyJSON } from '../../../utils//index.js';
 import config from '../../../config/config.js';
@@ -11,13 +11,13 @@ import {
   updatePayInUrlDao,
 } from '../../payIn/payInDao.js';
 import {
-  assignedBankToPayInUrlService,
   determineType,
+  getPayInUrlService,
 } from '../../payIn/payInService.js';
 import { getUserByCompanyCreatedAtDao } from '../../users/userDao.js';
 import { getCachedData, setCachedData } from '../../../utils/redishashkey.js';
 import { getCompanyByIDDao } from '../../company/companyDao.js';
-import { getMerchantBankDao } from '../../bankAccounts/bankaccountDao.js';
+import { getBankaccountDao, getMerchantBankDao } from '../../bankAccounts/bankaccountDao.js';
 import { sendBankNotAssignedAlertTelegram } from '../../../utils/sendTelegramMessages.js';
 import { newTableEntry } from '../../../utils/sockets.js';
 import {
@@ -27,6 +27,9 @@ import {
 } from '../../../utils/appErrors.js';
 import { nanoid } from 'nanoid';
 import { v4 as uuidv4 } from 'uuid';
+import { merchantPayinCallback } from '../../../callBacksAndWebHook/merchantCallBacks.js';
+import { getMerchantForAssignDao } from '../../merchants/merchantDao.js';
+import { getVendorForAssignDao } from '../../vendors/vendorDao.js';
 
 const PAYIN_ROUTING_CACHE_TTL_SEC =
   config?.controllerCacheTtls?.payin?.routing || 60;
@@ -72,6 +75,273 @@ const triggerBankAlert = async (company, code) => {
     );
   } catch (error) {
     logger.error('Error triggering bank alert:', error);
+  }
+};
+
+const checkIsPayInExpired = (payIn) => {
+  if (
+    new Date(payIn.expiration_date).getTime() < Date.now() ||
+    payIn.is_url_expires
+  ) {
+    // throw new BadRequestError('PayIn has been expired already!');
+    return { message: `PayIn has been expired already!` };
+  }
+
+  return false;
+};
+
+export const assignedBankToPayInUrlV2Service = async (
+  merchantOrderId,
+  amount,
+  type,
+  isAdmin,
+) => {
+  // Validate the PayIn URL
+  try {
+    logger.info(
+      `Verifying PayIn with merchantOrderId: ${merchantOrderId}, amount: ${amount}, type: ${type}, isAdmin: ${isAdmin}`,
+    );
+    const payIn = await getPayInUrlService(merchantOrderId);
+    const payInConfig = payIn.config || {};
+    checkIsPayInExpired(payIn);
+    if (payIn.status !== Status.INITIATED) {
+      if (payIn.status === Status.ASSIGNED) {
+        const bank = await getBankaccountDao({
+          id: payIn.bank_acc_id,
+          company_id: payIn.company_id,
+        });
+        let response = {
+          return: payIn.config?.urls?.return,
+        };
+        if (
+          Number(amount) > Number(bank[0].min) &&
+          Number(amount) < Number(bank[0].max)
+        ) {
+          if (type === BankTypes.BANK_TRANSFER) {
+            response = {
+              bank: {
+                nick_name: bank[0].nick_name,
+                acc_holder_name: bank[0].acc_holder_name,
+                acc_no: bank[0].acc_no,
+                ifsc: bank[0].ifsc,
+              },
+            };
+          } else {
+            response = {
+              bank: {
+                upi_id: bank[0].upi_id,
+                acc_holder_name: bank[0].acc_holder_name,
+                code: payIn.upi_short_code,
+              },
+            };
+          }
+        }
+        return response;
+      } else {
+        throw new BadRequestError('PayIn has been confirmed already!');
+      }
+    }
+    const [merchant, banks] = await Promise.all([
+      getMerchantForAssignDao(payIn.merchant_id),
+      getMerchantBankDao({
+        config_merchants_contains: payIn.merchant_id,
+        company_id: payIn.company_id,
+        is_obsolete: false,
+      }),
+    ]);
+    if (!merchant) {
+      throw new NotFoundError('No merchant found');
+    }
+    const maxPayIn = Number(merchant.max_payin);
+    const minPayIn = Number(merchant.min_payin);
+    const amt = Number(amount);
+
+    if ((amt > maxPayIn || amt < minPayIn) && !isAdmin) {
+      //-- exact amounts should also be considered
+      throw new CustomError(
+        422,
+        `Amount must be between ${minPayIn} and ${maxPayIn}`,
+      );
+    }
+
+    // First, check if any bank satisfies the amount condition
+    const banksWithValidAmount = banks.filter((bank) => {
+      const isPayInBank = ['PayIn', 'payIn'].includes(bank.bank_used_for);
+    
+      const isActive =
+        bank.is_enabled &&
+        isPayInBank;
+      if (!isActive) return false;
+      return amt >= Number(bank.min) && amt <= Number(bank.max);
+    });
+
+    // If no bank satisfies the amount condition, check for enabled banks to provide appropriate error
+    if (banksWithValidAmount.length === 0) {
+      await updatePayInUrlDao(payIn.id, {
+        is_url_expires: true,
+        status: Status.FAILED,
+      });
+
+      const callbackPayload = {
+        status: Status.FAILED,
+        merchantOrderId: payIn.merchant_order_id,
+        payinId: payIn.id,
+        amount: null,
+        ...(merchant.config?.apiVersion  === 'v2'
+          ? {
+              reqAmount: payIn.amount,
+              utrId: payIn.utr,
+            }
+          : {
+              req_amount: payIn.amount,
+              utr_id: payIn.utr,
+            }),
+      };
+
+      merchantPayinCallback(payInConfig.urls?.notify, callbackPayload , merchant.config?.keys?.private);
+      throw new CustomError(461, `No bank found with valid amount range for ${amt}!`)
+      
+    }
+
+    //only enabled banks assigned with valid amount, method support, and type matching
+    const enabledBanks = banksWithValidAmount.filter((bank) => {
+      const config = bank.config || {};
+      const hasAnyMethod =
+        bank.is_qr ||
+        bank.is_bank ||
+        config.is_phonepay ||
+        config.is_intent ||
+        false;
+
+      if (!hasAnyMethod) return false;
+
+      switch (type) {
+        case BankTypes.UPI:
+          return bank.is_qr;
+        case BankTypes.PHONE_PE:
+          return config.is_phonepay || false;
+        case BankTypes.BANK_TRANSFER:
+          return bank.is_bank;
+        case BankTypes.INTENT:
+          return config.is_intent || false;
+        default:
+          return false;
+      }
+    });
+
+    if (!enabledBanks.length) {
+      await updatePayInUrlDao(payIn.id, {
+        is_url_expires: true,
+        status: Status.DROPPED,
+      });
+
+      const callbackPayload = {
+        status: Status.DROPPED,
+        merchantOrderId: payIn.merchant_order_id,
+        payinId: payIn.id,
+        amount: null,
+        ...(merchant.config?.apiVersion  === 'v2'
+          ? {
+              reqAmount: payIn.amount,
+              utrId: payIn.utr,
+            }
+          : {
+              req_amount: payIn.amount,
+              utr_id: payIn.utr,
+            }),
+      };
+
+      // This is async function but it's just the callback sending function there fore we are not using await
+      merchantPayinCallback(payInConfig.urls?.notify, callbackPayload, merchant.config?.keys?.private || null);
+      throw new CustomError(409, `No enabled bank found!`);
+    }
+    // Randomly assign one enabled bank account
+    const selectedBankDetails =
+      enabledBanks[Math.floor(Math.random() * enabledBanks.length)];
+    logger.info(
+      `Bank assigned for PayIn ${payIn.id}: ${selectedBankDetails.nick_name} (${selectedBankDetails.id})`,
+    );
+    const duration = calculateDuration(payIn.created_at);
+    const updatePayIn = await updatePayInUrlDao(payIn.id, {
+      amount: parseFloat(amount),
+      status: Status.ASSIGNED,
+      bank_acc_id: selectedBankDetails.id,
+      duration: duration,
+      config:{...payIn.config,
+          assigned_bank: {
+            acc_no: selectedBankDetails?.acc_no,
+            upi_id: selectedBankDetails?.upi_id,
+          },
+      }
+    });
+
+    const vendor = await getVendorForAssignDao(selectedBankDetails.user_id);
+
+    const responseObj = {
+      ...updatePayIn,
+      bank_acc_id: selectedBankDetails.id,
+      nick_name: selectedBankDetails.nick_name || '',
+      vendor_code: vendor?.code || null,
+      vendor_user_id: vendor?.user_id || null,
+      merchant_details: {
+        merchant_code: merchant ? merchant.code : null,
+        dispute: merchant && merchant[0] ? merchant[0].dispute : null,
+        return_url: payIn.config?.urls?.return || null,
+        notify_url: payIn.config?.urls?.notify || null,
+      },
+      bank_res_details: {
+        utr: null,
+        amount: 0,
+      },
+      upi_id: selectedBankDetails.upi_id || null,
+      company_id: payIn.company_id,
+    };
+    // Emit socket event for assigned payin
+    await newTableEntry(tableName.PAYIN, responseObj);
+    // expirePayInIfNeeded(payIn);
+    delete updatePayIn.is_obsolete;
+    delete updatePayIn.company_id;
+    delete selectedBankDetails.is_obsolete;
+    delete updatePayIn.company_id;
+
+    Object.assign(updatePayIn, {
+      merchant_min_payin: merchant.min_payin,
+      merchant_max_payin: merchant.max_payin,
+      merchant_code: merchant.code,
+      allow_merchant_intent: merchant.config?.allow_intent,
+      code: updatePayIn.upi_short_code,
+      bank: selectedBankDetails,
+    });
+
+    let response;
+    if (type === BankTypes.BANK_TRANSFER) {
+      response = {
+        return: updatePayIn.config?.urls?.return,
+        bank: {
+          nick_name: selectedBankDetails.nick_name,
+          acc_holder_name: selectedBankDetails.acc_holder_name,
+          acc_no: selectedBankDetails.acc_no,
+          ifsc: selectedBankDetails.ifsc,
+        },
+      };
+    } else {
+      response = {
+        return: updatePayIn.config?.urls?.return,
+        bank: {
+          upi_id: selectedBankDetails.upi_id,
+          acc_holder_name: selectedBankDetails.acc_holder_name,
+          code: updatePayIn.upi_short_code,
+        },
+      };
+      if (selectedBankDetails.config.is_staticQR) {
+        response.bank.staticQR = selectedBankDetails.config.is_staticQR;
+      }
+    }
+
+    return response;
+  } catch (error) {
+    logger.error('Error assigned payin url:', error);
+    throw error;
   }
 };
 
@@ -228,7 +498,7 @@ export const generatePayInUrlV2Service = async (payload, role) => {
     }
     // Assign bank if H2H
     if (merchant.config?.is_h2h) {
-      const assign = await assignedBankToPayInUrlService(
+      const assign = await assignedBankToPayInUrlV2Service(
         merchant_order_id,
         amount,
         type,
