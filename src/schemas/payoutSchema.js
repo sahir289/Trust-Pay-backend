@@ -22,16 +22,16 @@ export const PAYOUT_DETAILS_SCHEMA = Joi.object({
 
 export const PAYOUT_DETAILS_V2_SCHEMA = Joi.object({
   user: Joi.string().label('user').required(),
-  ifsc_code: Joi.string().label('ifsc_code').required(),
-  acc_holder_name: Joi.string().label('acc_holder_name').required(),
-  acc_no: Joi.string().label('acc_no').required(),
-  bank_name: Joi.string().label('bank_name').required(),
+  ifscCode: Joi.string().label('ifscCode').required(),
+  accountHolderName: Joi.string().label('accountHolderName').required(),
+  accountNumber: Joi.string().label('accountNumber').required(),
+  bankName: Joi.string().label('bankName').required(),
   amount: Joi.number().label('amount').required(),
-  merchant_order_id: Joi.string()
+  merchantOrderId: Joi.string()
     .allow('')
-    .label('merchant_order_id')
+    .label('merchantOrderId')
     .optional(),
-  notifyUrl: Joi.string().uri().label('notify_url').optional(),
+  notifyUrl: Joi.string().uri().label('notifyUrl').optional(),
 });
 
 export const WALLET_PAYOUT_DETAILS_SCHEMA = Joi.object({
