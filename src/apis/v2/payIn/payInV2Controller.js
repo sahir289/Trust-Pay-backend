@@ -62,7 +62,7 @@ export const generatePayInV2 = async (req, res) => {
 
   const baseRes = {
     payinId: result?.id,
-    merchantOrderId: result?.merchantOrderId,
+    merchantOrderId: result?.merchant_order_id,
     status: result?.status,
   };
 
@@ -113,7 +113,7 @@ export const generateH2HPayInV2 = async (req, res) => {
 
   const baseRes = {
     payinId: result?.id,
-    merchantOrderId: result?.merchantOrderId,
+    merchantOrderId: result?.merchant_order_id,
     status: result?.status,
   };
 
