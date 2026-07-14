@@ -2531,7 +2531,7 @@ const deletePayoutService = async (id, updated_by, role) => {
   }
 };
 
-const ekoWalletBalanceEnquiryInternally = async () => {
+export const ekoWalletBalanceEnquiryInternally = async () => {
   const key = config?.ekoAccessKey;
   const encodedKey = Buffer.from(key).toString('base64');
 
