@@ -919,7 +919,7 @@ export const assignedBankToPayInUrlService = async (
         merchantOrderId: payIn.merchant_order_id,
         payinId: payIn.id,
         amount: null,
-        ...(merchant.config?.api_version  === 'v2'
+        ...(merchant.config?.apiVersion  === 'v2'
           ? {
               reqAmount: payIn.amount,
               utrId: payIn.utr,
@@ -973,7 +973,7 @@ export const assignedBankToPayInUrlService = async (
         merchantOrderId: payIn.merchant_order_id,
         payinId: payIn.id,
         amount: null,
-        ...(merchant.config?.api_version  === 'v2'
+        ...(merchant.config?.apiVersion  === 'v2'
           ? {
               reqAmount: payIn.amount,
               utrId: payIn.utr,
@@ -1674,7 +1674,7 @@ export const updateDepositStatusService = async (
       payinId: updatePayInRes.id,
       req_amount: payInData.amount,
       amount: bankResponse.amount,
-      ...(merchant.config?.api_version  === 'v2'
+      ...(merchant.config?.apiVersion  === 'v2'
         ? {
             reqAmount: payInData.amount,
             utrId: bankResponse.utr,
@@ -3543,7 +3543,7 @@ export const disputeDuplicateTransactionService = async (
         merchantOrderId: merchantOrderId,
         payinId: payInData.id,
         amount: toAmount,
-        ...merchant.config?.api_version === 'v2' ? {
+        ...merchant.config?.apiVersion === 'v2' ? {
           reqAmount: newStatus === Status.SUCCESS ? toAmount : payInData.amount,
           utrId: bankResponse.utr,
         } : {
@@ -3622,7 +3622,7 @@ export const disputeDuplicateTransactionService = async (
       merchantOrderId: payIn.merchant_order_id,
       payinId: payIn.id,
       amount: toAmount,
-      ...merchant.config?.api_version === 'v2' ? {
+      ...merchant.config?.apiVersion === 'v2' ? {
         reqAmount: updatePayload.status === Status.SUCCESS ? toAmount : payIn.amount,
         utrId: bankResponse.utr,
       } : {
@@ -4037,7 +4037,7 @@ export const checkPendingPayinStatusService = async (
                 merchantOrderId: updatePayInDataRes.merchant_order_id,
                 payinId: updatePayInDataRes.id,
                 amount: bankResponse.amount,
-                ...merchantData[0].config?.api_version === 'v2' ? {
+                ...merchantData[0].config?.apiVersion === 'v2' ? {
                   reqAmount: updatePayInDataRes.amount,
                   utrId: updatePayInDataRes.utr,
                 } : {
@@ -4085,7 +4085,7 @@ export const checkPendingPayinStatusService = async (
                 merchantOrderId: updatePayInDataRes.merchant_order_id,
                 payinId: updatePayInDataRes.id,
                 amount: bankResponse.amount,
-                ...merchantData[0].config?.api_version === 'v2' ? {
+                ...merchantData[0].config?.apiVersion === 'v2' ? {
                   reqAmount: updatePayInDataRes.amount,
                   utrId: updatePayInDataRes.utr,
                 } : {
@@ -4141,7 +4141,7 @@ export const checkPendingPayinStatusService = async (
               merchantOrderId: updatePayInDataRes.merchant_order_id,
               payinId: updatePayInDataRes.id,
               amount: bankResponse.amount,
-              ...merchantData[0].config?.api_version === 'v2' ? {
+              ...merchantData[0].config?.apiVersion === 'v2' ? {
                 reqAmount: updatePayInDataRes.amount,
                 utrId: updatePayInDataRes.utr,
               } : {
