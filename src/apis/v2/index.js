@@ -5,7 +5,6 @@ import { sendSuccess } from '../../utils/responseHandlers.js';
 import { getVersionString } from '../../../version.js';
 import v2ErrorHandler from '../../middlewares/v2ErrorHandler.js';
 import payInV2 from './payIn/index.js';
-import walletBalanceV2 from './walletBalance/index.js';
 import reportsV2 from './reports/index.js';
 import dashboardReportV2 from './dashboardReport/index.js';
 import authV2 from './auth/index.js';
@@ -30,7 +29,6 @@ v2Router.get('/health', (req, res) =>
 
 v2Router.use('/payIn', payInV2);
 v2Router.use('/bankResponse', BankResponseV2);
-v2Router.use('/walletBalance', walletBalanceV2);
 v2Router.use('/reports', reportsV2);
 v2Router.use('/dashboardReport', dashboardReportV2);
 v2Router.use('/auth', authV2);

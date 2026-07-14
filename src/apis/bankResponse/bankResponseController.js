@@ -39,12 +39,12 @@ const parsePositiveInt = (value, fallback) => {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
 };
 
-const BULK_PUBLISH_CONCURRENCY = parsePositiveInt(
+export const BULK_PUBLISH_CONCURRENCY = parsePositiveInt(
   process.env.BANK_BOT_BULK_PUBLISH_CONCURRENCY,
   100,
 );
 
-const BULK_PUBLISH_MAX_ITEMS = parsePositiveInt(
+export const BULK_PUBLISH_MAX_ITEMS = parsePositiveInt(
   process.env.BANK_BOT_BULK_MAX_ITEMS,
   5000,
 );

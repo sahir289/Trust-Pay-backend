@@ -44,6 +44,7 @@ const generateUserToken = (user, sessionId) => {
     role: user.role,
     company_id: user.company_id,
     session_id: sessionId,
+    is_h2h: user.is_h2h || false,
   });
 };
 

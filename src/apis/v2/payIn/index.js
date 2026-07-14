@@ -9,8 +9,10 @@ import { adaptResponseToV2 } from '../../../utils/v2ResponseAdapter.js';
 import { processPayInH2H } from '../../payIn/payInController.js';
 import {
   checkPayInStatusV2,
+  generateH2HPayInV2,
   generatePayInV2,
 } from './payInV2Controller.js';
+import { checkh2hUserId } from '../../../middlewares/h2hUserBlock.js';
 
 const router = express.Router();
 
@@ -31,6 +33,15 @@ router.post(
   verifyRequestSignature({ required: true }),
   idempotency({ deriveKey: (req) => req.body?.merchant_order_id }),
   tryCatchHandler(generatePayInV2),
+);
+
+router.post(
+  '/create',
+  checkAuthCode,
+  checkh2hUserId,
+  verifyRequestSignature({ required: true }),
+  idempotency({ deriveKey: (req) => req.body?.merchant_order_id }),
+  tryCatchHandler(generateH2HPayInV2),
 );
 
 router.post(

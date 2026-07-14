@@ -62,7 +62,7 @@ export const generatePayInV2 = async (req, res) => {
 
   const baseRes = {
     payinId: result?.id,
-    merchantOrderId: result?.merchant_order_id,
+    merchantOrderId: result?.merchantOrderId,
     status: result?.status,
   };
 
@@ -72,6 +72,64 @@ export const generatePayInV2 = async (req, res) => {
       {
         ...baseRes,
         bank: result?.bank,
+        type: result?.type,
+        amount: result?.amount,
+      },
+      'PayIn is generated successfully',
+    );
+  }
+
+  const data = {
+    ...baseRes,
+    expirationDate: result?.expiration_date,
+    payInUrl: `${config.reactPaymentOrigin}/transaction?order=${result?.merchant_order_id}`,
+  };
+  return sendSuccess(res, data, 'PayIn is generated & url is sent successfully');
+};
+
+export const generateH2HPayInV2 = async (req, res) => {
+  const payload = req.body;
+  const merchant = req.merchant;
+ 
+  if (payload.merchant_order_id?.includes('/')) {
+    throw new BadRequestError("Invalid order ID: '/' is not allowed.");
+  }
+
+  const joiValidation = GENERATE_PAYIN_V2_SCHEMA.validate(payload);
+  if (joiValidation.error) {
+    throw new ValidationError(joiValidation.error);
+  }
+
+  // req.merchant is the authenticated merchant (checkMerchantApiKeyV2). The
+  // validated x-api-key only seeds the service's routing cache key; the service
+  // authorizes by `code`, exactly as in v1.
+  const role = null;
+  // const code = req.headers['x-auth-code'];
+
+  const result = await generatePayInUrlV2Service(
+    { ...payload, merchant },
+    role,
+  );
+
+  const baseRes = {
+    payinId: result?.id,
+    merchantOrderId: result?.merchantOrderId,
+    status: result?.status,
+  };
+
+  const bankResponse = {
+    accountHolderName: result?.bank?.acc_holder_name,
+    upiId: result?.bank?.upi_id,
+    amount: result?.amount,
+  }
+
+
+  if (result.merchant?.h2h) {
+    return sendSuccess(
+      res,
+      {
+        ...baseRes,
+        bank: bankResponse,
         type: result?.type,
         amount: result?.amount,
       },
