@@ -136,8 +136,9 @@ export const generatePayInUrlV2Service = async (payload, role) => {
     if (bankAssigned.length === 0) {
       await triggerBankAlert(company, code);
       throw new CustomError(
-        422,
+        403,
         'Bank Account has not been linked with Merchant',
+        
       );
     }
 
