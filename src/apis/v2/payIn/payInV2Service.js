@@ -80,12 +80,12 @@ export const generatePayInUrlV2Service = async (payload, role) => {
     const {
       merchant,
       userId,
-      merchant_order_id = uuidv4(),
       amount,
       returnUrl,
       notifyUrl,
       ot,
     } = payload;
+    const merchant_order_id = payload.merchantOrderId || uuidv4();
     const code = merchant.code;
 
     // Kick off the duplicate-order lookup up front. It is independent of the
