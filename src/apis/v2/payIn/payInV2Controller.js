@@ -9,17 +9,15 @@ import {
   generatePayInUrlV2Service,
 } from './payInV2Service.js';
 import { BadRequestError, ValidationError } from '../../../utils/appErrors.js';
-import { sendError, sendSuccess } from '../../../utils/responseHandlers.js';
-import { Status, V2_ERROR_CODES } from '../../../constants/index.js';
+import { sendSuccess } from '../../../utils/responseHandlers.js';
+import { Status } from '../../../constants/index.js';
 import { publishPayInProcess } from '../../../rabbitmq/producer.js';
 
 export const checkPayInStatusV2 = async (req, res) => {
   const merchant  = req.merchant;
   const joiValidation = VALIDATE_CHECK_PAY_IN_V2_STATUS.validate(req.body);
   if (joiValidation.error) {
-    return sendError(res, joiValidation.error.message, 400, V2_ERROR_CODES.VALIDATION_ERROR, {
-      details: joiValidation.error.details,
-    });
+    throw new ValidationError(joiValidation.error);
   }
 
   const data = await checkPayInStatusV2Service(
