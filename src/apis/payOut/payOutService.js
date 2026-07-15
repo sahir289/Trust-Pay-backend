@@ -254,6 +254,7 @@ const _createPayoutServiceInternal = async (
     });
     delete payload.returnUrl;
     delete payload.notifyUrl;
+    delete payload._merchantData;
     payload.company_id = payload.company_id
       ? payload.company_id
       : details[0].company_id;
