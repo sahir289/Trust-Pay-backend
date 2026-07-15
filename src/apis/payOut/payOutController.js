@@ -115,7 +115,6 @@ const createPayout = async (req, res) => {
       fromUI,
     );
   } else {
-    payload._merchantData = req.merchant || null;
     // payload.x_api_key = x_api_key;
     result = await createPayoutService(
       req.headers,
