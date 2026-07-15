@@ -59,15 +59,18 @@ export const ekoTransactionStatusCallback = async (req, res) => {
     const merchantPayoutUrl = merchant.payout_notify_url;
     const Key = await getMerchantKeysFromCacheOrDb(merchant.id);
     const secretKey = Key?.private || null;
-
+    const api_version = Key?.api_version || 'v1';
     // TODO: Implement the notification to the merchant's payout URL
     if (merchantPayoutUrl !== null) {
       await merchantPayoutCallback(merchantPayoutUrl, {
-        code: merchant.code,
         merchantOrderId: singleWithdrawData.merchant_order_id,
         payoutId: singleWithdrawData.id,
         amount: singleWithdrawData.amount,
         status: payload.status,
+        ...(api_version === 'v2'
+          && {
+            code: merchant.code,
+            })
       },secretKey);
     }
 
