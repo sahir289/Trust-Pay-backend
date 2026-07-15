@@ -1380,7 +1380,6 @@ export const updatePaymentNotificationStatusService = async (
       data = await merchantPayoutCallback(
         payouts[0].payout_details.urls.notify,
         {
-          code: merchant.code,
           merchantOrderId: payout.merchant_order_id,
           payoutId: payout.id,
           amount: payout.amount,
@@ -1390,6 +1389,7 @@ export const updatePaymentNotificationStatusService = async (
                 utrId: payout.utr,
               }
             : {
+                code: merchant.code,
                 utr_id: payout.utr,
               }),
         },secretKey
