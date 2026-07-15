@@ -79,7 +79,6 @@ export const generatePayInV2 = async (req, res) => {
 
   const data = {
     ...baseRes,
-    expirationDate: result?.expiration_date,
     payInUrl: `${config.reactPaymentOrigin}/transaction?order=${result?.merchant_order_id}`,
   };
   return sendSuccess(res, data, 'PayIn is generated & url is sent successfully');
@@ -117,8 +116,7 @@ export const generateH2HPayInV2 = async (req, res) => {
 
   const bankResponse = {
     accountHolderName: result?.bank?.acc_holder_name,
-    upiId: result?.bank?.upi_id,
-    amount: result?.amount,
+    upiId: result?.bank?.upi_id
   }
 
 
