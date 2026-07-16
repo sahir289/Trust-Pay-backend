@@ -175,7 +175,6 @@ const PAYIN_ROUTING_CACHE_TTL_SEC =
   config?.controllerCacheTtls?.bankAccounts?.merchantBank || 60;
 const PAYIN_DEPOSIT_STATUS_COOLDOWN_SEC =
   config?.controllerCacheTtls?.payin?.depositStatusCooldown || 3;
-
 const normalizePayInAmount = (amount) => {
   const parsed = Number.parseFloat(amount);
   return Number.isFinite(parsed) ? parsed.toFixed(2) : 'na';
@@ -920,7 +919,7 @@ export const assignedBankToPayInUrlService = async (
         merchantOrderId: payIn.merchant_order_id,
         payinId: payIn.id,
         amount: null,
-        ...(merchant.config?.api_version  === 'v2'
+        ...(merchant.config?.apiVersion  === 'v2'
           ? {
               reqAmount: payIn.amount,
               utrId: payIn.utr,
@@ -974,7 +973,7 @@ export const assignedBankToPayInUrlService = async (
         merchantOrderId: payIn.merchant_order_id,
         payinId: payIn.id,
         amount: null,
-        ...(merchant.config?.api_version  === 'v2'
+        ...(merchant.config?.apiVersion  === 'v2'
           ? {
               reqAmount: payIn.amount,
               utrId: payIn.utr,
@@ -1381,7 +1380,6 @@ export const updatePaymentNotificationStatusService = async (
       data = await merchantPayoutCallback(
         payouts[0].payout_details.urls.notify,
         {
-          code: merchant.code,
           merchantOrderId: payout.merchant_order_id,
           payoutId: payout.id,
           amount: payout.amount,
@@ -1391,6 +1389,7 @@ export const updatePaymentNotificationStatusService = async (
                 utrId: payout.utr,
               }
             : {
+                code: merchant.code,
                 utr_id: payout.utr,
               }),
         },secretKey
@@ -1673,9 +1672,8 @@ export const updateDepositStatusService = async (
       status: updatePayInRes.status,
       merchantOrderId: updatePayInRes.merchant_order_id,
       payinId: updatePayInRes.id,
-      req_amount: payInData.amount,
       amount: bankResponse.amount,
-      ...(merchant.config?.api_version  === 'v2'
+      ...(merchant.config?.apiVersion  === 'v2'
         ? {
             reqAmount: payInData.amount,
             utrId: bankResponse.utr,
@@ -2110,13 +2108,8 @@ export const _processPayInServiceInternal = async (
   }
   const lockKey = `${payIn.bank_acc_id}${userSubmittedUtr}`;
   await checkLockEdit(lockKey, true, conn);
-  const banks = await getBankaccountDao(
-    { id: payIn?.bank_acc_id, company_id: payIn.company_id },
-    null,
-    null,
-    null,
-    null,
-    conn,
+  const banks = await getValidatePayinBankAccountFromCacheOrDb(
+    payIn?.bank_acc_id
   );
   const bank = banks[0];
 
@@ -2125,15 +2118,8 @@ export const _processPayInServiceInternal = async (
   }
 
   // Fetch vendor for vendor_code
-  const vendors = await getVendorsDao(
-    { user_id: bank.user_id },
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    undefined,
-    conn,
+  const vendors = await getValidatePayinVendorFromCacheOrDb(
+    bank.user_id
   );
   const vendor = vendors[0];
 
@@ -2437,28 +2423,11 @@ export const _processPayInServiceInternal = async (
       Number(merchant[0].payin_commission),
     );
     updatePayInData.payin_merchant_commission = Number(commissions);
-    const bank = await getBankaccountDao(
-      {
-        id: bankResponse.bank_id,
-      },
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      conn,
+    const bank = await getValidatePayinBankAccountFromCacheOrDb(
+      bankResponse?.bank_id
     );
-    const vendors = await getVendorsDao(
-      {
-        user_id: bank[0].user_id,
-      },
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      conn,
-    );
+    const vendors = await getValidatePayinVendorFromCacheOrDb(
+      bank[0].user_id);
     const vendor = vendors[0];
     const vendorCommission = calculateCommission(
       bankResponse.amount,
@@ -3573,7 +3542,7 @@ export const disputeDuplicateTransactionService = async (
         merchantOrderId: merchantOrderId,
         payinId: payInData.id,
         amount: toAmount,
-        ...merchant.config?.api_version === 'v2' ? {
+        ...merchant.config?.apiVersion === 'v2' ? {
           reqAmount: newStatus === Status.SUCCESS ? toAmount : payInData.amount,
           utrId: bankResponse.utr,
         } : {
@@ -3652,7 +3621,7 @@ export const disputeDuplicateTransactionService = async (
       merchantOrderId: payIn.merchant_order_id,
       payinId: payIn.id,
       amount: toAmount,
-      ...merchant.config?.api_version === 'v2' ? {
+      ...merchant.config?.apiVersion === 'v2' ? {
         reqAmount: updatePayload.status === Status.SUCCESS ? toAmount : payIn.amount,
         utrId: bankResponse.utr,
       } : {
@@ -4067,7 +4036,7 @@ export const checkPendingPayinStatusService = async (
                 merchantOrderId: updatePayInDataRes.merchant_order_id,
                 payinId: updatePayInDataRes.id,
                 amount: bankResponse.amount,
-                ...merchantData[0].config?.api_version === 'v2' ? {
+                ...merchantData[0].config?.apiVersion === 'v2' ? {
                   reqAmount: updatePayInDataRes.amount,
                   utrId: updatePayInDataRes.utr,
                 } : {
@@ -4115,7 +4084,7 @@ export const checkPendingPayinStatusService = async (
                 merchantOrderId: updatePayInDataRes.merchant_order_id,
                 payinId: updatePayInDataRes.id,
                 amount: bankResponse.amount,
-                ...merchantData[0].config?.api_version === 'v2' ? {
+                ...merchantData[0].config?.apiVersion === 'v2' ? {
                   reqAmount: updatePayInDataRes.amount,
                   utrId: updatePayInDataRes.utr,
                 } : {
@@ -4171,7 +4140,7 @@ export const checkPendingPayinStatusService = async (
               merchantOrderId: updatePayInDataRes.merchant_order_id,
               payinId: updatePayInDataRes.id,
               amount: bankResponse.amount,
-              ...merchantData[0].config?.api_version === 'v2' ? {
+              ...merchantData[0].config?.apiVersion === 'v2' ? {
                 reqAmount: updatePayInDataRes.amount,
                 utrId: updatePayInDataRes.utr,
               } : {

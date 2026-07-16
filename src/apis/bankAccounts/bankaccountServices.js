@@ -8,6 +8,7 @@ import {
 } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
 import redisClient from '../../utils/redisClient.js';
+import { deleteCachedData } from '../../utils/redishashkey.js';
 import { sendTelegramStatementNotUploadedMessage } from '../../utils/sendTelegramMessages.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 import { deactivateBank } from '../../utils/sockets.js';
@@ -32,6 +33,15 @@ import {
 const isPlainObject = (value) =>
   typeof value === 'object' && value !== null && !Array.isArray(value);
 
+const invalidatePayinValidateBankCache = async (bankId) => {
+  if (!bankId) {
+    return;
+  }
+  await deleteCachedData(
+    `payin:validate:bank:${bankId}`,
+    'Payin validate bank cache',
+  );
+};
 const isFastUpdateCandidate = (payload) => {
   if (!isPlainObject(payload)) return false;
 
@@ -575,6 +585,7 @@ const updateBankaccountService = async (
     const result = await _updateBankaccountInternal(ids, payload, role, conn);
     await commit(conn);
     committed = true;
+    await invalidatePayinValidateBankCache(result?.id || ids?.id);
     return result;
   } catch (error) {
     if (conn && !committed) await rollback(conn);
@@ -653,6 +664,7 @@ const activeInactiveBankAccountService = async (ids, payload) => {
     );
     await commit(conn);
     committed = true;
+    await invalidatePayinValidateBankCache(result?.id || ids?.id);
     return result;
   } catch (error) {
     if (conn && !committed) await rollback(conn);

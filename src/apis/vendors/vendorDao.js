@@ -293,7 +293,7 @@ export const getVendorsCodeDao = async (
 export const getVendorsPayinsDao = async (filters, conn = null) => {
   try {
     let query = `
-    SELECT code
+    SELECT code, user_id, payin_commission
     FROM public."Vendor"
     WHERE user_id = $1
     And is_obsolete = false

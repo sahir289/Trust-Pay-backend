@@ -1,9 +1,8 @@
-import { createPayoutService } from '../../payOut/payOutService.js';
 import { PAYOUT_DETAILS_V2_SCHEMA, VALIDATE_CHECK_PAY_OUT_V2_STATUS } from '../../../schemas/payoutSchema.js';
 import { BadRequestError, ValidationError } from '../../../utils/appErrors.js';
 import { invalidateCompanyCacheByPrefix } from '../../../utils/controllerCache.js';
 import { sendSuccess } from '../../../utils/responseHandlers.js';
-import { checkPayOutStatusV2Service, getWalletBalanceService } from './payOutV2Service.js';
+import { checkPayOutStatusV2Service, createPayoutV2Service, getWalletBalanceService } from './payOutV2Service.js';
 
 
 
@@ -18,7 +17,7 @@ export const createPayoutV2 = async (req, res) => {
     throw new ValidationError(joiValidation.error);
   }
 
-  const result = await createPayoutService(req.headers, {...payload, code});
+  const result = await createPayoutV2Service(req.headers, {...payload, code});
 
   await invalidateCompanyCacheByPrefix(
     req.user?.company_id || payload.company_id,
