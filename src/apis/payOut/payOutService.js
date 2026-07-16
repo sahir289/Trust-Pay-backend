@@ -1525,7 +1525,7 @@ const _updatePayoutServiceInternal = async (
         const api_version = Key?.api_version || 'v1';
 
     // Early return if not approved
-    if (!data.approved_at && data.status !== Status.PENDING && !data.rejected_at) {
+    if (!data.approved_at && data.status !== Status.PENDING && data.status !== Status.INITIATED && !data.rejected_at) {
       merchantPayoutCallback(notifyUrl, {
         merchantOrderId: data.merchant_order_id,
         payoutId: data.id,
@@ -1682,7 +1682,7 @@ await updateBankAccountBalanceDao(
     }
 
     // This is async function but it's just the callback sending function therefore we are not using await
-    if (data.status !== Status.PENDING) {
+    if (data.status !== Status.PENDING && data.status !== Status.INITIATED) {
       merchantPayoutCallback(notifyUrl, {
         merchantOrderId: data.merchant_order_id,
         payoutId: data.id,
@@ -1937,7 +1937,7 @@ const updatePayoutWebhookService = async (ids, payload, conn = null) => {
       const Key = await getMerchantKeysFromCacheOrDb(merchant.id);
       const secretKey = Key?.private || null;
       const api_version = Key?.api_version || 'v1';
-    if (data.status !== Status.PENDING) {
+    if (data.status !== Status.PENDING && data.status !== Status.INITIATED) {
       merchantPayoutCallback(notifyUrl, {
         merchantOrderId: data.merchant_order_id,
         payoutId: data.id,
