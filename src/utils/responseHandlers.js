@@ -17,7 +17,6 @@ const sendSuccess = (
     statusCode: status,
     // apiVersion: API_VERSION_V2,
     requestId,
-    timestamp: new Date().toISOString(),
     message: message || '',
     data: data ?? {},
     meta: {},
@@ -65,9 +64,7 @@ const sendError = (
   const body = {
     success: false,
     statusCode: statusCode,
-    // apiVersion: API_VERSION_V2,
     requestId,
-    timestamp: new Date().toISOString(),
     error: {
       code: code || V2_ERROR_CODES.ERROR,
       message: message || 'An error occurred',

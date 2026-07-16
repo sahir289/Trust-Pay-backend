@@ -242,21 +242,10 @@ const _createPayoutServiceInternal = async (
     // const merchantAPIKey = config?.keys;
     const payoutAmount = Number(amount);
     const balanceRestriction = config.balanceRestriction;
-    const merchant_order_id = payload.merchantOrderId ?? uuidv4();
-    delete payload._merchantData;
+    const merchant_order_id = payload.merchant_order_id ?? uuidv4();
     delete payload.code;
     payload.merchant_id = details[0].id;
     payload.merchant_order_id = merchant_order_id;
-    payload.acc_no = payload.accountNumber
-    payload.acc_holder_name = payload.accountHolderName
-    payload.ifsc_code = payload.ifscCode
-    payload.bank_name = payload.bankName  
-
-    delete payload.accountNumber
-    delete payload.accountHolderName
-    delete payload.ifscCode
-    delete payload.bankName
-    delete payload.merchantOrderId
     payload.config = stringifyJSON({
       urls: {
         return: returnUrl || details[0].config?.urls?.return || '',
@@ -265,6 +254,7 @@ const _createPayoutServiceInternal = async (
     });
     delete payload.returnUrl;
     delete payload.notifyUrl;
+    delete payload._merchantData;
     payload.company_id = payload.company_id
       ? payload.company_id
       : details[0].company_id;
@@ -1535,9 +1525,8 @@ const _updatePayoutServiceInternal = async (
         const api_version = Key?.api_version || 'v1';
 
     // Early return if not approved
-    if (!data.approved_at && data.status !== Status.PENDING && !data.rejected_at) {
+    if (!data.approved_at && data.status !== Status.PENDING && data.status !== Status.INITIATED && !data.rejected_at) {
       merchantPayoutCallback(notifyUrl, {
-        code: merchant.code,
         merchantOrderId: data.merchant_order_id,
         payoutId: data.id,
         amount: data.amount,
@@ -1547,6 +1536,7 @@ const _updatePayoutServiceInternal = async (
               utrId: data.utr_id || '',
             }
           : {
+              code: merchant.code,
               utr_id: data.utr_id || '',
             }),
       }, secretKey);
@@ -1692,9 +1682,8 @@ await updateBankAccountBalanceDao(
     }
 
     // This is async function but it's just the callback sending function therefore we are not using await
-    if (data.status !== Status.PENDING) {
+    if (data.status !== Status.PENDING && data.status !== Status.INITIATED) {
       merchantPayoutCallback(notifyUrl, {
-        code: merchant.code,
         merchantOrderId: data.merchant_order_id,
         payoutId: data.id,
         amount: data.amount,
@@ -1704,6 +1693,7 @@ await updateBankAccountBalanceDao(
               utrId: data.utr_id || '',
             }
           : {
+              code: merchant.code,
               utr_id: data.utr_id || '',
             }),
       }, secretKey);
@@ -1947,9 +1937,8 @@ const updatePayoutWebhookService = async (ids, payload, conn = null) => {
       const Key = await getMerchantKeysFromCacheOrDb(merchant.id);
       const secretKey = Key?.private || null;
       const api_version = Key?.api_version || 'v1';
-    if (data.status !== Status.PENDING) {
+    if (data.status !== Status.PENDING && data.status !== Status.INITIATED) {
       merchantPayoutCallback(notifyUrl, {
-        code: merchant.code,
         merchantOrderId: data.merchant_order_id,
         payoutId: data.id,
         amount: data.amount,
@@ -1959,6 +1948,7 @@ const updatePayoutWebhookService = async (ids, payload, conn = null) => {
               utrId: data.utr_id || '',
             }
           : {
+              code: merchant.code,
               utr_id: data.utr_id || '',
             }),
       }, secretKey);

@@ -1380,7 +1380,6 @@ export const updatePaymentNotificationStatusService = async (
       data = await merchantPayoutCallback(
         payouts[0].payout_details.urls.notify,
         {
-          code: merchant.code,
           merchantOrderId: payout.merchant_order_id,
           payoutId: payout.id,
           amount: payout.amount,
@@ -1390,6 +1389,7 @@ export const updatePaymentNotificationStatusService = async (
                 utrId: payout.utr,
               }
             : {
+                code: merchant.code,
                 utr_id: payout.utr,
               }),
         },secretKey
@@ -1533,6 +1533,7 @@ export const updateDepositStatusService = async (
               ? Status.DUPLICATE
               : Status.SUCCESS,
       bank_acc_id: bank.id,
+      config:{ ...payInData.config , assigned_bank: { acc_no: bank.acc_no, upi_id: bank.upi_id }},
       duration: duration,
       updated_by,
     };
@@ -1699,7 +1700,6 @@ export const updateDepositStatusService = async (
     // );
     // This is async function but it's just the callback sending function there fore we are not using await
     merchantPayinCallback(updatePayInRes.config?.urls?.notify, callbackPayload, merchant.config?.keys?.private);
-    logger.info(` payInData : ${payInData}`);
 
 
     await commit(conn);
