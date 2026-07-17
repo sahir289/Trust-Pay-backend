@@ -4,9 +4,11 @@ import {
 } from '../apis/merchants/merchantDao.js';
 import { sendError } from '../utils/responseHandlers.js';
 import { V2_ERROR_CODES } from '../constants/index.js';
-
+import config from '../config/config.js';
+import { getCachedData, setCachedData } from '../utils/redishashkey.js';
 const LOCALHOST_IPS = new Set(['::1', '127.0.0.1', '::ffff:127.0.0.1']);
-
+const MERCHANT_API_CACHE_TTL_SEC =
+  config?.controllerCacheTtls?.merchants?.byCode || 60;
 // Resolve the real client IP for merchant IP-allowlist checks.
 // `trust proxy` is set to 1 in app.js, so Express's `req.ip` is the address of
 // the client as seen by the single trusted proxy and CANNOT be spoofed via the
@@ -21,6 +23,54 @@ const resolveMerchantClientIp = (req) => {
   return ip;
 };
 
+const getMerchantAuthCodeCacheKey = (code) =>
+  code ? `merchant_auth_code:${code}` : null;
+const getMerchantApiCacheKey = (code, apiKey) =>
+  code && apiKey ? `merchant_api:${code}:${apiKey}` : null;
+const getMerchantFromAuthCodeCacheOrDb = async (code) => {
+const cacheKey = getMerchantAuthCodeCacheKey(code);
+const cachedMerchant = await getCachedData(
+    cacheKey,
+    'merchant_auth_code',
+  );
+  if (cachedMerchant) {
+    return cachedMerchant;
+  }
+const merchant = await getMerchantsByAuthCodeDao(code);
+  if (merchant) {
+    await setCachedData(
+      cacheKey,
+      merchant,
+      MERCHANT_API_CACHE_TTL_SEC,
+      'merchant_auth_code',
+    );
+  }
+  return merchant;
+};
+const getMerchantFromApiCacheOrDb = async (code, apiKey) => {
+const cacheKey = getMerchantApiCacheKey(code, apiKey);
+const cachedMerchant = await getCachedData(
+    cacheKey,
+    'merchant_api',
+  );
+  if (cachedMerchant) {
+    return cachedMerchant;
+  }
+const merchantArr = await getMerchantsByCodeAndApiKeyDao(
+    code,
+    apiKey,
+  );
+const merchant = merchantArr[0] || null;
+  if (merchant) {
+    await setCachedData(
+      cacheKey,
+      merchant,
+      MERCHANT_API_CACHE_TTL_SEC,
+      'merchant_api',
+    );
+  }
+  return merchant;
+};
 // Normalize a merchant's configured whitelist (string or array, possibly
 // comma-separated) into a clean array of IP strings.
 const normalizeWhitelist = (whitelistIps) =>
@@ -35,8 +85,7 @@ export const checkAuthCode = async (req, res, next) => {
     const userIp = resolveMerchantClientIp(req);
 
     if (x_auth_code) {
-      const merchantInfo = await getMerchantsByAuthCodeDao(x_auth_code);
-
+      const merchantInfo = await getMerchantFromAuthCodeCacheOrDb(x_auth_code);
       if (!merchantInfo) {
         return sendError(res, 'Invalid merchant code or API key', 400);
       }
@@ -71,8 +120,8 @@ export const checkApiWallet = async (req, res, next) => {
       return sendError(res, 'x-api-key header is missing', 401);
     }
 
-    const merchantArr = await getMerchantsByCodeAndApiKeyDao(code, x_api_key);
-    const merchant = merchantArr[0];
+    const merchant = await getMerchantFromApiCacheOrDb(code, x_api_key);
+    // const merchant = merchantArr[0];
     if (!merchant) {
       return sendError(res, 'Invalid merchant code or API key', 400);
     }
@@ -101,8 +150,8 @@ export const checkPayoutApiKey = async (req, res, next) => {
       return sendError(res, 'x-api-key header is missing', 403);
     }
 
-    const merchantArr = await getMerchantsByCodeAndApiKeyDao(code, x_api_key);
-    const merchant = merchantArr[0];
+    const merchant = await getMerchantFromApiCacheOrDb(code, x_api_key);
+    // const merchant = merchantArr[0];
     if (!merchant) {
       return sendError(res, 'Invalid merchant code or API key', 400);
     }
@@ -133,8 +182,8 @@ export const checkMerchantApiKey = async (req, res, next) => {
       return sendError(res, 'x-api-key header is missing', 401);
     }
 
-    const merchantArr = await getMerchantsByCodeAndApiKeyDao(code, x_api_key);
-    const merchant = merchantArr[0];
+    const merchant = await getMerchantFromApiCacheOrDb(code, x_api_key);
+    // const merchant = merchantArr[0];
     if (!merchant) {
       return sendError(res, 'Invalid merchant code or API key', 400);
     }
@@ -179,11 +228,7 @@ export const checkMerchantApiKeyV2 = async (req, res, next) => {
       );
     }
 
-    const merchantArr = await getMerchantsByCodeAndApiKeyDao(
-      code,
-      x_public_key,
-    );
-    const merchant = merchantArr[0];
+    const merchant = await getMerchantFromApiCacheOrDb(code, x_public_key);
     if (!merchant) {
       return sendError(
         res,
