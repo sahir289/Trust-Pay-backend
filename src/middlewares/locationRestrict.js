@@ -163,7 +163,7 @@ const getUserLocationMiddleware = async (req, res, next) => {
     };
     next();
   } catch (error) {
-    logger.error('Error fetching user location:', error.message);
+    logger.info('Error fetching user location:', error.message);
     next();
   }
 };
