@@ -8,8 +8,9 @@ module.exports = {
             cwd: __dirname,
             instances: instances, // 2 instances for dev, all cores for prod
             exec_mode: 'cluster',
-            max_memory_restart: '1G',
-            node_args: '--max-old-space-size=2048',
+            // Memory limit: PM2 will restart the process if it exceeds this memory usage. This is a safeguard against memory leaks or unexpected spikes in memory usage.
+            max_memory_restart: '1800M',
+            node_args: '--max-old-space-size=1536',
             env: {
                 FORCE_COLOR: '1',
                 LOG_DIR: 'logs',
@@ -20,6 +21,13 @@ module.exports = {
                 FORCE_COLOR: '1',
                 RUN_CRONS: 'false', // Don't run crons in cluster workers
                 LOG_DIR: 'logs',
+                // each worker has its own DB pool, so keep the per-worker pool small to avoid exhausting the DB. The total number of connections across all workers is instances * pool_max. 
+                // classes (t3.medium ≈ 410). Budget rule:
+                //   workers × (WRITER_MAX + 2 × READER_MAX) + 50 + 24
+                //     ≤ 0.8 × RDS max_connections
+                // 8 workers × (6 + 2×4) = 112 → total ≈ 186. If you upsize the RDS instance or move behind RDS Proxy, raise these.
+                DB_WRITER_POOL_MAX: 6,
+                DB_READER_POOL_MAX: 4,
                 // Flip to 'true' only once the DATABASE_*_URL endpoints point at
                 // RDS Proxy / PgBouncer. Then the app uses small per-process
                 // pools and applies session settings via startup options so the
@@ -69,8 +77,8 @@ module.exports = {
                 IDEMPOTENCY_ENABLED: 'false',
                 REQUEST_SIGNING_ENABLED: 'false',
             },
-            // Graceful shutdown
-            kill_timeout: 5000,
+            // Graceful shutdown: PM2 sends SIGINT to the process on stop/restart. The app listens for this signal and performs a graceful shutdown, allowing in-flight requests to complete and cleaning up resources (DB connections, Redis, etc.) before exiting. The kill_timeout is the maximum time PM2 will wait for the process to exit after sending SIGINT before forcefully killing it.
+            kill_timeout: 15000,
             wait_ready: true,
             listen_timeout: 10000,
 
