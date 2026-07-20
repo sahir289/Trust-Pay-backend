@@ -63,6 +63,7 @@ import {
 } from '../../utils/controllerCache.js';
 import { publishPayInProcess } from '../../rabbitmq/producer.js';
 import { getMerchantsByCodeDao } from '../merchants/merchantDao.js';
+import { assertPayInBankAssigned } from './payInDao.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 
 // const TestingIp = process.env.LOCAL_IP;
@@ -498,6 +499,8 @@ export const processPayIn = async (req, res) => {
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
+  // fail fast if the payin has no assigned bank, instead of queueing a message the consumer cannot process. This is a pre-enqueue check for process-payin: reads bank assignment from the WRITER so a merchant calling process right after create (H2H assigns the bank in the create transaction) gets read-your-writes consistency — a reader replica lagging under load must not produce a false "not assigned" 400.
+  await assertPayInBankAssigned(payload.merchantOrderId);
   await publishPayInProcess({
     payload,
     isH2H: false,
@@ -520,6 +523,8 @@ export const processPayInH2H = async (req, res) => {
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
+  // fail fast if the payin has no assigned bank, instead of queueing a message the consumer cannot process. This is a pre-enqueue check for process-payin: reads bank assignment from the WRITER so a merchant calling process right after create (H2H assigns the bank in the create transaction) gets read-your-writes consistency — a reader replica lagging under load must not produce a false "not assigned" 400.
+  await assertPayInBankAssigned(payload.merchantOrderId);
   await publishPayInProcess({
     payload,
     isH2H: true,
