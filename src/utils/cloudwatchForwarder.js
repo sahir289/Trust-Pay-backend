@@ -30,6 +30,8 @@ const DLQ_PREFIX = process.env.CW_DLQ_PREFIX || 'cw-dlq';
 const ERROR_THROTTLE_MS = Number.parseInt(process.env.CW_ERROR_THROTTLE_MS || '15000', 10);
 // How often to attempt replaying any accumulated DLQ files (default every 60 s).
 const DLQ_REPLAY_INTERVAL_MS = Number.parseInt(process.env.CW_DLQ_REPLAY_INTERVAL_MS || '60000', 10);
+// Maximum size of a single log event in bytes. CloudWatch truncates events larger than 256 KB, so we preemptively truncate to avoid corrupting JSON logs.
+const MAX_EVENT_BYTES = Number.parseInt(process.env.CW_MAX_EVENT_BYTES || '204800', 10);
 
 const awsRegion = config.aws.region;
 const awsAccessKeyId = config.aws.accessKeyId;
@@ -126,11 +128,37 @@ const closeTransport = (transport) =>
 const buildInfo = (rawLine) => {
   const parsed = safeJsonParse(rawLine);
   if (parsed && typeof parsed === 'object') {
+    // If the raw line is a JSON object, we preserve all its fields in metadata, but still provide a top-level message and timestamp for CloudWatch.
+    if (rawLine.length > MAX_EVENT_BYTES / 2 && Buffer.byteLength(rawLine, 'utf8') > MAX_EVENT_BYTES) {
+      return {
+        level: parsed.level || 'info',
+        message: parsed.msg || 'log',
+        timestamp: parsed.time || parsed.timestamp || formatLocalTimestamp(),
+        metadata: {
+          level: parsed.level,
+          msg: parsed.msg,
+          time: parsed.time || parsed.timestamp,
+          requestId: parsed.Request_uuid || parsed.requestId,
+          url: parsed.url,
+          method: parsed.method,
+          truncated: true,
+          originalBytes: Buffer.byteLength(rawLine, 'utf8'),
+          preview: rawLine.slice(0, 4096),
+        },
+      };
+    }
     return {
       level: parsed.level || 'info',
       message: parsed.msg || 'log',
       timestamp: parsed.time || parsed.timestamp || formatLocalTimestamp(),
       metadata: parsed,
+    };
+  }
+  if (rawLine.length > MAX_EVENT_BYTES / 2 && Buffer.byteLength(rawLine, 'utf8') > MAX_EVENT_BYTES) {
+    return {
+      level: 'info',
+      message: `${rawLine.slice(0, 4096)}… [truncated ${Buffer.byteLength(rawLine, 'utf8')} bytes]`,
+      timestamp: formatLocalTimestamp(),
     };
   }
   return { level: 'info', message: rawLine, timestamp: formatLocalTimestamp() };
