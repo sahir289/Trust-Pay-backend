@@ -99,3 +99,91 @@ export const deleteCachedData = async (cacheKey, label = 'cache') => {
     logger.error('Redis delete error:', redisError);
   }
 };
+export const setRedisHash = async (hashKey, data, label = 'redis hash') => {
+  try {
+    if (!hashKey) {
+      return;
+    }
+
+    await redisClient.hset(hashKey, 'payload', JSON.stringify(data));
+    logger.info(`${label} stored`);
+  } catch (redisError) {
+    logger.error('Redis hash set error:', redisError);
+  }
+};
+
+export const getRedisHash = async (hashKey, label = 'redis hash') => {
+  try {
+    if (!hashKey) {
+      return null;
+    }
+    const payload = await redisClient.hget(hashKey, 'payload');
+    if (!payload) {
+      logger.info(`${label} miss`);
+      return null;
+    }
+    logger.info(`${label} hit`);
+    return JSON.parse(payload);
+  } catch (redisError) {
+    logger.error('Redis hash get error:', redisError);
+    return null;
+  }
+};
+export const addToRedisQueue = async (
+  queueKey,
+  member,
+  label = 'redis queue',
+) => {
+  try {
+    if (!queueKey || !member) {
+      return;
+    }
+    await redisClient.sadd(queueKey, String(member));
+    logger.info(`${label} queued`);
+  } catch (redisError) {
+    logger.error('Redis queue add error:', redisError);
+  }
+};
+export const getRedisQueueItems = async (
+  queueKey,
+  label = 'redis queue',
+) => {
+  try {
+    if (!queueKey) {
+      return [];
+    }
+    const items = await redisClient.smembers(queueKey);
+    logger.info(`${label} items fetched`, { count: items.length });
+    return items;
+  } catch (redisError) {
+    logger.error('Redis queue get error:', redisError);
+    return [];
+  }
+};
+export const removeFromRedisQueue = async (
+  queueKey,
+  member,
+  label = 'redis queue',
+) => {
+  try {
+    if (!queueKey || !member) {
+      return;
+    }
+
+    await redisClient.srem(queueKey, String(member));
+    logger.info(`${label} removed`);
+  } catch (redisError) {
+    logger.error('Redis queue remove error:', redisError);
+  }
+};
+export const deleteRedisKey = async (redisKey, label = 'redis key') => {
+  try {
+    if (!redisKey) {
+      return;
+    }
+    await redisClient.del(redisKey);
+    logger.info(`${label} deleted`);
+  } catch (redisError) {
+    logger.error('Redis key delete error:', redisError);
+  }
+};
