@@ -5,7 +5,19 @@ import config from '../config/config.js';
 
 const redisUrl = config.redis?.url || 'redis://localhost:6379';
 
-const redisClient = new Redis(redisUrl);
+const parseIntEnv = (value, fallback) => {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+};
+
+// Redis client configuration with sensible defaults and environment variable overrides. The client is configured to avoid unbounded memory growth and to log warnings if the Redis server is misconfigured for caching use cases.
+const redisClient = new Redis(redisUrl, {
+  connectTimeout: parseIntEnv(process.env.REDIS_CONNECT_TIMEOUT_MS, 5000),
+  commandTimeout: parseIntEnv(process.env.REDIS_COMMAND_TIMEOUT_MS, 2000),
+  maxRetriesPerRequest: parseIntEnv(process.env.REDIS_MAX_RETRIES_PER_REQ, 2),
+  enableOfflineQueue: false,
+  retryStrategy: (times) => Math.min(times * 500, 10000),
+});
 
 const logRedisMemorySafety = async () => {
   try {
@@ -43,7 +55,10 @@ const logRedisMemorySafety = async () => {
 redisClient.on('connect', () => {
   const styledMessageError = chalk.bold.green(`Redis Connected Successfully`);
   logger.info(styledMessageError);
+});
 
+// Log Redis memory safety on ready event to ensure the server is configured correctly for caching use cases. This check is non-blocking and will log warnings if the configuration is not optimal.
+redisClient.on('ready', () => {
   // Non-blocking safety check for Redis memory configuration.
   logRedisMemorySafety();
 });

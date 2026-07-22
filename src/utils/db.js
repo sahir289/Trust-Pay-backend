@@ -95,29 +95,23 @@ export const createPool = (connectionString, name) => {
     globalMin,
   );
   const poolMin = Math.min(poolMinRaw, poolMax);
+  // it was before 20s but we have to make it 3s as we are getting connection timeout error in production
   const poolConnectionTimeout = parsePositiveInt(
     process.env.DB_CONNECTION_TIMEOUT_MS,
-    20000,
+    3000,
   );
   const poolIdleTimeout = parsePositiveInt(
     process.env.DB_IDLE_TIMEOUT_MS,
     10000,
   );
 
-  // Reader statement_timeout caps a single slow analytical query (e.g. deep
-  // OFFSET pagination) so it cannot monopolize a reader connection and exhaust
-  // the reader pool. Writers are left untouched to avoid killing legitimate
-  // long write transactions. Override via DB_READER_STATEMENT_TIMEOUT_MS.
+  // Reader statement_timeout is applied via PostgreSQL *startup* options instead of post-connect `SET` statements when behind a proxy. This avoids pinning the proxied connection to one client for its lifetime and defeats transaction pooling. On a direct connection we keep using `SET`.
   const readerStatementTimeoutMs = parsePositiveInt(
     process.env.DB_READER_STATEMENT_TIMEOUT_MS,
     10000,
   );
 
-  // Behind RDS Proxy / PgBouncer, apply timezone (and reader statement_timeout)
-  // via PostgreSQL *startup* options instead of post-connect `SET` statements.
-  // A session-level `SET` pins the proxied connection to one client for its
-  // lifetime and defeats transaction pooling; startup parameters are applied at
-  // connect time without pinning. On a direct connection we keep using `SET`.
+  // When behind a proxy, we apply session-level parameters (timezone, statement_timeout) via PostgreSQL *startup* options instead of post-connect `SET` statements. This avoids pinning the proxied connection to one client for its lifetime and defeats transaction pooling. On a direct connection we keep using `SET`.
   const startupOptionParts = ['-c timezone=Asia/Kolkata'];
   if (!isWriter) {
     startupOptionParts.push(`-c statement_timeout=${readerStatementTimeoutMs}`);
@@ -759,15 +753,30 @@ export const executeQuery = async (query, queryParams = [], conn = null) => {
     let client = null;
 
     try {
-      // Acquire the connection INSIDE the try so a connection-acquisition
-      // failure (e.g. "Connection terminated due to connection timeout" on a
-      // slow / cross-region link) is handled by the same transient-retry logic
-      // below and wrapped in DbError — instead of escaping raw and bubbling up
-      // as an unhandled rejection that can crash the process.
-      const db = conn ?? (client = await pool.connect());
+      // If an external transaction connection is provided, use it; otherwise, acquire a new client from the appropriate pool.
+      if (!conn) {
+        try {
+          client = await pool.connect();
+        } catch (acquireError) {
+          logger.error('[DB] Connection acquisition failed — shedding load', {
+            error: acquireError.message,
+            pools: getPoolStats(),
+          });
+          throw new DbError(acquireError.message, {
+            code: acquireError.code,
+            cause: acquireError,
+          });
+        }
+      }
+      const db = conn ?? client;
       const result = await db.query(query, queryParams);
       return result;
     } catch (error) {
+      // Acquisition failures are already wrapped — rethrow without retrying.
+      if (error instanceof DbError) {
+        throw error;
+      }
+
       if (error.message?.includes('timeout')) {
         logger.error('[DB Timeout] Pool stats:', getPoolStats());
       }

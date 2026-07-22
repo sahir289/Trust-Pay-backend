@@ -10,6 +10,8 @@ import {
 } from '../apis/calculation/calculationDao.js';
 import { logger } from '../utils/logger.js';
 import { beginTransaction, commit, getConnection, rollback } from '../utils/db.js';
+import {generateUUID} from '../utils/generateUUID.js';
+import { enqueueCalculationReconcileJob } from './calculationReconcileCron.js';
 // Initialize dayjs plugins
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -108,17 +110,26 @@ const collectCalculationData = async () => {
     // Separate entries into updates and creates
     const updates = [];
     const creates = [];
-
     for (const calc of latestCalculations) {
       const existingEntry = existingEntriesMap.get(calc.user_id);
       const prevNetBalance = Number.parseFloat(calc.net_balance) || 0;
-
+     
       if (existingEntry) {
         // Entry exists - queue for batch update
         updates.push({ id: existingEntry.id, net_balance: prevNetBalance });
       } else {
+        const calculation_id = generateUUID(); // Generate a unique ID for the new calculation entry
         // No entry - queue for batch create
+        await enqueueCalculationReconcileJob({
+          calculation_id: calc.id,
+          calculation_new_id: calculation_id,
+          user_id: calc.user_id,
+          queued_net_balance: Number.parseFloat(calc.net_balance) || 0,
+          queued_current_balance: Number.parseFloat(calc.current_balance) || 0,
+          company_id: calc.company_id,
+        });
         creates.push({
+          id: calculation_id,
           user_id: calc.user_id,
           role_id: calc.role_id,
           company_id: calc.company_id,
