@@ -1414,15 +1414,63 @@ export const getCalculationforCronDao = async (userId, conn = null) => {
     throw error;
   }
 };
+export const getCalculationByIdForCronDao = async (calculationId, conn = null) => {
+  try {
+    const sql = `
+      SELECT
+        id,
+        user_id,
+        current_balance,
+        net_balance,
+        company_id,
+        created_at
+      FROM public."Calculation"
+      WHERE is_obsolete = false
+      AND id = $1
+      LIMIT 1
+    `;
+    const result = conn
+      ? await conn.query(sql, [calculationId])
+      : await executeQuery(sql, [calculationId], conn);
+    return result.rows || [];
+  } catch (error) {
+    logger.error('Error fetching Calculation by id', error);
+    throw error;
+  }
+};
+export const updateCalculationNetBalanceByIdDao = async (
+  calculationId,
+  netBalance,
+  conn = null,
+) => {
+  try {
+    const sql = `
+      UPDATE public."Calculation"
+      SET net_balance = $2 + current_balance
+      WHERE id = $1
+      AND is_obsolete = false
+      RETURNING id, user_id, current_balance, net_balance
+    `;
+    const result = conn
+      ? await conn.query(sql, [calculationId, netBalance])
+      : await executeQuery(sql, [calculationId, netBalance], conn);
+    return result.rows[0] || null;
+  } catch (error) {
+    logger.error('Error updating Calculation by id', error);
+    throw error;
+  }
+};
 
 // Batch fetch latest calculation for all users (for cron optimization)
 export const getLatestCalculationsForAllUsersDao = async (conn = null) => {
   try {
     const sql = `
       SELECT DISTINCT ON (user_id)
+        id,
         user_id,
         role_id,
         company_id,
+        current_balance,
         net_balance
       FROM public."Calculation" 
       WHERE is_obsolete = false
@@ -2645,12 +2693,13 @@ export const batchCreateCalculationDao = async (entries, conn = null) => {
   if (!entries || entries.length === 0) return 0;
 
   try {
-    const columns = ['user_id', 'role_id', 'company_id', 'net_balance', 'created_at'];
+    const columns = ['id', 'user_id', 'role_id', 'company_id', 'net_balance', 'created_at'];
     const placeholders = entries
-      .map((_, i) => `($${i * 5 + 1}, $${i * 5 + 2}, $${i * 5 + 3}, $${i * 5 + 4}, $${i * 5 + 5})`)
+      .map((_, i) => `($${i * 6 + 1}, $${i * 6 + 2}, $${i * 6 + 3}, $${i * 6 + 4}, $${i * 6 + 5}, $${i * 6 + 6})`)
       .join(', ');
 
     const params = entries.flatMap((e) => [
+      e.id,
       e.user_id,
       e.role_id,
       e.company_id,
