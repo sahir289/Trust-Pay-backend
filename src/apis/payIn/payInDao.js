@@ -1,5 +1,5 @@
 import { tableName } from '../../constants/index.js';
-import { BadRequestError } from '../../utils/appErrors.js';
+import { BadRequestError, NotFoundError } from '../../utils/appErrors.js';
 // import { PayinResponses } from '../../constants/index.js';
 // import { Role } from '../../constants/index.js';
 import {
@@ -7,6 +7,7 @@ import {
   buildSelectQuery,
   buildUpdateQuery,
   executeQuery,
+  getConnection,
   isSafeColumnName,
 } from '../../utils/db.js';
 import dayjs from 'dayjs';
@@ -365,6 +366,46 @@ export const getPayinsForServiccDao = async (filters, conn = null) => {
       error,
     );
     throw error;
+  }
+};
+
+// fetch fast payin to check bank assignment for process-payin endpoints (v1 + v2): fail fast at the edge when the payin has no assigned bank, instead of queueing a message the consumer cannot process.
+export const getPayInBankAssignmentDao = async (merchantOrderId) => {
+  let conn = null;
+  try {
+    conn = await getConnection('writer');
+    const result = await executeQuery(
+      `SELECT id, bank_acc_id FROM "${tableName.PAYIN}"
+       WHERE merchant_order_id = $1 AND is_obsolete = false
+       LIMIT 1`,
+      [merchantOrderId],
+      conn,
+    );
+    return result.rows[0] || null;
+  } catch (error) {
+    logger.error(
+      `Error checking PayIn bank assignment for ${merchantOrderId}:`,
+      error,
+    );
+    throw error;
+  } finally {
+    if (conn) conn.release();
+  }
+};
+
+/**
+ * Shared pre-enqueue guard for the process-payin endpoints (v1 + v2): fail
+ * fast at the edge when the payin has no assigned bank, instead of queueing a
+ * message the consumer cannot process (which would 400 and churn through the
+ * retry queue).
+ */
+export const assertPayInBankAssigned = async (merchantOrderId) => {
+  const payIn = await getPayInBankAssignmentDao(merchantOrderId);
+  if (!payIn) {
+    throw new NotFoundError('Invalid Order Id');
+  }
+  if (!payIn.bank_acc_id) {
+    throw new BadRequestError('Payment not yet assigned to a bank account');
   }
 };
 

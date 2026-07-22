@@ -56,6 +56,19 @@ const invalidatePayinValidateMerchantCache = async (merchantId) => {
     'Payin validate merchant cache',
   );
 };
+const invalidateMerchantAuthCodeCache = async ({ code, apiKey } = {}) => {
+  if (!code) return;
+  await deleteCachedData(
+    `merchant_auth_code:${code}`,
+    'merchant_auth_code cache',
+  );
+  if (apiKey) {
+  await deleteCachedData(
+      `merchant_api:${code}:${apiKey}`,
+      'merchant_api cache',
+    );
+  }
+};
 
 const _createMerchantServiceInternal = async (payload, conn) => {
   try {
@@ -435,10 +448,14 @@ const _updateMerchantServiceInternal = async (ids, payload) => {
 };
 
 const updateMerchantService = async (ids, payload) => {
-
   try {
     const data = await _updateMerchantServiceInternal(ids, payload);
-    await invalidatePayinValidateMerchantCache(data?.id || ids?.id);
+    const merchantId = data?.id || ids?.id;
+    await invalidatePayinValidateMerchantCache(merchantId);
+    await invalidateMerchantAuthCodeCache({
+      code: data?.code,
+      apiKey: data?.config?.keys?.private,
+    });
     return data;
   } catch (error) {
     logger.error('Error while updating merchant', error);
@@ -662,6 +679,12 @@ const deleteMerchantService = async (ids, updated_by, roleIs) => {
       roleIs,
       conn,
     );
+    const merchantId = data?.id;
+    await invalidatePayinValidateMerchantCache(merchantId);
+    await invalidateMerchantAuthCodeCache({
+      code: data?.code,
+      apiKey: data?.config?.keys?.private,
+    });
     await commit(conn);
     committed = true; // Commit the transaction
     return data;

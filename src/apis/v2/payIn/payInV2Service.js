@@ -44,6 +44,10 @@ const createPayInWithUniqueShortCode = async (data) => {
       });
     } catch (error) {
       if (error.code === '23505') {
+        // Tiny backoff so concurrent collisions don't hot-spin against the unique index in lockstep.
+        await new Promise((resolve) =>
+          setTimeout(resolve, 10 + Math.floor(Math.random() * 40)),
+        );
         continue;
       }
       throw error;
@@ -429,7 +433,7 @@ export const generatePayInUrlV2Service = async (payload, role) => {
 
     if (amount < merchant.min_payin || amount > merchant.max_payin) {
       throw new CustomError(
-        422,
+        461,
         `Amount must be between ${merchant.min_payin} and ${merchant.max_payin}`,
       );
     }

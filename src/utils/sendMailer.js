@@ -2,7 +2,6 @@
 // import path from 'path';
 import { logger } from '../utils/logger.js';
 import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
-
 // const pngLogoPath = path.resolve('./src/assets/images/TrustPays24.png');
 
 const sesClient = new SESClient({
@@ -24,6 +23,18 @@ const Role = {
   ADMIN : 'ADMIN',
 };
 
+const currentBrand = (process.env.APP_BRAND || 'pm').trim().toLowerCase();
+const frontendUrl = process.env.FRONTEND_URL;
+const brandLogos = {
+  tp: `${frontendUrl}/tp.png`,
+  pb: `${frontendUrl}/pb.svg`,
+  pc: `${frontendUrl}/pc.svg`,
+  pp: `${frontendUrl}/pp.svg`,
+  fb: `${frontendUrl}/fb.png`,
+  rp: `${frontendUrl}/rp.png`,
+  pm: `${frontendUrl}/payment.svg`,
+};
+const logoUrl = brandLogos[currentBrand];
 /**
  * Send credentials email to user
  * @param {Object} param0
@@ -54,7 +65,7 @@ export const sendCredentialsEmail = async ({
   const html = `
   <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; background-color: #f9fafb;">
     <div style="display: flex; align-items: center; margin-bottom: 24px;">
-      <img src="cid:trustpays-logo" alt="${name} Logo" style="height: 65px; max-height: 65px; margin-right: 8px;">
+      <img src="${logoUrl}" alt="${name} Logo" style="height: 50px; max-height: 50px; margin-right: 8px;">
       <h2 style="font-size: 22px; color: #1a202c; margin: 0; line-height: 65px;">${name}</h2>
     </div>
     <div style="background-color: #ffffff; padding: 24px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
@@ -165,7 +176,7 @@ export const sendOTP = async (email, otp, user_name, designation) => {
   const html = `
   <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f5f7fa;">
     <div style="display: flex; align-items: center; margin-bottom: 20px;">
-      <img src="cid:trustpays-logo" alt="${name} Logo" style="height: 65px; max-height: 65px; margin-right: 8px;">
+      <img src="${logoUrl}" alt="${name} Logo" style="height: 50px; max-height: 50px; margin-right: 8px;">
       <h2 style="font-size: 22px; color: #1a202c; margin: 0; line-height: 65px;">${name}</h2>
     </div>
     <div style="background-color: #ffffff; padding: 30px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">

@@ -29,10 +29,10 @@ export const getCachedData = async (cacheKey, label = 'cache') => {
     }
     const cachedData = await redisClient.get(cacheKey);
     if (cachedData) {
-      logger.info(`${label} hit for key: ${cacheKey}`);
+      logger.info(`${label} hit`);
       return JSON.parse(cachedData);
     }
-    logger.info(`${label} miss for key: ${cacheKey}`);
+    logger.info(`${label} miss`);
     return null;
   } catch (redisError) {
     logger.error('Redis get error:', redisError);
@@ -51,7 +51,7 @@ export const setCachedData = async (
       return;
     }
     await redisClient.set(cacheKey, JSON.stringify(data), 'EX', ttl);
-    logger.info(`${label} cached for key: ${cacheKey}`);
+    logger.info(`${label} cached`);
   } catch (redisError) {
     logger.error('Redis set error:', redisError);
   }
@@ -78,7 +78,7 @@ export const setCachedDataIfNotExists = async (
 
     const created = result === 'OK';
     logger.info(
-      `${label} ${created ? 'created' : 'already exists'} for key: ${cacheKey}`,
+      `${label} ${created ? 'created' : 'already exists'}`,
     );
 
     return created;
@@ -94,7 +94,7 @@ export const deleteCachedData = async (cacheKey, label = 'cache') => {
       return;
     }
     await redisClient.del(cacheKey);
-    logger.info(`${label} deleted for key: ${cacheKey}`);
+    logger.info(`${label} deleted`);
   } catch (redisError) {
     logger.error('Redis delete error:', redisError);
   }

@@ -1,9 +1,9 @@
 import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
+import axios from 'axios';
 import methodOverride from 'method-override';
 import cookieParser from 'cookie-parser';
-import timeout from 'connect-timeout';
 import {
   methodNotFound,
   addLogIdInRequest,
@@ -17,6 +17,13 @@ import config from './config/config.js';
 import { BoundedSet } from './utils/boundedSet.js';
 
 const app = express();
+
+// default axios timeout is 0 (no timeout). Set a default timeout for all requests to avoid hanging requests. Can be overridden per-request.
+axios.defaults.timeout = Number.parseInt(
+  process.env.HTTP_CLIENT_TIMEOUT_MS ?? '15000',
+  10,
+);
+
 // Bounded idempotency cache for processed merchant order ids. The DB column
 // `one_time_used` remains the authoritative guard; this only avoids redundant
 // work and must stay memory-bounded under sustained traffic.
@@ -86,8 +93,9 @@ app.use(addLogIdInRequest);
 // Reject requests that did not transit the trusted edge (nginx)
 // app.use(edgeGuard);
 app.use(apis);
-// Timeout: 10s for production, 30s for development (calculations can be slow)
-app.use(timeout(config?.env === 'production' ? '20s' : '30s'));
+// NOTE: request deadlines are handled by requestTimeoutMiddleware (mounted
+// BEFORE the routes). The old connect-timeout mounted here was dead code: a
+// middleware registered after `apis` never runs for any matched route.
 
 app.use(methodNotFound);
 app.use(errorHandler);

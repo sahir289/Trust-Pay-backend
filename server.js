@@ -12,6 +12,16 @@ import { closeRedis } from './src/utils/redisClient.js';
 
 const server = createServer(app);
 
+// set the keep-alive and headers timeout values to avoid premature connection termination, 65 seconds is a common value for keep-alive timeout, and headers timeout should be slightly longer to allow for slow clients.
+server.keepAliveTimeout = Number.parseInt(
+  process.env.HTTP_KEEP_ALIVE_TIMEOUT_MS ?? '65000',
+  10,
+);
+server.headersTimeout = Number.parseInt(
+  process.env.HTTP_HEADERS_TIMEOUT_MS ?? '66000',
+  10,
+);
+
 // Initialize Socket.IO with Redis adapter (async)
 initializeSocket(server);
 
@@ -139,16 +149,21 @@ process.on('uncaughtException', (err) => {
 process.on('unhandledRejection', (reason) => {
   const err = reason instanceof Error ? reason : new Error(String(reason));
 
-  // Don't shutdown on recoverable connection errors - they auto-retry
-  if (isRecoverableConnectionError(err)) {
-    logger.error(
-      'Unhandled Rejection (connection error, will auto-retry):',
-      err,
-    );
-    return;
-  }
+   // Don't shutdown on recoverable connection errors - they auto-retry
+  // if (isRecoverableConnectionError(err)) {
+  //   logger.error(
+  //     'Unhandled Rejection (connection error, will auto-retry):',
+  //     err,
+  //   );
+  //   return;
+  // }
 
-  gracefulShutdown('Unhandled Rejection', err);
+  // gracefulShutdown('Unhandled Rejection', err);
+  // Instead of shutting down the process on unhandled rejections, log the error and keep the process alive. This is important for recoverable errors that may occur in asynchronous code, such as database connection issues or network timeouts. By logging the error, we can monitor and investigate it without disrupting the service.
+  logger.error('Unhandled Rejection (process kept alive):', {
+    message: err.message,
+    stack: err.stack,
+  });
 });
 
 // Optional interface binding. When BIND_HOST is set (e.g. 127.0.0.1 for an
