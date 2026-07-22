@@ -23,10 +23,11 @@
 // the next, so an IP-lookup hiccup can never take down login or payments.
 
 import { logger } from '../../utils/logger.js';
+import config from '../../config/config.js';
 import * as cache from './cache.js';
 import * as dao from './ipIntelligenceDao.js';
 import * as gateway from './providers/providerGateway.js';
-import { normalizeIp, isLoopback, toIpKey } from './ipUtils.js';
+import { normalizeIp, isLoopback, isIpv6, toIpKey } from './ipUtils.js';
 
 const nowIso = () => new Date().toISOString();
 const expiryIso = (seconds) => new Date(Date.now() + seconds * 1000).toISOString();
@@ -98,18 +99,62 @@ const defaultIntel = (ip, ipKey) => ({
 
 // Converts a matched local-feed row (e.g. "this IP range is a known VPN / TOR /
 // datacenter") into our standard record. We mark it high-risk and
-// high-confidence because these lists are curated and trusted.
+// high-confidence because these lists are curated and trusted. A plain
+// "denylist" row (e.g. an IP we auto-learned as bad) has no specific category,
+// so we flag it as a proxy — that's enough for the VPN guard to block it.
 const feedToIntel = (ip, ipKey, feed) => ({
   ...defaultIntel(ip, ipKey),
   asn: feed.asn ?? null,
   isVpn: feed.feed_type === 'vpn_asn',
   isTor: feed.feed_type === 'tor',
   isHosting: feed.feed_type === 'datacenter',
+  isProxy: feed.feed_type === 'denylist',
   riskScore: 90,
   confidence: 0.95,
   providerName: feed.source || 'local-feed',
   source: 'local-db',
 });
+
+// Picks which offline-list category a freshly-resolved bad IP should be saved under, so that when we match it again lookupFeed restores the right flags.
+const feedTypeForVerdict = (intel) => {
+  if (intel.isTor) return 'tor';
+  if (intel.isHosting) return 'datacenter';
+  if (intel.isVpn) return 'vpn_asn';
+  return 'denylist'; // proxy-only or otherwise-flagged
+};
+
+// Auto-learning (fire-and-forget): when a live provider lookup confidently says an IP is bad, remember it as a range in our own offline list ("IpFeedRange").
+// Why: after the per-IP cache in "IPIntelligence" expires (~24h), the next visit from that IP would otherwise trigger a fresh PAID provider call. 
+// With the IP saved here, lookupFeed catches it first — free, instant, and offline. We only save high-confidence verdicts and give each entry a self-expiring TTL, so an occasional provider mistake fixes itself instead of becoming a permanent block.
+const promoteToFeedAsync = (intel, ip, ipKey) => {
+  const cfg = config.ipIntelligence?.feedPromotion;
+  if (!cfg?.enabled) return;
+
+  const isBad = intel.isVpn || intel.isProxy || intel.isTor || intel.isHosting;
+  if (!isBad) return;
+  if (Number(intel.confidence ?? 0) < (cfg.minConfidence ?? 0.9)) return;
+
+  // IPv4 -> block just that host (/32); IPv6 -> block its /64 (matches ipKey).
+  const cidr = isIpv6(ip) ? ipKey : `${ip}/32`;
+  const ttlDays = cfg.ttlDays ?? 30;
+  const expiresAt = new Date(Date.now() + ttlDays * 86400 * 1000).toISOString();
+
+  dao
+    .upsertFeedRange({
+      cidr,
+      feedType: feedTypeForVerdict(intel),
+      source: 'auto-cold-lookup',
+      asn: intel.asn ?? null,
+      metadata: {
+        promotedFrom: intel.providerName || null,
+        riskScore: intel.riskScore ?? null,
+      },
+      expiresAt,
+    })
+    .catch((err) =>
+      logger.warn('ip-feed promotion failed', { ip, err: err?.message }),
+    );
+};
 
 // The slow "nothing was cached" path: actually go figure out this IP from
 // scratch. Before doing any real work we grab a short-lived Redis lock so that
@@ -161,6 +206,8 @@ const coldLookup = async (ip, ipKey, budgetMs) => {
     intel.expiresAt = expiryIso(cache.ttlForIntel(intel));
     await timed('cache.setIntel', ipKey, () => cache.setIntel(ipKey, intel));
     persistAsync(intel, ipKey);
+    // Auto-learn confident bad IPs into our offline list for cheap future blocks.
+    promoteToFeedAsync(intel, ip, ipKey);
     return intel;
   } finally {
     await cache.releaseLock(ipKey);
