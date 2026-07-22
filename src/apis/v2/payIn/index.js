@@ -13,6 +13,7 @@ import {
   generatePayInV2,
 } from './payInV2Controller.js';
 import { checkh2hUserId } from '../../../middlewares/h2hUserBlock.js';
+import { IPWhiteListChecker } from '../../../middlewares/whitelistChecker.js';
 
 const router = express.Router();
 
@@ -23,6 +24,7 @@ router.use(merchantApiRateLimiter);
 router.post(
   '/check-payin-status',
   checkAuthCode,
+  IPWhiteListChecker,
   verifyRequestSignature({ required: true }),
   tryCatchHandler(checkPayInStatusV2),
 );
@@ -30,6 +32,7 @@ router.post(
 router.post(
   '/create-payin',
   checkAuthCode,
+  IPWhiteListChecker,
   verifyRequestSignature({ required: true }),
   idempotency({ deriveKey: (req) => req.body?.merchant_order_id }),
   tryCatchHandler(generatePayInV2),
@@ -38,6 +41,7 @@ router.post(
 router.post(
   '/create',
   checkAuthCode,
+  IPWhiteListChecker,
   checkh2hUserId,
   verifyRequestSignature({ required: true }),
   idempotency({ deriveKey: (req) => req.body?.merchant_order_id }),
@@ -47,6 +51,7 @@ router.post(
 router.post(
   '/process-payin/:merchantOrderId',
   checkAuthCode,
+  IPWhiteListChecker,
   verifyRequestSignature({ required: true }),
   idempotency({
     required: true,
