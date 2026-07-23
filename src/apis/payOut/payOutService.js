@@ -193,6 +193,7 @@ const _createPayoutServiceInternal = async (
   userIp,
   fromUI,
   conn,
+  bulkAuthorization = null,
 ) => {
   try {
     // const filterColumns =
@@ -210,6 +211,19 @@ const _createPayoutServiceInternal = async (
       );
       error.statusCode = 404;
       throw error;
+    }
+    if (payload.company_id && details[0].company_id !== payload.company_id) {
+      throw new BadRequestError(
+        'Merchant code is invalid or the merchant is inactive',
+      );
+    }
+    if (
+      bulkAuthorization?.allowedMerchantUserIds &&
+      !bulkAuthorization.allowedMerchantUserIds.includes(details[0].user_id)
+    ) {
+      throw new BadRequestError(
+        'Payout uploads are allowed only for the assigned merchant account.',
+      );
     }
 
     // if (details[0]?.config?.whitelist_ips && role !== Role.ADMIN) {
@@ -469,7 +483,13 @@ const _createPayoutServiceInternal = async (
   }
 };
 
-const createPayoutService = async (headers, payload, role, fromUI) => {
+const createPayoutService = async (
+  headers,
+  payload,
+  role,
+  fromUI,
+  bulkAuthorization = null,
+) => {
   let conn;
   let committed = false;
   try {
@@ -482,6 +502,7 @@ const createPayoutService = async (headers, payload, role, fromUI) => {
       null,
       fromUI,
       conn,
+      bulkAuthorization,
     );
     await commit(conn);
     committed = true;
