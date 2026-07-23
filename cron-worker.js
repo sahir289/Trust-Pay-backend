@@ -11,6 +11,7 @@ logger.info(chalk.bold.green('Cron Worker Process Starting...'));
 await import('./src/cron/gatherAllData.js');
 await import('./src/cron/notifyCron.js');
 await import('./src/cron/calculationCron.js');
+await import('./src/cron/calculationReconcileCron.js');
 await import('./src/cron/pendingPayout.js');
 // await import('./src/cron/checkNetbalance.js');
 await import('./src/cron/successRatioCron.js');

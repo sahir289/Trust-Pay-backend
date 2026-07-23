@@ -72,6 +72,45 @@ export const lookupFeed = async (ip) => {
   }
 };
 
+// Save (insert or update) a range into our own offline block/allow lists
+// ("IpFeedRange"). This is how a bad IP we discover during a live (cold) lookup gets "remembered" as a range, so future requests from it are blocked for free straight from our DB — without ever paying the provider again, 
+// and even after the per-IP cache in "IPIntelligence" has expired.
+//
+// Keyed by (cidr, feed_type) so calling it repeatedly for the same range just refreshes it instead of creating duplicates. To avoid ever weakening a manual, human-curated entry, a permanent row (expires_at IS NULL) stays permanent, and
+// otherwise we keep the later of the two expiries. Fail-soft like everything else.
+export const upsertFeedRange = async (entry) => {
+  if (!entry?.cidr || !entry?.feedType) return;
+  try {
+    const sql = `
+      INSERT INTO "IpFeedRange"
+        (cidr, feed_type, source, asn, metadata, imported_at, expires_at)
+      VALUES ($1::cidr, $2, $3, $4, $5::jsonb, now(), $6)
+      ON CONFLICT (cidr, feed_type) DO UPDATE SET
+        source = EXCLUDED.source,
+        asn = COALESCE(EXCLUDED.asn, "IpFeedRange".asn),
+        metadata = EXCLUDED.metadata,
+        imported_at = now(),
+        expires_at = CASE
+          WHEN "IpFeedRange".expires_at IS NULL OR EXCLUDED.expires_at IS NULL
+            THEN NULL
+          ELSE GREATEST("IpFeedRange".expires_at, EXCLUDED.expires_at)
+        END`;
+
+    const params = [
+      entry.cidr,
+      entry.feedType,
+      entry.source || 'auto',
+      entry.asn ?? null,
+      JSON.stringify(entry.metadata ?? {}),
+      entry.expiresAt ?? null,
+    ];
+
+    await executeQuery(sql, params);
+  } catch (err) {
+    logger.warn('ip-feed upsert failed', { cidr: entry.cidr, err: err.message });
+  }
+};
+
 // Save (insert or update) the record for an IP, keyed by ip_key. It's safe to
 // call over and over. The WHERE guard at the very end makes sure a slower/older lookup that finishes late can't overwrite a newer record that's already saved.
 export const upsertIntel = async (intel) => {

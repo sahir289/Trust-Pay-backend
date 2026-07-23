@@ -421,6 +421,15 @@ function config(Env) {
           30000,
         ),
       },
+      // Auto-learning: when a live (cold) provider lookup returns a confident
+      // "bad" verdict (VPN/proxy/TOR/datacenter), remember that IP as a range in "IpFeedRange" so future requests are blocked for free straight from our DB — without re-paying the provider once the per-IP cache expires.
+      // The confidence gate + a self-expiring TTL keep occasional provider mistakes from turning into permanent blocks (they heal on their own).
+      feedPromotion: {
+        enabled: Env?.IP_INTEL_FEED_PROMOTION_ENABLED !== 'false', // default ON
+        minConfidence:
+          Number(Env?.IP_INTEL_FEED_PROMOTION_MIN_CONFIDENCE) || 0.9,
+        ttlDays: parsePositiveInt(Env?.IP_INTEL_FEED_PROMOTION_TTL_DAYS, 30),
+      },
     },
     payeasy: {
       url: Env?.PAYEASY_API_URL,
