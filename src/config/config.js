@@ -358,7 +358,6 @@ function config(Env) {
         search: parsePositiveInt(Env?.SETTLEMENT_SEARCH_CACHE_TTL_SEC, 20),
       },
       userHierarchy: {
-        lookup: parsePositiveInt(Env?.USER_HIERARCHY_CACHE_TTL_SEC, 60),
         byId: parsePositiveInt(Env?.USER_HIERARCHY_BY_ID_CACHE_TTL_SEC, 15),
         list: parsePositiveInt(Env?.USER_HIERARCHY_LIST_CACHE_TTL_SEC, 20),
       },

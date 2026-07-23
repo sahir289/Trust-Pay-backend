@@ -7,10 +7,6 @@ import {
 } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
 import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
-import { getCachedData, setCachedData } from '../../utils/redishashkey.js';
-import config from '../../config/config.js';
-const USER_HIERARCHY_CACHE_TTL_SEC =
-  config.controllerCacheTtls.userHierarchy.lookup;
 export const createUserHierarchyDao = async (data, conn = null) => {
   try {
     const [sql, params] = buildInsertQuery(tableName.USER_HIERARCHY, data);
@@ -47,29 +43,6 @@ export const getUserHierarchysDao = async (
   conn = null,
 ) => {
   try {
-    const shouldUseCache =
-      !conn &&
-      filters?.user_id &&
-      Object.keys(filters).length === 1 &&
-      !page &&
-      !pageSize &&
-      !sortBy &&
-      !sortOrder &&
-      columns.length === 0;
-    const cacheKey = shouldUseCache
-      ? `user-hierarchy:${filters.user_id}`
-      : null;
-
-    if (cacheKey) {
-      const cachedHierarchy = await getCachedData(
-        cacheKey,
-        'User hierarchy cache',
-      );
-      if (cachedHierarchy !== null) {
-        return cachedHierarchy;
-      }
-    }
-
     const baseQuery = `SELECT ${columns?.length ? columns.join(', ') : '*'} FROM "${tableName.USER_HIERARCHY}" WHERE 1=1`;
     //TODO: columns.USER_HEIRARCHY dynamic search
     if (filters.search) {
@@ -86,14 +59,6 @@ export const getUserHierarchysDao = async (
     );
     // Execute query
     const result = await executeQuery(sql, queryParams, conn);
-    if (cacheKey) {
-      await setCachedData(
-        cacheKey,
-        result.rows,
-        USER_HIERARCHY_CACHE_TTL_SEC,
-        'User hierarchy cache',
-      );
-    }
     return result.rows;
   } catch (error) {
     logger.error('Error in get UserHierarchy Dao:', error);

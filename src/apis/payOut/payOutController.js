@@ -152,7 +152,6 @@ const createBulkPayout = async (req, res) => {
 
     companyId: req.user.company_id,
     role: req.user.role,
-    designation: req.user.designation,
     userId: req.user.user_id,
     fileName: req.file.originalname,
     createdBy: req.user.user_id,

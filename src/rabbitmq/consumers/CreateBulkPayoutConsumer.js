@@ -7,8 +7,6 @@ import { assertQueueTopology, TOPOLOGY } from '../topology.js';
 import { createPayoutService } from '../../apis/payOut/payOutService.js';
 import config from '../../config/config.js';
 import { s3 } from '../../helpers/Aws.js';
-import { Role } from '../../constants/index.js';
-import { getUserHierarchysDao } from '../../apis/userHierarchy/userHierarchyDao.js';
 
 const PREFETCH_COUNT = Number(
   process.env.BULK_PAYOUT_CREATE_PREFETCH || 1,
@@ -47,46 +45,12 @@ async function processBulkPayoutCreate(payload) {
     companyId,
     userId,
     role,
-    designation,
     headers = {},
   } = payload;
 
   if (!fileKey) {
     throw new Error('fileKey is required');
   }
-  if (!companyId || !userId || !role) {
-    throw new Error('companyId, userId, and role are required');
-  }
-  let allowedMerchantUserIds = null;
-  if (role === Role.MERCHANT) {
-    allowedMerchantUserIds = [userId];
-    if (designation === Role.MERCHANT_OPERATIONS) {
-      const [userHierarchy] = await getUserHierarchysDao({ user_id: userId });
-      const parentUserId = userHierarchy?.config?.parent;
-      if (!parentUserId) {
-        throw new Error('Merchant operations user is not assigned to a merchant.');
-      }
-      const [parentHierarchy] = await getUserHierarchysDao({
-        user_id: parentUserId,
-      });
-      const subMerchantUserIds =
-        parentHierarchy?.config?.siblings?.sub_merchants ?? [];
-      allowedMerchantUserIds = [
-        ...new Set([parentUserId, ...subMerchantUserIds]),
-      ];
-    } else if (designation === Role.MERCHANT || designation === Role.SUB_MERCHANT) {
-      const [merchantHierarchy] = await getUserHierarchysDao({
-        user_id: userId,
-      });
-      const subMerchantUserIds =
-        merchantHierarchy?.config?.siblings?.sub_merchants ?? [];
-
-      allowedMerchantUserIds = [
-        ...new Set([userId, ...subMerchantUserIds]),
-      ];
-    }
-  }
-  const bulkAuthorization = { allowedMerchantUserIds };
 
   logger.info('[BulkPayoutCreate] Downloading file from S3', {
     fileKey,
@@ -132,7 +96,6 @@ async function processBulkPayoutCreate(payload) {
           row,
           role,
           true,
-          bulkAuthorization,
         );
       }),
     ),
