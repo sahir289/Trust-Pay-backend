@@ -670,10 +670,8 @@ const _createUserServiceInternal = async (payload, conn) => {
           password: Password,
           code: merchant?.config ? merchant.code : '',
           secretKey: merchant?.config ? merchant.config.keys.private : '',
-          publicKey: merchant?.config ? merchant.config.keys.public : '',
           designation: designation[0]?.designation,
           unique_id,
-          h2h: payload.is_h2h,
         });
 
         if (!data) {
