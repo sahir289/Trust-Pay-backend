@@ -9,6 +9,7 @@ import config from '../../config/config.js';
 import { s3 } from '../../helpers/Aws.js';
 import { Role } from '../../constants/index.js';
 import { getUserHierarchysDao } from '../../apis/userHierarchy/userHierarchyDao.js';
+import { getCachedData, setCachedData } from '../../utils/redishashkey.js';
 
 const PREFETCH_COUNT = Number(
   process.env.BULK_PAYOUT_CREATE_PREFETCH || 1,
@@ -21,6 +22,9 @@ const MAX_RETRIES = Number(
 const CONCURRENCY = Number(
   process.env.BULK_PAYOUT_CREATE_CONCURRENCY || 5,
 );
+
+const BULK_PAYOUT_AUTHORIZATION_CACHE_TTL_SEC =
+  config.controllerCacheTtls.userHierarchy.lookup;
 
 let channel = null;
 let consumerTag = null;
@@ -40,6 +44,59 @@ const streamToBuffer = async (stream) => {
 
   return Buffer.concat(chunks);
 };
+async function getBulkAuthorization(userId, role, designation) {
+  if (role !== Role.MERCHANT) {
+    return { allowedMerchantUserIds: null };
+  }
+
+  const cacheKey = `bulk-payout:authorization:${userId}:${designation || 'none'}`;
+  const cachedAuthorization = await getCachedData(
+    cacheKey,
+    'Bulk payout authorization cache',
+  );
+  if (cachedAuthorization !== null) {
+    return cachedAuthorization;
+  }
+
+  let allowedMerchantUserIds = [userId];
+  if (designation === Role.MERCHANT_OPERATIONS) {
+    const [userHierarchy] = await getUserHierarchysDao({ user_id: userId });
+    const parentUserId = userHierarchy?.config?.parent;
+    if (!parentUserId) {
+      throw new Error('Merchant operations user is not assigned to a merchant.');
+    }
+    const [parentHierarchy] = await getUserHierarchysDao({
+      user_id: parentUserId,
+    });
+    const subMerchantUserIds =
+      parentHierarchy?.config?.siblings?.sub_merchants ?? [];
+    allowedMerchantUserIds = [
+      ...new Set([parentUserId, ...subMerchantUserIds]),
+    ];
+  } else if (
+    designation === Role.MERCHANT ||
+    designation === Role.SUB_MERCHANT
+  ) {
+    const [merchantHierarchy] = await getUserHierarchysDao({
+      user_id: userId,
+    });
+    const subMerchantUserIds =
+      merchantHierarchy?.config?.siblings?.sub_merchants ?? [];
+
+    allowedMerchantUserIds = [
+      ...new Set([userId, ...subMerchantUserIds]),
+    ];
+  }
+
+  const bulkAuthorization = { allowedMerchantUserIds };
+  await setCachedData(
+    cacheKey,
+    bulkAuthorization,
+    BULK_PAYOUT_AUTHORIZATION_CACHE_TTL_SEC,
+    'Bulk payout authorization cache',
+  );
+  return bulkAuthorization;
+}
 
 async function processBulkPayoutCreate(payload) {
   const {
@@ -57,36 +114,11 @@ async function processBulkPayoutCreate(payload) {
   if (!companyId || !userId || !role) {
     throw new Error('companyId, userId, and role are required');
   }
-  let allowedMerchantUserIds = null;
-  if (role === Role.MERCHANT) {
-    allowedMerchantUserIds = [userId];
-    if (designation === Role.MERCHANT_OPERATIONS) {
-      const [userHierarchy] = await getUserHierarchysDao({ user_id: userId });
-      const parentUserId = userHierarchy?.config?.parent;
-      if (!parentUserId) {
-        throw new Error('Merchant operations user is not assigned to a merchant.');
-      }
-      const [parentHierarchy] = await getUserHierarchysDao({
-        user_id: parentUserId,
-      });
-      const subMerchantUserIds =
-        parentHierarchy?.config?.siblings?.sub_merchants ?? [];
-      allowedMerchantUserIds = [
-        ...new Set([parentUserId, ...subMerchantUserIds]),
-      ];
-    } else if (designation === Role.MERCHANT || designation === Role.SUB_MERCHANT) {
-      const [merchantHierarchy] = await getUserHierarchysDao({
-        user_id: userId,
-      });
-      const subMerchantUserIds =
-        merchantHierarchy?.config?.siblings?.sub_merchants ?? [];
-
-      allowedMerchantUserIds = [
-        ...new Set([userId, ...subMerchantUserIds]),
-      ];
-    }
-  }
-  const bulkAuthorization = { allowedMerchantUserIds };
+  const bulkAuthorization = await getBulkAuthorization(
+    userId,
+    role,
+    designation,
+  );
 
   logger.info('[BulkPayoutCreate] Downloading file from S3', {
     fileKey,
