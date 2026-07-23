@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import { sendError } from '../utils/responseHandlers.js';
 import { V2_ERROR_CODES } from '../constants/index.js';
 import { generateSignature } from '../utils/signaturegenrate.js';
+import config from '../config/config.js';
 
 // ---------------------------------------------------------------------------
 // Request-signature verification middleware (default OFF)
@@ -86,7 +87,7 @@ const verifyRequestSignature = (options = {}) => {
       return next();
     }
 
-    const secret = req.merchant?.config?.keys?.private || req.vendor?.config?.keys?.private;
+    const secret = req.merchant?.config?.keys?.private || req.vendor?.config?.keys?.private || config?.paymentPage?.signingSecret;
     if (!secret) {
       // Either merchant-auth did not run or the merchant has no signing secret.
       return sendError(
