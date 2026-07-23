@@ -61,7 +61,6 @@ function config(Env) {
     },
     paymentPage: {
       signingSecret: Env?.MERCHANT_SIGNING_SECRET,
-      url: Env?.PAYMENT_PAGE_URL,
     },
     rateLimiter: {
       points: parsePositiveInt(Env?.RATE_LIMIT_POINTS, 300),
