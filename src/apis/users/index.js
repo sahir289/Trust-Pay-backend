@@ -334,7 +334,7 @@ router.post(
 /**
  * PATCH /users/:id/2fa
  * Allows Admin/Super Admin to set 2FA requirement for a specific user.
- * This sets is_two_factor_required flag (not is_two_factor_enabled).
+ * This sets is_two_factor_enabled flag (not is_two_factor_enabled).
  * The user must complete actual 2FA setup (scan QR + verify OTP) themselves.
  */
 router.patch(

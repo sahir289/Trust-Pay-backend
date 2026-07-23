@@ -229,7 +229,6 @@ const getUsersBySearchDao = async (
         "User".code,
         "User".is_enabled,
         "User".is_two_factor_enabled,
-        "User".is_two_factor_required,
         "User".is_two_factor_exempt,
         "User".last_login,
         "User".last_logout,
@@ -261,7 +260,6 @@ const getUsersBySearchDao = async (
         "User".code,
         "User".is_enabled,
         "User".is_two_factor_enabled,
-        "User".is_two_factor_required,
         "User".is_two_factor_exempt,
         "User".last_login,
         "User".last_logout,
@@ -557,7 +555,6 @@ const getUserByIdDao = async (ids, conn = null) => {
         u.last_logout, 
         u.config, 
         u.is_two_factor_enabled,
-        u.is_two_factor_required,
         u.is_two_factor_exempt,
         u.created_by, 
         u.updated_by, 
@@ -667,7 +664,6 @@ const getUsersByUserNameDao = async (ids, username, conn = null) => {
         u.created_at, 
         u.updated_at, 
         u.is_two_factor_enabled,
-        u.is_two_factor_required,
         u.is_two_factor_exempt,
         u.two_factor_secret,
         r.role, 
@@ -861,7 +857,7 @@ const updateUser2FAStatusDao = async (userId, status, conn = null) => {
   try {
     const sql = `
       UPDATE public."User"
-      SET is_two_factor_required = $1,
+      SET is_two_factor_enabled = $1,
           updated_at = NOW()
       WHERE id = $2
         AND is_obsolete = false
