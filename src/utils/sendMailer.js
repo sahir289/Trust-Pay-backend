@@ -52,17 +52,15 @@ export const sendCredentialsEmail = async ({
   password,
   code,
   secretKey,
-  publicKey,
   designation,
-  unique_id,
-  h2h
+  unique_id
 }) => {
   const subject = 'Your Account Credentials';
   const text = `Hello,\n\nYour account has been created successfully.\n\nUsername: ${username}\nPassword: ${password}\n\nPlease log in and change your password immediately for security.\n\nBest regards,\nPG Admin Team`;
 
   const redirectingUrl = process.env.FRONTEND_URL;
   const baseUrl = process.env.BASE_URL;
-  const apiDocsUrl = h2h ? process.env.API_DOCS_H2H : process.env.API_DOCS_URL;
+  // const apiDocsUrl = h2h ? process.env.API_DOCS_H2H : process.env.API_DOCS_URL;
 
   const html = `
   <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; background-color: #f9fafb;">
@@ -86,8 +84,6 @@ export const sendCredentialsEmail = async ({
               <p style="margin: 8px 0; color: #2d3748;"><strong>Base URL:</strong> <a href="${baseUrl}" style="color: #3182ce;">${baseUrl}</a></p>
               <p style="margin: 8px 0; color: #2d3748;"><strong>Code:</strong> ${code}</p>
               <p style="margin: 8px 0; color: #2d3748;"><strong>API Key:</strong> ${secretKey}</p>
-              <p style="margin: 8px 0; color: #2d3748;"><strong>Public API Key:</strong> ${publicKey}</p>
-              <p style="margin: 8px 0; color: #2d3748;"><strong>API Docs:</strong> <a href="${apiDocsUrl}" style="color: #3182ce;">${apiDocsUrl}</a></p>
             </div>
           `
           : ''
@@ -156,7 +152,6 @@ export const sendCredentialsEmail = async ({
       password,
       code,
       secretKey,
-      publicKey,
     };
     const status = 200;
     logger.info('Credentials email sent:', { status, data: Data });
