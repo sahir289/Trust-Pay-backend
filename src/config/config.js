@@ -263,6 +263,11 @@ function config(Env) {
       auth: {
         session: parsePositiveInt(Env?.AUTH_SESSION_CACHE_TTL_SEC, 30),
       },
+      roles: parsePositiveInt(Env?.ROLES_CACHE_TTL_SEC, 12 * 60 * 60),
+      designations: parsePositiveInt(
+        Env?.DESIGNATIONS_CACHE_TTL_SEC,
+        12 * 60 * 60,
+      ),
       payin: {
         search: withLegacy(
           Env,

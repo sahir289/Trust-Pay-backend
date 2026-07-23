@@ -12,12 +12,23 @@ import {
   VALIDATE_ROLE_BY_ID,
 } from '../../schemas/roleSchema.js';
 import { ValidationError } from '../../utils/appErrors.js';
+import config from '../../config/config.js';
+import {
+  generateCacheKey,
+  getCachedData,
+  setCachedData,
+} from '../../utils/redishashkey.js';
+const ROLES_CACHE_TTL_SEC = config.controllerCacheTtls.roles;
+const ROLES_CACHE_PREFIX = 'roles:list';
 
 const getRoles = async (req, res) => {
   // let search = req.query.search ;
-  const data = await getRoleService({
-    ...req.query,
-  });
+  const cacheKey = generateCacheKey({ query: req.query }, ROLES_CACHE_PREFIX);
+  let data = await getCachedData(cacheKey, 'Roles cache');
+  if (!data) {
+    data = await getRoleService({ ...req.query });
+    await setCachedData(cacheKey, data, ROLES_CACHE_TTL_SEC, 'Roles cache');
+  }
 
   return sendSuccess(res, data, 'get Roles successfully');
 };

@@ -4,6 +4,7 @@ import {
   VALIDATE_DESIGNATION_BY_ID,
 } from '../../schemas/designationSchema.js';
 import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
+import config from '../../config/config.js';
 import { logger } from '../../utils/logger.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import {
@@ -12,10 +13,30 @@ import {
   updateDesignationService,
   deleteDesignationService,
 } from './designationServices.js';
+import {
+  generateCacheKey,
+  getCachedData,
+  setCachedData,
+} from '../../utils/redishashkey.js';
+const DESIGNATIONS_CACHE_TTL_SEC = config.controllerCacheTtls.designations;
+const DESIGNATIONS_CACHE_PREFIX = 'designations:list';
 
 const getDesignation = async (req, res) => {
   const { page, limit } = req.query;
-  const data = await getDesignationService({ ...req.query }, page, limit);
+  const cacheKey = generateCacheKey(
+    { query: req.query },
+    DESIGNATIONS_CACHE_PREFIX,
+  );
+  let data = await getCachedData(cacheKey, 'Designations cache');
+  if (!data) {
+    data = await getDesignationService({ ...req.query }, page, limit);
+    await setCachedData(
+      cacheKey,
+      data,
+      DESIGNATIONS_CACHE_TTL_SEC,
+      'Designations cache',
+    );
+  }
 
   return sendSuccess(res, data, 'get  Designations successfully');
 };
