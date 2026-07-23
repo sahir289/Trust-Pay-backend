@@ -730,7 +730,7 @@ CREATE TABLE public."User" (
     is_obsolete boolean DEFAULT false,
     is_two_factor_enabled boolean DEFAULT false NOT NULL,
     two_factor_secret text,
-    is_two_factor_required boolean DEFAULT false NOT NULL,
+    -- is_two_factor_required boolean DEFAULT false NOT NULL,
     is_two_factor_exempt boolean DEFAULT false NOT NULL
 );
 
@@ -746,7 +746,7 @@ COMMENT ON COLUMN public."User".is_two_factor_enabled IS 'User-set flag: whether
 -- Name: COLUMN "User".is_two_factor_required; Type: COMMENT; Schema: public; Owner: -
 --
 
-COMMENT ON COLUMN public."User".is_two_factor_required IS 'Admin-set flag: whether 2FA is mandatory for this user';
+-- COMMENT ON COLUMN public."User".is_two_factor_required IS 'Admin-set flag: whether 2FA is mandatory for this user';
 
 
 --

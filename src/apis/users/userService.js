@@ -783,9 +783,9 @@ const userUpdateService = async (ids, payload) => {
   }
 };
 
-const updateUser2FAService = async (id, isTwoFactorRequired) => {
+const updateUser2FAService = async (id, isTwoFactorEnabled) => {
   try {
-    return await updateUser2FAStatusDao(id, isTwoFactorRequired);
+    return await updateUser2FAStatusDao(id, isTwoFactorEnabled);
   } catch (error) {
     logger.error('Error in updateUser2FAService:', error);
     throw error;
