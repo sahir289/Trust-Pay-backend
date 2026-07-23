@@ -59,6 +59,10 @@ function config(Env) {
     redis: {
       url: Env?.REDIS_URL || 'redis://localhost:6379',
     },
+    paymentPage: {
+      signingSecret: Env?.MERCHANT_SIGNING_SECRET,
+      url: Env?.PAYMENT_PAGE_URL,
+    },
     rateLimiter: {
       points: parsePositiveInt(Env?.RATE_LIMIT_POINTS, 300),
       duration: parsePositiveInt(Env?.RATE_LIMIT_DURATION, 60),

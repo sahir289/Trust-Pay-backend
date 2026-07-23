@@ -33,6 +33,7 @@ import { multerUpload } from '../../utils/index.js';
 import getUserLocationMiddleware from '../../middlewares/locationRestrict.js';
 import dbConnScope from '../../middlewares/dbConnScope.js';
 import { checkApiKey, checkMerchantApiKey } from '../../middlewares/checkApiKey.js';
+import { verifyRequestSignature } from '../../middlewares/requestSignature.js';
 
 const router = express.Router();
 
@@ -96,6 +97,7 @@ router.get('/generate-payin', checkApiKey, tryCatchHandler(generatePayInUrl));
  */
 router.get(
   '/validate-payIn-url/:merchantOrderId',
+  verifyRequestSignature({ required: true }),
   getUserLocationMiddleware,
   tryCatchHandler(validatePayInUrl),
 );
@@ -126,7 +128,10 @@ router.get(
  *       404:
  *         description: Pay-In URL not found.
  */
-router.post('/generate-upi-url', checkMerchantApiKey, tryCatchHandler(generateUpiUrl));
+router.post('/generate-upi-url', 
+  verifyRequestSignature({ required: true }),
+  checkMerchantApiKey,
+  tryCatchHandler(generateUpiUrl));
 
 /**
  * @swagger
@@ -150,6 +155,7 @@ router.post('/generate-upi-url', checkMerchantApiKey, tryCatchHandler(generateUp
  */
 router.post(
   '/assign-bank/:merchantOrderId',
+  verifyRequestSignature({ required: true }),
   tryCatchHandler(assignedBankToPayInUrl),
 );
 
@@ -200,11 +206,13 @@ router.post('/check-payin-status', tryCatchHandler(checkPayInStatus));
  */
 router.post(
   '/generate-intent-order/:merchantOrderId',
+  verifyRequestSignature({ required: true }),
   tryCatchHandler(payInIntentGenerateOrder),
 );
 
 router.post(
   '/verify-intent-order',
+  verifyRequestSignature({ required: true }),
   tryCatchHandler(verifyPayinsrazorpay),
 );
 
@@ -228,7 +236,9 @@ router.post(
  *       404:
  *         description: Pay-In URL not found
  */
-router.post('/process/:merchantOrderId', tryCatchHandler(processPayIn));
+router.post('/process/:merchantOrderId', 
+  verifyRequestSignature({ required: true }),
+  tryCatchHandler(processPayIn));
 
 router.post('/process-payin/:merchantOrderId', tryCatchHandler(processPayInH2H)); //h2h
 
@@ -265,6 +275,7 @@ router.post('/process-payin/:merchantOrderId', tryCatchHandler(processPayInH2H))
  */
 router.post(
   '/process-by-image/:merchantOrderId',
+  verifyRequestSignature({ required: true }),
   multerUpload.single('file'),
   tryCatchHandler(processPayInByImage),
 );
