@@ -164,7 +164,7 @@ const loginService = async (
 
     // Compute must_setup_2fa: user must set up 2FA if enforcement is active,
     // they don't have 2FA enabled, and they are not exempt
-    const must_setup_2fa = isTwoFactorEnforced && !user.is_two_factor_enabled && !user.is_two_factor_exempt;
+    const must_setup_2fa = (isTwoFactorEnforced || user.is_two_factor_required) && !user.is_two_factor_enabled && !user.is_two_factor_exempt;
 
     // If company 2FA enforcement is active and user doesn't have 2FA enabled,
     // allow login but return a special flag indicating they must set up 2FA
@@ -571,7 +571,7 @@ const _createLoginSession = async (user, config, clientIP, ua) => {
     const isTwoFactorEnforced = await get2FAEnforcementDao(user.company_id);
 
     // Compute must_setup_2fa for consistency
-    const must_setup_2fa = isTwoFactorEnforced && !user.is_two_factor_enabled && !user.is_two_factor_exempt;
+    const must_setup_2fa = (isTwoFactorEnforced || user.is_two_factor_required) && !user.is_two_factor_enabled && !user.is_two_factor_exempt;
 
     return {
       tokenInfo,

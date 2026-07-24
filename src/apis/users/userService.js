@@ -50,6 +50,7 @@ import { getBankaccountCheckDao } from '../bankAccounts/bankaccountDao.js';
 import { getSessionByUserIdDao } from '../auth/authDao.js';
 import { forceLogoutUser } from '../../utils/sockets.js';
 import { createHashApiKey } from '../../utils/cryptoAlgorithm.js';
+import { get2FAEnforcementDao } from '../settings/settingsDao.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 
 const getUsersService = async (
@@ -396,10 +397,19 @@ const getUserByIdService = async (ids, role) => {
           ? vendorColumns.USER
           : columns.USER;
     const result = await getUserByIdDao(ids);
+    const user = result[0]; // Add this line to define 'user'
+
+    // Get the company-level 2FA enforcement setting
+    const isTwoFactorEnforced = await get2FAEnforcementDao(user.company_id);
+
+    // Compute must_setup_2fa: user must set up 2FA if enforcement is active,
+    // they don't have 2FA enabled, and they are not exempt
+    const must_setup_2fa = (isTwoFactorEnforced || user.is_two_factor_required) && !user.is_two_factor_enabled && !user.is_two_factor_exempt;
 
     const finalResult = filterResponse(result, filterColumns, {
       stripSensitive: true,
     });
+    finalResult[0].must_setup_2fa = must_setup_2fa; // Add this line to include the computed value in the result
     return finalResult;
   } catch (error) {
     logger.error('error getting while getting user by id', error);
