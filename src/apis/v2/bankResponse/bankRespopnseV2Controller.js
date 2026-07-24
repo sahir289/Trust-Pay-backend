@@ -35,7 +35,7 @@ export const createBankBotV2Response = async (req, res) => {
 };
 
 export const createBankBotV2ResponseBulk = async (req, res) => {
-  const x_auth_token = req.headers['x-auth-token'];
+  const x_auth_token = req.vendor?.company_id;
   const payloads = req.body?.body; // Expecting an array
 
   if (!Array.isArray(payloads)) {
