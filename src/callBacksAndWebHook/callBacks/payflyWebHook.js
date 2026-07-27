@@ -75,7 +75,7 @@ export const payflyTransactionStatusCallback = async (req, res) => {
       await rollback(conn);
       return;
     }
-    const updatePayload = {...payout.config, provider_status: providerStatus };
+    const updatePayload = {config: { ...payout.config, provider_status: providerStatus }};
     
     const adminUser = await getUserByCompanyCreatedAtDao(
       payout.company_id,
