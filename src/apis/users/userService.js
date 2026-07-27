@@ -400,7 +400,7 @@ const getUserByIdService = async (ids, role) => {
     const user = result[0]; // Add this line to define 'user'
 
     // Get the company-level 2FA enforcement setting
-    const isTwoFactorEnforced = await get2FAEnforcementDao(user.company_id);
+    const isTwoFactorEnforced = await get2FAEnforcementDao(ids.company_id);
 
     // Compute must_setup_2fa: user must set up 2FA if enforcement is active,
     // they don't have 2FA enabled, and they are not exempt
