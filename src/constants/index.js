@@ -144,6 +144,7 @@ export const columns = {
     'last_logout',
     'config',
     'is_two_factor_enabled',
+    'is_two_factor_required',
     'is_two_factor_exempt',
     'created_by',
     'updated_by',
@@ -388,6 +389,7 @@ export const merchantColumns = {
     'user_name',
     'is_enabled',
     'is_two_factor_enabled',
+    'is_two_factor_required',
     'is_two_factor_exempt',
     'code',
     'is_h2h'
@@ -494,6 +496,7 @@ export const vendorColumns = {
     'user_name',
     'code',
     'is_two_factor_enabled',
+    'is_two_factor_required',
     'is_two_factor_exempt',
     'created_at', //-- need bank details within date range
     // 'unique_admin_id', // REMOVED: Should not be exposed in any API
