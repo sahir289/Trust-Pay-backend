@@ -81,6 +81,7 @@ pipeline {
                     switch (env.BRANCH_NAME) {
                         case 'main':
                             env.DEPLOY_ENV     = 'production'
+                            env.PM2_ENV        = 'production'
                             env.TARGET_DIR     = env.PROD_TARGET_DIR
                             env.SSH_CRED_ID    = 'ec2-prod-ssh-key'   // sshUserPrivateKey credential
                             env.HOST_CRED_ID   = 'ec2-prod-host'      // secret text: user@host
@@ -88,6 +89,7 @@ pipeline {
                             break
                         case 'trust-pay-stg':
                             env.DEPLOY_ENV     = 'staging'
+                            env.PM2_ENV        = 'staging'
                             env.TARGET_DIR     = env.STG_TARGET_DIR
                             env.SSH_CRED_ID    = 'ec2-stg-ssh-key'
                             env.HOST_CRED_ID   = 'ec2-stg-host'
@@ -111,7 +113,12 @@ pipeline {
                 sh '''
                     set -e
                     echo "Node: $(node -v)  npm: $(npm -v)"
-                    npm install
+                    if [ -f package-lock.json ]; then
+                        npm ci
+                    else
+                        echo "package-lock.json not found; falling back to npm install"
+                        npm install
+                    fi
                     echo "Backend version: $(node -p "require('./package.json').version")"
                 '''
             }
@@ -173,8 +180,8 @@ pipeline {
                             git status && \
                             git pull origin ${BRANCH_NAME} --verbose && \
                             git log -1 --oneline && \
-                            npm install && \
-                            pm2 startOrReload ecosystem.config.cjs --env production --update-env && \
+                            if [ -f package-lock.json ]; then npm ci; else echo 'package-lock.json not found; falling back to npm install'; npm install; fi && \
+                            pm2 startOrReload ecosystem.config.cjs --env ${PM2_ENV} --update-env && \
                             pm2 save"
                     '''
                 }
