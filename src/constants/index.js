@@ -48,6 +48,7 @@ export const Method = {
   PAYBITRA: 'PAYBITRA',
   PAYCRIC: 'PAYCRIC',
   FREECHIPS:'FREECHIPS',
+  PAYFLY: 'PAYFLY',
 };
 
 export const Type = {

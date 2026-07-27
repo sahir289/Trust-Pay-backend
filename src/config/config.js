@@ -236,7 +236,10 @@ function config(Env) {
       secretCodePayout : Env?.FREECHIPS_PAYOUY_SECRET_CODE,
       secretVendorKeyPayout : Env?.FREECHIPS_PAYOUY_VENDOR_KEY,
       baseUrl : Env?.FREECHIPS_URL,
-      tpin : 654321
+      tpin : Env?.FREECHIPS_TPIN || 654321,
+    },
+    payfly: {
+      baseUrl: Env?.PAYFLY_BASE_URL,
     },
     pennyPay: {
       payoutUrl: Env?.PENNY_PAY_PAYOUT_URL,
