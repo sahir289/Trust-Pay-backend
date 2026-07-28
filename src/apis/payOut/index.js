@@ -54,6 +54,8 @@ import {
 import {getFreechipsWalletBalance} from '../../freechips/freechips.js';
 import { freeChipsSuccessCallback } from '../../callBacksAndWebHook/callBacks/freeChipsWebHook.js';
 import { getWalletBalance } from '../../pennypay/pennypay.js';
+import { getPayflyWalletBalance } from '../../payfly/payfly.js';
+import { payflyTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/payflyWebHook.js';
 const router = express.Router();
 
 /**
@@ -333,6 +335,11 @@ router.post(
   payoutIpAccessControl,
   tryCatchHandler(freeChipsSuccessCallback)
 );
+router.post(
+  '/payfly-callback',
+  payoutIpAccessControl,
+  tryCatchHandler(payflyTransactionStatusCallback),
+);
 
 router.get(
   '/bss/bss-balance',
@@ -478,6 +485,11 @@ router.get(
   '/freechips/freechips-balance',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(getFreechipsWalletBalance),
+);
+router.get(
+  '/payfly/wallet-balance',
+  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  tryCatchHandler(getPayflyWalletBalance),
 );
 router.get(
   '/vertexpay/vertexpay-balance',

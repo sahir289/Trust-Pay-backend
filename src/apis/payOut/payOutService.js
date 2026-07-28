@@ -87,6 +87,7 @@ import { createPayInFintechPayout } from '../../payinfintech/payinfintech.js';
 import {createPennyPayPayout} from '../../pennypay/pennypay.js';
 import { emitTableEntryAsync } from '../../utils/socket/sessionUtils.js';
 import {createFreechipsPayout} from '../../freechips/freechips.js'
+import { createPayflyPayout } from '../../payfly/payfly.js';
 import { getMerchantKeysFromCacheOrDb } from '../../utils/cachedData/getmerchantkeycache.js';
 // import { notifyNewCalculationTableEntry } from '../../utils/sockets.js';
 
@@ -1185,6 +1186,30 @@ const _updatePayoutServiceInternal = async (
         bankId
       );
       payload = updatedPayload;
+    }
+    else if (payload?.config?.method === Method.PAYFLY) {
+      const method = payload.config.method;
+      logger.info(`Processing PAYFLY payout for method: ${method}`);
+      const [company] = await getCompanyByIDDao({ id: ids.company_id }, conn);
+      if (!company) throw new NotFoundError('Company not found');
+      const bankId = company.config.PAYFLY?.defaultBankId;
+      if (!bankId) {
+        throw new NotFoundError(`Default bank ID not found for ${method}`);
+      }
+      bankDataArr = await getBankByIdDao({ id: bankId });
+      const [vendor] = await getVendorsDao({
+        user_id: bankDataArr[0].user_id,
+      });
+      if (!vendor) {
+        throw new NotFoundError('Vendor not found for Payfly payout');
+      }
+      payload = await createPayflyPayout(
+        payload,
+        singleWithdrawData,
+        vendor.id,
+        bankId,
+        company.config.PAYFLY,
+      );
     }
      else if (payload?.config?.method === Method.BSS) {
       const method = payload.config.method;
