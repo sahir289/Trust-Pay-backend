@@ -1,84 +1,84 @@
-name: Deploying to EC2 staging
+# name: Deploying to EC2 staging
 
-permissions:
-  contents: write # to push tags
+# permissions:
+#   contents: write # to push tags
 
-on:
-  push:
-    branches:
-      - trust-pay-stg
+# on:
+#   push:
+#     branches:
+#       - trust-pay-stg
 
-jobs:
-  deploy:
-    # Add this condition to skip if the commit message contains [skip ci]
-    runs-on: ubuntu-latest
+# jobs:
+#   deploy:
+#     # Add this condition to skip if the commit message contains [skip ci]
+#     runs-on: ubuntu-latest
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-        with:
-          persist-credentials: true  # This allows git push to use the token
+#     steps:
+#       - name: Checkout code
+#         uses: actions/checkout@v3
+#         with:
+#           persist-credentials: true  # This allows git push to use the token
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: 22.x
-          # cache: 'npm' # Auto-caches node_modules based on package-lock.json
+#       - name: Setup Node.js
+#         uses: actions/setup-node@v3
+#         with:
+#           node-version: 22.x
+#           # cache: 'npm' # Auto-caches node_modules based on package-lock.json
 
-      # - name: Bump Version
-      #   run: |
-      #     git config user.name "GitHub Actions"
-      #     git config user.email "actions@github.com"
-      #     # Decide manually: patch, minor, or major
-      #     npm version patch -m "CI: Bump version to %s [skip ci]" # Bump patch version - change to minor or major as needed
-      #     # Use token to push tags and commits
-      #     git push origin --follow-tags
-        # If version bump fails, the workflow will stop here
+#       # - name: Bump Version
+#       #   run: |
+#       #     git config user.name "GitHub Actions"
+#       #     git config user.email "actions@github.com"
+#       #     # Decide manually: patch, minor, or major
+#       #     npm version patch -m "CI: Bump version to %s [skip ci]" # Bump patch version - change to minor or major as needed
+#       #     # Use token to push tags and commits
+#       #     git push origin --follow-tags
+#         # If version bump fails, the workflow will stop here
 
-      - name: Install dependencies
-        run: npm install # Use npm ci for clean install in CI environments
+#       - name: Install dependencies
+#         run: npm install # Use npm ci for clean install in CI environments
         
-      - name: Show Backend Version
-        run: | 
-          echo "Backend version: $(node -p "require('./package.json').version")"
+#       - name: Show Backend Version
+#         run: | 
+#           echo "Backend version: $(node -p "require('./package.json').version")"
 
-      - name: Run ESLint check
-        run: |
-          echo "Running ESLint..."
-          npm run lint
-        # If ESLint fails (non-zero exit), the workflow will stop here
-        continue-on-error: false
+#       - name: Run ESLint check
+#         run: |
+#           echo "Running ESLint..."
+#           npm run lint
+#         # If ESLint fails (non-zero exit), the workflow will stop here
+#         continue-on-error: false
 
-      - name: Debug Secrets
-        env:
-          PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
-          HOST: ${{ secrets.EC2_HOST }}
-          USER: ${{ secrets.EC2_USER }}
-          TARGET_DIR: /home/ubuntu/trust-pay/Trust-Pay-backend
-        run: |
-          echo "PRIVATE_KEY is set: $([ -n "$PRIVATE_KEY" ] && echo 'yes' || echo 'no')"
-          echo "HOST is set: $([ -n "$HOST" ] && echo 'yes' || echo 'no')"
-          echo "USER is set: $([ -n "$USER" ] && echo 'yes' || echo 'no')"
-          echo "TARGET_DIR is set: $([ -n "$TARGET_DIR" ] && echo 'yes' || echo 'no')"
-          echo "TARGET_DIR length: ${#TARGET_DIR}"
-          if [ -z "$TARGET_DIR" ]; then echo "TARGET_DIR is empty in debug step!"; exit 1; fi
+#       - name: Debug Secrets
+#         env:
+#           PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
+#           HOST: ${{ secrets.EC2_HOST }}
+#           USER: ${{ secrets.EC2_USER }}
+#           TARGET_DIR: /home/ubuntu/trust-pay/Trust-Pay-backend
+#         run: |
+#           echo "PRIVATE_KEY is set: $([ -n "$PRIVATE_KEY" ] && echo 'yes' || echo 'no')"
+#           echo "HOST is set: $([ -n "$HOST" ] && echo 'yes' || echo 'no')"
+#           echo "USER is set: $([ -n "$USER" ] && echo 'yes' || echo 'no')"
+#           echo "TARGET_DIR is set: $([ -n "$TARGET_DIR" ] && echo 'yes' || echo 'no')"
+#           echo "TARGET_DIR length: ${#TARGET_DIR}"
+#           if [ -z "$TARGET_DIR" ]; then echo "TARGET_DIR is empty in debug step!"; exit 1; fi
 
-      - name: Deploy to EC2
-        env:
-          PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
-          HOST: ${{ secrets.EC2_HOST }}
-          USER: ${{ secrets.EC2_USER }}
-          TARGET_DIR: /home/ubuntu/trust-pay/Trust-Pay-backend
-        run: |
-          echo "Deploy secrets check:"
-          echo "TARGET_DIR is set: $([ -n "$TARGET_DIR" ] && echo 'yes' || echo 'no')"
-          echo "TARGET_DIR length: ${#TARGET_DIR}"
-          if [ -z "$TARGET_DIR" ]; then echo "TARGET_DIR is empty in deploy step!"; exit 1; fi
-          echo "Using TARGET_DIR: $TARGET_DIR"
-          echo "$PRIVATE_KEY" > private_key
-          chmod 600 private_key
-          echo "Testing SSH connection..."
-          ssh -o StrictHostKeyChecking=no -i private_key $USER@$HOST "whoami" || { echo "SSH connection failed"; exit 1; }
-          echo "Deploying to EC2..."
-          ssh -o StrictHostKeyChecking=no -i private_key $USER@$HOST "cd '$TARGET_DIR' && pwd && git fetch origin && git status && git pull origin trust-pay-stg --verbose && git log -1 --oneline && npm install && pm2 delete trust-pay-backend || true && pm2 start ecosystem.config.cjs --env production" || { echo "Deployment failed"; exit 1; }
-          rm -f private_key
+#       - name: Deploy to EC2
+#         env:
+#           PRIVATE_KEY: ${{ secrets.EC2_SSH_KEY }}
+#           HOST: ${{ secrets.EC2_HOST }}
+#           USER: ${{ secrets.EC2_USER }}
+#           TARGET_DIR: /home/ubuntu/trust-pay/Trust-Pay-backend
+#         run: |
+#           echo "Deploy secrets check:"
+#           echo "TARGET_DIR is set: $([ -n "$TARGET_DIR" ] && echo 'yes' || echo 'no')"
+#           echo "TARGET_DIR length: ${#TARGET_DIR}"
+#           if [ -z "$TARGET_DIR" ]; then echo "TARGET_DIR is empty in deploy step!"; exit 1; fi
+#           echo "Using TARGET_DIR: $TARGET_DIR"
+#           echo "$PRIVATE_KEY" > private_key
+#           chmod 600 private_key
+#           echo "Testing SSH connection..."
+#           ssh -o StrictHostKeyChecking=no -i private_key $USER@$HOST "whoami" || { echo "SSH connection failed"; exit 1; }
+#           echo "Deploying to EC2..."
+#           ssh -o StrictHostKeyChecking=no -i private_key $USER@$HOST "cd '$TARGET_DIR' && pwd && git fetch origin && git status && git pull origin trust-pay-stg --verbose && git log -1 --oneline && npm install && pm2 delete trust-pay-backend || true && pm2 start ecosystem.config.cjs --env production" || { echo "Deployment failed"; exit 1; }
+#           rm -f private_key
