@@ -96,7 +96,7 @@ export const createPayflyPayout = async (
   };
   requestBody.hash = createPayflyHash(requestBody, payflyConfig.payoutSecret);
   try {
-    const response = await axios.post(
+    void axios.post(
       `${payflyConfig.baseUrl}/payment/transfer`,
       requestBody,
       {
@@ -107,11 +107,27 @@ export const createPayflyPayout = async (
         },
         timeout: PAYFLY_TIMEOUT_MS,
       },
-    );
-    const responseData = response.data;
-    if (String(responseData?.respCode) !== '0') {
-      throw new BadRequestError(responseData?.respMessage || 'Payfly payout request failed');
-    }
+    ).then((response) => {
+      if (String(response.data?.respCode) !== '0') {
+        logger.error('Payfly payout request was rejected:', {
+          merchant_order_id: payout?.merchant_order_id,
+          error: response.data?.respMessage || 'Payfly payout request failed',
+        });
+        return;
+      }
+      logger.info('Payfly payout request initiated successfully:', {
+        merchant_order_id: payout?.merchant_order_id,
+        merchant_txnid: merchantTransactionId,
+        gateway_txnid: response.data?.data?.gateway_txnid || null,
+        provider_status: response.data?.data?.txn_status || null,
+      });
+    }).catch((error) => {
+      logger.error('Payfly payout request failed:', {
+        merchant_order_id: payout?.merchant_order_id,
+        error: error.response?.data || error.message,
+      });
+    });
+
     result.status = 'PENDING';
     result.bank_acc_id = bankId;
     result.vendor_id = vendorId;
