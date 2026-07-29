@@ -54,7 +54,7 @@ export const createPayoutV2 = async (req, res) => {
     merchantOrderId: result.merchant_order_id,
     payoutId: result.id,
     amount: result.amount,
-    accountNumber: result.acc_no,
+    accountNo: result.acc_no,
     ifscCode: result.ifsc_code,
     bankName: result.bank_name,
     accountHolderName: result.acc_holder_name,
