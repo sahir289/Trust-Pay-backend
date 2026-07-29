@@ -1071,13 +1071,21 @@ const handleInternalTransferReversal = async (
 const validateStatusTransition = (currentStatus, newStatus) => {
   if (currentStatus === Status.REJECTED && newStatus === Status.SUCCESS) {
     throw new BadRequestError(
-      'Cannot change payout status from rejected to approved',
+      'Cannot change settlement status from rejected to approved',
+    );
+  }
+  if (
+    [Status.SUCCESS, Status.APPROVED, Status.REVERSED].includes(currentStatus) &&
+    newStatus === Status.REJECTED
+  ) {
+    throw new BadRequestError(
+      'Cannot change settlement status from approved to rejected',
     );
   }
 
   if (newStatus === currentStatus) {
     throw new BadRequestError(
-      'Payout status cannot be updated to the same value',
+      'Settlement status cannot be updated to the same value',
     );
   }
 };
@@ -1155,7 +1163,7 @@ const calculateTransferMethodConfig = (
 };
 
 const _updateSettlementServiceInternal = async (ids, payload, conn) => {
-  await checkLockEdit(ids.id, false, conn);
+  await checkLockEdit(ids.id, true, conn);
   payload.config = payload.config || {};
 
   // Get settlement data
