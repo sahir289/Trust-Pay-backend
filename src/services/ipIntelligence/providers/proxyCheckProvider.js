@@ -49,10 +49,71 @@ export const lookup = async (ip, timeoutMs) => {
   return info;
 };
 
+// Reshape proxycheck.io's raw JSON into our standard record shape (VPN/proxy flags, country, ASN, risk, ...). Supports BOTH response formats: the v3 shape (preferred — accurate per-category detections) and the legacy v2 flat shape,
+const normalizeV3 = (info) => {
+  const detections = info.detections || {};
+  const net = info.network || {};
+  const loc = info.location || {};
+  const type = typeof net.type === 'string' ? net.type : '';
+
+  const isVpn = detections.vpn === true;
+  const isProxy = detections.proxy === true;
+  const isTor = detections.tor === true || /tor/i.test(type);
+  const isHosting = detections.hosting === true || /hosting|data\s?cent/i.test(type);
+
+  const raw = {
+    asn: net.asn ?? null,
+    range: net.range ?? null,
+    hostname: net.hostname ?? null,
+    provider: net.provider ?? null,
+    organisation: net.organisation ?? null,
+    type,
+    continent: loc.continent_name ?? null,
+    continentcode: loc.continent_code ?? null,
+    country: loc.country_name ?? null,
+    isocode: loc.country_code ?? null,
+    region: loc.region_name ?? null,
+    regioncode: loc.region_code ?? null,
+    city: loc.city_name ?? null,
+    postcode: loc.postal_code ?? null,
+    latitude: loc.latitude ?? null,
+    longitude: loc.longitude ?? null,
+    timezone: loc.timezone ?? null,
+    currency: loc.currency ?? null,
+    devices: info.device_estimate ?? null,
+    vpn: isVpn ? 'yes' : 'no',
+    proxy: isProxy ? 'yes' : 'no',
+    detections, // keep v3 response for auditing/debugging
+  };
+
+  return {
+    asn: parseAsn(net.asn),
+    isp: net.provider || net.organisation || null,
+    org: net.organisation || net.provider || null,
+    country: loc.country_code || loc.country_name || null,
+    region: loc.region_name || loc.city_name || null,
+    city: loc.city_name || null,
+    isVpn,
+    isProxy,
+    isHosting,
+    isTor,
+    riskScore: clampRisk(detections.risk),
+    confidence: isVpn || isProxy ? 0.9 : 0.7,
+    metadata: { raw },
+  };
+};
+
 // Turn proxycheck.io's raw JSON into our standard record shape (VPN/proxy flags,
-// country, ASN, risk, ...). We stash the original payload under metadata.raw in
-// case a caller needs a field we didn't map here.
+// country, ASN, risk, ...). Supports BOTH response formats: the v3 shape
+// (preferred — accurate per-category detections) and the legacy v2 flat shape,
+// so flipping PROXY_CHECK_URL between /v2/ and /v3/ needs no code change.
+// We stash the original payload under metadata.raw in case a caller needs a
+// field we didn't map here.
 export const normalize = (info) => {
+  if (info?.detections && typeof info.detections === 'object') {
+    return normalizeV3(info);
+  }
+
   const isVpn = yes(info.vpn);
   const isProxy = yes(info.proxy);
   const type = typeof info.type === 'string' ? info.type : '';
