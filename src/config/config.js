@@ -236,7 +236,10 @@ function config(Env) {
       secretCodePayout : Env?.FREECHIPS_PAYOUY_SECRET_CODE,
       secretVendorKeyPayout : Env?.FREECHIPS_PAYOUY_VENDOR_KEY,
       baseUrl : Env?.FREECHIPS_URL,
-      tpin : 654321
+      tpin : Env?.FREECHIPS_TPIN || 654321,
+    },
+    payfly: {
+      baseUrl: Env?.PAYFLY_BASE_URL,
     },
     pennyPay: {
       payoutUrl: Env?.PENNY_PAY_PAYOUT_URL,
@@ -262,6 +265,11 @@ function config(Env) {
       auth: {
         session: parsePositiveInt(Env?.AUTH_SESSION_CACHE_TTL_SEC, 30),
       },
+      roles: parsePositiveInt(Env?.ROLES_CACHE_TTL_SEC, 12 * 60 * 60),
+      designations: parsePositiveInt(
+        Env?.DESIGNATIONS_CACHE_TTL_SEC,
+        12 * 60 * 60,
+      ),
       payin: {
         search: withLegacy(
           Env,
@@ -361,6 +369,7 @@ function config(Env) {
         search: parsePositiveInt(Env?.SETTLEMENT_SEARCH_CACHE_TTL_SEC, 20),
       },
       userHierarchy: {
+        lookup: parsePositiveInt(Env?.USER_HIERARCHY_CACHE_TTL_SEC, 60),
         byId: parsePositiveInt(Env?.USER_HIERARCHY_BY_ID_CACHE_TTL_SEC, 15),
         list: parsePositiveInt(Env?.USER_HIERARCHY_LIST_CACHE_TTL_SEC, 20),
       },

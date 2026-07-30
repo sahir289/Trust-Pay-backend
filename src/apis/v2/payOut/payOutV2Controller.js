@@ -54,6 +54,10 @@ export const createPayoutV2 = async (req, res) => {
     merchantOrderId: result.merchant_order_id,
     payoutId: result.id,
     amount: result.amount,
+    accountNo: result.acc_no,
+    ifscCode: result.ifsc_code,
+    bankName: result.bank_name,
+    accountHolderName: result.acc_holder_name,
   };
 
   // Send a success response to the client

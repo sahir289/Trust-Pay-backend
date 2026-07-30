@@ -7,6 +7,7 @@ import {
 } from '../../utils/db.js';
 import { logger } from '../../utils/logger.js';
 import { buildSearchFilterObj } from '../../utils/searchBuilder.js';
+
 export const createUserHierarchyDao = async (data, conn = null) => {
   try {
     const [sql, params] = buildInsertQuery(tableName.USER_HIERARCHY, data);
