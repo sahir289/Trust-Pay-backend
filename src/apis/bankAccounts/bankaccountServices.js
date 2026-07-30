@@ -676,7 +676,6 @@ const updateSecretKeyBankAccountService = async (ids) => {
     await beginTransaction(conn);
     const getBankaccount = await getBankByIdDao({ id: ids.id, company_id: ids.company_id }, conn);
       const { secretKey } = createHashApiKey();
-      console.log('getBankaccount[0].config', getBankaccount[0].config);
       const payload = {
         config:{ ...getBankaccount[0].config, keys:{ secretKey } },
       };
