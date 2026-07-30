@@ -10,6 +10,7 @@ import {
   getBankAccountBySearch,
   activeInactiveBankAccount,
   resetBankNotification,
+  updateSecretKeyBankAccount,
   // activeInactiveBankAccount,
 } from './bankaccountController.js';
 const router = express.Router();
@@ -295,6 +296,12 @@ router.patch(
 router.patch(
   '/active-inactive-bankAccount',
   tryCatchHandler(activeInactiveBankAccount),
+);
+
+router.patch(
+  '/secret-key-bankAccount/:id',
+  [isAuthenticated, authorized(AccessRoles.BANK_ACCOUNT)],
+  tryCatchHandler(updateSecretKeyBankAccount),
 );
 
 export default router;

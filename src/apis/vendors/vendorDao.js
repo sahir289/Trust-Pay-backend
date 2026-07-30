@@ -99,10 +99,25 @@ export const getVendorByAuthCodeDao = async (filters = {}, conn = null) => {
         v.balance,
         v.payin_commission,
         v.config,
-        v.company_id
+        v.company_id,
+        (
+            SELECT COALESCE(
+                json_agg(
+                    json_build_object(
+                        'id', ba.id,
+                        'nick_name', ba.nick_name,
+                        'secretKey', ba.config->'keys'->>'secretKey'
+                    )
+                ),
+                '[]'::json
+            )
+            FROM "${tableName.BANK_ACCOUNT}" ba
+            WHERE ba.user_id = v.user_id
+            AND ba.is_obsolete = false
+            AND ba.is_enabled = true
+        ) AS banks
       FROM "${tableName.VENDOR}" v 
-      JOIN "${tableName.USER}" u ON v.user_id = u.id 
-      WHERE v.is_obsolete = false AND u.is_obsolete = false
+      WHERE v.is_obsolete = false
     `;
 
     const params = [];

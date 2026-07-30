@@ -87,7 +87,7 @@ const verifyRequestSignature = (options = {}) => {
       return next();
     }
 
-    const secret = req.merchant?.config?.keys?.private || req.vendor?.config?.keys?.private || config?.paymentPage?.signingSecret;
+    const secret = req.merchant?.config?.keys?.private || req.vendor?.banks[0]?.secretKey || config?.paymentPage?.signingSecret;
     if (!secret) {
       // Either merchant-auth did not run or the merchant has no signing secret.
       return sendError(
