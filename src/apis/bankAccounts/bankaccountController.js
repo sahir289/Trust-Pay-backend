@@ -34,7 +34,9 @@ import {
   getBankAccountBySearchService,
   activeInactiveBankAccountService,
   restBankNotificationService,
+  updateSecretKeyBankAccountService,
 } from './bankaccountServices.js';
+import { createHashApiKey } from '../../utils/cryptoAlgorithm.js';
 
 const normalizeBankNumericFields = (bank = {}) => {
   if (!bank || typeof bank !== 'object') {
@@ -236,6 +238,7 @@ const createBankaccount = async (req, res) => {
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
+  const { secretKey } = createHashApiKey();
   const phonePe = payload.is_phonepay ? true : false;
   const is_staticQR = payload.is_staticQR ? true : false;
   payload.bank_used_for == 'PayIn'
@@ -244,6 +247,7 @@ const createBankaccount = async (req, res) => {
         is_phonepay: phonePe,
         is_intent: payload.is_intent || "off",
         is_staticQR: is_staticQR,
+        keys: {secretKey: secretKey},
       })
     : (payload.config = {});
   delete payload.is_phonepay;
@@ -271,7 +275,7 @@ const createBankaccount = async (req, res) => {
   await invalidateBankAccountsCache(company_id);
   return sendSuccess(
     res,
-    { id: bankDetail.id, created_by: user_name },
+    { id: bankDetail.id, secretKey: bankDetail.config.keys.secretKey, created_by: user_name },
     'Created Banks successfully',
   );
 };
@@ -393,6 +397,20 @@ const activeInactiveBankAccount = async (req, res) => {
   );
 };
 
+const updateSecretKeyBankAccount = async (req, res) => {
+  const { id } = req.params;
+  const { company_id } = req.user;
+  const ids = { id, company_id };
+
+  const updateBank = await updateSecretKeyBankAccountService(ids);
+  await invalidateBankAccountsCache(company_id);
+  return sendSuccess(
+    res,
+    { id: updateBank.id, secretKey: updateBank.config.keys.secretKey },
+    `Bank account secret key updated successfully`,
+  );
+};
+
 // Temporary controller to reset all bank notification levels to 0 - to be used in case of any issues with the cron job
 const resetBankNotification = async (req, res) => {
   await restBankNotificationService();
@@ -408,6 +426,7 @@ export {
   getBankaccountById,
   createBankaccount,
   updateBankaccount,
+  updateSecretKeyBankAccount,
   deleteBankaccount,
   // getMerchantBank,
   getBankaccountNickName,

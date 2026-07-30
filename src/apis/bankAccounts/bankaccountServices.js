@@ -1,5 +1,6 @@
 import { Role } from '../../constants/index.js';
 import { BadRequestError, InternalServerError } from '../../utils/appErrors.js';
+import { createHashApiKey } from '../../utils/cryptoAlgorithm.js';
 import {
   beginTransaction,
   commit,
@@ -28,6 +29,7 @@ import {
   getBankAccountsBySearchDao,
   getAllBankaccountDao,
   resetBankNotificationDao,
+  getBankByIdDao,
 } from './bankaccountDao.js';
 
 const isPlainObject = (value) =>
@@ -666,6 +668,36 @@ const activeInactiveBankAccountService = async (ids, payload) => {
   }
 };
 
+const updateSecretKeyBankAccountService = async (ids) => {
+  let conn;
+  let committed = false;
+  try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+    const getBankaccount = await getBankByIdDao({ id: ids.id, company_id: ids.company_id }, conn);
+      const { secretKey } = createHashApiKey();
+      console.log('getBankaccount[0].config', getBankaccount[0].config);
+      const payload = {
+        config:{ ...getBankaccount[0].config, keys:{ secretKey } },
+      };
+    const result = await updateBankaccountDao(
+      ids,
+      payload,
+      conn,
+    );
+    await commit(conn);
+    committed = true;
+    await invalidatePayinValidateBankCache(result?.id || ids?.id);
+    return result;
+  } catch (error) {
+    if (conn && !committed) await rollback(conn);
+    logger.error('error getting while updating banks', error);
+    throw error;
+  } finally {
+    if (conn) conn.release();
+  }
+};
+
 // Temporary service to reset all bank notification levels to 0 - to be used in case of any issues with the cron job
 const restBankNotificationService = async () => {
   let conn;
@@ -695,5 +727,6 @@ export {
   deleteBankaccountService,
   getBankaccountServiceNickName,
   activeInactiveBankAccountService,
+  updateSecretKeyBankAccountService,
   restBankNotificationService,
 };

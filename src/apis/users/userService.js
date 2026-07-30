@@ -630,7 +630,6 @@ const _createUserServiceInternal = async (payload, conn) => {
         sub_code = `${userCode[0].code}(${payload.code})`;
         is_owned = payload.is_owned;
       }
-      const { secretKey } = createHashApiKey();
       const vendorPayload = {
         user_id: User.id,
         role_id: payload.role_id,
@@ -648,8 +647,6 @@ const _createUserServiceInternal = async (payload, conn) => {
           mediator_payin_commission: payload.mediator_payin_commission || 0,
           mediator_payout_commission: payload.mediator_payout_commission || 0,
           gm_code: payload.gm_code,
-          keys: {
-            private: secretKey          },
         },
         payin_commission: Number(payload.payin_commission),
         payout_commission: Number(payload.payout_commission),
