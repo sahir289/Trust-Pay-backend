@@ -17,6 +17,7 @@ import {
   getMerchantsBySearchDao,
   getMerchantsCodeDao,
   getMerchantsDao,
+  getMerchantPrivateKeyConfigDao,
   updateMerchantDao,
   getMerchantForMigrateDao,
   migrateMerchantDao
@@ -45,6 +46,8 @@ import { forceLogoutUser } from '../../utils/sockets.js';
 import { generateUUID } from '../../utils/generateUUID.js';
 import { getLatestNetBalanceByMerchantUserIdDao } from '../walletBalance/walletBalanceDao.js';
 import { deleteCachedData } from '../../utils/redishashkey.js';
+import { createHashApiKey } from '../../utils/cryptoAlgorithm.js';
+import { sendPrivateKeyRegeneratedEmail } from '../../utils/sendMailer.js';
 // import { notifyAdminsAndUsers } from '../../utils/notifyUsers.js';
 // Create Merchant Service
 const invalidatePayinValidateMerchantCache = async (merchantId) => {
@@ -779,6 +782,83 @@ const getMerchantsByCodeService = async (code) => {
     throw error;
   }
 };
+const regenerateMerchantPrivateKeyService = async (
+  { user_id, company_id },
+) => {
+  try {
+    const merchant = await getMerchantPrivateKeyConfigDao(user_id, company_id);
+    if (!merchant) {
+      throw new NotFoundError('Merchant not found!');
+    }
+    const previousPrivateKey = merchant.config?.keys?.private;
+    const { secretKey } = createHashApiKey();
+    const privateKeyRegenerationHistory = Array.isArray(
+      merchant.config?.private_key_regeneration_history,
+    )
+      ? merchant.config.private_key_regeneration_history
+      : [];
+    const regenerationRecord = {
+      regenerated_at: new Date().toISOString(),
+      regenerated_by: user_id,
+      invalidated_by: previousPrivateKey ? user_id : null,
+      previous_private_key: previousPrivateKey || null,
+    };
+    const data = await updateMerchantDao(
+      { user_id, company_id },
+      {
+        config: {
+          ...merchant.config,
+          keys: {
+            ...merchant.config?.keys,
+            private: secretKey,
+          },
+          private_key_regeneration_history: [
+            ...privateKeyRegenerationHistory.slice(-19),
+            regenerationRecord,
+          ],
+        },
+        updated_by: user_id,
+      },
+    );
+
+    await invalidatePayinValidateMerchantCache(merchant.id);
+    await invalidateMerchantAuthCodeCache({
+      code: merchant.code,
+      apiKey: previousPrivateKey,
+    });
+    if (merchant.email) {
+      void sendPrivateKeyRegeneratedEmail({
+        email: merchant.email,
+        userName: merchant.user_name || merchant.code,
+      }).catch((error) => {
+        logger.error('Private-key regeneration email failed:', error);
+      });
+    }
+    
+    return data;
+  } catch (error) {
+    logger.error('Error while regenerating merchant private key:', error);
+    throw error;
+  }
+};
+
+const getMerchantUrlsAndWhitelistService = async ({ user_id, company_id }) => {
+  try {
+    const config = await getMerchantPrivateKeyConfigDao(user_id, company_id);
+    if (!config) {
+      throw new NotFoundError('Merchant not found!');
+    }
+    return {
+      id: config.id,
+      mcode: config.code,
+      whitelist_ips: config.config?.whitelist_ips || '',
+      urls: config.config?.urls || [],
+    };
+  } catch (error) {
+    logger.error('Error while fetching merchant URLs and whitelist:', error);
+    throw error;
+  }
+};
 
 export {
   _createMerchantServiceInternal,
@@ -790,5 +870,7 @@ export {
   getMerchantByIdService,
   getMerchantsServiceCode,
   getMerchantsByCodeService,
-  migrateMerchantService
+  migrateMerchantService,
+  regenerateMerchantPrivateKeyService,
+  getMerchantUrlsAndWhitelistService,
 };

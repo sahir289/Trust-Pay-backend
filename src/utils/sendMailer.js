@@ -41,17 +41,12 @@ const logoUrl = brandLogos[currentBrand];
  * @param {string} param0.email - Recipient's email
  * @param {string} param0.username - Username to send
  * @param {string} param0.password - Password to send
- * @param {string} param0.code - Optional code
- * @param {string} param0.secretKey - Optional secret key
- * @param {string} param0.publicKey - Optional public key
  * @param {string} param0.designation - User designation
  */
 export const sendCredentialsEmail = async ({
   email,
   username,
   password,
-  code,
-  secretKey,
   designation,
   unique_id
 }) => {
@@ -59,7 +54,6 @@ export const sendCredentialsEmail = async ({
   const text = `Hello,\n\nYour account has been created successfully.\n\nUsername: ${username}\nPassword: ${password}\n\nPlease log in and change your password immediately for security.\n\nBest regards,\nPG Admin Team`;
 
   const redirectingUrl = process.env.FRONTEND_URL;
-  const baseUrl = process.env.BASE_URL;
   // const apiDocsUrl = h2h ? process.env.API_DOCS_H2H : process.env.API_DOCS_URL;
 
   const html = `
@@ -77,17 +71,6 @@ export const sendCredentialsEmail = async ({
         <p style="margin: 8px 0; color: #2d3748;"><strong>Username:</strong> ${username}</p>
         ${password ? `<p style="margin: 8px 0; color: #2d3748;"><strong>Password:</strong> ${password}</p>` : ''}
       </div>
-      ${
-        designation && [Role.MERCHANT, Role.SUB_MERCHANT].includes(designation)
-          ? `
-            <div style="background-color: #f1f5f9; padding: 16px; border-radius: 6px; margin-top: 16px;">
-              <p style="margin: 8px 0; color: #2d3748;"><strong>Base URL:</strong> <a href="${baseUrl}" style="color: #3182ce;">${baseUrl}</a></p>
-              <p style="margin: 8px 0; color: #2d3748;"><strong>Code:</strong> ${code}</p>
-              <p style="margin: 8px 0; color: #2d3748;"><strong>API Key:</strong> ${secretKey}</p>
-            </div>
-          `
-          : ''
-      }
       ${
         designation && [Role.ADMIN].includes(designation)
           ? `
@@ -150,14 +133,51 @@ export const sendCredentialsEmail = async ({
       messageId: info.messageId,
       username,
       password,
-      code,
-      secretKey,
     };
     const status = 200;
     logger.info('Credentials email sent:', { status, data: Data });
     return info;
   } catch (error) {
     logger.error('Failed to send credentials email:', error);
+    throw error;
+  }
+};
+export const sendPrivateKeyRegeneratedEmail = async ({
+  email,
+  userName,
+}) => {
+  const subject = 'Security alert: Your secret key was generated';
+  const text = `Hello ${userName},\n\nYour merchant secret key has been generated. The previous key is no longer valid.\n\nIf you did not perform this action, contact support immediately.\n\n${name} Team`;
+  const html = `
+    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; background-color: #f9fafb;">
+      <div style="display: flex; align-items: center; margin-bottom: 24px;">
+        <img src="${logoUrl}" alt="${name} Logo" style="height: 50px; max-height: 50px; margin-right: 8px;">
+        <h2 style="font-size: 22px; color: #1a202c; margin: 0; line-height: 50px;">${name}</h2>
+      </div>
+      <div style="background-color: #ffffff; padding: 24px; border-radius: 8px;">
+        <h2 style="color: #1a202c;">Secret key regenerated</h2>
+        <p>Hello ${userName},</p>
+        <p>Your merchant secret key has been generated. The previous key is no longer valid.</p>
+        <p><strong>If you did not perform this action, please contact ${name} support team immediately.</strong></p>
+        <p>Regards,<br>${name} Team</p>
+      </div>
+    </div>
+  `;
+  const params = {
+    Source: process.env.SES_FROM_EMAIL,
+    Destination: { ToAddresses: [email] },
+    Message: {
+      Subject: { Data: subject, Charset: 'UTF-8' },
+      Body: {
+        Html: { Data: html, Charset: 'UTF-8' },
+        Text: { Data: text, Charset: 'UTF-8' },
+      },
+    },
+  };
+  try {
+    return await sesClient.send(new SendEmailCommand(params));
+  } catch (error) {
+    logger.error('Failed to send private-key regeneration email:', error);
     throw error;
   }
 };

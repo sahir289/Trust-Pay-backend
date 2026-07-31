@@ -307,6 +307,29 @@ export const getMerchantByIdDao = async (id, company_id, conn = null) => {
     throw error;
   }
 };
+export const getMerchantPrivateKeyConfigDao = async (
+  user_id,
+  company_id,
+  conn = null,
+) => {
+  try {
+    const sql = `
+      SELECT m.id, m.code, m.config, u.email, u.user_name
+      FROM "${tableName.MERCHANT}" m
+      INNER JOIN "${tableName.USER}" u ON u.id = m.user_id
+      WHERE m.user_id = $1
+        AND m.company_id = $2
+        AND m.is_obsolete = false
+        AND u.is_obsolete = false
+      LIMIT 1
+    `;
+    const result = await executeQuery(sql, [user_id, company_id], conn);
+    return result.rows[0] || null;
+  } catch (error) {
+    logger.error('Error fetching merchant private-key configuration:', error);
+    throw error;
+  }
+};
 export const getMerchantForNotifyDao = async (
   filters = {},
   company_id,
