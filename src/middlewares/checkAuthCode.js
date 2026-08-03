@@ -55,14 +55,26 @@ export const checkAuthCode = async (req, res, next) => {
 
 export const checkAuthVendorCode = async (req, res, next) => {
   const x_auth_code = req.headers['x-auth-code'];
-
+  const payloads = req.body?.body || [req?.body] || []; 
+  const bankIds = [...new Set(payloads.map(item => item.bank_id))];
   if (x_auth_code) {
     const vendorInfo = await getVendorByAuthCodeDao({code: x_auth_code});
 
     if (!vendorInfo) {
       return sendError(res, 'Invalid x-auth-code code', 400);
     }
-    req.vendor = vendorInfo;
+
+    const matchedBanks = vendorInfo.banks.filter(bank =>
+      bankIds.includes(bank.id)
+    );
+    if (matchedBanks.length === 0) {
+      return sendError(res, 'No matching banks found for the provided bank_id(s)', 400);
+    }
+    const updatedVendorInfo = {
+      ...vendorInfo,
+      banks: matchedBanks
+    };
+    req.vendor = updatedVendorInfo;
   }
   else {
     return sendError(res, 'x-auth-code header is missing', 401);
