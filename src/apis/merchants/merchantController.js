@@ -351,11 +351,17 @@ const regenerateMerchantPrivateKey = async (req, res) => {
 
 const getMerchantUrlsAndWhitelist = async (req, res) => {
   const { user_id, company_id, designation } = req.user;
+  let userID = user_id;
   if (designation !== Role.MERCHANT && designation !== Role.SUB_MERCHANT) {
-    throw new BadRequestError('Only Merchant can get Merchant configuration');
+    if (designation === Role.ADMIN) {
+      userID = req.query?.code;
+    }
+    else {
+    throw new BadRequestError("Only Admin's Merchant can get Merchant configuration");
+    }
   }
   const data = await getMerchantUrlsAndWhitelistService({
-    user_id,
+    user_id: userID,
     company_id,
   });
   return sendSuccess(

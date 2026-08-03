@@ -820,7 +820,6 @@ const regenerateMerchantPrivateKeyService = async (
         updated_by: user_id,
       },
     );
-
     await invalidatePayinValidateMerchantCache(merchant.id);
     await invalidateMerchantAuthCodeCache({
       code: merchant.code,
@@ -841,7 +840,6 @@ const regenerateMerchantPrivateKeyService = async (
     throw error;
   }
 };
-
 const getMerchantUrlsAndWhitelistService = async ({ user_id, company_id }) => {
   try {
     const config = await getMerchantPrivateKeyConfigDao(user_id, company_id);
@@ -853,13 +851,13 @@ const getMerchantUrlsAndWhitelistService = async ({ user_id, company_id }) => {
       mcode: config.code,
       whitelist_ips: config.config?.whitelist_ips || '',
       urls: config.config?.urls || [],
+      unblocked_countries: config.config?.unblocked_countries || [],
     };
   } catch (error) {
     logger.error('Error while fetching merchant URLs and whitelist:', error);
     throw error;
   }
 };
-
 export {
   _createMerchantServiceInternal,
   createMerchantService,
