@@ -17,6 +17,42 @@ export const createHashApiKey = () => {
   const secretKey = crypto.randomBytes(64).toString('hex');
   return { publicKey, secretKey };
 };
+const getUserEncryptionKey = (userId) =>
+  crypto.createHash('sha256').update(String(userId)).digest();
+
+export const encryptWithUserId = (data, userId) => {
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv(
+    'aes-256-gcm',
+    getUserEncryptionKey(userId),
+    iv,
+  );
+  const encryptedData = Buffer.concat([
+    cipher.update(String(data), 'utf8'),
+    cipher.final(),
+  ]);
+
+  return {
+    encryptedData: encryptedData.toString('base64'),
+    iv: iv.toString('base64'),
+    authTag: cipher.getAuthTag().toString('base64'),
+  };
+};
+
+export const decryptWithUserId = (encryptedPayload, userId) => {
+  const decipher = crypto.createDecipheriv(
+    'aes-256-gcm',
+    getUserEncryptionKey(userId),
+    Buffer.from(encryptedPayload.iv, 'base64'),
+  );
+  decipher.setAuthTag(Buffer.from(encryptedPayload.authTag, 'base64'));
+  const decryptedData = Buffer.concat([
+    decipher.update(Buffer.from(encryptedPayload.encryptedData, 'base64')),
+    decipher.final(),
+  ]);
+
+  return decryptedData.toString('utf8');
+};
 
 export const generateSecureSignature = (
   x_api_key,
