@@ -2,8 +2,6 @@ import jwt from 'jsonwebtoken';
 import config from '../config/config.js';
 import bcrypt from 'bcryptjs';
 import { BadRequestError } from './appErrors.js';
-import { verifyHash } from './bcryptPassword.js';
-import { getLoginDao } from '../apis/auth/authDao.js';
 import { logger } from './logger.js';
 
 const createNewToken = (data) => {
@@ -19,18 +17,25 @@ const createNewToken = (data) => {
   };
 };
 
-const refreshAccessToken = async (data) => {
-  const user = await getLoginDao(data.user_id, data.company_id);
-  if (!user) {
-    throw new BadRequestError('Unauthorized"');
-  }
-  const isValid = await verifyHash(data.token, user.refresh_token);
-  if (!isValid) {
+const refreshAccessToken = (decoded) => {
+  if (!decoded || !decoded.user_id || !decoded.company_id) {
     throw new BadRequestError('Unauthorized access, Try to login again');
   }
-  const accessToken = jwt.sign(data, config.jwt.jwt_secret, {
+
+  // Remove reserved JWT claims before re-signing with expiresIn.
+  const claims = { ...decoded };
+  delete claims.exp;
+  delete claims.iat;
+  delete claims.nbf;
+  delete claims.aud;
+  delete claims.iss;
+  delete claims.sub;
+  delete claims.jti;
+
+  const accessToken = jwt.sign(claims, config.jwt.jwt_secret, {
     expiresIn: config.jwt.jwt_expires_in,
   });
+
   return { accessToken };
 };
 
@@ -76,9 +81,12 @@ const verifyRefreshToken = (token) => {
   try {
     return jwt.verify(token, config.jwt.refresh_token_secret, {
       algorithms: ['HS256'],
-      ignoreExpiration: true,
     });
   } catch (err) {
+    if (err.name === 'TokenExpiredError') {
+      logger.warn('Refresh token expired');
+      return false;
+    }
     logger.error('Refresh token verification failed:', err);
     return false;
   }

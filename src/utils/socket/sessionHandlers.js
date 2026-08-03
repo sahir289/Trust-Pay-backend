@@ -27,6 +27,7 @@ import {
 } from './socketMetadata.js';
 import { socketRuntime } from './state.js';
 import { terminateSocketSession } from './sessionUtils.js';
+import { registerRefreshTokenHandler } from './refreshToken.js';
 
 const validateLoginPayload = (payload) => {
   if (typeof payload === 'string') {
@@ -795,6 +796,9 @@ const registerSocketConnectionHandlers = () => {
     socket.on('user-login', (data) => {
       void guardedLogin(socket, data);
     });
+
+    // ✅ Token refresh (client → server)
+    registerRefreshTokenHandler(socket);
 
     logger.info(chalk.bold.cyan(`Client connected: ${socket.id}`));
 

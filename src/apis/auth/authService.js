@@ -327,19 +327,43 @@ const loginService = async (
   }
 };
 
-const refreshTokenService = async (user_id, company_id, refreshToken) => {
+const refreshTokenService = async (user_id, company_id, refreshToken, session_id = null) => {
   try {
-    const session = await getSessionByIdDao({ user_id, company_id });
+    const session = await getSessionByIdDao({
+      user_id,
+      company_id,
+      ...(session_id ? { session_id } : {}),
+    });
     if (!session) {
       throw new AuthenticationError('No active session found');
     }
 
-    const config = JSON.parse(session.config);
-    const isValid = compareHash(refreshToken, config.token.refresh_token);
+    let config;
+    if (session.config && typeof session.config === 'object') {
+      config = { ...session.config };
+    } else if (typeof session.config === 'string') {
+      try {
+        config = JSON.parse(session.config);
+      } catch {
+        throw new AuthenticationError('Invalid session data. Please login again.');
+      }
+    } else {
+      throw new AuthenticationError('Invalid session data. Please login again.');
+    }
+
+    const storedRefreshTokenHash = config?.token?.refresh_token;
+    if (!storedRefreshTokenHash) {
+      throw new AuthenticationError('Session token data missing. Please login again.');
+    }
+
+    const isValid = compareHash(refreshToken, storedRefreshTokenHash);
     if (!isValid) {
       throw new AuthenticationError('Invalid refresh token');
     }
-    return session;
+    return {
+      ...session,
+      parsedConfig: config,
+    };
   } catch (error) {
     logger.log('Error getting :', error);
     throw error;

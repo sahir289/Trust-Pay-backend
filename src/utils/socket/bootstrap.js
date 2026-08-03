@@ -20,8 +20,13 @@ const initializeSocket = async (server) => {
     transports: ['websocket', 'polling'],
     connectTimeout: 10000,
     cors: {
-      origin: [config?.reactFrontOrigin, config?.reactPaymentOrigin],
+      origin: [
+        config?.reactFrontOrigin1,
+        config?.reactFrontOrigin2,
+        config?.reactPaymentOrigin,
+      ].filter(Boolean),
       methods: ['GET', 'POST'],
+      credentials: true,
     },
     maxHttpBufferSize: 1024 * 100,
     pingInterval: 25000,

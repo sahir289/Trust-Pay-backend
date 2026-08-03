@@ -26,9 +26,9 @@ function config(Env) {
     },
     jwt: {
       jwt_secret: Env?.JWT_SECRET,
-      jwt_expires_in: Env?.JWT_EXPIRES_IN || '2h',
+      jwt_expires_in: Env?.JWT_EXPIRES_IN || '5m',
       refresh_token_secret: Env?.REFRESH_TOKEN_SECRET,
-      refresh_token_expires_in: Env?.REFRESH_TOKEN_EXPIRES_IN || '7d',
+      refresh_token_expires_in: Env?.REFRESH_TOKEN_EXPIRES_IN || '12h',
       temp_token: Env?.TEMP_TOKEN,
       temp_token_expires: Env?.TEMP_TOKEN_EXPIRES,
     },

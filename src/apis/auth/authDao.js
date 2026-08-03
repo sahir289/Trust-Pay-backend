@@ -78,6 +78,7 @@ const getSessionByIdDao = async (decodeToken, conn = null) => {
     throw error;
   }
 };
+
 const getSessionByUserIdDao = async (decodeToken, conn = null) => {
   try {
     const userId = decodeToken.user_id; 

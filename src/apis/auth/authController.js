@@ -6,17 +6,10 @@ import {
 } from '../../middlewares/authRateLimiter.js';
 import { INSERT_AUTH_SCHEMA } from '../../schemas/authSchema.js';
 import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
-import {
-  generateUserToken,
-  verifyToken,
-  verifyRefreshToken,
-} from '../../utils/auth.js';
+import { verifyToken } from '../../utils/auth.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
-import { updateSessionDao } from './authDao.js';
 import {
   loginService,
-  // logoutService,
-  refreshTokenService,
   changePasswordService,
   verificationService,
   verfyUserService,
@@ -29,6 +22,22 @@ import {
   confirm2FAService,
   disable2FAService,
 } from './authService.js';
+import { refreshAccessTokenFlow } from '../../services/refreshAccessToken.js';
+
+const getRefreshCookieOptions = (req) => {
+  const isSecureRequest =
+    process.env.NODE_ENV === 'production' ||
+    req.secure ||
+    req.headers['x-forwarded-proto'] === 'https';
+
+  return {
+    httpOnly: true,
+    secure: isSecureRequest,
+    // Cross-site SPA/API deployments require SameSite=None for cookie send/receive.
+    sameSite: isSecureRequest ? 'None' : 'Lax',
+    path: '/',
+  };
+};
 
 const loginController = async (req, res) => {
   let clientIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
@@ -58,22 +67,18 @@ const loginController = async (req, res) => {
   if (data.twoFactorRequired) {
     return sendSuccess(
       res,
-      { 
-        twoFactorRequired: true, 
+      {
+        twoFactorRequired: true,
         preAuthToken: data.preAuthToken,
-        two_factor_enforcement: data.two_factor_enforcement
+        two_factor_enforcement: data.two_factor_enforcement,
       },
       '2FA verification required',
     );
   }
-  
+
   // Handle case where global 2FA enforcement is active but user hasn't set up 2FA
   if (data.must_setup_2fa) {
-    res.cookie('refreshToken', data.refreshToken, {
-      httpOnly: true,
-      secure: true,
-      sameSite: 'Strict',
-    });
+    res.cookie('refreshToken', data.refreshToken, getRefreshCookieOptions(req));
     const token = {
       accessToken: data.tokenInfo.accessToken,
       sessionId: data.sessionId,
@@ -82,17 +87,13 @@ const loginController = async (req, res) => {
       must_setup_2fa: true,
     };
     return sendSuccess(
-      res, 
-      token, 
-      'Login successful. Global 2FA enforcement is active - you must set up Two-Factor Authentication before accessing other resources.'
+      res,
+      token,
+      'Login successful. Global 2FA enforcement is active - you must set up Two-Factor Authentication before accessing other resources.',
     );
   }
-  
-  res.cookie('refreshToken', data.refreshToken, {
-    httpOnly: true,
-    secure: true,
-    sameSite: 'Strict',
-  });
+
+  res.cookie('refreshToken', data.refreshToken, getRefreshCookieOptions(req));
   const token = {
     accessToken: data.tokenInfo.accessToken,
     sessionId: data.sessionId,
@@ -105,31 +106,14 @@ const loginController = async (req, res) => {
 
 const refreshTokenController = async (req, res) => {
   const { refreshToken } = req.cookies;
-  if (!refreshToken) {
-    throw new BadRequestError('Unauthorized access, Try to login again');
-  }
-  const decoded = verifyRefreshToken(refreshToken);
-  if (!decoded || !decoded.user_id || !decoded.company_id) {
-    throw new BadRequestError('Unauthorized access, Try to login again');
-  }
-  const session = await refreshTokenService(
-    decoded.user_id,
-    decoded.company_id,
-    refreshToken,
-  );
-  const newAccessToken = generateUserToken(decoded);
 
-  const config = JSON.parse(session.config);
-  config.token.access_token = newAccessToken;
-  await updateSessionDao(
-    decoded.user_id,
-    decoded.company_id,
-    session.session_id,
-    config,
-  );
-  const token = { accessToken: newAccessToken };
+  const result = await refreshAccessTokenFlow(refreshToken);
 
-  return sendSuccess(res, token, 'Refresh token generated successfully');
+  return sendSuccess(
+    res,
+    { accessToken: result.accessToken },
+    'Refresh token generated successfully',
+  );
 };
 
 const logoutController = async (req, res) => {
@@ -142,7 +126,7 @@ const logoutController = async (req, res) => {
 };
 
 const verificationController = async (req, res) => {
-  const { user_name,user_id,company_id } = req.user;
+  const { user_name, user_id, company_id } = req.user;
   const { password } = req.body;
   let ids = { user_id, company_id };
   const validate = await verificationService(ids, { user_name, password });
@@ -218,18 +202,19 @@ const verifyLoginOtpController = async (req, res) => {
   }
   let data;
   try {
-    data = await verifyLoginOtpService(preAuthToken, String(otpToken), clientIP, ua);
+    data = await verifyLoginOtpService(
+      preAuthToken,
+      String(otpToken),
+      clientIP,
+      ua,
+    );
   } catch (err) {
     // Count failed OTP attempts toward the 2FA brute-force lockout.
     await recordAuthFailure(req);
     throw err;
   }
   await resetAuthFailures(req);
-  res.cookie('refreshToken', data.tokenInfo.refreshToken, {
-    httpOnly: true,
-    secure: true,
-    sameSite: 'Strict',
-  });
+  res.cookie('refreshToken', data.tokenInfo.refreshToken, getRefreshCookieOptions(req));
   const token = {
     accessToken: data.tokenInfo.accessToken,
     sessionId: data.sessionId,
@@ -248,7 +233,11 @@ const verifyLoginOtpController = async (req, res) => {
 const setup2FAController = async (req, res) => {
   const { user_id, user_name } = req.user;
   const result = await setup2FAService(user_id, user_name);
-  return sendSuccess(res, result, '2FA setup initiated. Scan the QR code, then call /2fa/confirm');
+  return sendSuccess(
+    res,
+    result,
+    '2FA setup initiated. Scan the QR code, then call /2fa/confirm',
+  );
 };
 
 /**
