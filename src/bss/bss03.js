@@ -175,7 +175,7 @@ export async function createBSS03Payout(
     }
 
     if (!payload.utr_id) {
-      payload.utr_id = checkBSS?.utr || '';
+      payload.utr_id = checkBSS?.utr || checkBSS?.RRN || '';
     }
 
     logger.info('BSS1015 payout processed successfully:', payload);
