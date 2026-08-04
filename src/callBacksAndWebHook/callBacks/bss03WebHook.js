@@ -93,7 +93,7 @@ export const bss03TransactionStatusCallback = async (req, res) => {
         vendor_id: vendor.id,
         config: {
           method: 'BSS03',
-          description: 'Payout processing via BSS1015',
+          description: 'Payout processing via BSS03',
         },
       };
       const adminUser = await getUserByCompanyCreatedAtDao(
