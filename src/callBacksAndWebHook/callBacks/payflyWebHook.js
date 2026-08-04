@@ -15,6 +15,11 @@ const isValidWebhookHash = (payload, receivedHash, payoutSecret) => {
   }
 
   const expectedHash = createPayflyHash(payload, payoutSecret);
+  logger.info('Payfly webhook hash comparison', {
+    payload: JSON.stringify(payload),
+    receivedHash: String(receivedHash).trim(),
+    generatedHash: expectedHash,
+  });
   const expectedBuffer = Buffer.from(expectedHash, 'hex');
   const receivedBuffer = Buffer.from(String(receivedHash).trim(), 'hex');
   return expectedBuffer.length === receivedBuffer.length && crypto.timingSafeEqual(
@@ -68,7 +73,10 @@ export const payflyTransactionStatusCallback = async (req, res) => {
     const payoutSecret = company?.config?.PAYFLY?.payoutSecret;
     if (!isValidWebhookHash(payload, receivedHash, payoutSecret)) {
       await rollback(conn);
-      logger.warn('Rejected Payfly webhook with an invalid hash');
+      logger.warn('Rejected Payfly webhook with an invalid hash', {
+        transactionId,
+        merchantOrderId: payout.merchant_order_id || null,
+      });
       return;
     }
     if ([Status.APPROVED, Status.REJECTED, Status.REVERSED].includes(payout.status)) {

@@ -37,7 +37,7 @@ export const createPayflyHash = (payload, payoutSecret) => {
   const canonicalPayload = Object.entries(payload)
     .filter(([key]) => key !== 'hash')
     .sort(([firstKey], [secondKey]) => firstKey.localeCompare(secondKey))
-    .map(([key, value]) => `${key}=${String(value)}`)
+    .map(([key, value]) => `${key}=${value == null ? '' : String(value)}`)
     .join('|');
 
   return crypto
