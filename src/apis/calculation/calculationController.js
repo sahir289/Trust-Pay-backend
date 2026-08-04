@@ -1,4 +1,4 @@
-import { sendSuccess } from '../../utils/responseHandlers.js';
+import { sendError, sendSuccess } from '../../utils/responseHandlers.js';
 import {
   getCalculationService,
   createCalculationService,
@@ -161,15 +161,10 @@ export const CalculationUserController = async (req, res) => {
   try {
     const result = await CalculationUserService(payload, user_id, company_id);
 
-    return res.status(200).json({
-      success: true,
-      data: result,
-    });
+    return sendSuccess(res, result, `${payload.role === 'Vendor' ? 'Vendor' : 'Merchant'} Calculation ${payload.runMode === 'PREVIEW'? 'PREVIEW': 'UPDATE'} successfully`);
   } catch (error) {
-    return res.status(500).json({
-      success: false,
-      message: error.message,
-    });
+    logger.error('Error in CalculationUserController:', error);
+    return sendError(res, error, 'Error in CalculationUserController');
   }
 };
 
