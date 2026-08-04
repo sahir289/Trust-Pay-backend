@@ -1,4 +1,4 @@
-import { sendSuccess } from '../../utils/responseHandlers.js';
+import { sendError, sendSuccess } from '../../utils/responseHandlers.js';
 import {
   getCalculationService,
   createCalculationService,
@@ -6,11 +6,13 @@ import {
   deleteCalculationService,
   calculateSuccessRatiosService,
   updateCalculationsService,
+  CalculationUserService,
 } from './calculationService.js';
 import {
   VALIDATE_CALCULATION_SCHEMA,
   VALIDATE_UPDATE_CALCULATION_STATUS,
   VALIDATE_UPDATE_CALCULATIONS_SCHEMA,
+  VALIDATE_UPDATE_USER_CALCULATION_SCHEMA,
 } from '../../schemas/calculationSchema.js';
 import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
 import { logger } from '../../utils/logger.js';
@@ -145,6 +147,25 @@ const updateCalculation = async (req, res) => {
   await updateCalculationService(ids, payload, role);
   await invalidateCalculationCache(company_id);
   return sendSuccess(res, {}, 'Update Calculation successfully');
+};
+
+export const CalculationUserController = async (req, res) => {
+  const payload = req.body;
+  const { company_id } = req.user;
+  const { user_id } = req.params
+
+  const { error } = VALIDATE_UPDATE_USER_CALCULATION_SCHEMA.validate(req.body);
+  if (error) {
+    throw new ValidationError(error);
+  }
+  try {
+    const result = await CalculationUserService(payload, user_id, company_id);
+
+    return sendSuccess(res, result, `${payload.role === 'Vendor' ? 'Vendor' : 'Merchant'} Calculation ${payload.runMode === 'PREVIEW'? 'PREVIEW': 'UPDATE'} successfully`);
+  } catch (error) {
+    logger.error('Error in CalculationUserController:', error);
+    return sendError(res, error, 'Error in CalculationUserController');
+  }
 };
 
 // const result = await transactionWrapper(updatePayoutService)(id, payload);

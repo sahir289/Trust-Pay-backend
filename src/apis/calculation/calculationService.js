@@ -12,6 +12,7 @@ import {
   calculateAdjustmentDataDao,
   getUserRoleDao,
   getCalculationsForInternalUseDao,
+  CalculationUserDao,
 } from './calculationDao.js';
 import { getUserHierarchysDao } from '../userHierarchy/userHierarchyDao.js';
 
@@ -127,6 +128,19 @@ const updateCalculationService = async (filters, payload, role) => {
   } finally {
     if (conn) conn.release();
   }
+};
+
+export const CalculationUserService = async (body, userId, companyId) => {
+
+  const data = await CalculationUserDao({
+    runMode: body.runMode,
+    userId: userId,
+    companyId: companyId,
+    fromDate: body.fromDate,
+    toDate: body.toDate,
+    role: body.role
+  });
+  return data;
 };
 
 // Service to mark a calculation record as obsolete (soft delete)

@@ -4,7 +4,7 @@ import dbConnScope from '../../../middlewares/dbConnScope.js';
 import { checkAuthVendorCode } from '../../../middlewares/checkAuthCode.js';
 import { verifyRequestSignature } from '../../../middlewares/requestSignature.js';
 import { rateLimitMiddlewareBot } from '../../../middlewares/rateLimiter.js';
-import { createBankBotV2Response, createBankBotV2ResponseBulk } from './bankRespopnseV2Controller.js';
+import { activeInactiveV2BankAccount, createBankBotV2Response, createBankBotV2ResponseBulk } from './bankRespopnseV2Controller.js';
 
 const router = express.Router();
 
@@ -22,5 +22,12 @@ router.post('/create-bot-message-bulk',
   checkAuthVendorCode,
   verifyRequestSignature({ required: true }),
   tryCatchHandler(createBankBotV2ResponseBulk));
+
+  router.patch(
+    '/active-inactive-bankAccount',
+    checkAuthVendorCode,
+    verifyRequestSignature({ required: true }),
+    tryCatchHandler(activeInactiveV2BankAccount),
+  );
 
 export default router;

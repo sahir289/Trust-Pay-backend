@@ -25,6 +25,19 @@ const VALIDATE_CALCULATION_SCHEMA = Joi.object({
   config: Joi.object().optional().default({}),
 });
 
+const VALIDATE_UPDATE_USER_CALCULATION_SCHEMA = Joi.object({
+  role: Joi.string()
+    .valid('Merchant', 'Vendor')
+    .label('role')
+    .required(),
+  runMode: Joi.string()
+    .valid('PREVIEW', 'UPDATE')
+    .label('runMode')
+    .required(),
+  fromDate: Joi.date().label('fromDate').required(),
+  toDate: Joi.date().label('toDate').required()
+});
+
 // Validation Schema for Updating a Calculation
 const VALIDATE_UPDATE_CALCULATION_STATUS = Joi.object({
   is_obsolete: Joi.boolean().optional(),
@@ -101,5 +114,6 @@ export {
   VALIDATE_CALCULATION_SCHEMA,
   VALIDATE_DELETE_CALCULATION,
   VALIDATE_UPDATE_CALCULATION_STATUS,
+  VALIDATE_UPDATE_USER_CALCULATION_SCHEMA,
   VALIDATE_UPDATE_CALCULATIONS_SCHEMA,
 };

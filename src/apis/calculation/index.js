@@ -8,6 +8,7 @@ import {
   deleteCalculation,
   calculateSuccessRatios,
   updateCalculations,
+  CalculationUserController,
 } from './calculationController.js';
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
@@ -233,6 +234,12 @@ router.put(
   '/update-calculation/:id',
   [isAuthenticated, authorized(AccessRoles.CALCULATION)],
   tryCatchHandler(updateCalculation),
+);
+
+router.post(
+  '/update-user-calculation/:user_id',
+  [isAuthenticated, authorized(AccessRoles.USER_INFO)],
+  tryCatchHandler(CalculationUserController),
 );
 
 /**

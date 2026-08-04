@@ -84,7 +84,7 @@ const normalizeBankAccountsResponse = (payload) => {
   return normalizeBankNumericFields(payload);
 };
 
-const invalidateBankAccountsCache = async (companyId) =>
+export const invalidateBankAccountsCache = async (companyId) =>
   invalidateCompanyCacheByPrefix(
     companyId,
     'bankaccounts:read:',

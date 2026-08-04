@@ -8,6 +8,9 @@ import { markStatementUploadedDao } from '../../bankAccounts/bankaccountDao.js';
 import { notifyStatementUploadCleared } from '../../../utils/sockets.js';
 import logger from '../../../utils/logger.js';
 import { BULK_PUBLISH_CONCURRENCY, BULK_PUBLISH_MAX_ITEMS } from '../../bankResponse/bankResponseController.js';
+import { VALIDATE_ACTIVE_INACTIVE_V2_BANK_ACCOUNT_SCHEMA } from '../../../schemas/bankAccoountSchema.js';
+import { activeInactiveBankAccountService } from '../../bankAccounts/bankaccountServices.js';
+import { invalidateBankAccountsCache } from '../../bankAccounts/bankaccountController.js';
 
 export const createBankBotV2Response = async (req, res) => {
   
@@ -142,5 +145,28 @@ export const createBankBotV2ResponseBulk = async (req, res) => {
       status: 202,
     },
     status
+  );
+};
+
+export const activeInactiveV2BankAccount = async (req, res) => {
+  const { bank_id, is_active } = req.body;
+  const company_id = req.vendor?.company_id;
+  const joiValidation = VALIDATE_ACTIVE_INACTIVE_V2_BANK_ACCOUNT_SCHEMA.validate(req.body);
+  if (joiValidation.error) {
+    throw new ValidationError(joiValidation.error);
+  }
+  const ids = { id: bank_id, company_id: company_id };
+  const payload = {
+    config:{bot_bank_active: is_active},
+  };
+  const updateBank = await activeInactiveBankAccountService(
+    ids,
+    payload,
+  );
+  await invalidateBankAccountsCache(company_id);
+  return sendSuccess(
+    res,
+    { id: updateBank.id },
+    `Bank account ${is_active === true ? 'activated' : 'deactivated'} successfully`,
   );
 };

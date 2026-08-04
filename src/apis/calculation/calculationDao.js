@@ -12,6 +12,9 @@ import { BadRequestError, NotFoundError } from '../../utils/appErrors.js';
 import dayjs from 'dayjs';
 import { logger } from '../../utils/logger.js';
 import config from '../../config/config.js';
+import fs from "fs/promises";
+import path from "path";
+import { fileURLToPath } from "url";
 
 const IST = 'Asia/Kolkata';
 
@@ -1544,6 +1547,42 @@ const updateCalculationDao = async (id, data, conn = null) => {
     logger.error('Error updating calculation:', error); // Log the error for debugging
     throw error;
   }
+};
+
+export const CalculationUserDao = async ({
+  runMode,
+  userId,
+  companyId,
+  fromDate,
+  toDate,
+  role
+}) => {
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
+  let address = ''
+
+  if (role === "Merchant") {
+    address = "../../../sql/merchantCalculation.sql";
+  } else if (role === "Vendor") {
+    address = "../../../sql/vendorCalculation.sql";
+  } else {
+    throw new BadRequestError("Calculation Update Applicable only Merchant and Vendor role");
+  }
+  const sqlPath = path.join(
+    __dirname,
+    address
+  );
+  const query = await fs.readFile(sqlPath, "utf8");
+
+const result = await executeQuery(query, [
+  runMode,
+  userId,
+  companyId,
+  fromDate,
+  toDate,
+]);
+
+return result.rows;
 };
 const updateCalculationConfigDao = async (id, data, conn = null) => {
   return buildAndExecuteUpdateQuery(
