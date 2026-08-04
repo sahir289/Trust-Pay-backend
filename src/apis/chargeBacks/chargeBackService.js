@@ -678,7 +678,7 @@ const _updateChargeBackServiceInternal = async (
     await updateCalculationBalanceDao(
       { id: merchantId },
       {
-        total_chargeback_count: 1,
+        // total_chargeback_count: 1,
         total_chargeback_amount: amount,
         current_balance: -amount,
         net_balance: -amount,

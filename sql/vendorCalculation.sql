@@ -162,7 +162,7 @@ payin AS (
     ON br.bank_id = ba.id
    AND br.company_id = p.company_id
    AND COALESCE(br.is_obsolete, false) = false
-   AND br.status = '/success'
+   AND br.status IN ('/success', '/internalTransfer')
    AND br.created_at::date = p.target_date
   GROUP BY p.user_id, p.company_id, p.target_date
 ),
