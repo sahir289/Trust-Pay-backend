@@ -16,17 +16,18 @@ import {
   getConnection,
   rollback,
 } from '../../utils/db.js';
-
+import { sendSuccess } from '../../utils/responseHandlers.js';
 // Define the optimized payAssistTransactionStatusCallback function
 export const bss02TransactionStatusCallback = async (req, res) => {
   const payload = req.body;
+  sendSuccess(res, payload, 'BSS02 Webhook received successfully');
   const apitxnid = payload?.CallBack?.OrderID;
   let conn;
   let committed = false;
-  logger.info('Received BSS1013 callback payload:', payload);
   try {
     if (!apitxnid || apitxnid === '') {
-      return res.status(404).send('Payment not found');
+      logger.warn('BSS02 callback missing OrderID');
+      return;
     }
 
     conn = await getConnection();
@@ -42,7 +43,8 @@ export const bss02TransactionStatusCallback = async (req, res) => {
     );
     if (!singleWithdrawData) {
       await rollback(conn);
-      return res.status(404).send('Payment not found');
+      logger.warn('BSS02 payout not found for callback', { apitxnid });
+      return;
     }
 
     if (
@@ -53,7 +55,7 @@ export const bss02TransactionStatusCallback = async (req, res) => {
         status: singleWithdrawData.status,
       });
       await rollback(conn);
-      return res.status(200).send('Payout already processed');
+      return;
     }
     logger.info('Fetched payout data for OrderID:', apitxnid);
 
@@ -91,8 +93,8 @@ export const bss02TransactionStatusCallback = async (req, res) => {
         bank_acc_id: bankId,
         vendor_id: vendor.id,
         config: {
-          method: 'BSS1013',
-          description: 'Payout processing via BSS1013',
+          method: 'BSS02',
+          description: 'Payout processing via BSS02',
         },
       };
       const adminUser = await getUserByCompanyCreatedAtDao(
@@ -126,6 +128,7 @@ export const bss02TransactionStatusCallback = async (req, res) => {
           company_id: singleWithdrawData.company_id,
         },
         updatePayload,
+        null,
         conn,
       );
     };
@@ -147,7 +150,12 @@ export const bss02TransactionStatusCallback = async (req, res) => {
       await handlePayoutUpdate(payload, false, false, conn);
     } else {
       await rollback(conn);
-      return res.status(400).send(payload.ErrorMessage);
+      logger.warn('Unsupported BSS02 callback status', {
+        apitxnid,
+        status: payload?.CallBack?.Status,
+        errorMessage: payload?.ErrorMessage || null,
+      });
+      return;
     }
 
     // Log the updated payout status
@@ -158,7 +166,11 @@ export const bss02TransactionStatusCallback = async (req, res) => {
     await commit(conn);
     committed = true;
 
-    return res.status(200).send('Payout Updated Successfully');
+    logger.info('BSS02 payout updated successfully', {
+      payoutId: singleWithdrawData.id,
+      apitxnid,
+    });
+    return;
   } catch (err) {
     if (conn && !committed) await rollback(conn);
     // Log any errors while updating the payout
