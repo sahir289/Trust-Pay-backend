@@ -143,7 +143,12 @@ export const getPayoutsDao = async (
       paramIndex += 2;
     }
 
-    const handledKeys = new Set(['page', 'limit', 'startDate', 'endDate']);
+    if (filters?.txnid) {
+      conditions.push(`(u.config->>'txnid') = $${paramIndex}`);
+      queryParams.push(String(filters.txnid).trim());
+      paramIndex += 1;
+    }
+    const handledKeys = new Set(['page', 'limit', 'startDate', 'endDate', 'txnid']);
     Object.entries(filters).forEach(([key, value]) => {
       if (handledKeys.has(key) || value == null || value === '') return;
       const nextParamIdx = paramIndex;

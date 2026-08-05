@@ -48,6 +48,8 @@ import {
   getPayInFintechWalletBalance,
 } from '../../payinfintech/payinfintech.js';
 import { getWalletBalance } from '../../pennypay/pennypay.js';
+import { getPayflyWalletBalance } from '../../payfly/payfly.js';
+import { payflyTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/payflyWebHook.js';
 const router = express.Router();
 
 /**
@@ -420,6 +422,12 @@ router.post('/bss02-callback',payoutIpAccessControl, tryCatchHandler(bss02Transa
 router.post('/bss03-callback',payoutIpAccessControl, tryCatchHandler(bss03TransactionStatusCallback));
 
 router.post(
+  '/payfly-callback',
+  payoutIpAccessControl,
+  tryCatchHandler(payflyTransactionStatusCallback),
+);
+
+router.post(
   '/payassist-callback',
   payoutIpAccessControl,
   tryCatchHandler(payAssistTransactionStatusCallback),
@@ -446,6 +454,12 @@ router.get(
   '/rupeeflow/wallet-balance',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(getRupeeFlowWalletBalance),
+);
+
+router.get(
+  '/payfly/wallet-balance',
+  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  tryCatchHandler(getPayflyWalletBalance),
 );
 
 router.get(
