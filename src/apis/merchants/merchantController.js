@@ -313,7 +313,7 @@ const regenerateMerchantPrivateKey = async (req, res) => {
   if (designation !== Role.MERCHANT && designation !== Role.SUB_MERCHANT) {
     throw new BadRequestError('Only Merchant can Regenerate Secret key');
   }
-  const cacheKey = `merchant:private-key:regenerate:${company_id}:${'ere'}`;
+  const cacheKey = `merchant:private-key:regenerate:${company_id}:${user_id}`;
   const cachedKey = await getCachedData(
     cacheKey,
     'Merchant private-key regeneration cache',
