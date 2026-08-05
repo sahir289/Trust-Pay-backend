@@ -64,7 +64,8 @@ const getCompanyDetailsByIdDao = async (id, conn = null) => {
       config ->> 'allow_trustpay' AS trustpay_intent,
       config ->> 'allow_payout_trustpay' AS allowtrustpay,
       config ->> 'allow_payout_pennypay' AS allowpennypay,
-      config ->> 'allowPayInFintech' AS allowPayInFintech
+      config ->> 'allowPayInFintech' AS allowPayInFintech,
+      config ->> 'allow_payout_payfly' AS allowpayfly
       FROM "${tableName.COMPANY}" WHERE 1 = 1`;
     const [sql, queryParams] = buildSelectQuery(baseQuery, id);
     const result = await executeQuery(sql, queryParams, conn);
