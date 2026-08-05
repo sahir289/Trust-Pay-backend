@@ -693,7 +693,7 @@ const _updateChargeBackServiceInternal = async (
     );
     let VendorId = vendorCalculation[0].id;
     const updatedCalculation = {
-      total_chargeback_count: 1,
+      // total_chargeback_count: 1,
       total_chargeback_amount: amount,
       current_balance: -amount,
       net_balance: -amount,
