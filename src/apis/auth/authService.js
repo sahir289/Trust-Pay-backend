@@ -616,7 +616,7 @@ const verifyLoginOtpService = async (preAuthToken, otpToken, clientIP, ua) => {
     // 3. Verify the OTP
     const isValid = verifyTotpToken(otpToken, user.two_factor_secret);
     if (!isValid) {
-      throw new AuthenticationError('Invalid or expired OTP. Please try again.');
+      throw new BadRequestError('Invalid or expired OTP. Please try again.');
     }
 
     // 4. Create the real session and issue the full JWT
