@@ -14,28 +14,36 @@ import { sendSuccess } from '../../utils/responseHandlers.js';
 
 // Define the optimized payAssistTransactionStatusCallback function
 export const payAssistTransactionStatusCallback = async (req, res) => {
-  sendSuccess(res, {}, 'Webhook received successfully');
+  sendSuccess(res, {}, 'Payassist Webhook received successfully');
   const payload = req.body;
   const apitxnid = payload?.Response?.apitxnid;
 
   try {
     if (!apitxnid || apitxnid === '') {
-      return res.status(404).send('Payment not found');
+      logger.warn('PayAssist webhook missing apitxnid', {
+        merchant_order_id: apitxnid || null,
+        payload,
+      });
+      return;
     }
 
     const [singleWithdrawData] = await getPayoutsDao({ merchant_order_id: apitxnid });
     if (!singleWithdrawData) {
-      return res.status(404).send('Payment not found');
+      logger.warn('PayAssist webhook payout not found', {
+        merchant_order_id: apitxnid,
+      });
+      return;
     }
 
     if (
       ![Status.INITIATED, Status.PENDING].includes(singleWithdrawData.status)
     ) {
       logger.info('Payout already processed', {
+        merchant_order_id: apitxnid,
         payoutId: singleWithdrawData.id,
         status: singleWithdrawData.status,
       });
-      return res.status(200).send('Payout already processed');
+      return;
     }
 
     const [company] = await getCompanyByIDDao({
@@ -122,19 +130,27 @@ export const payAssistTransactionStatusCallback = async (req, res) => {
       } else if (errorCode === '1' && statuscode === 'TXF') {
         await handlePayoutUpdate(payload, false);
       } else {
-        logger.error("PayAssist payout callback error", payload.ErrorMessage)
-        return res.status(400).send(payload.ErrorMessage);
+          logger.error('PayAssist payout callback error', {
+            merchant_order_id: apitxnid,
+            errorMessage: payload.ErrorMessage,
+            response: payload?.Response,
+          });
+        return;
       }
     }
 
     // Log the updated payout status
     logger.info('Payout Updated by PayAssist callback', {
+      merchant_order_id: apitxnid,
+      payoutId: singleWithdrawData.id,
       status: singleWithdrawData.status,
     });
-
-    return res.status(200).send('Payout Updated Successfully');
+    return;
   } catch (err) {
     // Log any errors while updating the payout
-    logger.error('getting error while updating payout', err);
+    logger.error('getting error while updating payout', {
+      merchant_order_id: apitxnid,
+      error: err?.message || err,
+    });
   }
 };
