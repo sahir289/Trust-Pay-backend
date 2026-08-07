@@ -259,7 +259,14 @@ const createBankResponseService = async (
   let conn;
   let committed = false;
   const postCommitTasks = [];
-  const { amount, upi_short_code, utr,bank_id, from_UI } = payload;
+  const {
+    amount: rawAmount,
+    upi_short_code,
+    utr,
+    bank_id,
+    from_UI,
+  } = payload;
+  const amount = Number(rawAmount);
   // const splitData = payload.split(' ');
   // const amount = Number.parseFloat(payload.amount[0]);
   // const upi_short_code = splitData.length > 1 ? splitData[1] : '';
@@ -780,7 +787,7 @@ const createBankResponseService = async (
           payInUtr.amount === amount ||
           (isValidAmountCode &&
             isValidAmountCode === payInUtr.upi_short_code &&
-            payInUtr.amount === amount)
+            Number(payInUtr.amount) === amount)
         ) {
           if (
             (payInUtr.user_submitted_utr !== utr &&
