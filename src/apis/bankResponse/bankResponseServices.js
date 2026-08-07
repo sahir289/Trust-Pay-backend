@@ -787,7 +787,7 @@ const createBankResponseService = async (
           payInUtr.amount === amount ||
           (isValidAmountCode &&
             isValidAmountCode === payInUtr.upi_short_code &&
-            Number(payInUtr.amount) === amount)
+            payInUtr.amount === amount)
         ) {
           if (
             (payInUtr.user_submitted_utr !== utr &&
