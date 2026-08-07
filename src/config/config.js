@@ -351,6 +351,10 @@ function config(Env) {
         list: parsePositiveInt(Env?.MERCHANTS_LIST_CACHE_TTL_SEC, 20),
         search: parsePositiveInt(Env?.MERCHANTS_SEARCH_CACHE_TTL_SEC, 20),
         codes: parsePositiveInt(Env?.MERCHANT_CODES_CACHE_TTL_SEC, 30),
+        privateKeyRegeneration: parsePositiveInt(
+          Env?.MERCHANT_PRIVATE_KEY_REGENERATION_TTL_SEC,
+          5 * 60,
+        ),
       },
       vendors: {
         byId: parsePositiveInt(Env?.VENDOR_BY_ID_CACHE_TTL_SEC, 15),

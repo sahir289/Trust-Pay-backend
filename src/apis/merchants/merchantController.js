@@ -9,16 +9,25 @@ import {
   getMerchantsService,
   getMerchantsServiceCode,
   updateMerchantService,
-  migrateMerchantService
+  migrateMerchantService,
+  regenerateMerchantPrivateKeyService,
+  getMerchantUrlsAndWhitelistService,
 } from './merchantService.js';
 import {
   VALIDATE_UPDATE_MERCHANT_STATUS,
   VALIDATE_MERCHANT_SCHEMA,
 } from '../../schemas/merchantSchema.js';
 import { BadRequestError, ValidationError } from '../../utils/appErrors.js';
-import { createHashApiKey } from '../../utils/cryptoAlgorithm.js';
+import {
+  createHashApiKey,
+  encryptWithUserId,
+} from '../../utils/cryptoAlgorithm.js';
 import { logger } from '../../utils/logger.js';
-import { generateCacheKey } from '../../utils/redishashkey.js';
+import {
+  generateCacheKey,
+  getCachedData,
+  setCachedData,
+} from '../../utils/redishashkey.js';
 import {
   normalizeQueryForCache,
   readJsonCache,
@@ -27,7 +36,7 @@ import {
   invalidateCompanyCacheByPrefix,
 } from '../../utils/controllerCache.js';
 import config from '../../config/config.js';
-
+import { Role } from '../../constants/index.js';
 const invalidateMerchantsCache = async (companyId) =>
   invalidateCompanyCacheByPrefix(
     companyId,
@@ -35,6 +44,8 @@ const invalidateMerchantsCache = async (companyId) =>
     'Merchants cache',
   );
 const { controllerCacheTtls } = config;
+const MERCHANT_PRIVATE_KEY_REGENERATION_TTL_SEC =
+  controllerCacheTtls.merchants.privateKeyRegeneration;
 
 const createMerchant = async (req, res) => {
   const { body: payload, user } = req;
@@ -297,6 +308,68 @@ const migrateMerchant = async (req, res) => {
     'Merchant credentials migrated successfully',
   );
 };
+const regenerateMerchantPrivateKey = async (req, res) => {
+  const { company_id, user_id ,designation } = req.user;
+  if (designation !== Role.MERCHANT && designation !== Role.SUB_MERCHANT) {
+    throw new BadRequestError('Only Merchant can Regenerate Secret key');
+  }
+  const cacheKey = `merchant:private-key:regenerate:${company_id}:${user_id}`;
+  const cachedKey = await getCachedData(
+    cacheKey,
+    'Merchant private-key regeneration cache',
+  );
+
+  if (cachedKey) {
+    return sendSuccess(
+      res,
+      cachedKey,
+      'Merchant Secret key get successfully',
+    );
+  }
+
+  const merchant = await regenerateMerchantPrivateKeyService(
+    { user_id, company_id },
+  );
+  await invalidateMerchantsCache(company_id);
+
+  const data = encryptWithUserId(
+      merchant.config?.keys?.private,
+      user_id,
+    );
+  await setCachedData(
+    cacheKey,
+    data,
+    MERCHANT_PRIVATE_KEY_REGENERATION_TTL_SEC,
+    'Merchant private-key regeneration cache',
+  );
+  return sendSuccess(
+    res,
+    data,
+    'Merchant Secret key regenerated successfully',
+  );
+};
+
+const getMerchantUrlsAndWhitelist = async (req, res) => {
+  const { user_id, company_id, designation } = req.user;
+  let userID = user_id;
+  if (designation !== Role.MERCHANT && designation !== Role.SUB_MERCHANT) {
+    if (designation === Role.ADMIN) {
+      userID = req.query?.code;
+    }
+    else {
+    throw new BadRequestError("Only Admin's Merchant can get Merchant configuration");
+    }
+  }
+  const data = await getMerchantUrlsAndWhitelistService({
+    user_id: userID,
+    company_id,
+  });
+  return sendSuccess(
+    res,
+    data,
+    'Merchant configuration fetched successfully',
+  );
+};
 const deleteMerchant = async (req, res) => {
   const { role } = req.user;
   if (!req.params) {
@@ -328,5 +401,7 @@ export {
   getMerchantsById,
   getMerchantCodes,
   getMerchantByCode,
-  migrateMerchant
+  migrateMerchant,
+  regenerateMerchantPrivateKey,
+  getMerchantUrlsAndWhitelist,
 };

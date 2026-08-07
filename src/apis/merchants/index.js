@@ -9,7 +9,9 @@ import {
   getMerchantCodes,
   getMerchantsBySearch,
   getMerchantByCode,
-  migrateMerchant
+  migrateMerchant,
+  regenerateMerchantPrivateKey,
+  getMerchantUrlsAndWhitelist,
 } from './merchantController.js';
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
@@ -59,6 +61,11 @@ router.get(
   [isAuthenticated, authorized(AccessRoles.MERCHANT)],
   tryCatchHandler(getMerchantByCode),
 );
+router.get(
+  '/regenerate-key',
+  [isAuthenticated, authorized(AccessRoles.MERCHANT)],
+  tryCatchHandler(regenerateMerchantPrivateKey),
+);
 
 /**
  * @swagger
@@ -90,6 +97,11 @@ router.get(
   '/codes',
   [isAuthenticated, authorized(AccessRoles.MERCHANT)],
   tryCatchHandler(getMerchantCodes),
+);
+router.get(
+  '/config',
+  [isAuthenticated, authorized(AccessRoles.MERCHANT)],
+  tryCatchHandler(getMerchantUrlsAndWhitelist),
 );
 
 /**

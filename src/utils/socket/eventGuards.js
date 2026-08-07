@@ -1,11 +1,11 @@
 import { logger } from '../logger.js';
 import { AuthenticationError } from '../appErrors.js';
-import { consumeSocketRateLimit, socketLimiterProfiles } from './rateLimit.js';
+import { consumeSocketRateLimit, getSocketClientAddress, socketLimiterProfiles } from './rateLimit.js';
 import { getSocketUserId } from './socketMetadata.js';
 
 const buildSocketEventKey = (socket, eventName, scope = 'generic') => {
   const socketUserId = getSocketUserId(socket) || socket.data?.authTokenUserId;
-  const address = socket.handshake?.address || 'unknown';
+  const address = getSocketClientAddress(socket);
   return `${scope}:${eventName}:${socketUserId || address}`;
 };
 
