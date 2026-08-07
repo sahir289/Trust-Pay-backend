@@ -10,19 +10,28 @@ import { sendSuccess } from '../../utils/responseHandlers.js';
 
 // Define the optimized payDumTransactionStatusCallback function
 export const payDumTransactionStatusCallback = async (req, res) => {
-  sendSuccess(res, {}, 'Webhook received successfully');
+  sendSuccess(res, {}, 'PayDum Webhook received successfully');
   const payload = req.body;
   const apitxnid = payload?.Response?.apitxnid;
-  logger.info('Webhook received paydum payload ', payload)
+  logger.info('Webhook received paydum payload', {
+    merchant_order_id: apitxnid || null,
+    payload,
+  });
 
   try {
     if (!apitxnid || apitxnid === '') {
-      return res.status(404).send('Payment not found');
+      logger.warn('PayDum webhook missing apitxnid', {
+        merchant_order_id: apitxnid || null,
+      });
+      return;
     }
 
     const [singleWithdrawData] = await getPayoutsDao({ merchant_order_id: apitxnid });
     if (!singleWithdrawData) {
-      return res.status(404).send('Payment not found');
+      logger.warn('PayDum webhook payout not found', {
+        merchant_order_id: apitxnid,
+      });
+      return;
     }
 
     if (
@@ -30,6 +39,7 @@ export const payDumTransactionStatusCallback = async (req, res) => {
       singleWithdrawData.status === Status.REJECTED
     ) {
       logger.info('Payout already processed', {
+        merchant_order_id: apitxnid,
         payoutId: singleWithdrawData?.id,
         status: singleWithdrawData?.status,
       });
@@ -119,18 +129,27 @@ export const payDumTransactionStatusCallback = async (req, res) => {
       } else if (errorCode === '1' && statuscode === 'TXF') {
         await handlePayoutUpdate(payload, false);
       } else {
-        logger.error("Paydum payout callback error", payload.ErrorMessage)
-        return res.status(400).send(payload.ErrorMessage);
+        logger.error('PayDum payout callback error', {
+          merchant_order_id: apitxnid,
+          errorMessage: payload.ErrorMessage,
+          response: payload?.Response,
+        });
+        return;
       }
     }
 
     // Log the updated payout status
     logger.info('Payout Updated by PayDum callback', {
+      merchant_order_id: apitxnid,
+      payoutId: singleWithdrawData.id,
       status: singleWithdrawData.status,
     });
 
   } catch (err) {
     // Log any errors while updating the payout
-    logger.error('getting error while updating payout', err);
+    logger.error('getting error while updating payout', {
+      merchant_order_id: apitxnid,
+      error: err?.message || err,
+    });
   }
 };
