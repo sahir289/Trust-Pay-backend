@@ -1028,6 +1028,7 @@ export async function sendTelegramDisputeMessage(
   utr,
   TELEGRAM_BOT_TOKEN,
 ) {
+  try {
   const formatEntry = (label, data, utr) => `
     <b><u>${label}:</u></b> 
         <b>📋 Status:</b> ${data.status === Status.SUCCESS ? '✅ SUCCESS' : data.status === Status.DISPUTE ? '⛔ DISPUTE' : data.status === Status.FAILED ? '❌ FAILED' : data.status}
@@ -1061,6 +1062,9 @@ export async function sendTelegramDisputeMessage(
     TELEGRAM_BOT_TOKEN,
   );
   logger.log(success ? 'Sent!' : 'Not sent.');
+   } catch (error) {
+    logger.error('Error sending telegram dispute message:', error?.message || error);
+  }
 }
 
 /**
