@@ -275,7 +275,7 @@ const createBankaccount = async (req, res) => {
   await invalidateBankAccountsCache(company_id);
   return sendSuccess(
     res,
-    { id: bankDetail.id, secretKey: bankDetail.config.keys.secretKey, created_by: user_name },
+    { id: bankDetail.id, secretKey: bankDetail?.config?.keys?.secretKey, created_by: user_name },
     'Created Banks successfully',
   );
 };
