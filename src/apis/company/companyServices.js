@@ -77,6 +77,7 @@ const _createCompanyServiceInternal = async (payload, conn) => {
       telegramBankAlertChatId: '',
       telegramDuplicateDisputeChatId: '',
       telegramCheckUTRHistoryChatId: '',
+      two_factor_enforcement: true,
       allowPayAssist: '',
       allowPayDum: false,
       allow_cashfree: false,
