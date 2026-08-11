@@ -4,7 +4,7 @@ import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
 import {
   assignedBankToPayInUrl,
-  checkPayInStatus,
+  // checkPayInStatus,
   disputeDuplicateTransaction,
   generatePayInUrl,
   // getPayins,
@@ -25,7 +25,7 @@ import {
   updatePayIn,
   processPayInIMGUTR,
   getPayinsSummary,
-  processPayInH2H,
+  // processPayInH2H,
   verifyPayinsrazorpay,
 } from './payInController.js';
 // import { payInUpdateCashfreeWebhook } from '../../webhooks/index.js';
@@ -182,7 +182,7 @@ router.post(
  *       500:
  *         description: Internal server error
  */
-router.post('/check-payin-status', tryCatchHandler(checkPayInStatus));
+// router.post('/check-payin-status', tryCatchHandler(checkPayInStatus));
 
 /**
  * @swagger
@@ -240,7 +240,7 @@ router.post('/process/:merchantOrderId',
   verifyRequestSignature({ required: true }),
   tryCatchHandler(processPayIn));
 
-router.post('/process-payin/:merchantOrderId', tryCatchHandler(processPayInH2H)); //h2h
+// router.post('/process-payin/:merchantOrderId', tryCatchHandler(processPayInH2H)); //h2h
 
 /**
  * @swagger

@@ -8,7 +8,7 @@ import {
   updatePayout,
   getPayoutsById,
   getPayoutsBySearch,
-  checkPayOutStatus,
+  // checkPayOutStatus,
   assignedPayout,
   createTataPayBulkPayoutController,
   createRupeeFlowBulkPayoutController,
@@ -16,7 +16,7 @@ import {
 import { updatePayoutService } from './payOutService.js';
 import { authorized, isAuthenticated } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
-import { checkPayoutApiKey } from '../../middlewares/checkApiKey.js';
+// import { checkPayoutApiKey } from '../../middlewares/checkApiKey.js';
 import { payoutIpAccessControl } from '../../middlewares/ipAccessControl.js';
 import { multerUpload } from '../../utils/index.js';
 import { payAssistTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/payAsistWebHook.js';
@@ -189,12 +189,12 @@ router.get(
  *       401:
  *         description: Unauthorized access
  */
-router.post(
-  '/create-payout',
-  // [isAuthenticated, authorized(AccessRoles.PAYOUT)],
-  checkPayoutApiKey,
-  tryCatchHandler(createPayout),
-);
+// router.post(
+//   '/create-payout',
+//   // [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+//   checkPayoutApiKey,
+//   tryCatchHandler(createPayout),
+// );
 
 router.post(
   '/create-bulk-payout',
@@ -232,7 +232,7 @@ router.post(
  *       500:
  *         description: Internal server error
  */
-router.post('/check-payout-status', tryCatchHandler(checkPayOutStatus));
+// router.post('/check-payout-status', tryCatchHandler(checkPayOutStatus));
 
 /**
  * @swagger
