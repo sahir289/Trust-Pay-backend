@@ -3,7 +3,7 @@ import { logger } from '../utils/logger.js';
 import config from '../config/config.js';
 import { getRoleByUserNameDao } from '../apis/auth/authDao.js';
 import { setTimeout as delay } from 'node:timers/promises';
-import { checkProxyAndVpn } from '../utils/proxyCheckService.js';
+import { checkProxyAndVpn, checkProxyAndVpnAPI } from '../utils/proxyCheckService.js';
 import { reverseGeocode } from '../utils/reverseGeoCodeService.js';
 
 // Helper - Promise with hard timeout (cancels after X ms)
@@ -99,7 +99,7 @@ const createGeoGuard = (options = {}) => {
         ? Promise.resolve(prefetchedProxyInfo)
         : withTimeout(checkProxyAndVpn(clientIp), 3000, 'Proxy/VPN check');
 
-      const [proxyInfo, address] = await Promise.allSettled([
+      let [proxyInfo, address] = await Promise.allSettled([
         proxyInfoPromise,
         withTimeout(
           reverseGeocode(latitude, longitude),
@@ -109,6 +109,14 @@ const createGeoGuard = (options = {}) => {
       ]).then((results) =>
         results.map((r) => (r.status === 'fulfilled' ? r.value : null)),
       );
+      if (!proxyInfo) {
+        logger.warn('Proxy/VPN check failed or timed out, falling back to API check', { ip: clientIp });
+        proxyInfo = await withTimeout(
+          checkProxyAndVpnAPI(clientIp),
+          4000,
+          'Proxy/VPN API check',
+        );
+      }
 
       let userRole;
       if (req.body?.username) {
