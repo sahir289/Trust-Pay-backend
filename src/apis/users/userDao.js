@@ -387,8 +387,8 @@ SELECT
   at.config->'user_info'->'user_location'->>'latitude' AS latitude,
   at.config->'user_info'->'user_location'->>'longitude' AS longitude,
   (at.config->'user_info'->'user_location'->'proxy'->>'isVpn')::boolean AS is_vpn,
-  at.config->'user_info'->'user_location'->'proxy'->'raw'->>'country' AS country,
-  at.config->'user_info'->'user_location'->'proxy'->'raw'->>'city' AS city,
+  at.config->'user_info'->'user_location'->'address'->>'country' AS country,
+  at.config->'user_info'->'user_location'->'address'->>'city' AS city,
   at.config->'user_info'->'user_location'->'proxy'->'raw'->>'provider' AS provider,
   at.created_at
 FROM public."AccessToken" at
