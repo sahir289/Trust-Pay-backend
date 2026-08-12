@@ -17,10 +17,45 @@ import { getDesignationDao } from '../designation/designationDao.js';
 import { getUsersDao } from '../users/userDao.js';
 import { Role } from '../../constants/index.js';
 import { logger } from '../../utils/logger.js';
+import { s3 } from '../../helpers/Aws.js';
+import { generateFile } from '../../utils/genrate-xlsx-csv.js';
+import config from '../../config/config.js';
+import { v4 as uuidv4 } from 'uuid';
+import { PutObjectCommand } from '@aws-sdk/client-s3';
+import { GetObjectCommand } from '@aws-sdk/client-s3';
+import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
 
 // Initialize dayjs plugins
 dayjs.extend(utc);
 dayjs.extend(timezone);
+
+// ---------- Helper: Upload buffer/stream to S3 ----------
+const uploadToS3 = async (buffer, fileName, contentType) => {
+  const key = `reports/${dayjs().format('YYYY-MM-DD')}/${fileName}`;
+  const putCommand = new PutObjectCommand({
+    Bucket: config.bucketName,
+    Key: key,
+    Body: buffer,
+    ContentType: contentType,
+    ContentDisposition: `attachment; filename="${fileName}"`,
+  });
+
+  await s3.send(putCommand); 
+
+  const getCommand = new GetObjectCommand({
+    Bucket: config.bucketName,
+    Key: key,
+  });
+
+  const signedUrl = await getSignedUrl(s3, getCommand, {
+    expiresIn: 60 * 60 * 24, // 24 hours
+  });
+
+  return {
+    key,
+    url: signedUrl,
+  };
+};
 
 const getPayInReportService = async (req) => {
   try {
@@ -128,8 +163,14 @@ const getPayOutReportService = async (req) => {
 
 const getClientsAccountReportService = async (req) => {
   try {
-    const { company_id, role } = req.user;
-    const { code, startDate, endDate, role_name, page, limit } = req.body;
+    const { company_id, role } = req;
+    const { code, startDate, endDate, role_name, page, limit, type = 'csv' } = req;
+
+    // type validate
+    const allowedTypes = ['csv', 'xlsx', 'pdf'];
+    const fileType = allowedTypes.includes(type?.toLowerCase())
+      ? type.toLowerCase()
+      : 'csv';
 
     let result;
     let subMerchants = [];
@@ -630,7 +671,56 @@ const getClientsAccountReportService = async (req) => {
       }
     }
 
-    return result;
+    if (!result || !Array.isArray(result) || result.length === 0) {
+      return {
+        success: true,
+        message: 'No data found for the given filters',
+        downloadUrl: null,
+        totalRecords: 0,
+        fileType,
+      };
+    }
+
+    let buffer;
+    let contentType;
+    let extension;
+
+    if (fileType === 'csv') {
+      const csvContent = generateFile(result, 'csv');
+      buffer = Buffer.from(csvContent, 'utf-8');
+      contentType = 'text/csv';
+      extension = 'csv';
+    } 
+    else if (fileType === 'xlsx') {
+      buffer = generateFile(result, 'xlsx');
+      contentType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+      extension = 'xlsx';
+    } 
+    // else if (fileType === 'pdf') {
+    //   buffer = await generatePDF(result);
+    //   contentType = 'application/pdf';
+    //   extension = 'pdf';
+    // }
+
+    const fileName = `client_account_report_${role_name || 'all'}_${dayjs().format(
+      'YYYYMMDD_HHmmss',
+    )}_${uuidv4().slice(0, 8)}.${extension}`;
+
+    const { url, key } = await uploadToS3(buffer, fileName, contentType);
+
+    logger.info(
+      `Report uploaded to S3 | Type: ${fileType} | Key: ${key} | Records: ${result.length}`,
+    );
+
+    return {
+      success: true,
+      message: 'Report generated successfully',
+      downloadUrl: url,
+      fileName,
+      fileType,
+      totalRecords: result.length,
+      s3Key: key,
+    };
   } catch (error) {
     logger.error('Error while fetching report', error);
     // Handle and rethrow errors with appropriate context

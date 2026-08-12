@@ -115,6 +115,10 @@ export async function publishTelegramOcr(payload) {
   return publishMessage(QUEUES.TELEGRAM_OCR, payload);
 }
 
+export async function publishGetClientsAccountReport(payload) {
+  return publishMessage(QUEUES.ACCOUNT_REPORT, payload);
+}
+
 rabbitMQConnectionManager.onReconnect(async () => {
   producerChannel = null;
   isTopologyReady = false;

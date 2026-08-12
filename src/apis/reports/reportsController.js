@@ -1,9 +1,10 @@
 import {
+  // getClientsAccountReportService,
   getPayInReportService,
   getPayOutReportService,
-  getClientsAccountReportService,
 } from './reportsService.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
+import { publishGetClientsAccountReport } from '../../rabbitmq/producer.js';
 
 const getPayInReportController = async (req, res) => {
   const result = await getPayInReportService(req);
@@ -16,8 +17,22 @@ const getPayOutReportController = async (req, res) => {
 };
 
 const getClientsAccountReportController = async (req, res) => {
-  const result = await getClientsAccountReportService(req);
-  return sendSuccess(res, result, 'Reports fetched successfully');
+  const { company_id, role } = req.user;
+  const { code, startDate, endDate, role_name, page, limit } = req.body;
+  const payload = {
+    company_id,
+    role,
+    code,
+    startDate,
+    endDate,
+    role_name,
+    page,
+    limit,
+  };
+  const result = await publishGetClientsAccountReport(payload);
+  // const result = await getClientsAccountReportService(payload);
+
+  return sendSuccess(res, result, 'Reports Processing successfully');
 };
 
 export {

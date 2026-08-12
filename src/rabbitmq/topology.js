@@ -9,6 +9,7 @@ export const QUEUES = {
   MERCHANT_CALLBACK: process.env.RABBITMQ_MERCHANT_CALLBACK_QUEUE || 'merchant_callback_queue',
   TELEGRAM_MESSAGE: process.env.RABBITMQ_TELEGRAM_MESSAGE_QUEUE || 'telegram_message_queue',
   TELEGRAM_OCR: process.env.RABBITMQ_TELEGRAM_OCR_QUEUE || 'telegram_ocr_queue',
+  ACCOUNT_REPORT: process.env.RABBITMQ_ACCOUNT_REPORT_QUEUE || 'account_report_queue',
 };
 
 const DLQ_ROUTING_KEY = 'dead';
@@ -57,6 +58,10 @@ export const TOPOLOGY = {
     QUEUES.TELEGRAM_OCR,
     Number(process.env.TELEGRAM_OCR_RETRY_DELAY_MS || 15000),
   ),
+  accountReport: queueTopology(
+    QUEUES.ACCOUNT_REPORT,
+    Number(process.env.ACCOUNT_REPORT_RETRY_DELAY_MS || 10000),
+  ),
 };
 
 export async function assertQueueTopology(channel, topology) {
@@ -91,6 +96,7 @@ export async function assertAllTopologies(channel) {
   await assertQueueTopology(channel, TOPOLOGY.merchantCallback);
   await assertQueueTopology(channel, TOPOLOGY.telegramMessage);
   await assertQueueTopology(channel, TOPOLOGY.telegramOcr);
+  await assertQueueTopology(channel, TOPOLOGY.accountReport);
   logger.info('[RabbitMQ] Queue topology ensured', {
     bankResponseQueue: TOPOLOGY.bankResponse.queue,
     bankResponseRetryQueue: TOPOLOGY.bankResponse.retryQueue,
@@ -112,6 +118,7 @@ export async function assertAllTopologies(channel) {
     telegramMessageRetryQueue: TOPOLOGY.telegramMessage.retryQueue,
     telegramMessageDLQ: TOPOLOGY.telegramMessage.dlq,
     telegramOcrQueue: TOPOLOGY.telegramOcr.queue,
+    accountReportQueue: TOPOLOGY.accountReport.queue,
     telegramOcrRetryQueue: TOPOLOGY.telegramOcr.retryQueue,
     telegramOcrDLQ: TOPOLOGY.telegramOcr.dlq,
   });
