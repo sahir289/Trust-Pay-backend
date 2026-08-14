@@ -3,6 +3,7 @@ import tryCatchHandler from '../../utils/tryCatchHandler.js';
 import { isAuthenticated } from '../../middlewares/auth.js';
 import {
   getClientsAccountReportController,
+  getClientsAccountReportDownloadController,
   getPayInReportController,
   getPayOutReportController,
 } from './reportsController.js';
@@ -113,6 +114,12 @@ router.post(
   '/get-accounts-reports',
   isAuthenticated,
   tryCatchHandler(getClientsAccountReportController),
+);
+
+router.post(
+  '/download-accounts-reports',
+  isAuthenticated,
+  tryCatchHandler(getClientsAccountReportDownloadController),
 );
 
 //handled same with above function

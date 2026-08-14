@@ -1,5 +1,5 @@
 import {
-  // getClientsAccountReportService,
+  getClientsAccountReportService,
   getPayInReportService,
   getPayOutReportService,
 } from './reportsService.js';
@@ -29,8 +29,33 @@ const getClientsAccountReportController = async (req, res) => {
     page,
     limit,
   };
+  const result = await getClientsAccountReportService(payload);
+  return sendSuccess(res, result, 'Reports get successfully');
+};
+
+const getClientsAccountReportDownloadController = async (req, res) => {
+
+  const { company_id, role } = req.user;
+  const { code, startDate, endDate, role_name, page, limit, type = 'csv' } = req.body;
+      // type validate
+      const allowedTypes = ['csv', 'xlsx', 'pdf'];
+      const fileType = allowedTypes.includes(type?.toLowerCase())
+        ? type.toLowerCase()
+        : 'csv';
+
+        const payload = {
+          company_id,
+          role,
+          code,
+          startDate,
+          endDate,
+          role_name,
+          page,
+          limit,
+          fileType
+        };
+
   const result = await publishGetClientsAccountReport(payload);
-  // const result = await getClientsAccountReportService(payload);
 
   return sendSuccess(res, result, 'Reports Processing successfully');
 };
@@ -39,4 +64,5 @@ export {
   getPayInReportController,
   getPayOutReportController,
   getClientsAccountReportController,
+  getClientsAccountReportDownloadController,
 };
