@@ -22,6 +22,10 @@ import {
 } from './consumers/dlqReplayConsumer.js';
 import { startBulkPayoutCreateConsumer } from './consumers/CreateBulkPayoutConsumer.js';
 import {
+  startBulkPayoutUpdateConsumer,
+  stopBulkPayoutUpdateConsumer,
+} from './consumers/UpdateBulkPayoutConsumer.js';
+import {
   startMerchantCallbackConsumer,
   stopMerchantCallbackConsumer,
 } from './consumers/merchantCallbackConsumer.js';
@@ -49,6 +53,7 @@ export async function startRabbitMQConsumers() {
     startAccountReportConsumer(),
     startBulkPayoutConsumer(),
     startBulkPayoutCreateConsumer(),
+    startBulkPayoutUpdateConsumer(),
     startPayInProcessConsumer(),
     startMerchantCallbackConsumer(),
     startTelegramMessageConsumer(),
@@ -66,6 +71,7 @@ export async function stopRabbitMQ() {
       stopBankResponseConsumer(),
       stopBankResponseBulkConsumer(),
       stopBulkPayoutConsumer(),
+      stopBulkPayoutUpdateConsumer(),
       stopAccountReportConsumer(),
       stopPayInProcessConsumer(),
       stopMerchantCallbackConsumer(),

@@ -333,6 +333,42 @@ export const getPayouStatusByIdDao = async (
     throw error;
   }
 };
+export const getPayoutForMethodInitiationDao = async (
+  id,
+  company_id,
+  conn = null,
+  lock = false,
+) => {
+  try {
+    const sql = `
+      SELECT
+        id,
+        company_id,
+        status,
+        amount,
+        merchant_order_id,
+        "user",
+        bank_acc_id,
+        vendor_id,
+        json_build_object(
+          'account_holder_name', acc_holder_name,
+          'account_no', acc_no,
+          'ifsc_code', ifsc_code,
+          'bank_name', bank_name
+        ) AS user_bank_details
+      FROM "${tableName.PAYOUT}"
+      WHERE id = $1
+        AND company_id = $2
+        AND is_obsolete = false
+      ${lock ? 'FOR UPDATE' : ''}
+    `;
+    const result = await executeQuery(sql, [id, company_id], conn);
+    return result.rows[0] || null;
+  } catch (error) {
+    logger.error('Error fetching payout for method initiation:', error.message);
+    throw error;
+  }
+};
 
 export const getPayoutByMerchantOrderIdDao = async (merchant_order_id, company_id, conn = null) => {
   try {

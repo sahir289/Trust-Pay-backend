@@ -56,6 +56,16 @@ function config(Env) {
       payoutUrl: Env?.OCR_PAYOUT_URL,
       timeoutMs: Number(Env?.OCR_TIMEOUT_MS) || 15000,
     },
+    payout: {
+      bulkUpdatePublishConcurrency: parsePositiveInt(
+        Env?.BULK_PAYOUT_UPDATE_PUBLISH_CONCURRENCY,
+        50,
+      ),
+      bulkUpdateMaxItems: parsePositiveInt(
+        Env?.BULK_PAYOUT_UPDATE_MAX_ITEMS,
+        5000,
+      ),
+    },
     redis: {
       url: Env?.REDIS_URL || 'redis://localhost:6379',
     },

@@ -2,8 +2,11 @@ import axios from "axios";
 import {sendNewSuccess} from "../utils/responseHandlers.js";
 import { logger } from "../utils/logger.js";
 import config  from "../config/config.js";
-import { BadRequestError } from "../utils/appErrors.js";
+import { BadRequestError, NotFoundError } from "../utils/appErrors.js";
 import { getCompanyByIDDao } from "../apis/company/companyDao.js";
+import { getBankByIdDao } from "../apis/bankAccounts/bankaccountDao.js";
+import { getVendorsDao } from "../apis/vendors/vendorDao.js";
+import { Method } from "../constants/index.js";
 export const getWalletBalance = async (req, res) => {
   try {
     const company_id = req.user?.company_id;
@@ -105,5 +108,92 @@ export const createPennyPayPayout = async (result ,payload ,vendor_id ,bankId, k
   });
   throw new BadRequestError(errorMessage);
 }
+};
+
+const PENNYPAY_METHOD_META = {
+  [Method.PENNYPAY]: {
+    configKey: 'PENNY_PAY',
+    providerKey: 'pennyPay',
+    providerName: 'PennyPay',
+  },
+  [Method.TRUSTPAY]: {
+    configKey: 'TRUST_PAY',
+    providerKey: 'trustPay',
+    providerName: 'TrustPay',
+  },
+  [Method.PAYBITRA]: {
+    configKey: 'PAY_BITRA',
+    providerKey: 'payBitra',
+    providerName: 'PayBitra',
+  },
+  [Method.PAYCRIC]: {
+    configKey: 'PAY_CRIC',
+    providerKey: 'payCric',
+    providerName: 'PayCric',
+  },
+};
+export const processPennyPayFamilyPayout = async (
+  method,
+  payload,
+  ids,
+  singleWithdrawData,
+  conn,
+) => {
+  try {
+    const meta = PENNYPAY_METHOD_META[method];
+    if (!meta) {
+      throw new BadRequestError(`Unsupported payout method: ${method}`);
+    }
+    logger.info(`Processing ${meta.providerName} payout for method: ${method}`);
+    const [company] = await getCompanyByIDDao({ id: ids.company_id }, conn);
+    if (!company) {
+      throw new NotFoundError('Company not found');
+    }
+    const providerConfig = company.config?.[meta.configKey];
+    const bankId = providerConfig?.defaultBankId;
+    if (!bankId) {
+      throw new NotFoundError(`Default bank ID not found for ${method}`);
+    }
+    const bankDataArr = await getBankByIdDao({ id: bankId }, conn);
+    if (!bankDataArr[0]) {
+      throw new NotFoundError(`Bank not found for ${method} payout`);
+    }
+    const [vendor] = await getVendorsDao({
+      user_id: bankDataArr[0].user_id,
+    });
+    if (!vendor) {
+      throw new NotFoundError(`Vendor not found for ${meta.providerName} payout`);
+    }
+    const xApiKey = providerConfig?.secretKey;
+    const code = providerConfig?.code;
+    if (!xApiKey || !code) {
+      throw new NotFoundError(
+        `${meta.providerName} configuration missing for ${method} payout`,
+      );
+    }
+    logger.info(`Creating ${meta.providerName} payout with bankId: ${bankId}`);
+    const updatedPayload = await createPennyPayPayout(
+      payload,
+      singleWithdrawData,
+      vendor.id,
+      bankId,
+      meta.providerKey,
+      xApiKey,
+      code,
+    );
+    return {
+      status: updatedPayload?.status,
+      vendor_id: updatedPayload?.vendor_id,
+      bank_acc_id: updatedPayload?.bank_acc_id,
+    };
+  } catch (error) {
+    logger.error('Error in processPennyPayFamilyPayout:', {
+      method,
+      payoutId: ids?.id,
+      companyId: ids?.company_id,
+      error: error.message,
+    });
+    throw error;
+  }
 };
 
