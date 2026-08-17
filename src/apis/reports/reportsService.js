@@ -22,6 +22,7 @@ import { logger } from '../../utils/logger.js';
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
+
 const getPayInReportService = async (req) => {
   try {
     const { company_id, role } = req.user;
@@ -126,10 +127,10 @@ const getPayOutReportService = async (req) => {
   }
 };
 
-const getClientsAccountReportService = async (req) => {
+const getClientsAccountReportService = async (payload) => {
   try {
-    const { company_id, role } = req.user;
-    const { code, startDate, endDate, role_name, page, limit } = req.body;
+    const { company_id, role } = payload;
+    const { code, startDate, endDate, role_name, page, limit } = payload;
 
     let result;
     let subMerchants = [];

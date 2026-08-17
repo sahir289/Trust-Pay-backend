@@ -1,9 +1,10 @@
 import {
+  getClientsAccountReportService,
   getPayInReportService,
   getPayOutReportService,
-  getClientsAccountReportService,
 } from './reportsService.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
+import { publishGetClientsAccountReport } from '../../rabbitmq/producer.js';
 
 const getPayInReportController = async (req, res) => {
   const result = await getPayInReportService(req);
@@ -16,12 +17,52 @@ const getPayOutReportController = async (req, res) => {
 };
 
 const getClientsAccountReportController = async (req, res) => {
-  const result = await getClientsAccountReportService(req);
-  return sendSuccess(res, result, 'Reports fetched successfully');
+  const { company_id, role } = req.user;
+  const { code, startDate, endDate, role_name, page, limit } = req.body;
+  const payload = {
+    company_id,
+    role,
+    code,
+    startDate,
+    endDate,
+    role_name,
+    page,
+    limit,
+  };
+  const result = await getClientsAccountReportService(payload);
+  return sendSuccess(res, result, 'Reports get successfully');
+};
+
+const getClientsAccountReportDownloadController = async (req, res) => {
+
+  const { company_id, role } = req.user;
+  const { code, startDate, endDate, role_name, page, limit, type = 'csv' } = req.body;
+      // type validate
+      const allowedTypes = ['csv', 'xlsx', 'pdf'];
+      const fileType = allowedTypes.includes(type?.toLowerCase())
+        ? type.toLowerCase()
+        : 'csv';
+
+        const payload = {
+          company_id,
+          role,
+          code,
+          startDate,
+          endDate,
+          role_name,
+          page,
+          limit,
+          fileType
+        };
+
+  const result = await publishGetClientsAccountReport(payload);
+
+  return sendSuccess(res, result, 'Reports Processing successfully');
 };
 
 export {
   getPayInReportController,
   getPayOutReportController,
   getClientsAccountReportController,
+  getClientsAccountReportDownloadController,
 };

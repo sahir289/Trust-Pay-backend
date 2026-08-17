@@ -628,6 +628,7 @@ export const tableName = {
   NOTIFICATIONS: 'Notifications',
   NOTIFICATION_RECIPIENTS: 'NotificationRecipients',
   BANK_HISTORY: 'BankHistory',
+  ACCOUNT_REPORT: 'AccountReport',
 };
 
 export const BankTypes = {
