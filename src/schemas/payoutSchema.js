@@ -170,3 +170,20 @@ export const RUPEEFLOW_BULK_PAYOUT_SCHEMA = Joi.object({
       'Either payoutEntries or payoutIds must be provided, but not both',
     'object.missing': 'Either payoutEntries or payoutIds is required',
   });
+
+export const BULK_PAYOUT_CREATE_ENTRY_SCHEMA = Joi.object({
+  payoutId: Joi.string().label('payoutId').required(),
+});
+
+export const BULK_PAYOUT_CREATE_SCHEMA = Joi.object({
+  method: Joi.string().label('method').required(),
+  payoutEntries: Joi.array()
+    .items(BULK_PAYOUT_CREATE_ENTRY_SCHEMA)
+    .label('payoutEntries')
+    .min(1)
+    .required(),
+}).messages({
+  'any.required': 'method and payoutEntries are required',
+  'string.empty': 'method is required',
+  'array.min': 'At least one payout entry is required',
+});

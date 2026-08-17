@@ -11,6 +11,7 @@ import {
   assignedPayoutDao,
   createPayoutDao,
   deletePayoutDao,
+  getPayoutForMethodInitiationDao,
   getPayoutsDao,
   getPayoutsBySearchDao,
   updatePayoutDao,
@@ -84,7 +85,7 @@ import { createBSS03Payout } from '../../bss/bss03.js';
 import { createVertexPayPayout } from '../../vertexpay/vertexpay.js';
 import { createRunsafePayPayout, getRunsafePayWalletBalance } from '../../runsafe/runsafepay.js';
 import { createPayInFintechPayout } from '../../payinfintech/payinfintech.js';
-import {createPennyPayPayout} from '../../pennypay/pennypay.js';
+import { createPennyPayPayout, processPennyPayFamilyPayout } from '../../pennypay/pennypay.js';
 import { emitTableEntryAsync } from '../../utils/socket/sessionUtils.js';
 import {createFreechipsPayout} from '../../freechips/freechips.js'
 import { createPayflyPayout } from '../../payfly/payfly.js';
@@ -513,6 +514,128 @@ const createPayoutService = async (
       await rollback(conn);
     }
     logger.error('Error in createPayoutService', error.message);
+    throw error;
+  } finally {
+    if (conn) {
+      conn.release();
+    }
+  }
+};
+const initiateExistingPayoutWithMethodService = async ({
+  payoutId,
+  companyId,
+  method,
+  updatedBy,
+}) => {
+  if (!payoutId) {
+    throw new BadRequestError('payoutId is required');
+  }
+  if (!method) {
+    throw new BadRequestError('method is required to initiate payout');
+  }
+  let conn;
+  let committed = false;
+  try {
+    conn = await getConnection();
+    await beginTransaction(conn);
+    const singleWithdrawData = await getPayoutForMethodInitiationDao(
+      payoutId,
+      companyId,
+      conn,
+      true,
+    );
+    if (!singleWithdrawData) {
+      throw new NotFoundError('Payout not found!');
+    }
+    if (singleWithdrawData.status !== Status.INITIATED) {
+      throw new BadRequestError('Only INITIATED payouts can be forwarded');
+    }
+    let updatePayload = {
+      config: { method },
+      status: Status.PENDING,
+      updated_by: updatedBy,
+    };
+    if (
+      method === Method.PENNYPAY ||
+      method === Method.TRUSTPAY ||
+      method === Method.PAYBITRA ||
+      method === Method.PAYCRIC
+    ) {
+      const pennyPayPayloadUpdates = await processPennyPayFamilyPayout(
+        method,
+        updatePayload,
+        {
+          id: payoutId,
+          company_id: companyId,
+        },
+        singleWithdrawData,
+        conn,
+      );
+
+      updatePayload = {
+        ...updatePayload,
+        ...pennyPayPayloadUpdates,
+      };
+    }
+    const data = await updatePayoutDao(
+      {
+        id: payoutId,
+        company_id: companyId,
+      },
+      updatePayload,
+      conn,
+    );
+
+    const responseObj = {
+      id: data.id,
+      sno: data.sno || null,
+      amount: data.amount || 0,
+      status: data.status || null,
+      failed_reason: data.failed_reason || null,
+      currency: data.currency || 'INR',
+      upi_id: data.upi_id || null,
+      utr_id: data.utr_id || null,
+      rejected_reason: data.rejected_reason || null,
+      merchant_id: data.merchant_id || null,
+      company_id: data.company_id || null,
+      payout_merchant_commission: data.payout_merchant_commission || 0,
+      payout_vendor_commission: data.payout_vendor_commission || 0,
+      actual_vendor_commission: data.actual_vendor_commission || '0',
+      brokerage_commission: data.brokerage_commission || '0',
+      merchant_order_id: data.merchant_order_id || null,
+      bank_acc_id: data.bank_acc_id || null,
+      approved_at: data.approved_at || null,
+      created_by: data.created_by || '',
+      updated_by: data.updated_by || '',
+      user: data.user || data.created_by || '',
+      created_at: data.created_at,
+      vendor_code: null,
+      vendor_id: data.vendor_id || null,
+      vendor_user_id: null,
+      payout_details: data.config || {},
+      updated_at: data.updated_at,
+      user_id: null,
+      nick_name: null,
+      merchant_details: null,
+      user_bank_details: {
+        account_holder_name: data.acc_holder_name || null,
+        account_no: data.acc_no || null,
+        ifsc_code: data.ifsc_code || null,
+        bank_name: data.bank_name || null,
+      },
+      rejected_at: data.rejected_at || null,
+    };
+
+    emitTableEntryAsync(tableName.PAYOUT, responseObj);
+
+    await commit(conn);
+    committed = true;
+    return data;
+  } catch (error) {
+    if (conn && !committed) {
+      await rollback(conn);
+    }
+    logger.error('Error in initiateExistingPayoutWithMethodService:', error.message);
     throw error;
   } finally {
     if (conn) {
@@ -3061,6 +3184,7 @@ const createRupeeFlowBulkPayoutService = async ({
 
 export {
   createPayoutService,
+  initiateExistingPayoutWithMethodService,
   getPayoutsService,
   checkPayOutStatusService,
   getPayoutsBySearchService,

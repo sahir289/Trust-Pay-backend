@@ -97,6 +97,9 @@ export async function publishBulkPayout(payload) {
 export async function publishBulkPayoutCreate(payload) {
   return publishMessage(QUEUES.BULK_PAYOUT_CREATE, payload);
 }
+export async function publishBulkPayoutUpdate(payload) {
+  return publishMessage(QUEUES.BULK_PAYOUT_UPDATE, payload);
+}
 
 
 export async function publishPayInProcess(payload) {

@@ -21,6 +21,7 @@ import {
   VALIDATE_CHECK_PAY_OUT_STATUS,
   VALIDATE_PAYOUT_BY_ID,
   ASSIGNED_VENDOR_SCHEMA,
+  BULK_PAYOUT_CREATE_SCHEMA,
   TATAPAY_BULK_PAYOUT_SCHEMA,
   RUPEEFLOW_BULK_PAYOUT_SCHEMA,
 } from '../../schemas/payoutSchema.js';
@@ -37,7 +38,7 @@ import { streamToBase64 } from '../../helpers/index.js';
 import { s3 } from '../../helpers/Aws.js';
 import config from '../../config/config.js';
 import { getImageContentFromOCrForPayout } from '../../helpers/index.js';
-import { publishBulkPayoutCreate } from '../../rabbitmq/producer.js';
+import { publishBulkPayoutCreate, publishBulkPayoutUpdate } from '../../rabbitmq/producer.js';
 // import config from '../../config/config.js';
 // import { BadRequestError } from '../../utils/appErrors.js';
 
@@ -46,6 +47,11 @@ import {
   generateCacheKey,
   setCachedDataIfNotExists,
 } from '../../utils/redishashkey.js';
+const BULK_PAYOUT_UPDATE_PUBLISH_CONCURRENCY =
+  config?.payout?.bulkUpdatePublishConcurrency || 50;
+const BULK_PAYOUT_UPDATE_MAX_ITEMS =
+  config?.payout?.bulkUpdateMaxItems || 500;
+
 const PAYOUT_CREATE_INFLIGHT_TTL_SEC =
   config?.controllerCacheTtls?.payout?.createInflight || 5;
 const invalidatePayoutCache = async (companyId) =>
@@ -169,6 +175,70 @@ const createBulkPayout = async (req, res) => {
     res,
     {},
     'Bulk payout queued successfully',
+    202,
+  );
+};
+const updateBulkPayoutByBody = async (req, res) => {
+  const joiValidation = BULK_PAYOUT_CREATE_SCHEMA.validate(req.body);
+  if (joiValidation.error) {
+    throw new ValidationError(joiValidation.error);
+  }
+  if (req.body.payoutEntries.length > BULK_PAYOUT_UPDATE_MAX_ITEMS) {
+    throw new ValidationError(
+      `Bulk payout update payload too large. Max allowed is ${BULK_PAYOUT_UPDATE_MAX_ITEMS}`,
+    );
+  }
+  const validMessages = req.body.payoutEntries.map((entry) => ({
+    method: req.body.method,
+    payoutEntry: entry,
+    companyId: req.user.company_id,
+    role: req.user.role,
+    designation: req.user.designation,
+    userId: req.user.user_id,
+    createdBy: req.user.user_id,
+    updatedBy: req.user.user_id,
+    headers: req.headers,
+  }));
+  let publishedCount = 0;
+  let publishFailed = 0;
+  for (
+    let i = 0;
+    i < validMessages.length;
+    i += BULK_PAYOUT_UPDATE_PUBLISH_CONCURRENCY
+  ) {
+    const chunk = validMessages.slice(
+      i,
+      i + BULK_PAYOUT_UPDATE_PUBLISH_CONCURRENCY,
+    );
+    const results = await Promise.allSettled(
+      chunk.map((message) => publishBulkPayoutUpdate(message)),
+    );
+    results.forEach((result) => {
+      if (result.status === 'fulfilled' && result.value) {
+        publishedCount += 1;
+      } else {
+        publishFailed += 1;
+      }
+    });
+  }
+  if (publishFailed > 0) {
+    return sendNewSuccess(
+      res,
+      {
+        queued: publishedCount,
+        failed: publishFailed,
+      },
+      'Bulk payout body queued partially',
+      202,
+    );
+  }
+  return sendNewSuccess(
+    res,
+    {
+      queued: publishedCount,
+      failed: publishFailed,
+    },
+    'Bulk payout body queued successfully',
     202,
   );
 };
@@ -450,6 +520,7 @@ export {
   deletePayout,
   getPayoutsById,
   assignedPayout,
+  updateBulkPayoutByBody,
   createTataPayBulkPayoutController,
   createRupeeFlowBulkPayoutController
 };

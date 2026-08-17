@@ -200,6 +200,9 @@ async function handleMessage(msg) {
         retryCount,
       },
     );
+    if (payload?.payoutEntry) {
+      throw new Error('Invalid bulk payout create message');
+    }
 
     await processBulkPayoutCreate(payload);
 

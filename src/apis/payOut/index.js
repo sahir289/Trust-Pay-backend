@@ -3,6 +3,7 @@ import tryCatchHandler from '../../utils/tryCatchHandler.js';
 import {
   createPayout,
   createBulkPayout,
+  updateBulkPayoutByBody,
   deletePayout,
   getPayouts,
   updatePayout,
@@ -201,6 +202,11 @@ router.post(
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   multerUpload.single('file'),
   tryCatchHandler(createBulkPayout),
+);
+router.post(
+  '/update-bulk-payout',
+  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  tryCatchHandler(updateBulkPayoutByBody),
 );
 
 router.post(
