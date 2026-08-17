@@ -221,24 +221,15 @@ const updateBulkPayoutByBody = async (req, res) => {
       }
     });
   }
-  if (publishFailed > 0) {
-    return sendNewSuccess(
-      res,
-      {
-        queued: publishedCount,
-        failed: publishFailed,
-      },
-      'Bulk payout body queued partially',
-      202,
-    );
-  }
   return sendNewSuccess(
     res,
     {
       queued: publishedCount,
       failed: publishFailed,
     },
-    'Bulk payout body queued successfully',
+    publishFailed > 0
+      ? 'Bulk payout body queued partially'
+      : 'Bulk payout body queued successfully',
     202,
   );
 };
