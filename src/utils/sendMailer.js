@@ -2,6 +2,7 @@
 // import path from 'path';
 import { logger } from '../utils/logger.js';
 import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
+import config from '../config/config.js';
 // const pngLogoPath = path.resolve('./src/assets/images/TrustPays24.png');
 
 const sesClient = new SESClient({
@@ -58,8 +59,8 @@ export const sendCredentialsEmail = async ({
 
   const redirectingUrl =
     role === Role.VENDOR
-      ? process.env.REACT_FRONT_ORIGIN_2
-      : process.env.REACT_FRONT_ORIGIN_1;
+      ? config.reactFrontOrigin2
+      : config.reactFrontOrigin1;
   // const apiDocsUrl = h2h ? process.env.API_DOCS_H2H : process.env.API_DOCS_URL;
 
   const html = `
