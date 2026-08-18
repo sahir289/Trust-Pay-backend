@@ -562,7 +562,6 @@ const _createUserServiceInternal = async (payload, conn) => {
       }
     }
 
-    let merchant = {};
     ///for merchant sub-merchant
     if (
       userDesignation[0]?.designation === Role.MERCHANT ||
@@ -621,7 +620,7 @@ const _createUserServiceInternal = async (payload, conn) => {
           apiVersion: 'v2',
         },
       };
-      merchant = await _createMerchantServiceInternal(merchantPayload, conn);
+      await _createMerchantServiceInternal(merchantPayload, conn);
     }
     ///for vendor sub-vendor
     if (
@@ -675,8 +674,7 @@ const _createUserServiceInternal = async (payload, conn) => {
           email: User.email,
           username: User.user_name,
           password: Password,
-          code: merchant?.config ? merchant.code : '',
-          secretKey: merchant?.config ? merchant.config.keys.private : '',
+          role: userRole[0]?.role,
           designation: designation[0]?.designation,
           unique_id,
         });
@@ -818,16 +816,10 @@ const sendMailService = async (payload) => {
     const user = await getUsersDao({ id: user_id });
     const role = await getRoleDao({ id: user[0].role_id });
     const designation = await getDesignationDao({ id: user[0].designation_id });
-    let merchant;
-    if (role[0].role === Role.MERCHANT) {
-      merchant = await getMerchantByUserIdDao(user_id);
-    }
     return await sendCredentialsEmail({
       email: user[0].email,
       username: user[0].user_name,
-      code: merchant ? merchant[0].code : '',
-      secretKey: merchant ? merchant[0].config.keys.private : '',
-      publicKey: merchant ? merchant[0].config.keys.public : '',
+      role: role[0]?.role,
       designation: designation[0].designation,
     });
   } catch (error) {
