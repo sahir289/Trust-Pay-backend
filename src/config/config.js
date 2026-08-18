@@ -429,6 +429,10 @@ function config(Env) {
     // See docs/architecture/ip-intelligence-service-design.md.
     ipIntelligence: {
       cacheKeyVersion: Env?.IP_INTEL_CACHE_VERSION || 'v1',
+      // Treat datacenter/hosting IPs as blockable on user-facing flows
+      // (login/payment). Commercial VPNs run on hosting ASNs that proxycheck
+      // often reports as hosting:true, vpn:false — real users never do.
+      blockHosting: Env?.IP_INTEL_BLOCK_HOSTING !== 'false', // default ON
       ttls: {
         blockSec: parsePositiveInt(Env?.IP_INTEL_TTL_BLOCK_SEC, 86400),
         cleanSec: parsePositiveInt(Env?.IP_INTEL_TTL_CLEAN_SEC, 21600),
