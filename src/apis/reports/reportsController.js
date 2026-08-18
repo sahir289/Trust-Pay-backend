@@ -1,19 +1,59 @@
 import {
   getClientsAccountReportService,
-  getPayInReportService,
-  getPayOutReportService,
+  // getPayInReportService,
+  // getPayOutReportService,
 } from './reportsService.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
-import { publishGetClientsAccountReport } from '../../rabbitmq/producer.js';
+import { publishGetClientsAccountReport, publishGetPayInReport, publishGetPayOutReport } from '../../rabbitmq/producer.js';
 
 const getPayInReportController = async (req, res) => {
-  const result = await getPayInReportService(req);
-  return sendSuccess(res, result, 'Got Pay-In report');
+  const { company_id, role } = req.user;
+  const { code, startDate, endDate, status, updatedPayin, type = 'csv'  } = req.query;
+
+  // type validate
+  const allowedTypes = ['csv', 'xlsx', 'pdf'];
+  const fileType = allowedTypes.includes(type?.toLowerCase())
+    ? type.toLowerCase()
+    : 'csv';
+
+  const payload = {
+    company_id,
+    role,
+    code,
+    startDate,
+    endDate,
+    status,
+    updatedPayin,
+    fileType
+  };
+
+  // const result = await getPayInReportService(req);
+  const result = await publishGetPayInReport(payload);
+  return sendSuccess(res, result, 'Payins Processing report successfully');
 };
 
 const getPayOutReportController = async (req, res) => {
-  const result = await getPayOutReportService(req);
-  return sendSuccess(res, result, 'Payouts created successfully');
+  const { company_id, role } = req.user;
+  const { code, startDate, endDate, status, type = 'csv' } = req.query;
+
+  // type validate
+  const allowedTypes = ['csv', 'xlsx', 'pdf'];
+  const fileType = allowedTypes.includes(type?.toLowerCase())
+    ? type.toLowerCase()
+    : 'csv';
+
+  const payload = {
+    company_id,
+    role,
+    code,
+    startDate,
+    endDate,
+    status,
+    fileType
+  };
+
+  const result = await publishGetPayOutReport(payload);
+  return sendSuccess(res, result, 'Payouts Processing report successfully');
 };
 
 const getClientsAccountReportController = async (req, res) => {

@@ -23,10 +23,10 @@ dayjs.extend(utc);
 dayjs.extend(timezone);
 
 
-const getPayInReportService = async (req) => {
+const getPayInReportService = async (payload) => {
   try {
-    const { company_id, role } = req.user;
-    const { code, startDate, endDate, status, updatedPayin } = req.query;
+    const { company_id, role } = payload;
+    const { code, startDate, endDate, status, updatedPayin } = payload;
     let startDateTime, endDateTime;
     if (startDate && endDate) {
       startDateTime = dayjs
@@ -82,10 +82,10 @@ const getPayInReportService = async (req) => {
   }
 };
 
-const getPayOutReportService = async (req) => {
+const getPayOutReportService = async (payload) => {
   try {
-    const { company_id, role } = req.user;
-    const { code, startDate, endDate, status } = req.query;
+    const { company_id, role } = payload;
+    const { code, startDate, endDate, status } = payload;
     const startDateTime = dayjs
       .tz(`${startDate} 00:00:00`, 'Asia/Kolkata')
       .toISOString();
