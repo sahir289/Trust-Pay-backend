@@ -99,7 +99,7 @@ const createGeoGuard = (options = {}) => {
         ? Promise.resolve(prefetchedProxyInfo)
         : withTimeout(checkProxyAndVpn(clientIp), 5000, 'Proxy/VPN check');
 
-      let [proxyInfo, address] = await Promise.allSettled([
+      const [proxyInfo, address] = await Promise.allSettled([
         proxyInfoPromise,
         withTimeout(
           reverseGeocode(latitude, longitude),
