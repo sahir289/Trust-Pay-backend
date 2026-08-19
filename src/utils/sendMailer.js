@@ -2,6 +2,7 @@
 // import path from 'path';
 import { logger } from '../utils/logger.js';
 import { SESClient, SendEmailCommand } from '@aws-sdk/client-ses';
+import config from '../config/config.js';
 // const pngLogoPath = path.resolve('./src/assets/images/TrustPays24.png');
 
 const sesClient = new SESClient({
@@ -21,6 +22,7 @@ const Role = {
   MERCHANT: 'MERCHANT',
   SUB_MERCHANT: 'SUB_MERCHANT',
   ADMIN : 'ADMIN',
+  VENDOR: 'VENDOR',
 };
 
 const currentBrand = (process.env.APP_BRAND || 'pm').trim().toLowerCase();
@@ -41,19 +43,24 @@ const logoUrl = brandLogos[currentBrand];
  * @param {string} param0.email - Recipient's email
  * @param {string} param0.username - Username to send
  * @param {string} param0.password - Password to send
- * @param {string} param0.designation - User designation
+ * @param {string} param0.role - User role
+ * @param {string} [param0.designation] - User designation (optional)
  */
 export const sendCredentialsEmail = async ({
   email,
   username,
   password,
+  role,
   designation,
   unique_id
 }) => {
   const subject = 'Your Account Credentials';
   const text = `Hello,\n\nYour account has been created successfully.\n\nUsername: ${username}\nPassword: ${password}\n\nPlease log in and change your password immediately for security.\n\nBest regards,\nPG Admin Team`;
 
-  const redirectingUrl = process.env.FRONTEND_URL;
+  const redirectingUrl =
+    role === Role.VENDOR
+      ? config.reactFrontOrigin2
+      : config.reactFrontOrigin1;
   // const apiDocsUrl = h2h ? process.env.API_DOCS_H2H : process.env.API_DOCS_URL;
 
   const html = `
