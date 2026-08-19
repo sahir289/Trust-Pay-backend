@@ -94,7 +94,45 @@ async function processAccountReportJob(messagePayload) {
     extension = 'xlsx';
   } 
   else if (fileType === 'pdf') {
-    buffer = await generatePDFBuffer(result);
+    const columns = [
+      { header: 'Calculation ID',     key: 'calculation_id',              width: 90 },
+      { header: 'Total PayIn Amt',    key: 'total_payin_amount',          width: 85,  format: 'currency', align: 'right' },
+      { header: 'Total PayIn Count',  key: 'total_payin_count',           width: 80,  align: 'right' },
+      { header: 'Total PayIn Comm',   key: 'total_payin_commission',      width: 85,  format: 'currency', align: 'right' },
+      { header: 'Total PayOut Amt',   key: 'total_payout_amount',         width: 85,  format: 'currency', align: 'right' },
+      { header: 'Total PayOut Count', key: 'total_payout_count',          width: 85,  align: 'right' },
+      { header: 'Total PayOut Comm',  key: 'total_payout_commission',     width: 85,  format: 'currency', align: 'right' },
+      { header: 'Total Settle Amt',   key: 'total_settlement_amount',     width: 85,  format: 'currency', align: 'right' },
+      { header: 'Total Settle Count', key: 'total_settlement_count',      width: 85,  align: 'right' },
+      { header: 'Total AED Amt',      key: 'total_aed_amount',            width: 80,  format: 'currency', align: 'right' },
+      { header: 'Total Bank Amt',     key: 'total_bank_amount',           width: 80,  format: 'currency', align: 'right' },
+      { header: 'Total Cash Amt',     key: 'total_cash_amount',           width: 80,  format: 'currency', align: 'right' },
+      { header: 'Total Crypto Amt',   key: 'total_crypto_amount',         width: 85,  format: 'currency', align: 'right' },
+      { header: 'Total AED Count',    key: 'total_aed_count',             width: 75,  align: 'right' },
+      { header: 'Total Bank Count',   key: 'total_bank_count',            width: 80,  align: 'right' },
+      { header: 'Total Cash Count',   key: 'total_cash_count',            width: 80,  align: 'right' },
+      { header: 'Total Crypto Count', key: 'total_crypto_count',          width: 85,  align: 'right' },
+      { header: 'Total Charge Amt',   key: 'total_charge_amount',         width: 85,  format: 'currency', align: 'right' },
+      { header: 'Total Charge Count', key: 'total_charge_count',          width: 85,  align: 'right' },
+      { header: 'Current Balance',    key: 'current_balance',             width: 90,  format: 'currency', align: 'right' },
+      { header: 'Net Balance',        key: 'net_balance',                 width: 85,  format: 'currency', align: 'right' },
+      { header: 'Created At',         key: 'created_at',                  width: 110, format: 'date' },
+      { header: 'Updated At',         key: 'updated_at',                  width: 110, format: 'date' },
+      { header: 'Total Reverse Amt',  key: 'total_reverse_amount',        width: 90,  format: 'currency', align: 'right' },
+      { header: 'Total Reverse Count',key: 'total_reverse_count',         width: 90,  align: 'right' },
+      { header: 'Total Reverse Comm', key: 'total_reverse_commission',    width: 90,  format: 'currency', align: 'right' },
+      { header: 'Total Adjustment',   key: 'total_adjustment',            width: 90,  format: 'currency', align: 'right' },
+      { header: 'Company ID',         key: 'company_id',                  width: 90 },
+      { header: 'Code',               key: 'code',                        width: 80 },
+      { header: 'GM Code',            key: 'gm_code',                     width: 70 },
+      { header: 'Merchant',           key: 'merchant_code',               width: 80 },
+      { header: 'User ID',            key: 'user_id',                     width: 120 },
+    ];
+  
+    buffer = await generatePDFBuffer(result, {
+      title: 'Account Report',
+      columns,
+    });
     contentType = 'application/pdf';
     extension = 'pdf';
   }
