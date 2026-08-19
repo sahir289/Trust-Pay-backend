@@ -73,7 +73,7 @@ const createGeoGuard = (options = {}) => {
         logger.warn('Location not provided, attempting to fetch from Proxy/VPN service', { ip: clientIp });
         prefetchedProxyInfo = await withTimeout(
           checkProxyAndVpn(clientIp),
-          3000,
+          5000,
           'Proxy/VPN check',
         );
         if (prefetchedProxyInfo?.raw?.latitude && prefetchedProxyInfo?.raw?.longitude) {
@@ -97,13 +97,13 @@ const createGeoGuard = (options = {}) => {
 
       const proxyInfoPromise = prefetchedProxyInfo
         ? Promise.resolve(prefetchedProxyInfo)
-        : withTimeout(checkProxyAndVpn(clientIp), 3000, 'Proxy/VPN check');
+        : withTimeout(checkProxyAndVpn(clientIp), 5000, 'Proxy/VPN check');
 
       const [proxyInfo, address] = await Promise.allSettled([
         proxyInfoPromise,
         withTimeout(
           reverseGeocode(latitude, longitude),
-          3000,
+          5000,
           'Reverse geocoding',
         ),
       ]).then((results) =>
