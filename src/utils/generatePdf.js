@@ -2,6 +2,7 @@ import PDFDocument from 'pdfkit';
 
 /**
  * Common function to generate PDF in Table format
+ * Auto: A4 landscape → agar columns bahut zyada hon to A3 landscape
  */
 export function generatePDFBuffer(data = [], options = {}) {
   const {
@@ -10,10 +11,21 @@ export function generatePDFBuffer(data = [], options = {}) {
   } = options;
 
   return new Promise((resolve, reject) => {
+    // ---------- Decide page size ----------
+    // A4 landscape usable width ~ 782pt (with margin 30)
+    // A3 landscape usable width ~ 1132pt
+    const totalDefinedWidth = columns.reduce(
+      (sum, col) => sum + (col.width || 80),
+      0,
+    );
+
+    // Agar columns ka total width A4 se zyada hai → A3 landscape
+    const useA3 = totalDefinedWidth > 900 || columns.length > 12;
+
     const doc = new PDFDocument({
-      margin: 30,
-      size: 'A4',
-      layout: 'landscape',
+      margin: 20, // thoda kam margin = zyada space
+      size: useA3 ? 'A3' : 'A4',
+      layout: 'landscape', // hamesha landscape
     });
 
     const buffers = [];
@@ -21,11 +33,32 @@ export function generatePDFBuffer(data = [], options = {}) {
     doc.on('end', () => resolve(Buffer.concat(buffers)));
     doc.on('error', reject);
 
-    const pageWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
+    const pageWidth =
+      doc.page.width - doc.page.margins.left - doc.page.margins.right;
     const startX = doc.page.margins.left;
-    const rowHeight = 18;
-    const headerHeight = 22;
+    const rowHeight = 16;
+    const headerHeight = 20;
     let currentY = doc.page.margins.top;
+
+    // ---------- Scale columns to fit page exactly ----------
+    const scaledColumns = columns.map((col) => {
+      const originalWidth = col.width || 80;
+      const scaledWidth =
+        totalDefinedWidth > 0
+          ? (originalWidth / totalDefinedWidth) * pageWidth
+          : pageWidth / Math.max(columns.length, 1);
+
+      return {
+        ...col,
+        width: Math.floor(scaledWidth),
+      };
+    });
+
+    // Rounding leftover → last column
+    const scaledTotal = scaledColumns.reduce((s, c) => s + c.width, 0);
+    if (scaledColumns.length > 0 && scaledTotal !== pageWidth) {
+      scaledColumns[scaledColumns.length - 1].width += pageWidth - scaledTotal;
+    }
 
     // ---------- Helpers ----------
     const formatCurrency = (value) => {
@@ -56,22 +89,21 @@ export function generatePDFBuffer(data = [], options = {}) {
       }
     };
 
-    // ---------- Draw Header ----------
     const drawHeader = () => {
       let x = startX;
 
-      // Background
       doc.rect(startX, currentY, pageWidth, headerHeight).fill('#1f2937');
 
-      columns.forEach((col) => {
+      scaledColumns.forEach((col) => {
         doc
           .fillColor('#ffffff')
-          .fontSize(8)
+          .fontSize(useA3 ? 8 : 7)
           .font('Helvetica-Bold')
-          .text(col.header, x + 3, currentY + 6, {
-            width: col.width - 6,
+          .text(col.header, x + 2, currentY + 5, {
+            width: col.width - 4,
             align: col.align || 'left',
             lineBreak: false,
+            ellipsis: true,
           });
         x += col.width;
       });
@@ -79,24 +111,20 @@ export function generatePDFBuffer(data = [], options = {}) {
       currentY += headerHeight;
     };
 
-    // ---------- Draw Single Row ----------
     const drawRow = (row, isEven) => {
       let x = startX;
 
-      // Alternate background
       if (isEven) {
         doc.rect(startX, currentY, pageWidth, rowHeight).fill('#f3f4f6');
       }
 
-      columns.forEach((col) => {
+      scaledColumns.forEach((col) => {
         let value = row[col.key];
 
-        // Nested key support
         if (col.key && col.key.includes('.')) {
           value = col.key.split('.').reduce((obj, k) => obj?.[k], row);
         }
 
-        // Format value
         if (col.format === 'currency') {
           value = formatCurrency(value);
         } else if (col.format === 'date') {
@@ -109,12 +137,12 @@ export function generatePDFBuffer(data = [], options = {}) {
 
         doc
           .fillColor('#111827')
-          .fontSize(7)
+          .fontSize(useA3 ? 7 : 6.5)
           .font('Helvetica')
-          .text(value, x + 3, currentY + 5, {
-            width: col.width - 6,
+          .text(value, x + 2, currentY + 4, {
+            width: col.width - 4,
             align: col.align || 'left',
-            lineBreak: false,        // Important - wrapping band karo
+            lineBreak: false,
             ellipsis: true,
           });
 
@@ -124,19 +152,16 @@ export function generatePDFBuffer(data = [], options = {}) {
       currentY += rowHeight;
     };
 
-    // ---------- Check if we need new page ----------
     const checkPageBreak = () => {
-      // Agar next row + thoda space nahi bachta
-      if (currentY + rowHeight > doc.page.height - 40) {
+      if (currentY + rowHeight > doc.page.height - 30) {
         doc.addPage();
         currentY = doc.page.margins.top;
-        drawHeader(); // har naye page pe header
+        drawHeader();
       }
     };
 
-    // ====================== START DRAWING ======================
+    // ====================== DRAW ======================
 
-    // Title
     doc
       .fontSize(14)
       .font('Helvetica-Bold')
@@ -147,21 +172,21 @@ export function generatePDFBuffer(data = [], options = {}) {
       .fontSize(8)
       .font('Helvetica')
       .fillColor('#6b7280')
-      .text(`Generated on: ${formatDate(new Date())}`, { align: 'center' });
+      .text(
+        `Generated on: ${formatDate(new Date())}${useA3 ? '  |  Page: A3 Landscape' : '  |  Page: A4 Landscape'}`,
+        { align: 'center' },
+      );
 
-    doc.moveDown(0.8);
+    doc.moveDown(0.6);
     currentY = doc.y;
 
-    // First header
     drawHeader();
 
-    // Rows
     data.forEach((row, index) => {
-      checkPageBreak();          // page break check pehle
+      checkPageBreak();
       drawRow(row, index % 2 === 0);
     });
 
-    // Total records
     currentY += 10;
     doc
       .fontSize(9)
