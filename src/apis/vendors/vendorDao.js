@@ -114,7 +114,6 @@ export const getVendorByAuthCodeDao = async (filters = {}, conn = null) => {
             FROM "${tableName.BANK_ACCOUNT}" ba
             WHERE ba.user_id = v.user_id
             AND ba.is_obsolete = false
-            AND ba.is_enabled = true
         ) AS banks
       FROM "${tableName.VENDOR}" v 
       WHERE v.is_obsolete = false
