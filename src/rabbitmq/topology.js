@@ -11,6 +11,8 @@ export const QUEUES = {
   TELEGRAM_MESSAGE: process.env.RABBITMQ_TELEGRAM_MESSAGE_QUEUE || 'telegram_message_queue',
   TELEGRAM_OCR: process.env.RABBITMQ_TELEGRAM_OCR_QUEUE || 'telegram_ocr_queue',
   ACCOUNT_REPORT: process.env.RABBITMQ_ACCOUNT_REPORT_QUEUE || 'account_report_queue',
+  PAYIN_REPORT: process.env.RABBITMQ_PAYIN_REPORT_QUEUE || 'payin_report_queue',
+  PAYOUT_REPORT: process.env.RABBITMQ_PAYOUT_REPORT_QUEUE || 'payout_report_queue',
 };
 
 const DLQ_ROUTING_KEY = 'dead';
@@ -69,6 +71,14 @@ export const TOPOLOGY = {
     QUEUES.ACCOUNT_REPORT,
     Number(process.env.ACCOUNT_REPORT_RETRY_DELAY_MS || 10000),
   ),
+  PayInReport: queueTopology(
+    QUEUES.PAYIN_REPORT,
+    Number(process.env.ACCOUNT_REPORT_RETRY_DELAY_MS || 10000),
+  ),
+  PayOutReport: queueTopology(
+    QUEUES.PAYOUT_REPORT,
+    Number(process.env.ACCOUNT_REPORT_RETRY_DELAY_MS || 10000),
+  ),
 };
 
 export async function assertQueueTopology(channel, topology) {
@@ -105,6 +115,8 @@ export async function assertAllTopologies(channel) {
   await assertQueueTopology(channel, TOPOLOGY.telegramMessage);
   await assertQueueTopology(channel, TOPOLOGY.telegramOcr);
   await assertQueueTopology(channel, TOPOLOGY.accountReport);
+  await assertQueueTopology(channel, TOPOLOGY.PayInReport);
+  await assertQueueTopology(channel, TOPOLOGY.PayOutReport);
   logger.info('[RabbitMQ] Queue topology ensured', {
     bankResponseQueue: TOPOLOGY.bankResponse.queue,
     bankResponseRetryQueue: TOPOLOGY.bankResponse.retryQueue,
@@ -128,6 +140,8 @@ export async function assertAllTopologies(channel) {
     telegramMessageDLQ: TOPOLOGY.telegramMessage.dlq,
     telegramOcrQueue: TOPOLOGY.telegramOcr.queue,
     accountReportQueue: TOPOLOGY.accountReport.queue,
+    payInReportQueue: TOPOLOGY.PayInReport.queue,
+    payOutReportQueue: TOPOLOGY.PayOutReport.queue,
     telegramOcrRetryQueue: TOPOLOGY.telegramOcr.retryQueue,
     telegramOcrDLQ: TOPOLOGY.telegramOcr.dlq,
   });

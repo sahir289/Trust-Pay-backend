@@ -38,6 +38,8 @@ import {
   stopTelegramOcrConsumer,
 } from './consumers/telegramOcrConsumer.js';
 import { startAccountReportConsumer, stopAccountReportConsumer } from './consumers/accountReportConsumer.js';
+import { startPayInReportConsumer, stopPayInReportConsumer } from './consumers/payInReportConsumer.js';
+import { startPayOutReportConsumer, stopPayOutReportConsumer } from './consumers/payOutReportConsumer.js';
 
 let consumersStarted = false;
 
@@ -51,6 +53,8 @@ export async function startRabbitMQConsumers() {
     startBankResponseConsumer(),
     startBankResponseBulkConsumer(),
     startAccountReportConsumer(),
+    startPayInReportConsumer(),
+    startPayOutReportConsumer(),
     startBulkPayoutConsumer(),
     startBulkPayoutCreateConsumer(),
     startBulkPayoutUpdateConsumer(),
@@ -73,6 +77,8 @@ export async function stopRabbitMQ() {
       stopBulkPayoutConsumer(),
       stopBulkPayoutUpdateConsumer(),
       stopAccountReportConsumer(),
+      stopPayInReportConsumer(),
+      stopPayOutReportConsumer(),
       stopPayInProcessConsumer(),
       stopMerchantCallbackConsumer(),
       stopTelegramMessageConsumer(),
