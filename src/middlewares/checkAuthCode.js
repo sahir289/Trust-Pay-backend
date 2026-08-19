@@ -54,30 +54,68 @@ export const checkAuthCode = async (req, res, next) => {
 };
 
 export const checkAuthVendorCode = async (req, res, next) => {
-  const x_auth_code = req.headers['x-auth-code'];
-  const payloads = req.body?.body || [req?.body] || []; 
-  const bankIds = [...new Set(payloads.map(item => item.bank_id))];
-  if (x_auth_code) {
-    const vendorInfo = await getVendorByAuthCodeDao({code: x_auth_code});
+  try {
+    const x_auth_code = req.headers['x-auth-code'];
+
+    if (!x_auth_code) {
+      return sendError(res, 'x-auth-code header is missing', 401);
+    }
+
+    // body can be { body: [...] } or a single object
+    const payloads = Array.isArray(req.body?.body)
+      ? req.body.body
+      : Array.isArray(req.body)
+        ? req.body
+        : req.body
+          ? [req.body]
+          : [];
+
+    const bankIds = [
+      ...new Set(
+        payloads
+          .map((item) => item?.bank_id)
+          .filter(Boolean),
+      ),
+    ];
+
+    if (bankIds.length === 0) {
+      return sendError(res, 'bank_id is required in request body', 400);
+    }
+
+    const vendorInfo = await getVendorByAuthCodeDao({ code: x_auth_code });
 
     if (!vendorInfo) {
       return sendError(res, 'Invalid x-auth-code code', 400);
     }
 
-    const matchedBanks = vendorInfo.banks.filter(bank =>
-      bankIds.includes(bank.id)
+    // ★ Fix: banks missing / undefined handle karo
+    const vendorBanks = Array.isArray(vendorInfo.banks)
+      ? vendorInfo.banks
+      : [];
+
+    if (vendorBanks.length === 0) {
+      return sendError(
+        res,
+        'No banks mapped to this vendor (x-auth-code)',
+        400,
+      );
+    }
+
+    const matchedBanks = vendorBanks.filter((bank) =>
+      bankIds.includes(bank.id),
     );
     if (matchedBanks.length === 0) {
       return sendError(res, 'No matching banks found for the provided bank_id(s)', 400);
     }
-    const updatedVendorInfo = {
+
+    req.vendor = {
       ...vendorInfo,
-      banks: matchedBanks
+      banks: matchedBanks,
     };
-    req.vendor = updatedVendorInfo;
+
+    return next();
+  } catch (error) {
+    console.error('checkAuthVendorCode error:', error);
+    return sendError(res, 'Authentication check failed', 500);
   }
-  else {
-    return sendError(res, 'x-auth-code header is missing', 401);
-  }
-  next();
 };
