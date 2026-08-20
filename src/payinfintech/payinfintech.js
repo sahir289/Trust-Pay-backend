@@ -15,7 +15,9 @@ const nanoid = customAlphabet(
 );
 
 const BASE_URL = 'https://api.payinfintech.com';
-
+const generateRandom10DigitMobile = () => {
+  return String(Math.floor(1000000000 + Math.random() * 9000000000));
+};
 /**
  * Abstraction for authentication headers.
  * To switch to secret key, change the implementation here.
@@ -318,10 +320,7 @@ export const createPayInFintechPayout = async (
         singleWithdrawData.ifsc_code,
       Mode: payload?.config?.payout_mode || 'IMPS',
       orderid: singleWithdrawData.merchant_order_id,
-      Mobile: singleWithdrawData.phone ||
-        singleWithdrawData.user?.phone ||
-        singleWithdrawData.mobile ||
-        '9999999999',
+      Mobile: generateRandom10DigitMobile(),
     };
 
     
