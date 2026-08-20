@@ -138,7 +138,7 @@ async function processPayOutReportJob(messagePayload) {
     totalRecords: result.length,
     s3Key: key,
   }
-  emitTableEntryAsync(tableName.PAYOUT_REPORT, responseObj);
+  emitTableEntryAsync(tableName.ACCOUNT_REPORT, responseObj);
 
   logger.info(`PayOut Report generation completed | Type: ${fileType} | Records: ${result.length} | Download URL: ${url}`);
 

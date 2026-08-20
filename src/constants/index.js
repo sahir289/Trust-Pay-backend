@@ -629,8 +629,6 @@ export const tableName = {
   NOTIFICATION_RECIPIENTS: 'NotificationRecipients',
   BANK_HISTORY: 'BankHistory',
   ACCOUNT_REPORT: 'AccountReport',
-  PAYIN_REPORT: 'PayInReport',
-  PAYOUT_REPORT: 'PayOutReport',
 };
 
 export const BankTypes = {
