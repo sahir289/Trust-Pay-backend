@@ -134,7 +134,7 @@ async function processPayInReportJob(messagePayload) {
     totalRecords: result.length,
     s3Key: key,
   }
-  emitTableEntryAsync(tableName.PAYIN_REPORT, responseObj);
+  emitTableEntryAsync(tableName.ACCOUNT_REPORT, responseObj);
 
   logger.info(`PayIn Report generation completed | Type: ${fileType} | Records: ${result.length} | Download URL: ${url}`);
 
