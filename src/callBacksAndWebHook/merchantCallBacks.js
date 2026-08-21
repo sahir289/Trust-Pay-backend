@@ -140,6 +140,7 @@ export const deliverMerchantNotification = async (
     });
     const envelope = buildCallbackEnvelope(data, type, apiVersion);
     const { body, headers } = buildSignedRequest(envelope, secretKey);
+    logger.info(`Headers and body , ${body}, ${headers}`);
     const response = await axios.post(url, body, {
       timeout: CALLBACK_TIMEOUT_MS,
       maxRedirects: 0,
