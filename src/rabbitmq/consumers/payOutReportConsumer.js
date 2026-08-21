@@ -69,13 +69,17 @@ async function processPayOutReportJob(messagePayload) {
   const fileType = payload?.fileType || 'csv';
   const role_name = payload?.role_name || 'all';
   if (!result || !Array.isArray(result) || result.length === 0) {
-    return {
-      success: true,
+    const responseObj = {
+      userId: payload?.userId || null,
+      success: false,
       message: 'No data found for the given filters',
       downloadUrl: null,
       totalRecords: 0,
       fileType,
-    };
+    }
+    emitTableEntryAsync(tableName.ACCOUNT_REPORT, responseObj);
+    logger.info(`PayOut Report generation completed | Type: ${fileType} | Records: 0 | No data found for the given filters`);
+    return;
   }
 
   let buffer;
@@ -130,6 +134,7 @@ async function processPayOutReportJob(messagePayload) {
   );
 
   const responseObj = {
+    userId: payload?.userId || null,
     success: true,
     message: 'PayOut Report generated successfully',
     downloadUrl: url,
