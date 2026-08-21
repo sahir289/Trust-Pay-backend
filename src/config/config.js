@@ -271,6 +271,12 @@ function config(Env) {
       payinUrl: Env?.PAY_CRIC_PAYIN_URL,
       walletBalanceUrl: Env?.PAY_CRIC_WALLET_BALANCE_URL,
     },
+    rapidPay: {
+      baseUrl: Env?.RAPID_PAY_BASE_URL,
+    },
+    beetas: {
+      baseUrl: Env?.BEETAS_BASE_URL,
+    },
     controllerCacheTtls: {
       auth: {
         session: parsePositiveInt(Env?.AUTH_SESSION_CACHE_TTL_SEC, 30),

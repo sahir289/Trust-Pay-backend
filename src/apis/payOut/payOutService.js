@@ -86,6 +86,7 @@ import { createVertexPayPayout } from '../../vertexpay/vertexpay.js';
 import { createRunsafePayPayout, getRunsafePayWalletBalance } from '../../runsafe/runsafepay.js';
 import { createPayInFintechPayout } from '../../payinfintech/payinfintech.js';
 import { createPennyPayPayout, processPennyPayFamilyPayout } from '../../pennypay/pennypay.js';
+import { processRapidBeetasPayout } from '../../rapidbeetas/rapidbeetas.js';
 import { emitTableEntryAsync } from '../../utils/socket/sessionUtils.js';
 import {createFreechipsPayout} from '../../freechips/freechips.js'
 import { createPayflyPayout } from '../../payfly/payfly.js';
@@ -575,6 +576,49 @@ const initiateExistingPayoutWithMethodService = async ({
       updatePayload = {
         ...updatePayload,
         ...pennyPayPayloadUpdates,
+      };
+    }
+    if (
+      method === Method.RAPIDPAY ||
+      method === Method.BEETAS
+    ) {
+      const rapidBeetasConfigKey = method === Method.RAPIDPAY ? 'RAPID_PAY' : 'BEETAS';
+      const [company] = await getCompanyByIDDao({ id: companyId }, conn);
+      if (!company) {
+        throw new NotFoundError('Company not found');
+      }
+      const bankId = company?.config?.[rapidBeetasConfigKey]?.defaultBankId;
+      if (!bankId) {
+        throw new NotFoundError(`Default bank ID not found for ${method}`);
+      }
+      const rapidBankDataArr = await getBankByIdDao({ id: bankId }, conn);
+      const rapidBankData = rapidBankDataArr?.[0];
+      if (!rapidBankData) {
+        throw new NotFoundError(`Bank not found for ${method} payout`);
+      }
+      const [rapidVendor] = await getVendorsDao({ user_id: rapidBankData.user_id });
+      if (!rapidVendor) {
+        throw new NotFoundError(`Vendor not found for ${method} payout`);
+      }
+      const rapidBeetasPayloadUpdates = await processRapidBeetasPayout(
+        method,
+        updatePayload,
+        {
+          id: payoutId,
+          company_id: companyId,
+        },
+        singleWithdrawData,
+        conn,
+        {
+          company,
+          bankId,
+          bankData: rapidBankData,
+          vendor: rapidVendor,
+        },
+      );
+      updatePayload = {
+        ...updatePayload,
+        ...rapidBeetasPayloadUpdates,
       };
     }
     const data = await updatePayoutDao(
@@ -1655,8 +1699,49 @@ const _updatePayoutServiceInternal = async (
       });
       
       payload = updatedPayload;
+    }else if (
+      payload?.config?.method === Method.RAPIDPAY ||
+      payload?.config?.method === Method.BEETAS
+    ) {
+      const method = payload.config.method;
+      logger.info(`Processing ${method} payout for method: ${method}`);
+      const rapidBeetasConfigKey = method === Method.RAPIDPAY ? 'RAPID_PAY' : 'BEETAS';
+      const [company] = await getCompanyByIDDao({ id: ids.company_id }, conn);
+      if (!company) {
+        throw new NotFoundError('Company not found');
+      }
+      const bankId = company?.config?.[rapidBeetasConfigKey]?.defaultBankId;
+      if (!bankId) {
+        throw new NotFoundError(`Default bank ID not found for ${method}`);
+      }
+      const rapidBankDataArr = await getBankByIdDao({ id: bankId }, conn);
+      bankDataArr = rapidBankDataArr;
+      const rapidBankData = rapidBankDataArr?.[0];
+      if (!rapidBankData) {
+        throw new NotFoundError(`Bank not found for ${method} payout`);
+      }
+      const [rapidVendor] = await getVendorsDao({ user_id: rapidBankData.user_id });
+      if (!rapidVendor) {
+        throw new NotFoundError(`Vendor not found for ${method} payout`);
+      }
+      const updatedPayload = await processRapidBeetasPayout(
+        method,
+        payload,
+        ids,
+        singleWithdrawData,
+        conn,
+        {
+          company,
+          bankId,
+          bankData: rapidBankData,
+          vendor: rapidVendor,
+        },
+      );
+      payload = {
+        ...payload,
+        ...updatedPayload,
+      };
     }
-
     if (earlyReturnResult !== null) {
       return earlyReturnResult;
     }
@@ -1711,7 +1796,6 @@ const _updatePayoutServiceInternal = async (
       }, secretKey);
       earlyReturnResult = data;
     }
-
     const bankData = bankDataArr[0];
     let vendor = null;
     // Only require bank for non-REJECTED and non-REVERSED (without approved_at) statuses

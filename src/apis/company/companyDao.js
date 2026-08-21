@@ -64,10 +64,14 @@ const getCompanyDetailsByIdDao = async (id, conn = null) => {
       config ->> 'allow_trustpay' AS trustpay_intent,
       config ->> 'allow_paybitra' AS paybitra_intent,
       config ->> 'allow_paycric' AS paycric_intent,
+      config ->> 'allow_rapidpay' AS rapidpay_intent,
+      config ->> 'allow_beetas' AS beetas_intent,
       config ->> 'allow_payout_trustpay' AS allowtrustpay,
       config ->> 'allow_payout_pennypay' AS allowpennypay,
       config ->> 'allow_payout_paybitra' AS allowpaybitra,
       config ->> 'allow_payout_paycric' AS allowpaycric,
+      config ->> 'allow_payout_rapidpay' AS allowrapidpay,
+      config ->> 'allow_payout_beetas' AS allowbeetas,
       config ->> 'allowPayInFintech' AS allowPayInFintech,
       config ->> 'allow_payout_freechips' AS allowfreechips,
       config ->> 'allow_payout_payfly' AS allowpayfly
@@ -183,6 +187,8 @@ const getCashfreeAllowByCompanyIdDao = async (id, conn = null) => {
         COALESCE((config ->> 'allow_trustpay')::boolean, false) AS allow_trustpay,
         COALESCE((config ->> 'allow_paybitra')::boolean, false) AS allow_paybitra,
         COALESCE((config ->> 'allow_paycric')::boolean, false) AS allow_paycric,
+        COALESCE((config ->> 'allow_rapidpay')::boolean, false) AS allow_rapidpay,
+        COALESCE((config ->> 'allow_beetas')::boolean, false) AS allow_beetas,
         COALESCE((config ->> 'allow_paytm')::boolean, false) AS is_paytm_enabled
       FROM "${tableName.COMPANY}"
       WHERE id = $1

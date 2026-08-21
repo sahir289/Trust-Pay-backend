@@ -16,7 +16,7 @@ import { isAuthenticated } from '../../middlewares/auth.js';
 import  {geoLocationGuard}  from '../../middlewares/loginLocationRestrict.js';
 import {
   authApiRateLimiter,
-  loginBruteGuard,
+  // loginBruteGuard,
   verify2faBruteGuard,
 } from '../../middlewares/authRateLimiter.js';
 const router = express.Router();
@@ -46,8 +46,8 @@ router.use(authApiRateLimiter);
  */
 router.post(
   '/login',
-  geoLocationGuard,
-  loginBruteGuard,
+  // geoLocationGuard,
+  // loginBruteGuard,
   tryCatchHandler(loginController),
 ); // login route
 

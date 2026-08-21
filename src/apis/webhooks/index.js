@@ -18,6 +18,7 @@ import { payEasy03Webhook } from './payeasy03.js';
 import { tytlWebhook } from "./tytl.js";
 import { albeCollectWebhook } from './albeCollect.js';
 import { pennyPayWebhook } from './pennypay.js';
+import { rapidBeetasWebhook } from './rapidbeetas.js';
 import { freechipsWebhook } from './freeChips.js';
 import { payinIpAccessControl } from '../../middlewares/ipAccessControl.js';
 
@@ -39,6 +40,7 @@ router.post('/payeasy02', payinIpAccessControl, tryCatchHandler(payEasy02Webhook
 router.post('/payeasy03', payinIpAccessControl, tryCatchHandler(payEasy03Webhook));
 router.post('/albeCollect', payinIpAccessControl, tryCatchHandler(albeCollectWebhook));
 router.post('/paynow', payinIpAccessControl, tryCatchHandler(pennyPayWebhook));
+router.post('/paymentIn', payinIpAccessControl, tryCatchHandler(rapidBeetasWebhook));
 router.post('/freechips', payinIpAccessControl, tryCatchHandler(freechipsWebhook));
 
 export default router;
