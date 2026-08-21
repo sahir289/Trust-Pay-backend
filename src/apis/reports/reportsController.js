@@ -7,7 +7,7 @@ import { sendSuccess } from '../../utils/responseHandlers.js';
 import { publishGetClientsAccountReport, publishGetPayInReport, publishGetPayOutReport } from '../../rabbitmq/producer.js';
 
 const getPayInReportController = async (req, res) => {
-  const { company_id, role } = req.user;
+  const { company_id, role, user_id } = req.user;
   const { code, startDate, endDate, status, updatedPayin, type = 'csv'  } = req.query;
 
   // type validate
@@ -18,6 +18,7 @@ const getPayInReportController = async (req, res) => {
 
   const payload = {
     company_id,
+    userId:user_id,
     role,
     code,
     startDate,
@@ -33,7 +34,7 @@ const getPayInReportController = async (req, res) => {
 };
 
 const getPayOutReportController = async (req, res) => {
-  const { company_id, role } = req.user;
+  const { company_id, role, user_id } = req.user;
   const { code, startDate, endDate, status, type = 'csv' } = req.query;
 
   // type validate
@@ -44,6 +45,7 @@ const getPayOutReportController = async (req, res) => {
 
   const payload = {
     company_id,
+    userId:user_id,
     role,
     code,
     startDate,
@@ -57,10 +59,11 @@ const getPayOutReportController = async (req, res) => {
 };
 
 const getClientsAccountReportController = async (req, res) => {
-  const { company_id, role } = req.user;
+  const { company_id, role, user_id } = req.user;
   const { code, startDate, endDate, role_name, page, limit } = req.body;
   const payload = {
     company_id,
+    userId:user_id,
     role,
     code,
     startDate,
