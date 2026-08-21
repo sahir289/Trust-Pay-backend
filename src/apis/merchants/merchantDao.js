@@ -582,6 +582,8 @@ export const getMerchantsByAuthCodeDao = async (
         m.code,
         m.min_payin,
         m.max_payin,
+        m.min_payout, 
+        m.max_payout, 
         jsonb_build_object(
           'keys', m.config->'keys',
           'urls', m.config->'urls',
