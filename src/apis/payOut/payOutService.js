@@ -1920,6 +1920,7 @@ const _updatePayoutServiceInternal = async (
           {
             balance: -Number(data.amount),
             today_balance: -Number(data.amount),
+            payin_count: 1,
           },
           conn,
         ),
