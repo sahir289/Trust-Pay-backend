@@ -28,6 +28,29 @@ const merchant = await getMerchantsByAuthCodeDao(code);
   }
   return merchant;
 };
+const getVendorAuthCodeCacheKey = (code) =>
+  code ? `vendor_auth_code:${code}` : null;
+
+const getVendorFromAuthCodeCacheOrDb = async (code) => {
+  const cacheKey = getVendorAuthCodeCacheKey(code);
+  const cachedVendor = await getCachedData(
+      cacheKey,
+      'vendor_auth_code',
+    );
+    if (cachedVendor) {
+      return cachedVendor;
+    }
+  const vendor = await getVendorByAuthCodeDao({code});
+    if (vendor) {
+      await setCachedData(
+        cacheKey,
+        vendor,
+        MERCHANT_API_CACHE_TTL_SEC,
+        'vendor_auth_code',
+      );
+    }
+    return vendor;
+  };
 // Normalize a merchant's configured whitelist (string or array, possibly
 // comma-separated) into a clean array of IP strings.
 
@@ -82,7 +105,7 @@ export const checkAuthVendorCode = async (req, res, next) => {
       return sendError(res, 'bank_id is required in request body', 400);
     }
 
-    const vendorInfo = await getVendorByAuthCodeDao({ code: x_auth_code });
+    const vendorInfo = await getVendorFromAuthCodeCacheOrDb(x_auth_code);
 
     if (!vendorInfo) {
       return sendError(res, 'Invalid x-auth-code code', 400);

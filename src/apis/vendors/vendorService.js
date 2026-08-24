@@ -49,6 +49,13 @@ const invalidatePayinValidateVendorCache = async (vendorUserId) => {
     'Payin validate vendor cache',
   );
 };
+const invalidateVendorAuthCodeCache = async ({ code } = {}) => {
+  if (!code) return;
+  await deleteCachedData(
+    `vendor_auth_code:${code}`,
+    'vendor_auth_code cache',
+  );
+};
 const _createVendorServiceInternal = async (payload, conn) => {
   try {
     const parentId = payload.parent_id;
@@ -458,6 +465,7 @@ const updateVendorService = async (ids, payload) => {
   try {
     const data = await _updateVendorServiceInternal(ids, payload);
     await invalidatePayinValidateVendorCache(data?.user_id);
+    await invalidateVendorAuthCodeCache({ code: data?.code });
     return data;
   } catch (error) {
     logger.error('Error while updating Vendor', error);
@@ -560,6 +568,7 @@ const deleteVendorService = async (ids, updated_by) => {
     conn = await getConnection();
     await beginTransaction(conn); // Start a transaction
     const data = await _deleteVendorServiceInternal(ids, updated_by, conn);
+    await invalidateVendorAuthCodeCache({ code: data?.code });
     await commit(conn);
     committed = true; // Commit the transaction
     return data;
