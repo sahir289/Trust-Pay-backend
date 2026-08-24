@@ -375,6 +375,7 @@ function config(Env) {
       vendors: {
         byId: parsePositiveInt(Env?.VENDOR_BY_ID_CACHE_TTL_SEC, 15),
         byCode: parsePositiveInt(Env?.VENDOR_BY_CODE_CACHE_TTL_SEC, 20),
+        authByCode: parsePositiveInt(Env?.VENDOR_AUTH_CODE_CACHE_TTL_SEC, 20),
         list: parsePositiveInt(Env?.VENDORS_LIST_CACHE_TTL_SEC, 20),
         search: parsePositiveInt(Env?.VENDORS_SEARCH_CACHE_TTL_SEC, 20),
         codes: parsePositiveInt(Env?.VENDOR_CODES_CACHE_TTL_SEC, 30),

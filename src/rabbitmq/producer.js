@@ -6,28 +6,29 @@ import { assertAllTopologies, QUEUES } from './topology.js';
 const PRODUCER_RETRY_ATTEMPTS = Number(process.env.RABBITMQ_PRODUCER_RETRY_ATTEMPTS || 3);
 const PRODUCER_RETRY_DELAY_MS = Number(process.env.RABBITMQ_PRODUCER_RETRY_DELAY_MS || 500);
 
-let producerChannel = null;
-let isTopologyReady = false;
+let producerChannelPromise = null;
 
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+// Cache the promise (not the channel) so concurrent publishes during startup
+// or reconnect share a single channel instead of each opening their own.
 async function getProducerChannel() {
-  if (producerChannel) {
-    return producerChannel;
+  if (!producerChannelPromise) {
+    producerChannelPromise = (async () => {
+      const channel = await rabbitMQConnectionManager.createConfirmChannel();
+      channel.on('close', () => {
+        producerChannelPromise = null;
+      });
+      await assertAllTopologies(channel);
+      return channel;
+    })();
+
+    producerChannelPromise.catch(() => {
+      producerChannelPromise = null;
+    });
   }
 
-  producerChannel = await rabbitMQConnectionManager.createConfirmChannel();
-  producerChannel.on('close', () => {
-    producerChannel = null;
-    isTopologyReady = false;
-  });
-
-  if (!isTopologyReady) {
-    await assertAllTopologies(producerChannel);
-    isTopologyReady = true;
-  }
-
-  return producerChannel;
+  return producerChannelPromise;
 }
 
 export async function publishMessage(queueName, payload, options = {}) {
@@ -36,6 +37,14 @@ export async function publishMessage(queueName, payload, options = {}) {
   for (let attempt = 1; attempt <= PRODUCER_RETRY_ATTEMPTS; attempt += 1) {
     try {
       const channel = await getProducerChannel();
+
+      let confirmResolve;
+      let confirmReject;
+      const confirmed = new Promise((resolve, reject) => {
+        confirmResolve = resolve;
+        confirmReject = reject;
+      });
+
       const published = channel.sendToQueue(
         queueName,
         message,
@@ -44,23 +53,19 @@ export async function publishMessage(queueName, payload, options = {}) {
           contentType: 'application/json',
           ...options,
         },
-        (error) => {
-          if (error) {
-            logger.error('[RabbitMQ][Producer] Broker negative confirm', {
-              queue: queueName,
-              error: error.message,
-            });
-          }
-        },
+        (error) => (error ? confirmReject(error) : confirmResolve()),
       );
 
       if (!published) {
         await new Promise((resolve) => channel.once('drain', resolve));
       }
 
-      await channel.waitForConfirms();
+      // Per-message confirm instead of channel-wide waitForConfirms(): confirms
+      // stay pipelined under load with no head-of-line blocking, while nacks
+      // still reject and feed the retry loop.
+      await confirmed;
 
-      logger.info('[RabbitMQ][Producer] Message published', {
+      logger.debug('[RabbitMQ][Producer] Message published', {
         queue: queueName,
       });
       return true;
@@ -130,7 +135,6 @@ export async function publishGetPayOutReport(payload) {
 }
 
 rabbitMQConnectionManager.onReconnect(async () => {
-  producerChannel = null;
-  isTopologyReady = false;
+  producerChannelPromise = null;
   await getProducerChannel();
 });

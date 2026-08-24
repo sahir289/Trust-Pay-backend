@@ -28,6 +28,93 @@ const merchant = await getMerchantsByAuthCodeDao(code);
   }
   return merchant;
 };
+
+const VENDOR_AUTH_CACHE_TTL_SEC =
+  config?.controllerCacheTtls?.vendors?.authByCode || 20;
+const VENDOR_AUTH_L1_TTL_MS = Number(process.env.VENDOR_AUTH_L1_TTL_MS || 5000);
+const VENDOR_AUTH_L1_MAX_ENTRIES = 1000;
+// Entries older than fresh TTL but younger than this are served stale while a
+// background refresh runs, so cache expiry never adds Redis/DB latency to
+// in-flight requests.
+const VENDOR_AUTH_L1_STALE_MS = Number(
+  process.env.VENDOR_AUTH_L1_STALE_MS || 60_000,
+);
+
+const getVendorAuthCodeCacheKey = (code) =>
+  code ? `vendor_auth_code:${code}` : null;
+
+// L1 per-process cache: hot bot traffic resolves the vendor without any
+// Redis/DB round trip; staleness is bounded by the short TTL.
+const vendorAuthL1 = new Map();
+const inflightVendorLookups = new Map();
+
+const getVendorFromL1 = (code) => {
+  const entry = vendorAuthL1.get(code);
+  if (!entry) return null;
+  const age = Date.now() - entry.freshUntil;
+  if (age <= 0) {
+    return { value: entry.value, stale: false };
+  }
+  if (age <= VENDOR_AUTH_L1_STALE_MS) {
+    return { value: entry.value, stale: true };
+  }
+  vendorAuthL1.delete(code);
+  return null;
+};
+
+const setVendorInL1 = (code, value) => {
+  if (vendorAuthL1.size >= VENDOR_AUTH_L1_MAX_ENTRIES) {
+    vendorAuthL1.delete(vendorAuthL1.keys().next().value);
+  }
+  vendorAuthL1.set(code, {
+    value,
+    freshUntil: Date.now() + VENDOR_AUTH_L1_TTL_MS,
+  });
+};
+
+const loadVendorByAuthCode = async (code) => {
+  const cacheKey = getVendorAuthCodeCacheKey(code);
+  const cachedVendor = await getCachedData(cacheKey, 'vendor_auth_code');
+  if (cachedVendor?.id) {
+    setVendorInL1(code, cachedVendor);
+    return cachedVendor;
+  }
+
+  const vendor = await getVendorByAuthCodeDao({ code });
+  if (vendor?.id) {
+    setVendorInL1(code, vendor);
+    await setCachedData(
+      cacheKey,
+      vendor,
+      VENDOR_AUTH_CACHE_TTL_SEC,
+      'vendor_auth_code',
+    );
+  }
+  return vendor;
+};
+
+const getVendorFromAuthCodeCacheOrDb = async (code) => {
+  const l1Vendor = getVendorFromL1(code);
+  if (l1Vendor && !l1Vendor.stale) return l1Vendor.value;
+
+  // Single-flight: concurrent misses for the same code share one lookup so a
+  // cache expiry under high RPS cannot stampede the DB.
+  let pending = inflightVendorLookups.get(code);
+  if (!pending) {
+    pending = loadVendorByAuthCode(code).finally(() =>
+      inflightVendorLookups.delete(code),
+    );
+    inflightVendorLookups.set(code, pending);
+  }
+
+  // Stale hit: answer immediately from L1, let the refresh finish in background.
+  if (l1Vendor) {
+    pending.catch(() => {});
+    return l1Vendor.value;
+  }
+
+  return pending;
+};
 // Normalize a merchant's configured whitelist (string or array, possibly
 // comma-separated) into a clean array of IP strings.
 
@@ -82,9 +169,9 @@ export const checkAuthVendorCode = async (req, res, next) => {
       return sendError(res, 'bank_id is required in request body', 400);
     }
 
-    const vendorInfo = await getVendorByAuthCodeDao({ code: x_auth_code });
+    const vendorInfo = await getVendorFromAuthCodeCacheOrDb(x_auth_code);
 
-    if (!vendorInfo) {
+    if (!vendorInfo?.id) {
       return sendError(res, 'Invalid x-auth-code code', 400);
     }
 

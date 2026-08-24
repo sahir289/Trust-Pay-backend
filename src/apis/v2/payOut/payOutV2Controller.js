@@ -73,19 +73,17 @@ export const checkPayOutV2Status = async (req, res) => {
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
   }
-  const code = req.headers['x-auth-code'];
   const data = await checkPayOutStatusV2Service(
-    code,
+    req.merchant,
     req.body.merchantOrderId,
   );
   return sendSuccess(res, data, 'PayOut status fetched successfully');
 };
 
 export const getWalletBalanceV2 = async (req, res) => {
-  const code = req.headers['x-auth-code'];
-  if (!code) throw new BadRequestError('x-auth-code is required');
+  if (!req.merchant) throw new BadRequestError('x-auth-code is required');
 
-  const data = await getWalletBalanceService(code);
+  const data = await getWalletBalanceService(req.merchant);
   return sendSuccess(res, data, 'Wallet balance fetched successfully');
 };
 

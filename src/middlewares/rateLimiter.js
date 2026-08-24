@@ -26,6 +26,13 @@ const createLimiter = (keyPrefix, profile) => {
     return new RateLimiterRedis({
       storeClient: redisClient,
       ...limiterConfig,
+      // Once a key exhausts its points, block it in-process so floods stop
+      // generating a Redis round trip per request.
+      inMemoryBlockOnConsumed: limiterConfig.points,
+      inMemoryBlockDuration: limiterConfig.blockDuration,
+      // A Redis outage degrades to per-process limiting instead of throwing
+      // (a thrown Redis error is otherwise indistinguishable from a 429).
+      insuranceLimiter: new RateLimiterMemory(limiterConfig),
     });
   } catch (err) {
     logger.error('Redis unavailable, falling back to in-memory rate limiter', err);

@@ -458,6 +458,12 @@ const updateVendorService = async (ids, payload) => {
   try {
     const data = await _updateVendorServiceInternal(ids, payload);
     await invalidatePayinValidateVendorCache(data?.user_id);
+    if (data?.code) {
+      await deleteCachedData(
+        `vendor_auth_code:${data.code}`,
+        'vendor_auth_code cache',
+      );
+    }
     return data;
   } catch (error) {
     logger.error('Error while updating Vendor', error);
