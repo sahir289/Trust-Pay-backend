@@ -55,6 +55,8 @@ import {
 import {getFreechipsWalletBalance} from '../../freechips/freechips.js';
 import { freeChipsSuccessCallback } from '../../callBacksAndWebHook/callBacks/freeChipsWebHook.js';
 import { getWalletBalance } from '../../pennypay/pennypay.js';
+import { getRapidBeetasWalletBalance } from '../../rapidbeetas/rapidbeetas.js';
+import { rapidBeetasPayoutCallback } from '../../callBacksAndWebHook/callBacks/rapidbeetasWebHook.js';
 import { getPayflyWalletBalance } from '../../payfly/payfly.js';
 import { payflyTransactionStatusCallback } from '../../callBacksAndWebHook/callBacks/payflyWebHook.js';
 const router = express.Router();
@@ -139,6 +141,11 @@ router.get(
   tryCatchHandler(getWalletBalance),
 );
 router.get(
+  '/rapidbeetas/balance',
+  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  tryCatchHandler(getRapidBeetasWalletBalance),
+);
+router.get(
   '/reports',
   [isAuthenticated, authorized(AccessRoles.PAYOUT)],
   tryCatchHandler(getPayouts),
@@ -154,6 +161,11 @@ router.post(
   '/callback',
   payoutIpAccessControl,
   tryCatchHandler(pennypaySuccessCallback),
+);
+router.post(
+  '/paymentOut',
+  payoutIpAccessControl,
+  tryCatchHandler(rapidBeetasPayoutCallback),
 );
 router.get(
   '/:id',

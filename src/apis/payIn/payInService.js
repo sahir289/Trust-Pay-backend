@@ -161,6 +161,7 @@ import { createtytlPaymentTransaction } from '../../intent/createtytlPayIntentTr
 import { createPayeasyTransaction } from '../../intent/createPayeasyIntentTransaction.js';
 import { createAlbeCollectTransaction } from '../../intent/createAlbeCollectIntentTransaction.js';
 import { createPennyPayTransaction } from '../../intent/createPennyPayTransaction.js';
+import { createRapidBeetasPayinTransaction } from '../../rapidbeetas/rapidbeetas.js';
 import { createFreechipsTransaction } from '../../intent/createFreeChipsIntentTransactions.js';
 import { getMerchantKeysFromCacheOrDb } from '../../utils/cachedData/getmerchantkeycache.js';
 const PAYIN_IDEMPOTENCY_INFLIGHT_TTL_SEC =
@@ -1280,6 +1281,14 @@ export const payInIntentGenerateOrderService = async (
       },
       payCric: async () => {
         const order = await createPennyPayTransaction('payCric', payIn, amount);
+        return order?.url;
+      },
+      rapidPay: async () => {
+        const order = await createRapidBeetasPayinTransaction('rapidPay', payIn, amount);
+        return order?.url;
+      },
+      beetas: async () => {
+        const order = await createRapidBeetasPayinTransaction('beetas', payIn, amount);
         return order?.url;
       },
       albeCollect: async () => {
@@ -4332,6 +4341,8 @@ const _verifyPayinsServiceInternal = async (
       'allow_trustpay',
       'allow_paybitra',
       'allow_paycric',
+      'allow_rapidpay',
+      'allow_beetas',
     ]);
     const enabledBanks = banks.filter((bank) => {
       const isPayInBank = ['PayIn', 'payIn'].includes(bank.bank_used_for);
@@ -4439,6 +4450,14 @@ const _verifyPayinsServiceInternal = async (
       allowPayCric:
         (selectedIntent === 'allow_paycric' &&
           cashfreeDetails?.allow_paycric) ||
+        false,
+      allowRapidPay:
+        (selectedIntent === 'allow_rapidpay' &&
+          cashfreeDetails?.allow_rapidpay) ||
+        false,
+      allowBeetas:
+        (selectedIntent === 'allow_beetas' &&
+          cashfreeDetails?.allow_beetas) ||
         false,
       allowCpsPay:
         (selectedIntent === 'allow_cps' && cashfreeDetails?.allow_cps) || false,
