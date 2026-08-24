@@ -10,7 +10,7 @@ import {
 } from './middlewares/requestExtension.js';
 import { requestTimeoutMiddleware } from './middlewares/requestTimeout.js';
 import { requestSanitizerMiddleware } from './middlewares/requestSanitizer.js';
-// import { edgeGuard } from './middlewares/edgeGuard.js';
+import { edgeGuard } from './middlewares/edgeGuard.js';
 import apis from './apis/index.js';
 import errorHandler from './middlewares/errorHandler.js';
 import config from './config/config.js';
@@ -91,7 +91,7 @@ app.use(requestTimeoutMiddleware);
 
 app.use(addLogIdInRequest);
 // Reject requests that did not transit the trusted edge (nginx)
-// app.use(edgeGuard);
+app.use(edgeGuard);
 app.use(apis);
 // NOTE: request deadlines are handled by requestTimeoutMiddleware (mounted
 // BEFORE the routes). The old connect-timeout mounted here was dead code: a
