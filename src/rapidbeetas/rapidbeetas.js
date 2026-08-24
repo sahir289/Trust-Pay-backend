@@ -7,6 +7,7 @@ import { BadRequestError, NotFoundError } from '../utils/appErrors.js';
 import { getCompanyByIDDao } from '../apis/company/companyDao.js';
 import { getBankByIdDao } from '../apis/bankAccounts/bankaccountDao.js';
 import { getVendorsDao } from '../apis/vendors/vendorDao.js';
+import { updatePayInUrlDao } from '../apis/payIn/payInDao.js';
 import { Method } from '../constants/index.js';
 import { generateSignature } from '../utils/signaturegenrate.js';
 
@@ -19,6 +20,10 @@ const RAPIDBEETAS_META_BY_PROVIDER = {
     configKey: 'BEETAS',
     providerName: 'Beetas',
   },
+};
+const RAPIDBEETAS_METHOD_BY_PROVIDER = {
+  rapidPay: Method.RAPIDPAY,
+  beetas: Method.BEETAS,
 };
 
 const RAPIDBEETAS_PATHS = {
@@ -48,6 +53,19 @@ const safeEqualHex = (a, b) => {
   const bufB = Buffer.from(b, 'utf8');
   if (bufA.length !== bufB.length) return false;
   return crypto.timingSafeEqual(bufA, bufB);
+};
+
+const normalizeSignature = (signature) => {
+  if (typeof signature !== 'string') return '';
+  return signature
+    .trim()
+    .replace(/^sha256=/i, '')
+    .toLowerCase();
+};
+
+const fingerprintSecret = (secret) => {
+  if (typeof secret !== 'string' || !secret) return null;
+  return crypto.createHash('sha256').update(secret).digest('hex').slice(0, 12);
 };
 
 const buildProviderUrl = (baseUrl, path) => {
@@ -108,11 +126,6 @@ export const resolveRapidBeetasProviderFromAuthCode = (companyConfig, authCode) 
   return null;
 };
 
-const resolveRapidBeetasProviderFromMethod = (method) => {
-  const meta = RAPIDBEETAS_META_BY_METHOD[method];
-  return meta?.providerKey || null;
-};
-
 const getHeaderValue = (headers, headerName) => {
   if (!headers || !headerName) return undefined;
   const target = String(headerName).toLowerCase();
@@ -120,33 +133,26 @@ const getHeaderValue = (headers, headerName) => {
   return matchedKey ? headers[matchedKey] : undefined;
 };
 
-export const verifyRapidBeetasCallbackByAuthCode = ({
+export const verifyRapidBeetasCallback = ({
   companyConfig,
   headers,
   rawBody,
+  parsedBody,
   methodHint,
+  signingSecret,
 }) => {
-  const authCode =
-    getHeaderValue(headers, 'x-auth-code') ||
-    getHeaderValue(headers, 'x-webhook-auth-code');
-
-  const providerKey =
-    resolveRapidBeetasProviderFromAuthCode(companyConfig, authCode) ||
-    resolveRapidBeetasProviderFromMethod(methodHint);
-
+  const providerKey = RAPIDBEETAS_META_BY_METHOD[methodHint]?.providerKey;
   if (!providerKey) {
-    logger.warn('Rapid/Beetas callback signature not matched', {
-      reason: 'Unable to resolve provider from headers or method',
-      hasAuthCode: Boolean(authCode),
+    logger.warn('internal callback signature not matched', {
+      reason: 'Unable to resolve provider from saved method',
       methodHint,
     });
     return {
       valid: false,
-      message: 'Unable to resolve provider from headers or method',
+      message: 'Unable to resolve provider from saved method',
     };
   }
 
-  const runtimeConfig = getRuntimeConfigByProvider(companyConfig, providerKey);
   const incomingSignature =
     getHeaderValue(headers, 'x-signature') ||
     getHeaderValue(headers, 'x-webhook-signature');
@@ -154,41 +160,75 @@ export const verifyRapidBeetasCallbackByAuthCode = ({
     getHeaderValue(headers, 'x-timestamp') ||
     getHeaderValue(headers, 'x-webhook-timestamp');
 
-  if (!runtimeConfig?.privateKey) {
-    logger.warn('Rapid/Beetas callback signature not matched', {
-      providerKey,
-      reason: `${runtimeConfig.providerName} privateKey is missing`,
-    });
-    return { valid: false, message: `${runtimeConfig.providerName} privateKey is missing`, providerKey };
-  }
-
-  if (!incomingSignature || !incomingTimestamp) {
-    logger.warn('Rapid/Beetas callback signature not matched', {
-      providerKey,
+    if (!incomingSignature || !incomingTimestamp) {
+    logger.warn('internal callback signature not matched', {
       reason: 'Missing signature/timestamp headers',
     });
     return {
       valid: false,
       message: 'Missing signature/timestamp headers',
+    };
+  }
+  const runtimeConfig = getRuntimeConfigByProvider(companyConfig, providerKey);
+  const activeSigningSecret =
+    typeof signingSecret === 'string' && signingSecret.length > 0
+      ? signingSecret
+      : runtimeConfig?.privateKey;
+  if (!activeSigningSecret) {
+    logger.warn('internal callback signature not matched', {
+      providerKey,
+      reason: 'Signing secret is missing',
+    });
+    return {
+      valid: false,
+      message: 'Signing secret is missing',
       providerKey,
     };
   }
 
-  const expectedSignature = generateSignature(
-    runtimeConfig.privateKey,
-    String(incomingTimestamp),
-    rawBody || '',
-  );
+  const payloadCandidates = [];
+  if (typeof rawBody === 'string') {
+    payloadCandidates.push(rawBody);
+  }
+  if (parsedBody && typeof parsedBody === 'object') {
+    payloadCandidates.push(JSON.stringify(parsedBody));
+    if (parsedBody?.data && typeof parsedBody.data === 'object') {
+      payloadCandidates.push(JSON.stringify(parsedBody.data));
+    }
+  }
+  if (!payloadCandidates.length) {
+    payloadCandidates.push('');
+  }
+  const uniquePayloadCandidates = [...new Set(payloadCandidates)];
+  const normalizedIncomingSignature = normalizeSignature(String(incomingSignature));
+  let expectedSignatureSample = null;
+  const matched = uniquePayloadCandidates.some((candidate, index) => {
+    const expectedSignature = generateSignature(
+      activeSigningSecret,
+      String(incomingTimestamp),
+      candidate,
+    );
+    const normalizedExpected = normalizeSignature(expectedSignature);
+    if (index === 0) {
+      expectedSignatureSample = normalizedExpected;
+    }
+    return safeEqualHex(normalizedIncomingSignature, normalizedExpected);
+  });
 
-  if (!safeEqualHex(String(incomingSignature), expectedSignature)) {
-    logger.warn('Rapid/Beetas callback signature not matched', {
+  if (!matched) {
+    logger.warn('internal callback signature not matched', {
       providerKey,
       reason: 'Invalid callback signature',
+      methodHint,
+      incomingSignaturePrefix: normalizedIncomingSignature.slice(0, 12),
+      expectedSignaturePrefix: (expectedSignatureSample || '').slice(0, 12),
+      signingSecretFingerprint: fingerprintSecret(activeSigningSecret),
+      payloadCandidateLengths: uniquePayloadCandidates.map((entry) => entry.length),
     });
     return { valid: false, message: 'Invalid callback signature', providerKey };
   }
 
-  logger.info('Rapid/Beetas callback signature matched', {
+  logger.info('internal callback signature matched', {
     providerKey,
   });
 
@@ -240,6 +280,24 @@ export const createRapidBeetasPayinTransaction = async (providerKey, deposit, am
     const payInUrl = response?.data?.data?.payInUrl;
     if (!payInUrl) {
       throw new BadRequestError('PayIn URL not found in response');
+    }
+    const method = RAPIDBEETAS_METHOD_BY_PROVIDER[providerKey];
+    if (method && deposit?.id) {
+      let currentConfig = deposit?.config;
+      if (typeof currentConfig === 'string') {
+        try {
+          currentConfig = JSON.parse(currentConfig);
+        } catch {
+          currentConfig = {};
+        }
+      }
+
+      const nextConfig = {
+        ...(currentConfig || {}),
+        method,
+      };
+
+      await updatePayInUrlDao(deposit.id, { config: nextConfig });
     }
 
     logger.info(`${runtimeConfig.providerName} payin created successfully`, {
@@ -305,7 +363,7 @@ export const getRapidBeetasWalletBalance = async (req, res) => {
     const successMsg = response?.data?.message || 'Wallet balance fetched successfully';
     return sendNewSuccess(res, data, successMsg);
   } catch (error) {
-    logger.error('Rapid/Beetas wallet balance error', {
+    logger.error('internal wallet balance error', {
       message: error.message,
       response: error?.response?.data,
     });

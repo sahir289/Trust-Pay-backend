@@ -8,19 +8,18 @@ import { Status } from '../../constants/index.js';
 import { acquireLock, releaseLock } from '../../utils/distributedLock.js';
 import { beginTransaction, commit, getConnection, rollback } from '../../utils/db.js';
 import { getCompanyByIDDao } from '../company/companyDao.js';
-import { verifyRapidBeetasCallbackByAuthCode } from '../../rapidbeetas/rapidbeetas.js';
+import { verifyRapidBeetasCallback } from '../../rapidbeetas/rapidbeetas.js';
 
 export const rapidBeetasWebhook = async (req, res) => {
-  logger.info('Rapid/Beetas webhook called', req.body);
+  sendSuccess(res, 200, 'Internal Webhook received successfully');
 
   let utr = null;
   let conn = null;
   try {
-    sendSuccess(res, 200, 'Webhook received successfully');
 
-    const responseData = req.body;
+    const responseData = req.body?.data ?? req.body;
     if (!responseData) {
-      logger.error('Missing data object in Rapid/Beetas webhook body');
+      logger.error('Missing data object in internal webhook body');
       return;
     }
 
@@ -29,7 +28,7 @@ export const rapidBeetasWebhook = async (req, res) => {
     utr = responseData?.utrId?.trim() || responseData?.utr_id?.trim();
 
     if (!merchantOrderId) {
-      logger.error('merchantOrderId is missing in Rapid/Beetas webhook payload');
+      logger.error('merchantOrderId is missing in internal webhook payload');
       return;
     }
 
@@ -54,15 +53,16 @@ export const rapidBeetasWebhook = async (req, res) => {
       }
     }
 
-    const signatureCheck = verifyRapidBeetasCallbackByAuthCode({
+    const signatureCheck = verifyRapidBeetasCallback({
       companyConfig: company.config,
       headers: req.headers,
       rawBody: req.rawBody,
+      parsedBody: req.body,
       methodHint: payInConfig?.method,
     });
 
     if (!signatureCheck.valid) {
-      logger.error('Rapid/Beetas callback signature validation failed', {
+      logger.error('internal callback signature validation failed', {
         merchantOrderId,
         reason: signatureCheck.message,
       });
@@ -71,7 +71,7 @@ export const rapidBeetasWebhook = async (req, res) => {
 
     if (statusFromGateway !== 'SUCCESS') {
       logger.info(
-        `Skipping Rapid/Beetas webhook processing. Status is ${statusFromGateway} for merchantOrderId ${merchantOrderId}`,
+        `Skipping internal webhook processing. Status is ${statusFromGateway} for merchantOrderId ${merchantOrderId}`,
       );
       return;
     }
@@ -84,7 +84,7 @@ export const rapidBeetasWebhook = async (req, res) => {
     const lockAcquired = await acquireLock(utr, 'rapidBeetas');
     if (!lockAcquired) {
       logger.warn(
-        `Duplicate concurrent Rapid/Beetas webhook skipped for UTR: ${utr} and merchantOrderId: ${merchantOrderId}`,
+        `Duplicate concurrent internal webhook skipped for UTR: ${utr} and merchantOrderId: ${merchantOrderId}`,
       );
       return;
     }
@@ -109,7 +109,7 @@ export const rapidBeetasWebhook = async (req, res) => {
 
     const utrAlreadyExist = await getBankResponseByUTR(payload.userSubmittedUtr);
     if (utrAlreadyExist) {
-      logger.warn(`Duplicate UTR received in Rapid/Beetas webhook: ${payload.userSubmittedUtr}`);
+      logger.warn(`Duplicate UTR received in internal webhook: ${payload.userSubmittedUtr}`);
       await rollback(conn);
       return;
     }
@@ -126,7 +126,7 @@ export const rapidBeetasWebhook = async (req, res) => {
     const payinProcessed = await processPayInWebHookService(payload, '', conn);
     await commit(conn);
 
-    logger.info('Rapid/Beetas payin processed successfully', {
+    logger.info('internal payin processed successfully', {
       merchantOrderId,
       providerKey: signatureCheck.providerKey,
       result: payinProcessed,
@@ -135,7 +135,7 @@ export const rapidBeetasWebhook = async (req, res) => {
     if (conn) {
       await rollback(conn);
     }
-    logger.error('[Rapid/Beetas] Webhook processing error', {
+    logger.error('[internal] Webhook processing error', {
       message: error.message,
       stack: error.stack,
       utr,

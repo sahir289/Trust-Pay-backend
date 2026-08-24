@@ -6,12 +6,12 @@ import { getUserByCompanyCreatedAtDao } from '../../apis/users/userDao.js';
 import { sendSuccess } from '../../utils/responseHandlers.js';
 import { beginTransaction, commit, getConnection, rollback } from '../../utils/db.js';
 import { getCompanyByIDDao } from '../../apis/company/companyDao.js';
-import { verifyRapidBeetasCallbackByAuthCode } from '../../rapidbeetas/rapidbeetas.js';
+import { verifyRapidBeetasCallback } from '../../rapidbeetas/rapidbeetas.js';
 
 export const rapidBeetasPayoutCallback = async (req, res) => {
-  sendSuccess(res, {}, 'Webhook received successfully');
+  sendSuccess(res, 200, 'Internal Webhook received successfully');
 
-  const payload = req.body;
+  const payload = req.body?.data ?? req.body;
   const merchantOrderId = payload?.merchantOrderId;
   const providerStatus = payload?.status;
 
@@ -20,7 +20,7 @@ export const rapidBeetasPayoutCallback = async (req, res) => {
 
   try {
     if (!merchantOrderId) {
-      logger.error('merchantOrderId missing in Rapid/Beetas payout callback payload');
+      logger.error('merchantOrderId missing in internal payout callback payload');
       return;
     }
 
@@ -30,7 +30,7 @@ export const rapidBeetasPayoutCallback = async (req, res) => {
       return;
     }
 
-    let payoutConfig = singleWithdrawData?.config;
+    let payoutConfig = singleWithdrawData?.config ?? singleWithdrawData?.payout_details;
     if (typeof payoutConfig === 'string') {
       try {
         payoutConfig = JSON.parse(payoutConfig);
@@ -43,7 +43,7 @@ export const rapidBeetasPayoutCallback = async (req, res) => {
       payoutConfig?.method !== Method.RAPIDPAY &&
       payoutConfig?.method !== Method.BEETAS
     ) {
-      logger.warn('Rapid/Beetas callback received for non-Rapid/Beetas payout', {
+      logger.warn('internal callback received for non-internal payout', {
         merchantOrderId,
         method: payoutConfig?.method,
       });
@@ -56,15 +56,21 @@ export const rapidBeetasPayoutCallback = async (req, res) => {
       return;
     }
 
-    const signatureCheck = verifyRapidBeetasCallbackByAuthCode({
+    const providerConfigKey =
+      payoutConfig?.method === Method.RAPIDPAY ? 'RAPID_PAY' : 'BEETAS';
+    const providerSigningSecret =
+      company?.config?.[providerConfigKey]?.privateKey || null;
+    const signatureCheck = verifyRapidBeetasCallback({
       companyConfig: company.config,
       headers: req.headers,
       rawBody: req.rawBody,
+      parsedBody: req.body,
       methodHint: payoutConfig?.method,
+      signingSecret: providerSigningSecret,
     });
 
     if (!signatureCheck.valid) {
-      logger.error('Rapid/Beetas payout callback signature validation failed', {
+      logger.error('internal payout callback signature validation failed', {
         merchantOrderId,
         reason: signatureCheck.message,
       });
@@ -110,7 +116,7 @@ export const rapidBeetasPayoutCallback = async (req, res) => {
         status: Status.REJECTED,
         rejected_at: new Date().toISOString(),
         config: {
-          ...(singleWithdrawData.config || {}),
+          ...(payoutConfig || {}),
           rejected_reason: 'Transaction Rejected by Provider',
         },
       });
@@ -121,7 +127,7 @@ export const rapidBeetasPayoutCallback = async (req, res) => {
         rejected_at: new Date().toISOString(),
       });
     } else {
-      logger.warn('Unknown Rapid/Beetas status received', {
+      logger.warn('Unknown internal status received', {
         status: providerStatus,
         merchantOrderId,
       });
@@ -143,7 +149,7 @@ export const rapidBeetasPayoutCallback = async (req, res) => {
     await commit(conn);
     committed = true;
 
-    logger.info('Payout updated by Rapid/Beetas callback', {
+    logger.info('Payout updated by internal callback', {
       payoutId: singleWithdrawData.id,
       newStatus: updatePayload.status,
     });
@@ -151,7 +157,7 @@ export const rapidBeetasPayoutCallback = async (req, res) => {
     if (conn && !committed) {
       await rollback(conn);
     }
-    logger.error('Error while updating Rapid/Beetas payout callback', {
+    logger.error('Error while updating internal payout callback', {
       message: error.message,
       stack: error.stack,
     });
