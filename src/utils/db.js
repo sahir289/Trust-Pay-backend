@@ -389,14 +389,19 @@ export const getPoolStats = () => {
 
 /**
  * Check database health
+ * @param {object} [options]
+ * @param {'writer'|'reader'} [options.pool] Pool to probe. The HTTP health
+ *   endpoint uses 'reader' so pollers never compete for writer connections.
  */
-export const checkDatabaseHealth = async () => {
+export const checkDatabaseHealth = async ({ pool = 'writer' } = {}) => {
   let client;
+  const targetPool = pool === 'reader' ? readerPool : writerPool;
   try {
-    client = await writerPool.connect();
+    client = await targetPool.connect();
     await client.query('SELECT 1');
     return {
       status: 'healthy',
+      pool,
       timestamp: new Date().toISOString(),
       pools: getPoolStats(),
     };
@@ -404,6 +409,7 @@ export const checkDatabaseHealth = async () => {
     logger.error('Database health check failed:', error);
     return {
       status: 'unhealthy',
+      pool,
       error: error.message,
       timestamp: new Date().toISOString(),
       pools: getPoolStats(),

@@ -97,6 +97,26 @@ export const assignedPayoutDao = async (
   }
 };
 
+// Single-round-trip status lookup: only the columns the status endpoint
+// returns, via the merchant_order_id partial index (no joins, no count CTE).
+export const getPayoutForStatusDao = async (merchantOrderId, conn = null) => {
+  try {
+    const sql = `
+      SELECT id, merchant_order_id, amount, status, utr_id, merchant_id
+      FROM "${tableName.PAYOUT}"
+      WHERE merchant_order_id = $1
+        AND is_obsolete = false
+      ORDER BY created_at DESC
+      LIMIT 1
+    `;
+    const result = await executeQuery(sql, [merchantOrderId], conn);
+    return result.rows[0] || null;
+  } catch (error) {
+    logger.error('Error getting Payout for status:', error);
+    throw error;
+  }
+};
+
 export const getPayoutsDao = async (
   filters,
   company_id,

@@ -1,5 +1,6 @@
   import { sendError } from '../utils/responseHandlers.js';
   import ipaddr from 'ipaddr.js';
+  import { isAuthenticated } from './auth.js';
 
   const LOCALHOST_IPS = new Set(['::1', '127.0.0.1', '::ffff:127.0.0.1']);
   
@@ -46,24 +47,24 @@
     });
   };
   
+  // Fail closed: the request is allowed only when the client IP is on the merchant's whitelist OR the caller has a valid logged-in UI session.
   export const IPWhiteListChecker = async (req, res, next) => {
     try {
       const userIp = resolveMerchantClientIp(req);
-  
-      if (req.merchant?.config?.whitelist_ips) {
-        const whitelist = normalizeWhitelist(
-            req.merchant.config.whitelist_ips
-        );
-  
-        if (
-          whitelist.length > 0 &&
-          !isIpWhitelisted(userIp, whitelist)
-        ) {
+      const whitelist = normalizeWhitelist(
+        req.merchant?.config?.whitelist_ips || []
+      );
+
+      if (whitelist.length > 0 && isIpWhitelisted(userIp, whitelist)) {
+        return next();
+      }
+
+      return isAuthenticated(req, res, (err) => {
+        if (err) {
           return sendError(res, 'IP not whitelisted', 403);
         }
-      }
-  
-      next();
+        next();
+      });
     } catch (error) {
       next(error);
     }

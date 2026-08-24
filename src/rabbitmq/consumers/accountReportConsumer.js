@@ -62,7 +62,6 @@ function getRetryCount(msg) {
 }
 
 async function processAccountReportJob(messagePayload) {
-  console.log(messagePayload, 'processAccountReportJob messagePayload');
   const payload = messagePayload;
   
   const result = await getClientsAccountReportService(payload);

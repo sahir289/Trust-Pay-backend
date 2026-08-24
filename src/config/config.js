@@ -271,6 +271,12 @@ function config(Env) {
       payinUrl: Env?.PAY_CRIC_PAYIN_URL,
       walletBalanceUrl: Env?.PAY_CRIC_WALLET_BALANCE_URL,
     },
+    rapidPay: {
+      baseUrl: Env?.RAPID_PAY_BASE_URL,
+    },
+    beetas: {
+      baseUrl: Env?.BEETAS_BASE_URL,
+    },
     controllerCacheTtls: {
       auth: {
         session: parsePositiveInt(Env?.AUTH_SESSION_CACHE_TTL_SEC, 30),
@@ -369,6 +375,7 @@ function config(Env) {
       vendors: {
         byId: parsePositiveInt(Env?.VENDOR_BY_ID_CACHE_TTL_SEC, 15),
         byCode: parsePositiveInt(Env?.VENDOR_BY_CODE_CACHE_TTL_SEC, 20),
+        authByCode: parsePositiveInt(Env?.VENDOR_AUTH_CODE_CACHE_TTL_SEC, 20),
         list: parsePositiveInt(Env?.VENDORS_LIST_CACHE_TTL_SEC, 20),
         search: parsePositiveInt(Env?.VENDORS_SEARCH_CACHE_TTL_SEC, 20),
         codes: parsePositiveInt(Env?.VENDOR_CODES_CACHE_TTL_SEC, 30),

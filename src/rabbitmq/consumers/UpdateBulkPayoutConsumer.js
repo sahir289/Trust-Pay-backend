@@ -17,6 +17,8 @@ const BULK_PAYOUT_ALLOWED_METHODS = new Set([
   Method.TRUSTPAY,
   Method.PAYBITRA,
   Method.PAYCRIC,
+  Method.RAPIDPAY,
+  Method.BEETAS,
 ]);
 
 let channel = null;
@@ -55,7 +57,7 @@ async function processBulkPayoutUpdateEntry(payload) {
 
   if (!BULK_PAYOUT_ALLOWED_METHODS.has(normalizedMethod)) {
     throw new Error(
-      'Invalid bulk payout method. Allowed methods: PENNYPAY, TRUSTPAY, PAYBITRA, PAYCRIC',
+      'Invalid bulk payout method. Allowed methods: PENNYPAY, TRUSTPAY, PAYBITRA, PAYCRIC, RAPIDPAY, BEETAS',
     );
   }
 

@@ -40,7 +40,7 @@ const CALLBACK_MAX_CONTENT_LENGTH = Number(
  * body is returned unchanged with no extra headers.
  *
  * Signature scheme: HMAC-SHA256(secret, `${timestamp}.${rawBody}`), hex.
- * Headers: X-TrustPay-Timestamp, X-TrustPay-Signature (t=<ts>,v1=<sig>).
+ * Headers: X-Webhook-Timestamp, X-Webhook-Signature (t=<ts>,v1=<sig>).
  */
 const buildSignedRequest = (data, secretKey) => {
   // if (!CALLBACK_SIGNING_ENABLED || !CALLBACK_SIGNING_SECRET) {

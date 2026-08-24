@@ -8,59 +8,39 @@ import { stringifyJSON } from "../../../utils/index.js";
 import logger from "../../../utils/logger.js";
 import { emitTableEntryAsync } from "../../../utils/socket/sessionUtils.js";
 import { getCalculationDao } from "../../calculation/calculationDao.js";
-import { getMerchantsByAuthCodeDao, getMerchantsByCodeDao, getMerchantsDao } from "../../merchants/merchantDao.js";
-import { createPayoutDao, getPayoutsDao } from "../../payOut/payOutDao.js";
+import { getMerchantsByCodeDao } from "../../merchants/merchantDao.js";
+import { createPayoutDao, getPayoutForStatusDao } from "../../payOut/payOutDao.js";
 import { _updatePayoutServiceInternal, ekoWalletBalanceEnquiryInternally } from "../../payOut/payOutService.js";
 import { getLatestNetBalanceByMerchantUserIdDao } from "../../walletBalance/walletBalanceDao.js";
 import { v4 as uuidv4 } from 'uuid';
 
 // Public API Used by Merchants
 export const checkPayOutStatusV2Service = async (
-  merchantCode,
+  merchant,
   merchantOrderId,
 ) => {
   try {
-    const merchantArr = await getMerchantsDao(
-      { code: merchantCode },
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-    );
-    const merchant = merchantArr[0];
-    if (!merchant) {
+    if (!merchant?.id) {
       throw new BadRequestError('Merchant does not exist');
     }
 
-    const payOut = await getPayoutsDao(
-      {
-        merchant_order_id: merchantOrderId,
-      },
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-    );
-    if (payOut.length == 0) {
+    const payOut = await getPayoutForStatusDao(merchantOrderId);
+    if (!payOut) {
       throw new NotFoundError('Payout not found');
     }
 
     //check is payout detials belongs to that merchant or not
-    if (!(payOut[0].merchant_id === merchant.id)) {
+    if (payOut.merchant_id !== merchant.id) {
       throw new NotFoundError(
         'merchant_order_id does not belong to the specified merchant',
       );
     }
     return {
-      status: payOut[0].status,
-      merchantOrderId: payOut[0].merchant_order_id,
-      amount: payOut[0].amount,
-      payoutId: payOut[0].id,
-      utrId: payOut[0].utr_id ? payOut[0].utr_id : ' ',
+      status: payOut.status,
+      merchantOrderId: payOut.merchant_order_id,
+      amount: payOut.amount,
+      payoutId: payOut.id,
+      utrId: payOut.utr_id ? payOut.utr_id : ' ',
     };
   } catch (error) {
     logger.error('Error check payout status:', error);
@@ -68,12 +48,10 @@ export const checkPayOutStatusV2Service = async (
   }
 };
 
-export const getWalletBalanceService = async (code) => {
+export const getWalletBalanceService = async (merchant) => {
   try {
-    // Merchant auth -> fetch merchant/user_id
-    const merchant = await getMerchantsByAuthCodeDao(code);
-
-    if (!merchant) {
+    // Merchant already loaded (and cached) by checkAuthCode middleware.
+    if (!merchant?.user_id) {
       throw new NotFoundError('Invalid merchant code');
     }
 
