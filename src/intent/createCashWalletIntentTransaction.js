@@ -41,9 +41,14 @@ export const createCashWalletTransaction = async (
       bankDetails = bankRecord || {};
     }
     const assignedBank = {
-      ...bankDetails 
+      ...bankDetails,
     };
-    const payeeVpa = assignedBank?.upi_id || '';
+    const payeeVpa =
+      assignedBank?.is_qr === true
+        ? assignedBank?.upi_id || ''
+        : assignedBank?.is_bank === true
+          ? assignedBank?.acc_no || assignedBank?.upi_id || ''
+          : assignedBank?.upi_id || assignedBank?.acc_no || '';
     const payeeName = assignedBank?.acc_holder_name || 'Merchant';
     const currency = 'INR';
     const transactionRef = generateCashWalletTransactionRef();
