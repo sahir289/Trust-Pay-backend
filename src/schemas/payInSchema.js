@@ -79,6 +79,7 @@ export const VALIDATE_PAY_IN_INTENT_GENERATE_ORDER = Joi.object({
   paycric: Joi.boolean().label('paycric').optional(),
   rapidpay: Joi.boolean().label('rapidpay').optional(),
   beetas: Joi.boolean().label('beetas').optional(),
+  cashWallet: Joi.boolean().label('cashWallet').optional(),
 });
 
 export const VALIDATE_UPDATE_PAYMENT_NOTIFICATION_STATUS = Joi.object({

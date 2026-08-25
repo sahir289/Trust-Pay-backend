@@ -295,8 +295,8 @@ export const checkPayInStatus = async (req, res) => {
 export const payInIntentGenerateOrder = async (req, res) => {
   const { merchantOrderId } = req.params;
   // const { company_id } = req.user;
-  const { amount, Razorpay, cashfree,freechips, zentechind, nmplPay, silkPay, orvixPay, orvixPay1, runsafe, cpsPay, tytl, payeasy, payeasy02, payeasy03, albecollect, pennypay, trustpay, paybitra, paycric, rapidpay, beetas } = req.body;
-  const payload = { merchantOrderId, amount, Razorpay, cashfree, zentechind, paybitra, paycric, rapidpay, beetas };
+  const { amount, Razorpay, cashfree,freechips, zentechind, nmplPay, silkPay, orvixPay, orvixPay1, runsafe, cpsPay, tytl, payeasy, payeasy02, payeasy03, albecollect, pennypay, trustpay, paybitra, paycric, rapidpay, beetas, cashWallet } = req.body;
+  const payload = { merchantOrderId, amount, Razorpay, cashfree, zentechind, paybitra, paycric, rapidpay, beetas, cashWallet };
   const joiValidation = VALIDATE_PAY_IN_INTENT_GENERATE_ORDER.validate(payload);
   if (joiValidation.error) {
     throw new ValidationError(joiValidation.error);
@@ -323,6 +323,7 @@ export const payInIntentGenerateOrder = async (req, res) => {
   if (paycric) provider.push('payCric');
   if (rapidpay) provider.push('rapidPay');
   if (beetas) provider.push('beetas');
+  if (cashWallet) provider.push('cashWallet');
   const data = await payInIntentGenerateOrderService(
     merchantOrderId,
     // company_id,
