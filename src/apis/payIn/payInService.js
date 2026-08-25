@@ -160,6 +160,7 @@ import { createCpsPaymentTransaction } from '../../intent/createCpsIntentTransac
 import { createtytlPaymentTransaction } from '../../intent/createtytlPayIntentTransaction.js';
 import { createPayeasyTransaction } from '../../intent/createPayeasyIntentTransaction.js';
 import { createAlbeCollectTransaction } from '../../intent/createAlbeCollectIntentTransaction.js';
+import { createCashWalletTransaction } from '../../intent/createCashWalletIntentTransaction.js';
 import { createPennyPayTransaction } from '../../intent/createPennyPayTransaction.js';
 import { createRapidBeetasPayinTransaction } from '../../rapidbeetas/rapidbeetas.js';
 import { createFreechipsTransaction } from '../../intent/createFreeChipsIntentTransactions.js';
@@ -1295,6 +1296,14 @@ export const payInIntentGenerateOrderService = async (
         const order = await createAlbeCollectTransaction('albeCollect', payIn, amount);
         return order?.data?.paymentLink || null;
       },
+      cashWallet: async () => {
+        const order = await createCashWalletTransaction(
+          'cashWallet',
+          payIn,
+          amount,
+        );
+        return order?.paymentLink || null;
+      },
     };
     const handler = providerHandlers[provider];
     if (!handler) {
@@ -1313,7 +1322,11 @@ export const payInIntentGenerateOrderService = async (
     };
     if (provider === 'albeCollect') {
       response.paymentLink = session_id;
-    } else {
+    } 
+    else if (provider === 'cashWallet') {
+      response.paymentLink = session_id;
+    }
+    else {
       response.session_id = session_id;
     }
     return response;
@@ -4331,6 +4344,7 @@ const _verifyPayinsServiceInternal = async (
       'allow_orvixpay',
       'allow_orvixpay1',
       'allow_albecollect',
+      'allow_cashwallet',
       'allow_vertexpay',
       'allow_payeasy',
       'allow_payeasy02',
@@ -4418,6 +4432,10 @@ const _verifyPayinsServiceInternal = async (
       allowAlbeCollect:
         (selectedIntent === 'allow_albecollect' &&
           cashfreeDetails?.allow_albecollect) ||
+        false,
+      allowCashWallet:
+        (selectedIntent === 'allow_cashwallet' &&
+          cashfreeDetails?.allow_cashwallet) ||
         false,
       allowVertexPay:
         (selectedIntent === 'allow_vertexpay' &&
