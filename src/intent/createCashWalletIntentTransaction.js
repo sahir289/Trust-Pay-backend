@@ -23,7 +23,7 @@ export const buildCashWalletLink = ({
   const safeTransactionRef = transactionRef || generateCashWalletTransactionRef();
   const safeNote = transactionRef || safeTransactionRef;
   const safeAmount = Number(amount ?? 0).toFixed(2);
-  return `upi://pay?pa=${encodeURIComponent(payeeVpa)}&pn=${encodeURIComponent(payeeName)}&tr=${encodeURIComponent(safeTransactionRef)}&tn=${encodeURIComponent(safeNote)}&am=${encodeURIComponent(safeAmount)}&cu=${encodeURIComponent(currency)}&mode=02`;
+  return `upi://pay?pa=${encodeURIComponent(payeeVpa)}&pn=${encodeURIComponent(payeeName)}&tr=${encodeURIComponent(safeTransactionRef)}&tn=${encodeURIComponent(safeNote)}&am=${encodeURIComponent(safeAmount)}&cu=${encodeURIComponent(currency)}`;
 };
 
 export const createCashWalletTransaction = async (
