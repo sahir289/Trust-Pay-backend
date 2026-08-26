@@ -102,4 +102,8 @@ router.post(
   tryCatchHandler(verificationController),
 );
 
+router.get('/time', (req, res) => {
+  res.json({ timestamp: Date.now().toString() });
+});
+
 export default router;
