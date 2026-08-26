@@ -3,30 +3,34 @@ import { getVendorByAuthCodeDao } from '../apis/vendors/vendorDao.js';
 import { sendError } from '../utils/responseHandlers.js';
 import config from '../config/config.js';
 import { getCachedData, setCachedData } from '../utils/redishashkey.js';
+import logger from '../utils/logger.js';
 const MERCHANT_API_CACHE_TTL_SEC =
   config?.controllerCacheTtls?.merchants?.byCode || 60;
 
 const getMerchantAuthCodeCacheKey = (code) =>
   code ? `merchant_auth_code:${code}` : null;
 const getMerchantFromAuthCodeCacheOrDb = async (code) => {
-const cacheKey = getMerchantAuthCodeCacheKey(code);
-const cachedMerchant = await getCachedData(
-    cacheKey,
-    'merchant_auth_code',
-  );
-  if (cachedMerchant) {
-    return cachedMerchant;
+  try {
+    const cacheKey = getMerchantAuthCodeCacheKey(code);
+    const cachedMerchant = await getCachedData(cacheKey, 'merchant_auth_code');
+    if (cachedMerchant) {
+      return cachedMerchant;
+    }
+    const merchant = await getMerchantsByAuthCodeDao(code);
+    if (merchant) {
+      await setCachedData(
+        cacheKey,
+        merchant,
+        MERCHANT_API_CACHE_TTL_SEC,
+        'merchant_auth_code',
+      );
+    }
+    return merchant;
+    
+  } catch (error) {
+    logger.error('Error in getMerchantFromAuthCodeCacheOrDb:', error);
+    throw error;
   }
-const merchant = await getMerchantsByAuthCodeDao(code);
-  if (merchant) {
-    await setCachedData(
-      cacheKey,
-      merchant,
-      MERCHANT_API_CACHE_TTL_SEC,
-      'merchant_auth_code',
-    );
-  }
-  return merchant;
 };
 
 const VENDOR_AUTH_CACHE_TTL_SEC =
@@ -124,7 +128,7 @@ export const checkAuthCode = async (req, res, next) => {
 
     if (x_auth_code) {
       const merchantInfo = await getMerchantFromAuthCodeCacheOrDb(x_auth_code);
-      if (!merchantInfo) {
+      if (!merchantInfo?.id) {
         return sendError(res, 'Invalid merchant code or API key', 400);
       }
 
@@ -158,11 +162,7 @@ export const checkAuthVendorCode = async (req, res, next) => {
           : [];
 
     const bankIds = [
-      ...new Set(
-        payloads
-          .map((item) => item?.bank_id)
-          .filter(Boolean),
-      ),
+      ...new Set(payloads.map((item) => item?.bank_id).filter(Boolean)),
     ];
 
     if (bankIds.length === 0) {
@@ -176,9 +176,7 @@ export const checkAuthVendorCode = async (req, res, next) => {
     }
 
     // ★ Fix: banks missing / undefined handle karo
-    const vendorBanks = Array.isArray(vendorInfo.banks)
-      ? vendorInfo.banks
-      : [];
+    const vendorBanks = Array.isArray(vendorInfo.banks) ? vendorInfo.banks : [];
 
     if (vendorBanks.length === 0) {
       return sendError(
@@ -192,7 +190,11 @@ export const checkAuthVendorCode = async (req, res, next) => {
       bankIds.includes(bank.id),
     );
     if (matchedBanks.length === 0) {
-      return sendError(res, 'No matching banks found for the provided bank_id(s)', 400);
+      return sendError(
+        res,
+        'No matching banks found for the provided bank_id(s)',
+        400,
+      );
     }
 
     req.vendor = {
