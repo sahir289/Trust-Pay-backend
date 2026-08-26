@@ -129,7 +129,7 @@ export const checkAuthCode = async (req, res, next) => {
     if (x_auth_code) {
       const merchantInfo = await getMerchantFromAuthCodeCacheOrDb(x_auth_code);
       if (!merchantInfo?.id) {
-        return sendError(res, 'Invalid merchant code or API key', 400);
+        return sendError(res, 'Invalid x_auth_code or API key', 400);
       }
 
       req.merchant = merchantInfo;
