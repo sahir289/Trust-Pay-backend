@@ -79,6 +79,9 @@ export const lookup = async (ip, budgetMs) => {
       logger.warn('ip-intel provider lookup failed', {
         provider: provider.name,
         err: err.code || err.message,
+        status: err.response?.status,
+        // vendor error body, e.g. proxycheck "denied"/quota message
+        body: err.response?.data,
       });
     }
   }
