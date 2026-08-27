@@ -1717,6 +1717,16 @@ const _markPayoutPendingForUtrSlipMismatchInternal = async (
     if(singleWithdrawData.status !== Status.INITIATED && payload.vendor_id === null ){
       throw new BadRequestError('Payout Already Processed, cannot update vendor');
     }
+     if (payload?.utr_id) {
+      const duplicatePayout = await getPayoutByUtrIdDao(
+        payload.utr_id,
+        ids.company_id,
+        conn,
+      );
+      if (duplicatePayout && duplicatePayout.id !== ids.id) {
+        throw new BadRequestError('UTR already exists');
+      }
+    }
     const bankAccId = payload.bank_acc_id || singleWithdrawData.bank_acc_id;
     const reason = 'UTR does not match with slip UTR';
     const updatePayload = {
