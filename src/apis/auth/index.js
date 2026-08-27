@@ -46,8 +46,8 @@ router.use(authApiRateLimiter);
  */
 router.post(
   '/login',
-  geoLocationGuard,
-  loginBruteGuard,
+  // geoLocationGuard,
+  // loginBruteGuard,
   tryCatchHandler(loginController),
 ); // login route
 
