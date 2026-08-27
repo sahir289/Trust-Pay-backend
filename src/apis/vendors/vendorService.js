@@ -566,6 +566,12 @@ const deleteVendorService = async (ids, updated_by) => {
     conn = await getConnection();
     await beginTransaction(conn); // Start a transaction
     const data = await _deleteVendorServiceInternal(ids, updated_by, conn);
+    if (data?.code) {
+      await deleteCachedData(
+        `vendor_auth_code:${data.code}`,
+        'vendor_auth_code cache',
+      );
+    }
     await commit(conn);
     committed = true; // Commit the transaction
     return data;
