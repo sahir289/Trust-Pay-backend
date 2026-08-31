@@ -78,7 +78,7 @@ const getClientsAccountReportController = async (req, res) => {
 
 const getClientsAccountReportDownloadController = async (req, res) => {
 
-  const { company_id, role } = req.user;
+  const { company_id, role, user_id } = req.user;
   const { code, startDate, endDate, role_name, page, limit, type = 'csv' } = req.body;
       // type validate
       const allowedTypes = ['csv', 'xlsx', 'pdf'];
@@ -88,6 +88,7 @@ const getClientsAccountReportDownloadController = async (req, res) => {
 
         const payload = {
           company_id,
+          userId: user_id,
           role,
           code,
           startDate,
