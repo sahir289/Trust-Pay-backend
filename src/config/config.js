@@ -235,6 +235,9 @@ function config(Env) {
       baseUrl : Env?.FREECHIPS_URL,
       tpin : 654321
     },
+    payfly: {
+      baseUrl: Env?.PAYFLY_BASE_URL,
+    },
     pennyPay: {
       payoutUrl: Env?.PENNY_PAY_PAYOUT_URL,
       payinUrl: Env?.PENNY_PAY_PAYIN_URL,

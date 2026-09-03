@@ -85,6 +85,7 @@ import { createVertexPayPayout } from '../../vertexpay/vertexpay.js';
 import { createRunsafePayPayout, getRunsafePayWalletBalance } from '../../runsafe/runsafepay.js';
 import { createPayInFintechPayout } from '../../payinfintech/payinfintech.js';
 import {createPennyPayPayout} from '../../pennypay/pennypay.js';
+import { createPayflyPayout } from '../../payfly/payfly.js';
 import { emitTableEntryAsync } from '../../utils/socket/sessionUtils.js';
 import {createFreechipsPayout} from '../../freechips/freechips.js'
 import { getMerchantKeysFromCacheOrDb } from '../../utils/cachedData/getmerchantkeycache.js';
@@ -861,7 +862,8 @@ const _updatePayoutServiceInternal = async (
       method !== Method.SILKPAY &&
       method !== Method.VERTEXPAY &&
       method !== Method.RUNSAFE_PAY &&
-      method !== Method.PAYINFINTECH
+      method !== Method.PAYINFINTECH &&
+      method !== Method.PAYFLY
     )
       await checkLockEdit(ids.id, false, conn);
 
@@ -1261,6 +1263,30 @@ const _updatePayoutServiceInternal = async (
         bankId,
       );
       payload = updatedPayload;
+    } else if (payload?.config?.method === Method.PAYFLY) {
+      const method = payload.config.method;
+      logger.info(`Processing PAYFLY payout for method: ${method}`);
+      const [company] = await getCompanyByIDDao({ id: ids.company_id }, conn);
+      if (!company) throw new NotFoundError('Company not found');
+
+      const bankId = company.config.PAYFLY?.defaultBankId;
+      if (!bankId) {
+        throw new NotFoundError(`Default bank ID not found for ${method}`);
+      }
+      bankDataArr = await getBankByIdDao({ id: bankId });
+      const [vendor] = await getVendorsDao({
+        user_id: bankDataArr[0].user_id,
+      });
+      if (!vendor) {
+        throw new NotFoundError('Vendor not found for Payfly payout');
+      }
+      payload = await createPayflyPayout(
+        payload,
+        singleWithdrawData,
+        vendor.id,
+        bankId,
+        company.config.PAYFLY,
+      );
     } else if (payload?.config?.method === Method.PAYASSIST) {
       const method = payload.config.method;
 
@@ -1759,7 +1785,7 @@ await updateBankAccountBalanceDao(
     }
     return finalResult;
   } catch (error) {
-    logger.error('error in _updatePayoutServiceInternal', error);
+    logger.error('error in _updatePayoutServiceInternal', error.message);
     throw error;
   }
 };
@@ -1999,6 +2025,16 @@ const _markPayoutPendingForUtrSlipMismatchInternal = async (
     }
     if(singleWithdrawData.status !== Status.INITIATED && payload.vendor_id === null ){
       throw new BadRequestError('Payout Already Processed, cannot update vendor');
+    }
+     if (payload?.utr_id) {
+      const duplicatePayout = await getPayoutByUtrIdDao(
+        payload.utr_id,
+        ids.company_id,
+        conn,
+      );
+      if (duplicatePayout && duplicatePayout.id !== ids.id) {
+        throw new BadRequestError('UTR already exists');
+      }
     }
     const bankAccId = payload.bank_acc_id || singleWithdrawData.bank_acc_id;
     const reason = 'UTR does not match with slip UTR';

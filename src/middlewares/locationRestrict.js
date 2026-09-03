@@ -150,11 +150,8 @@ const getUserLocationMiddleware = async (req, res, next) => {
     req.payInUrl = payInUrl;
     next();
   } catch (error) {
-    logger.error('Error fetching user location:', error.message);
-    if (res.headersSent) {
-      return;
-    }
-    return sendError(res, 'Error fetching user location', 500);
+    logger.info('Error fetching user location:', error.message);
+    next();
   }
 };
 

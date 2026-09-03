@@ -206,11 +206,11 @@ export async function createBSSPayout(
 
     payload.bank_acc_id = bankId;
 
-    if (status === 'Pending' || status === 'pending' || status === 'PENDING') {
+     if (status === 'Pending' || status === 'pending' || status === 'PENDING') {
       payload.status = Status.PENDING;
     } else if (status === 'Success' || status === 'success' || status === Status.SUCCESS || status === Status.APPROVED) {
       (payload.bank_acc_id = bankId), (payload.status = Status.APPROVED);
-      payload.utr_id = checkBSS?.utr_id || '';
+      payload.utr_id = checkBSS?.utr_id || checkBSS?.RRN || '';
       payload.approved_at = new Date().toISOString();
     } else if (status === 'Failed' || status === 'failed' || status === Status.FAILED || status === Status.REJECTED) {
       payload.status = Status.REJECTED;
@@ -221,7 +221,7 @@ export async function createBSSPayout(
     }
 
     if (!payload.utr_id) {
-      payload.utr_id = checkBSS?.utr || '';
+      payload.utr_id = checkBSS?.utr || checkBSS?.RRN || '';
     }
 
     logger.info('BSS payout processed successfully:', payload);
