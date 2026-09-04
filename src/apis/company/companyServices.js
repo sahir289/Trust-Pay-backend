@@ -3,6 +3,9 @@ import {
   deleteCompanyDao,
   getCompanyDao,
   getCompanyDetailsByIdDao,
+  isCompanyEmailExistsDao,
+  isCompanyContactNoExistsDao,
+  isUserNameExistsDao,
   updateCompanyDao,
 } from './companyDao.js';
 import { _createUserServiceInternal } from '../users/userService.js';
@@ -14,15 +17,28 @@ import { logger } from '../../utils/logger.js';
 import config from '../../config/config.js';
 import { beginTransaction, commit, getConnection, rollback } from '../../utils/db.js';
 import redisClient from '../../utils/redisClient.js';
+import { BadRequestError } from '../../utils/appErrors.js';
 
 const COMPANY_DETAILS_CACHE_TTL_SEC = Number.parseInt(
   process.env.COMPANY_DETAILS_CACHE_TTL_SEC || '60',
   10,
 );
 
-const getCompanyService = async (id) => {
+const getCompanyService = async (
+  filters = {},
+  page,
+  limit,
+  sortBy,
+  sortOrder,
+) => {
   try {
-    const result = await getCompanyDao(id);
+    const result = await getCompanyDao(
+      filters,
+      page,
+      limit,
+      sortBy,
+      sortOrder,
+    );
     return result;
   } catch (error) {
     logger.error('error getting while company', error);
@@ -66,6 +82,19 @@ const _createCompanyServiceInternal = async (payload, conn) => {
     }
 
     const unique_id = generateFormatted8DigitCode();
+    const adminCode =
+      payload.code || payload.first_name.split('').reverse().join('');
+
+    if (await isCompanyEmailExistsDao(payload.email, conn)) {
+      throw new BadRequestError('Email already exists');
+    }
+    if (await isCompanyContactNoExistsDao(payload.contact_no, conn)) {
+      throw new BadRequestError('Contact number already exists');
+    }
+    if (await isUserNameExistsDao(payload.user_name, conn)) {
+      throw new BadRequestError('Username already exists');
+    }
+
 
     payload.config = {
       ...payload.config,
@@ -150,7 +179,7 @@ const _createCompanyServiceInternal = async (payload, conn) => {
       last_name: payload.last_name,
       is_enabled: true,
       unique_admin_id: unique_id,
-      code: payload.first_name.split('').reverse().join(''),
+      code: adminCode,
     };
     // Create user - this will manage its own transaction
     const user = await _createUserServiceInternal(userPayload, conn);

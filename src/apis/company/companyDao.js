@@ -17,16 +17,33 @@ const getCompanyDao = async (
   conn,
 ) => {
   try {
-    const baseQuery = `SELECT id,first_name,last_name,config FROM "${tableName.COMPANY}" WHERE 1=1`;
-    //TODO: columns.Company dynamic search
-    const [sql, queryParams] = buildSelectQuery(
+    const baseQuery = `SELECT id,first_name,last_name,config,email,contact_no FROM "${tableName.COMPANY}" WHERE 1=1`;
+    const { search, ...exactFilters } = filters || {};
+    const parsedPage = Number(page);
+    const parsedPageSize = Number(pageSize);
+    let [sql, queryParams] = buildSelectQuery(
       baseQuery,
-      filters,
-      page,
-      pageSize,
+      exactFilters,
+      parsedPage,
+      parsedPageSize,
       sortBy,
       sortOrder,
     );
+
+    if (search) {
+      const searchPlaceholder = queryParams.length + 1;
+      sql = sql.replace(
+        ' ORDER BY',
+        ` AND (
+          first_name ILIKE $${searchPlaceholder}
+          OR last_name ILIKE $${searchPlaceholder}
+          OR email ILIKE $${searchPlaceholder}
+          OR contact_no ILIKE $${searchPlaceholder}
+        ) ORDER BY`,
+      );
+      queryParams = [...queryParams, `%${search}%`];
+    }
+
     const result = await executeQuery(sql, queryParams, conn);
     return result.rows.length > 0 ? result.rows : result.rows[0];
   } catch (error) {
@@ -216,6 +233,64 @@ const getCompanyByIDDao = async (filters, conn = null) => {
   }
 };
 
+const isCompanyEmailExistsDao = async (email, conn = null) => {
+  try {
+    const sql = `
+      SELECT 1 FROM "${tableName.COMPANY}"
+      WHERE is_obsolete = false AND LOWER(email) = LOWER($1)
+      UNION ALL
+      SELECT 1 FROM "${tableName.USER}"
+      WHERE is_obsolete = false AND LOWER(email) = LOWER($1)
+      LIMIT 1
+    `;
+    const result = await executeQuery(sql, [email], conn);
+    return result.rows.length > 0;
+  } catch (error) {
+    logger.error('Error checking company email uniqueness:', error);
+    throw error;
+  }
+};
+
+const isCompanyContactNoExistsDao = async (contactNo, conn = null) => {
+  try {
+    const sql = `
+      SELECT 1 FROM "${tableName.COMPANY}"
+      WHERE is_obsolete = false AND contact_no = $1
+      UNION ALL
+      SELECT 1 FROM "${tableName.USER}"
+      WHERE is_obsolete = false AND contact_no = $1
+      LIMIT 1
+    `;
+    const result = await executeQuery(sql, [contactNo], conn);
+    return result.rows.length > 0;
+  } catch (error) {
+    logger.error('Error checking company contact number uniqueness:', error);
+    throw error;
+  }
+};
+
+const isUserNameExistsDao = async (userName, conn = null) => {
+  try {
+    const sql = `SELECT 1 FROM "${tableName.USER}" WHERE is_obsolete = false AND LOWER(user_name) = LOWER($1) LIMIT 1`;
+    const result = await executeQuery(sql, [userName], conn);
+    return result.rows.length > 0;
+  } catch (error) {
+    logger.error('Error checking username uniqueness:', error);
+    throw error;
+  }
+};
+
+// const isUserCodeExistsDao = async (code, conn = null) => {
+//   try {
+//     const sql = `SELECT 1 FROM "${tableName.USER}" WHERE is_obsolete = false AND code = $1 LIMIT 1`;
+//     const result = await executeQuery(sql, [code], conn);
+//     return result.rows.length > 0;
+//   } catch (error) {
+//     logger.error('Error checking user code uniqueness:', error);
+//     throw error;
+//   }
+// };
+
 const createCompanyDao = async (payload, conn = null) => {
   try {
     const [sql, params] = buildInsertQuery(tableName.COMPANY, payload);
@@ -270,6 +345,9 @@ export {
   updateCompanyDao,
   deleteCompanyDao,
   getCompanyByIDDao,
+  isCompanyEmailExistsDao,
+  isCompanyContactNoExistsDao,
+  isUserNameExistsDao,
   getClickrrDetailsByCompanyIdDao,
   getBepayDetailsByCompanyIdDao,
   getCashfreeAllowByCompanyIdDao,
