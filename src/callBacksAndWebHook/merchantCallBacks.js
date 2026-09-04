@@ -12,7 +12,7 @@ const sendMerchantNotification = async (url, data, type) => {
       notify_url: url,
       notify_data: data,
     });
-    const response = await axios.post(url, data,{timeout: 5000});
+    const response = await axios.post(url, data,{timeout: 10000});
     logger.info(`${type} Notification Sent Successfully`, {
       //send dat in logs
       status: response?.status,
