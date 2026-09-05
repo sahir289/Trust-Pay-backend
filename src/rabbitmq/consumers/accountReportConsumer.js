@@ -21,6 +21,53 @@ import { generatePDFBuffer } from '../../utils/generatePdf.js';
 dayjs.extend(utc);
 dayjs.extend(timezone);
 
+const getAccountReportColumns = (role_name) => {
+  const isMerchant = role_name === 'MERCHANT';
+
+  const columns = [
+    { header: 'Date',                     key: 'created_at',                            width: 110, format: 'date' },
+    {
+      header: isMerchant ? 'Merchant Code' : 'Vendor Code',
+      key: 'code',
+      width: 80,
+    },
+    { header: 'G-Master Code',            key: 'gm_code',                               width: 70 },
+    { header: 'PayIn Amount',             key: 'total_payin_amount',                    width: 85,  format: 'currency', align: 'right' },
+    { header: 'PayIn Commission',         key: 'total_payin_commission',                width: 85,  format: 'currency', align: 'right' },
+    { header: 'PayIn Count',              key: 'total_payin_count',                     width: 80,  align: 'right' },
+    { header: 'PayOut Amount',            key: 'total_payout_amount',                   width: 85,  format: 'currency', align: 'right' },
+    { header: 'PayOut Commission',        key: 'total_payout_commission',               width: 85,  format: 'currency', align: 'right' },
+    { header: 'PayOut Count',             key: 'total_payout_count',                    width: 85,  align: 'right' },
+    { header: 'Settlement Amount',        key: 'total_settlement_amount',               width: 85,  format: 'currency', align: 'right' },
+    { header: 'Aed Sent Settlement',      key: 'total_aed_sent_settlement_amount',      width: 90,  format: 'currency', align: 'right' },
+    { header: 'Bank Sent Settlement',     key: 'total_bank_sent_settlement_amount',     width: 90,  format: 'currency', align: 'right' },
+    { header: 'Cash Sent Settlement',     key: 'total_cash_sent_settlement_amount',     width: 90,  format: 'currency', align: 'right' },
+    { header: 'Crypto Sent Settlement',   key: 'total_crypto_sent_settlement_amount',   width: 95,  format: 'currency', align: 'right' },
+    { header: 'Aed Recieved Settlement',  key: 'total_aed_received_settlement_amount',  width: 95,  format: 'currency', align: 'right' },
+  ];
+
+  // Vendor only columns
+  if (!isMerchant) {
+    columns.push(
+      { header: 'Internal Qr Settlement',   key: 'total_internal_settlement_amount',      width: 100, format: 'currency', align: 'right' },
+      { header: 'Internal Bank Settlement', key: 'total_internal_bank_settlement_amount', width: 110, format: 'currency', align: 'right' },
+    );
+  }
+
+  // Common ending columns
+  columns.push(
+    { header: 'Chargeback Amount',          key: 'total_chargeback_amount',             width: 90,  format: 'currency', align: 'right' },
+    { header: 'Reverse Payout Amount',      key: 'total_reverse_payout_amount',         width: 95,  format: 'currency', align: 'right' },
+    { header: 'Reverse Payout Commission',  key: 'total_reverse_payout_commission',     width: 110, format: 'currency', align: 'right' },
+    { header: 'Reverse Payout Count',       key: 'total_reverse_payout_count',          width: 95,  align: 'right' },
+    { header: 'Adjustment Amount',          key: 'total_adjustment_amount',             width: 95,  format: 'currency', align: 'right' },
+    { header: 'Current Balance',            key: 'current_balance',                     width: 90,  format: 'currency', align: 'right' },
+    { header: 'Net Balance',                key: 'net_balance',                         width: 85,  format: 'currency', align: 'right' },
+  );
+
+  return columns;
+};
+
 // ---------- Helper: Upload buffer/stream to S3 ----------
 const uploadToS3 = async (buffer, fileName, contentType) => {
   const key = `reports/${dayjs().format('YYYY-MM-DD')}/${fileName}`;
@@ -85,52 +132,20 @@ async function processAccountReportJob(messagePayload) {
   let contentType;
   let extension;
 
+  const columns = getAccountReportColumns(role_name);
+
   if (fileType === 'csv') {
-    const csvContent = generateFile(result, 'csv');
+    const csvContent = generateFile(result, 'csv', columns);
     buffer = Buffer.from(csvContent, 'utf-8');
     contentType = 'text/csv';
     extension = 'csv';
   } 
   else if (fileType === 'xlsx') {
-    buffer = generateFile(result, 'xlsx');
+    buffer = generateFile(result, 'xlsx', columns);
     contentType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
     extension = 'xlsx';
   } 
   else if (fileType === 'pdf') {
-    const columns = [
-      { header: 'Calculation ID',     key: 'calculation_id',              width: 90 },
-      { header: 'Total PayIn Amt',    key: 'total_payin_amount',          width: 85,  format: 'currency', align: 'right' },
-      { header: 'Total PayIn Count',  key: 'total_payin_count',           width: 80,  align: 'right' },
-      { header: 'Total PayIn Comm',   key: 'total_payin_commission',      width: 85,  format: 'currency', align: 'right' },
-      { header: 'Total PayOut Amt',   key: 'total_payout_amount',         width: 85,  format: 'currency', align: 'right' },
-      { header: 'Total PayOut Count', key: 'total_payout_count',          width: 85,  align: 'right' },
-      { header: 'Total PayOut Comm',  key: 'total_payout_commission',     width: 85,  format: 'currency', align: 'right' },
-      { header: 'Total Settle Amt',   key: 'total_settlement_amount',     width: 85,  format: 'currency', align: 'right' },
-      { header: 'Total Settle Count', key: 'total_settlement_count',      width: 85,  align: 'right' },
-      { header: 'Total AED Amt',      key: 'total_aed_amount',            width: 80,  format: 'currency', align: 'right' },
-      { header: 'Total Bank Amt',     key: 'total_bank_amount',           width: 80,  format: 'currency', align: 'right' },
-      { header: 'Total Cash Amt',     key: 'total_cash_amount',           width: 80,  format: 'currency', align: 'right' },
-      { header: 'Total Crypto Amt',   key: 'total_crypto_amount',         width: 85,  format: 'currency', align: 'right' },
-      { header: 'Total AED Count',    key: 'total_aed_count',             width: 75,  align: 'right' },
-      { header: 'Total Bank Count',   key: 'total_bank_count',            width: 80,  align: 'right' },
-      { header: 'Total Cash Count',   key: 'total_cash_count',            width: 80,  align: 'right' },
-      { header: 'Total Crypto Count', key: 'total_crypto_count',          width: 85,  align: 'right' },
-      { header: 'Total Charge Amt',   key: 'total_charge_amount',         width: 85,  format: 'currency', align: 'right' },
-      { header: 'Total Charge Count', key: 'total_charge_count',          width: 85,  align: 'right' },
-      { header: 'Current Balance',    key: 'current_balance',             width: 90,  format: 'currency', align: 'right' },
-      { header: 'Net Balance',        key: 'net_balance',                 width: 85,  format: 'currency', align: 'right' },
-      { header: 'Created At',         key: 'created_at',                  width: 110, format: 'date' },
-      { header: 'Updated At',         key: 'updated_at',                  width: 110, format: 'date' },
-      { header: 'Total Reverse Amt',  key: 'total_reverse_amount',        width: 90,  format: 'currency', align: 'right' },
-      { header: 'Total Reverse Count',key: 'total_reverse_count',         width: 90,  align: 'right' },
-      { header: 'Total Reverse Comm', key: 'total_reverse_commission',    width: 90,  format: 'currency', align: 'right' },
-      { header: 'Total Adjustment',   key: 'total_adjustment',            width: 90,  format: 'currency', align: 'right' },
-      { header: 'Company ID',         key: 'company_id',                  width: 90 },
-      { header: 'Code',               key: 'code',                        width: 80 },
-      { header: 'GM Code',            key: 'gm_code',                     width: 70 },
-      { header: 'Merchant',           key: 'merchant_code',               width: 80 },
-      { header: 'User ID',            key: 'user_id',                     width: 120 },
-    ];
   
     buffer = await generatePDFBuffer(result, {
       title: 'Account Report',
