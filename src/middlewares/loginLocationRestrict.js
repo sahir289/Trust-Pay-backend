@@ -2,9 +2,11 @@ import { BadRequestError, InternalServerError } from '../utils/appErrors.js';
 import { logger } from '../utils/logger.js';
 import config from '../config/config.js';
 import { getRoleByUserNameDao } from '../apis/auth/authDao.js';
+import { getUsersByUserNameDao } from '../apis/users/userDao.js';
 import { setTimeout as delay } from 'node:timers/promises';
 import { checkProxyAndVpn } from '../utils/proxyCheckService.js';
 import { reverseGeocode } from '../utils/reverseGeoCodeService.js';
+import ipaddr from 'ipaddr.js';
 
 // Helper - Promise with hard timeout (cancels after X ms)
 const withTimeout = async (promise, ms, name = 'operation') => {
@@ -42,6 +44,130 @@ export const getClientIp = (req) => {
     : ip;
 };
 
+const normalizeConfiguredLoginIps = (input) => {
+  if (!input) return [];
+
+  let configValue = input;
+  if (typeof input === 'string') {
+    try {
+      configValue = JSON.parse(input);
+    } catch {
+      return [];
+    }
+  }
+
+  if (typeof configValue !== 'object' || configValue === null) {
+    return [];
+  }
+
+  const source = configValue.loginips;
+
+  if (typeof source === 'string') {
+    return source
+      .split(/[\n,;|]/)
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .filter((item, index, arr) => arr.indexOf(item) === index);
+  }
+  return [];
+};
+
+const isIpInConfiguredList = (clientIp, configuredIps) => {
+  if (!clientIp || !configuredIps?.length) return false;
+
+  try {
+    const parsedClientIp = ipaddr.parse(clientIp);
+    return configuredIps.some((entry) => {
+      if (!entry) return false;
+      try {
+        if (String(entry).includes('/')) {
+          const [network, prefix] = ipaddr.parseCIDR(entry);
+          return parsedClientIp.match([network, prefix]);
+        }
+        return parsedClientIp.toString() === ipaddr.parse(entry).toString();
+      } catch {
+        return false;
+      }
+    });
+  } catch {
+    return false;
+  }
+};
+
+const getConfiguredLoginIpsForUser = async (req) => {
+  try {
+    const username = req.body?.username || req.body?.userName;
+    if (!username) return [];
+
+    const user = await getUsersByUserNameDao({}, username);
+    if (!user?.config) return [];
+
+    return normalizeConfiguredLoginIps(user.config);
+  } catch (error) {
+    logger.warn('Unable to fetch configured login IPs', {
+      error: error.message,
+      username: req.body?.username || req.body?.userName,
+    });
+    return [];
+  }
+};
+
+export const shouldBypassLoginIpGuard = async (req) => {
+  try {
+    const clientIp = getClientIp(req);
+    const username = req.body?.username || req.body?.userName;
+    if (!clientIp || !username) return false;
+
+    const configuredIps = await getConfiguredLoginIpsForUser(req);
+    if (!configuredIps.length) return false;
+
+    const matched = isIpInConfiguredList(clientIp, configuredIps);
+    if (matched) {
+      logger.info('Login IP allowlist bypassed for trusted user IP', {
+        ip: clientIp,
+        username,
+      });
+    }
+
+    return matched;
+  } catch (error) {
+    logger.warn('Unable to evaluate login IP allowlist bypass', {
+      error: error.message,
+      username: req.body?.username || req.body?.userName,
+    });
+    return false;
+  }
+};
+
+export const shouldDenyLoginIpMismatch = async (req) => {
+  try {
+    const clientIp = getClientIp(req);
+    const username = req.body?.username || req.body?.userName;
+    if (!clientIp || !username) return false;
+
+    const configuredIps = await getConfiguredLoginIpsForUser(req);
+    if (!configuredIps.length) return false;
+
+    const matched = isIpInConfiguredList(clientIp, configuredIps);
+    if (!matched) {
+      logger.warn('Login blocked: IP is not whitelisted for this user', {
+        ip: clientIp,
+        username,
+        configuredIps,
+      });
+      return true;
+    }
+
+    return false;
+  } catch (error) {
+    logger.warn('Unable to verify login IP whitelist mismatch', {
+      error: error.message,
+      username: req.body?.username || req.body?.userName,
+    });
+    return false;
+  }
+};
+
 const createGeoGuard = (options = {}) => {
   const {
     // maxAccuracy = 100,
@@ -59,6 +185,14 @@ const createGeoGuard = (options = {}) => {
   return async (req, res, next) => {
     try {
       const clientIp = getClientIp(req);
+
+      if (await shouldDenyLoginIpMismatch(req)) {
+        return next(new BadRequestError('Login is not allowed from this network. Please contact support.'));
+      }
+      if (await shouldBypassLoginIpGuard(req)) {
+        return next();
+      }
+
       // Device/tracing fingerprint captured for every login attempt.
       const device = {
         userAgent: req.headers['user-agent'] || null,
