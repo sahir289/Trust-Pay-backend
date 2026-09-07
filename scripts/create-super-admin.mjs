@@ -1,9 +1,12 @@
 /**
  * Super Admin Bootstrap Script
  *
- * Creates a global super-admin user (company_id = NULL) with the
- * "SUPER_ADMIN" role and designation.  Idempotent — safe to run
+ * Creates a global super-admin user assigned to a sentinel "System" company
+ * (id = 00000000-0000-0000-0000-000000000001).  Idempotent — safe to run
  * multiple times.
+ *
+ * The System company avoids company_id = NULL which would break the entire
+ * auth/session flow (getSessionByIdDao, getLoginDao, cache keys, etc.).
  *
  * Usage:
  *   npm run create:super-admin
@@ -37,6 +40,27 @@ import {
 import { generatePassword } from '../src/utils/generatePassword.js';
 import { sendCredentialsEmail } from '../src/utils/sendMailer.js';
 import { logger } from '../src/utils/logger.js';
+
+const SYSTEM_COMPANY_ID = '00000000-0000-0000-0000-000000000001';
+
+/**
+ * Idempotent: ensures the sentinel "System" company exists.
+ * Returns the system company ID for use in user creation.
+ */
+const ensureSystemCompany = async (conn) => {
+  await executeQuery(
+    `INSERT INTO public."Company" (id, first_name, last_name, email, contact_no, config, is_obsolete)
+     VALUES ($1, 'TrustPay', 'System', $2, $3, '{}', false)
+     ON CONFLICT (id) DO NOTHING`,
+    [
+      SYSTEM_COMPANY_ID,
+      process.env.SUPER_ADMIN_EMAIL,
+      process.env.SUPER_ADMIN_CONTACT_NO,
+    ],
+    conn,
+  );
+  return SYSTEM_COMPANY_ID;
+};
 
 const requiredEnvironmentVariables = [
   'SUPER_ADMIN_EMAIL',
@@ -129,12 +153,13 @@ const getOrCreateSuperAdminDesignation = async (conn) => {
 
 const getGlobalSuperAdminByUsername = async (username, conn) => {
   const result = await executeQuery(
-    `SELECT id, user_name
-     FROM public."User"
-     WHERE user_name = $1
-       AND company_id IS NULL
-       AND is_obsolete = false`,
-    [username],
+    `SELECT u.id, u.user_name
+     FROM public."User" u
+     JOIN public."Role" r ON u.role_id = r.id
+     WHERE u.user_name = $1
+       AND r.role = $2
+       AND u.is_obsolete = false`,
+    [username, Role.SUPER_ADMIN],
     conn,
   );
 
@@ -149,6 +174,9 @@ const createSuperAdmin = async () => {
   try {
     conn = await getConnection();
     await beginTransaction(conn);
+
+    // 0. Ensure sentinel "System" company exists
+    const systemCompanyId = await ensureSystemCompany(conn);
 
     // 1. Idempotent role + designation (SAVEPOINTs handle 23505)
     const role = await getOrCreateSuperAdminRole(conn);
@@ -185,7 +213,7 @@ const createSuperAdmin = async () => {
         user_name: process.env.SUPER_ADMIN_USERNAME,
         password: await createHash(password),
         is_enabled: true,
-        company_id: null,
+        company_id: systemCompanyId,
         config: { isLoginFirst: true },
       },
       conn,
@@ -216,3 +244,4 @@ const createSuperAdmin = async () => {
 };
 
 await createSuperAdmin();
+process.exit(0);
