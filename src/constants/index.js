@@ -641,6 +641,7 @@ export const BankTypes = {
 };
 
 export const AccessRoles = {
+  SUPER_ADMIN: [Role.SUPER_ADMIN],
   ALL: [
     Role.ADMIN,
     Role.TRANSACTIONS,
@@ -729,13 +730,9 @@ export const AccessRoles = {
     Role.VENDOR_OPERATIONS,
   ],
   COMPANY: [
+    Role.SUPER_ADMIN,
     Role.ADMIN,
-    Role.TRANSACTIONS,
-    Role.OPERATIONS,
-    Role.VENDOR,
-    Role.SUB_VENDOR,
-    Role.VENDOR_ADMIN,
-    Role.VENDOR_OPERATIONS,
+
   ],
   USER_HIERARCHY: {
     CREATE_DELETE: [Role.ADMIN, Role.TRANSACTIONS],
