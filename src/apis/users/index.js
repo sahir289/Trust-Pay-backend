@@ -3,6 +3,7 @@ import tryCatchHandler from '../../utils/tryCatchHandler.js';
 import {
   createUser,
   getUserById,
+  getUsersIps,
   getUsers,
   getUsersByUserName,
   updateUser,
@@ -63,6 +64,11 @@ router.get(
   [isAuthenticated, authorized(AccessRoles.USER)],
   tryCatchHandler(getUsers),
 );
+router.get(
+  '/get-users',
+  [isAuthenticated, authorized(AccessRoles.USER)],
+  tryCatchHandler(getUsersIps),
+)
 router.get(
   '/',
   [isAuthenticated, authorized(AccessRoles.USER)],

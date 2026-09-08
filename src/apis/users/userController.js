@@ -6,6 +6,7 @@ import {
   getUserByIdService,
   getUsersByUserNameService,
   getUsersService,
+  getUsersIpsService,
   userUpdateService,
   getUsersBySearchService,
   getUsersInfoBySearchService,
@@ -135,6 +136,19 @@ const getUsersnames = async (req, res) => {
   await writeJsonCache(cacheKey, data, controllerCacheTtls.users.list);
 
   return sendSuccess(res, data, 'getUsersname successfully');
+};
+
+const getUsersIps = async (req, res) => {
+  const { company_id,designation } = req.user;
+   if (designation !== Role.ADMIN) {
+    throw new BadRequestError('Access denied');
+  }
+  if (!company_id) {
+    throw new BadRequestError('Company_id is required');
+  }
+
+  const data = await getUsersIpsService({ company_id });
+  return sendSuccess(res, data, 'Users IP data fetched successfully');
 };
 
 const getUsersBySearch = async (req, res) => {
@@ -365,6 +379,7 @@ const toggleUser2FAExemption = async (req, res) => {
 export {
   getUsers,
   getUsersnames,
+  getUsersIps,
   getUsersBySearch,
   getUsersInfoBySearch,
   getUserById,
