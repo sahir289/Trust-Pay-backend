@@ -1,6 +1,8 @@
 import express from 'express';
 import gatherCompanyData from './dashboardReportController.js';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
+import { setSuperAdminTenant, authorized } from '../../middlewares/auth.js';
+import { AccessRoles } from '../../constants/index.js';
 
 // import  checkPendingStatus  from './pendingPayinCron.js';
 const router = express.Router();
@@ -26,7 +28,7 @@ const router = express.Router();
  *                   example: " cron job executed successfully."
  */
 router.get(
-  '/', tryCatchHandler(gatherCompanyData)
+  '/', authorized(AccessRoles.SUPER_ADMIN), setSuperAdminTenant, tryCatchHandler(gatherCompanyData)
 );
 
 

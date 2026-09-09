@@ -3,7 +3,9 @@ import { sendSuccess } from '../../utils/responseHandlers.js';
 import { BadRequestError } from '../../utils/appErrors.js';
 
 const gatherCompanyData = async (req, res) => {
-    const { company_id, date } = req.body; 
+    
+    const company_id = req.user?.company_id || req.body.company_id;
+    const { date } = req.body; 
     if (!company_id) {
       throw new BadRequestError('Company ID is required');
     }

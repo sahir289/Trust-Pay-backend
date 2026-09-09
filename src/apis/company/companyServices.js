@@ -72,7 +72,7 @@ const getCompanyByIdService = async (id) => {
   }
 };
 
-const _createCompanyServiceInternal = async (payload, conn) => {
+const _createCompanyServiceInternal = async (payload, companyId = null, conn) => {
   try {
     // Validate payload
     // Create company
@@ -85,13 +85,13 @@ const _createCompanyServiceInternal = async (payload, conn) => {
     const adminCode =
       payload.code || payload.first_name.split('').reverse().join('');
 
-    if (await isCompanyEmailExistsDao(payload.email, conn)) {
+    if (await isCompanyEmailExistsDao(payload.email, companyId, conn)) {
       throw new BadRequestError('Email already exists');
     }
-    if (await isCompanyContactNoExistsDao(payload.contact_no, conn)) {
+    if (await isCompanyContactNoExistsDao(payload.contact_no, companyId, conn)) {
       throw new BadRequestError('Contact number already exists');
     }
-    if (await isUserNameExistsDao(payload.user_name, conn)) {
+    if (await isUserNameExistsDao(payload.user_name, companyId, conn)) {
       throw new BadRequestError('Username already exists');
     }
 
@@ -197,12 +197,12 @@ const _createCompanyServiceInternal = async (payload, conn) => {
   }
 };
 
-const createCompanyService = async (payload) => {
+const createCompanyService = async (payload, companyId = null) => {
   let conn
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const result = await _createCompanyServiceInternal(payload, conn);
+    const result = await _createCompanyServiceInternal(payload, companyId, conn);
     await commit(conn);
     return result;
   } catch (error) {

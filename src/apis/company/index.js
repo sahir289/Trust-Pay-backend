@@ -1,6 +1,12 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
 import {
+  isAuthenticated,
+  setSuperAdminTenant,
+  authorized,
+} from '../../middlewares/auth.js';
+import { AccessRoles } from '../../constants/index.js';
+import {
   createCompany,
   deleteCompany,
   getCompany,
@@ -49,7 +55,7 @@ const router = express.Router();
  *       500:
  *         description: Internal server error
  */
-router.get('/', tryCatchHandler(getCompany));
+router.get('/', isAuthenticated, authorized(AccessRoles.SUPER_ADMIN), setSuperAdminTenant, tryCatchHandler(getCompany));
 
 /**
  * @swagger
@@ -90,7 +96,7 @@ router.get('/', tryCatchHandler(getCompany));
  *       500:
  *         description: Internal server error
  */
-router.get('/:id', tryCatchHandler(getCompanyById));
+router.get('/:id', isAuthenticated, authorized(AccessRoles.SUPER_ADMIN), setSuperAdminTenant, tryCatchHandler(getCompanyById));
 
 /**
  * @swagger
@@ -134,7 +140,7 @@ router.get('/:id', tryCatchHandler(getCompanyById));
  *       500:
  *         description: Internal server error
  */
-router.post('/create-company', tryCatchHandler(createCompany));
+router.post('/create-company', isAuthenticated, authorized(AccessRoles.SUPER_ADMIN), setSuperAdminTenant, tryCatchHandler(createCompany));
 
 /**
  * @swagger
@@ -178,7 +184,7 @@ router.post('/create-company', tryCatchHandler(createCompany));
  *       500:
  *         description: Internal server error
  */
-router.put('/update-company/:id', tryCatchHandler(updateCompany));
+router.put('/update-company/:id', isAuthenticated, authorized(AccessRoles.SUPER_ADMIN), setSuperAdminTenant, tryCatchHandler(updateCompany));
 
 /**
  * @swagger
@@ -210,6 +216,6 @@ router.put('/update-company/:id', tryCatchHandler(updateCompany));
  *       500:
  *         description: Internal server error
  */
-router.delete('/delete-company/:id', tryCatchHandler(deleteCompany));
+router.delete('/delete-company/:id', isAuthenticated, authorized(AccessRoles.SUPER_ADMIN), setSuperAdminTenant, tryCatchHandler(deleteCompany));
 
 export default router;

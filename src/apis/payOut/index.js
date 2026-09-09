@@ -15,7 +15,7 @@ import {
   createRupeeFlowBulkPayoutController,
 } from './payOutController.js';
 import { updatePayoutService } from './payOutService.js';
-import { authorized, isAuthenticated } from '../../middlewares/auth.js';
+import { authorized, isAuthenticated, setSuperAdminTenant } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
 // import { checkPayoutApiKey } from '../../middlewares/checkApiKey.js';
 import { payoutIpAccessControl } from '../../middlewares/ipAccessControl.js';
@@ -131,7 +131,7 @@ const router = express.Router();
  */
 router.get(
   '/',
-  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  [isAuthenticated, authorized(AccessRoles.PAYOUT), setSuperAdminTenant],
   tryCatchHandler(getPayoutsBySearch),
 );
 
@@ -147,7 +147,7 @@ router.get(
 );
 router.get(
   '/reports',
-  [isAuthenticated, authorized(AccessRoles.PAYOUT)],
+  [isAuthenticated, authorized(AccessRoles.PAYOUT), setSuperAdminTenant],
   tryCatchHandler(getPayouts),
 );
 

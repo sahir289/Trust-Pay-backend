@@ -22,7 +22,7 @@
 import dotenv from 'dotenv';
 dotenv.config();
 
-import { Role, RoleIs, DesignationIs } from '../src/constants/index.js';
+import { Role, DesignationIs } from '../src/constants/index.js';
 import { createUserDao } from '../src/apis/users/userDao.js';
 import { getRoleDao, createRoleDao } from '../src/apis/roles/rolesDao.js';
 import {
@@ -83,38 +83,27 @@ const validateEnvironment = () => {
 };
 
 /**
- * Idempotent get-or-create for Role (inside a transaction).
- * Uses existing getRoleDao/createRoleDao with a SAVEPOINT so a
- * 23505 INSERT doesn't abort the outer tx.
+ * Idempotent get-or-create for any Role (inside a transaction).
+ * Uses SAVEPOINT so a 23505 INSERT doesn't abort the outer tx.
  */
-const getOrCreateSuperAdminRole = async (conn) => {
-  // getRoleDao signature: (filters, page, pageSize, sortBy, sortOrder, Columns, conn)
+const getOrCreateRole = async (roleName, conn) => {
   const roles = await getRoleDao(
-    { role: Role.SUPER_ADMIN },
-    null,
-    null,
-    null,
-    null,
+    { role: roleName },
+    null, null, null, null,
     undefined,
     conn,
   );
-
-  console.log({roles})
   if (roles.length > 0) return roles[0];
 
   await executeQuery('SAVEPOINT sp_create_role', [], conn);
   try {
-    return await createRoleDao({ role: RoleIs.SUPER_ADMIN }, conn);
+    return await createRoleDao({ role: roleName }, conn);
   } catch (err) {
     if (err.code !== '23505') throw err;
     await executeQuery('ROLLBACK TO SAVEPOINT sp_create_role', [], conn);
-    // Concurrent insert won the race — re-fetch
     const retry = await getRoleDao(
-      { role: RoleIs.SUPER_ADMIN },
-      null,
-      null,
-      null,
-      null,
+      { role: roleName },
+      null, null, null, null,
       undefined,
       conn,
     );
@@ -123,13 +112,23 @@ const getOrCreateSuperAdminRole = async (conn) => {
 };
 
 /**
- * Idempotent get-or-create for Designation (inside a transaction).
+ * Seeds all predefined roles from constants.
+ */
+const seedAllRoles = async (conn) => {
+  const roleNames = Object.values(Role);
+  for (const roleName of roleNames) {
+    await getOrCreateRole(roleName, conn);
+    logger.info(`Role seeded: ${roleName}`);
+  }
+};
+
+/**
+ * Idempotent get-or-create for any Designation (inside a transaction).
  * Same SAVEPOINT pattern using existing getDesignationDao/createDesignationDao.
  */
-const getOrCreateSuperAdminDesignation = async (conn) => {
-  // getDesignationDao signature: (filters, conn)
+const getOrCreateDesignation = async (designationName, conn) => {
   const designations = await getDesignationDao(
-    { designation: DesignationIs.SUPER_ADMIN },
+    { designation: designationName },
     conn,
   );
   if (designations.length > 0) return designations[0];
@@ -137,17 +136,28 @@ const getOrCreateSuperAdminDesignation = async (conn) => {
   await executeQuery('SAVEPOINT sp_create_desig', [], conn);
   try {
     return await createDesignationDao(
-      { designation: DesignationIs.SUPER_ADMIN },
+      { designation: designationName },
       conn,
     );
   } catch (err) {
     if (err.code !== '23505') throw err;
     await executeQuery('ROLLBACK TO SAVEPOINT sp_create_desig', [], conn);
     const retry = await getDesignationDao(
-      { designation: DesignationIs.SUPER_ADMIN },
+      { designation: designationName },
       conn,
     );
     return retry[0];
+  }
+};
+
+/**
+ * Seeds all predefined designations from constants.
+ */
+const seedAllDesignations = async (conn) => {
+  const designationNames = Object.values(DesignationIs);
+  for (const designationName of designationNames) {
+    await getOrCreateDesignation(designationName, conn);
+    logger.info(`Designation seeded: ${designationName}`);
   }
 };
 
@@ -178,18 +188,22 @@ const createSuperAdmin = async () => {
     // 0. Ensure sentinel "System" company exists
     const systemCompanyId = await ensureSystemCompany(conn);
 
-    // 1. Idempotent role + designation (SAVEPOINTs handle 23505)
-    const role = await getOrCreateSuperAdminRole(conn);
-    console.log("-- role is completed")
-    const designation = await getOrCreateSuperAdminDesignation(conn);
-    console.log("-- designation is completed")
+    // 1. Seed all roles and designations
+    await seedAllRoles(conn);
+    await seedAllDesignations(conn);
 
-    // 2. Idempotency check — bail if super admin already exists
+    // 2. Fetch the SUPER_ADMIN role & designation for user creation
+    const role = await getOrCreateRole(Role.SUPER_ADMIN, conn);
+    const designation = await getOrCreateDesignation(
+      DesignationIs.SUPER_ADMIN,
+      conn,
+    );
+
+    // 3. Idempotency check — bail if super admin already exists
     const existingUser = await getGlobalSuperAdminByUsername(
       process.env.SUPER_ADMIN_USERNAME,
       conn,
     );
-    console.log("-- existUser is completed")
 
     if (existingUser) {
       await commit(conn);

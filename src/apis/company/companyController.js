@@ -45,7 +45,8 @@ const createCompany = async (req, res) => {
     throw new ValidationError(joiValidation.error);
   }
 
-  const data = await createCompanyService(payload);
+  const companyId = req.user?.company_id || null;
+  const data = await createCompanyService(payload, companyId);
   return sendSuccess(res, data, 'Create Company successfully');
 };
 
