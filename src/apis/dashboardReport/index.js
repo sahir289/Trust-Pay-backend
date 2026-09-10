@@ -8,15 +8,23 @@ const router = express.Router();
 
 /**
  * @swagger
- * /dashboardReport:
+ * /bankCron:
  *   get:
- *     summary: Gather company dashboard data
- *     description: Triggers the dashboard data gathering and Telegram report for a company.
+ *     summary: Triggers the bank cron job
+ *     description: Executes the cron job that collects and processes bank data.
  *     tags:
- *       - Dashboard Report
+ *       - Cron Jobs
  *     responses:
  *       200:
- *         description: Dashboard report sent successfully.
+ *         description: Bank cron job successfully executed.
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: "Bank cron job executed successfully."
  */
 router.get(
   '/', authorized(AccessRoles.ALL), setSuperAdminTenant, tryCatchHandler(gatherCompanyData)
