@@ -32,6 +32,7 @@ import walletBalance from './walletBalance/index.js';
 import { getVersion } from '../../version.js';
 import { globalRateLimitMiddleware } from '../middlewares/rateLimiter.js';
 import company from './company/index.js';
+import superAdminDashboard from './superAdminDashboard/index.js';
 
 import v2Router from './v2/index.js';
 // import notifications from './notifications/index.js';
@@ -76,6 +77,7 @@ router.use('/walletBalance', walletBalance);
 router.use('/2fa', twoFactor);
 router.use('/system-settings', settings);
 router.use('/company', company);
+router.use('/superAdminDashboard', superAdminDashboard);
 // router.use('/notifications', notifications);
 
 export default parentRouter;

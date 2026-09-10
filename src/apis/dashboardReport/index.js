@@ -4,33 +4,22 @@ import tryCatchHandler from '../../utils/tryCatchHandler.js';
 import { setSuperAdminTenant, authorized } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
 
-// import  checkPendingStatus  from './pendingPayinCron.js';
 const router = express.Router();
 
 /**
  * @swagger
- * /bankCron:
+ * /dashboardReport:
  *   get:
- *     summary: Triggers the bank cron job
- *     description: Executes the cron job that collects and processes bank data.
+ *     summary: Gather company dashboard data
+ *     description: Triggers the dashboard data gathering and Telegram report for a company.
  *     tags:
- *       - Cron Jobs
+ *       - Dashboard Report
  *     responses:
  *       200:
- *         description: Bcron job successfully executed.
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                   example: " cron job executed successfully."
+ *         description: Dashboard report sent successfully.
  */
 router.get(
-  '/', authorized(AccessRoles.SUPER_ADMIN), setSuperAdminTenant, tryCatchHandler(gatherCompanyData)
+  '/', authorized(AccessRoles.ALL), setSuperAdminTenant, tryCatchHandler(gatherCompanyData)
 );
-
-
 
 export default router;
