@@ -3,6 +3,7 @@ import { sendError } from '../utils/responseHandlers.js';
 import { V2_ERROR_CODES } from '../constants/index.js';
 import { generateSignature } from '../utils/signaturegenrate.js';
 import config from '../config/config.js';
+import logger from '../utils/logger.js';
 
 // ---------------------------------------------------------------------------
 // Request-signature verification middleware (default OFF)
@@ -87,6 +88,14 @@ const verifyRequestSignature = (options = {}) => {
       return next();
     }
 
+    const logsDataa = {
+      vendor: req.vendor,
+      merchant: req.merchant,
+      rawBody: req.rawBody,
+    }
+
+    logger.info(`check logsDataa +++ `, logsDataa)
+
     const secret = req.merchant?.config?.keys?.private || req.vendor?.banks[0]?.secretKey || config?.paymentPage?.signingSecret;
     if (!secret) {
       // Either merchant-auth did not run or the merchant has no signing secret.
@@ -124,6 +133,18 @@ const verifyRequestSignature = (options = {}) => {
     const payload = methodsWithBody.includes(req.method)
       ? (req.rawBody || '')
       : '';
+
+      const logsData = {
+        signature,
+        timestamp,
+        secret,
+        vendor: req.vendor,
+        merchant: req.merchant,
+        payload,
+        rawBody: req.rawBody,
+      }
+  
+      logger.info(`check logsData `, logsData)
 
     const expected = generateSignature(secret, timestamp, payload);
 
