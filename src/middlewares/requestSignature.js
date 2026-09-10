@@ -67,6 +67,50 @@ const safeEqualHex = (a, b) => {
   return crypto.timingSafeEqual(bufA, bufB);
 };
 
+const resolveSigningSecret = (req) => {
+  // 1. Merchant path
+  if (req.merchant?.config?.keys?.private) {
+    return req.merchant.config.keys.private;
+  }
+
+  // 2. Vendor path – bank_id ke basis pe sahi secret lo
+  if (req.vendor?.banks?.length) {
+    const payloads = Array.isArray(req.body?.body)
+      ? req.body.body
+      : Array.isArray(req.body)
+        ? req.body
+        : req.body
+          ? [req.body]
+          : [];
+
+    const bankIds = [
+      ...new Set(payloads.map((item) => item?.bank_id).filter(Boolean)),
+    ];
+
+    if (bankIds.length === 1) {
+      // Single bank_id → exact match
+      const matched = req.vendor.banks.find((b) => b.id === bankIds[0]);
+      if (matched?.secretKey) return matched.secretKey;
+    }
+
+    const secrets = [...new Set(req.vendor.banks.map((b) => b.secretKey).filter(Boolean))];
+    if (secrets.length === 1) {
+      return secrets[0]; // sabka secret same hai
+    }
+
+    if (req.vendor.banks[0]?.secretKey) {
+      logger.warn('Falling back to banks[0].secretKey – possible mismatch', {
+        bankIds,
+        availableBanks: req.vendor.banks.map((b) => ({ id: b.id, hasSecret: !!b.secretKey })),
+      });
+      return req.vendor.banks[0].secretKey;
+    }
+  }
+
+  // 3. Global fallback
+  return config?.paymentPage?.signingSecret || null;
+};
+
 /**
  * Build the request-signature verification middleware.
  *
@@ -96,7 +140,7 @@ const verifyRequestSignature = (options = {}) => {
 
     logger.info(`check logsDataa +++ `, logsDataa)
 
-    const secret = req.merchant?.config?.keys?.private || req.vendor?.banks[0]?.secretKey || config?.paymentPage?.signingSecret;
+    const secret = resolveSigningSecret(req);
     if (!secret) {
       // Either merchant-auth did not run or the merchant has no signing secret.
       return sendError(
@@ -134,25 +178,18 @@ const verifyRequestSignature = (options = {}) => {
       ? (req.rawBody || '')
       : '';
 
-      const logsData = {
-        signature,
-        timestamp,
-        secret,
-        vendor: req.vendor,
-        merchant: req.merchant,
-        payload,
-        rawBody: req.rawBody,
-        method: req.method
-      }
-  
-      logger.info(`check logsData `, logsData)
-
     const expected = generateSignature(secret, timestamp, payload);
 
-    logger.info(`check expected signature ${expected} and received signature ${signature}`)
-
     if (!safeEqualHex(expected, String(signature))) {
-      logger.error("Invalid request signature")
+      logger.warn('Invalid signature debug', {
+    timestamp,
+    receivedSignature: signature,
+    expectedSignature: expected,
+    secretUsedPrefix: secret ? secret.slice(0, 8) + '...' : null,
+    vendorId: req.vendor?.id,
+    banks: req.vendor?.banks?.map(b => ({ id: b.id, secretPrefix: b.secretKey?.slice(0, 8) })),
+    rawBodyLength: (req.rawBody || '').length,
+  });
       return sendError(res, 'Invalid request signature', 401, V2_ERROR_CODES.INVALID_SIGNATURE);
     }
 

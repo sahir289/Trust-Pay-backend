@@ -40,6 +40,7 @@ import { notifyBankResponseAccessUpdate } from '../../utils/sockets.js';
 import { BadRequestError, NotFoundError } from '../../utils/appErrors.js';
 import {getSessionByIdDao} from '../auth/authDao.js';
 import { deleteCachedData } from '../../utils/redishashkey.js';
+import { vendorAuthL1 } from '../../middlewares/checkAuthCode.js';
 const invalidatePayinValidateVendorCache = async (vendorUserId) => {
   if (!vendorUserId) {
     return;
@@ -461,8 +462,11 @@ const updateVendorService = async (ids, payload) => {
     if (data?.code) {
       await deleteCachedData(
         `vendor_auth_code:${data.code}`,
-        'vendor_auth_code cache',
+        'vendor_auth_code',
       );
+    }
+    if (typeof vendorAuthL1 !== 'undefined') {
+      vendorAuthL1.delete(data.code);
     }
     return data;
   } catch (error) {
@@ -569,8 +573,11 @@ const deleteVendorService = async (ids, updated_by) => {
     if (data?.code) {
       await deleteCachedData(
         `vendor_auth_code:${data.code}`,
-        'vendor_auth_code cache',
+        'vendor_auth_code',
       );
+    }
+    if (typeof vendorAuthL1 !== 'undefined') {
+      vendorAuthL1.delete(data.code);
     }
     await commit(conn);
     committed = true; // Commit the transaction
