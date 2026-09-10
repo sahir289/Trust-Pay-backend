@@ -142,13 +142,17 @@ const verifyRequestSignature = (options = {}) => {
         merchant: req.merchant,
         payload,
         rawBody: req.rawBody,
+        method: req.method
       }
   
       logger.info(`check logsData `, logsData)
 
     const expected = generateSignature(secret, timestamp, payload);
 
+    logger.info(`check expected signature ${expected} and received signature ${signature}`)
+
     if (!safeEqualHex(expected, String(signature))) {
+      logger.error("Invalid request signature")
       return sendError(res, 'Invalid request signature', 401, V2_ERROR_CODES.INVALID_SIGNATURE);
     }
 
