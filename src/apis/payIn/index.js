@@ -1,6 +1,6 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
-import { authorized, isAuthenticated } from '../../middlewares/auth.js';
+import { authorized, isAuthenticated, setSuperAdminTenant } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
 import {
   assignedBankToPayInUrl,
@@ -432,6 +432,7 @@ router.get(
   '/',
   isAuthenticated,
   authorized(AccessRoles.PAYIN),
+  setSuperAdminTenant,
   tryCatchHandler(getPayinsBySearch),
 );
 
@@ -439,6 +440,7 @@ router.get(
   '/getPayinSummary',
   isAuthenticated,
   authorized(AccessRoles.PAYIN),
+  setSuperAdminTenant,
   tryCatchHandler(getPayinsSummary),
 );
 

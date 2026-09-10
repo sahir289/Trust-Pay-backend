@@ -14,8 +14,17 @@ import {
 import { ValidationError } from '../../utils/appErrors.js';
 
 const getCompany = async (req, res) => {
-  const search = req.query.search;
-  const data = await getCompanyService(search);
+  const { page: pageQuery, limit: limitQuery, sortBy, sortOrder, ...filters } =
+    req.query;
+  const page = Number(pageQuery) > 0 ? Number(pageQuery) : 1;
+  const limit = Number(limitQuery) > 0 ? Number(limitQuery) : 10;
+  const data = await getCompanyService(
+    filters,
+    page,
+    limit,
+    sortBy,
+    sortOrder,
+  );
   return sendSuccess(res, data, 'get Company successfully');
 };
 
@@ -36,7 +45,8 @@ const createCompany = async (req, res) => {
     throw new ValidationError(joiValidation.error);
   }
 
-  const data = await createCompanyService(payload);
+  const companyId = req.user?.company_id || null;
+  const data = await createCompanyService(payload, companyId);
   return sendSuccess(res, data, 'Create Company successfully');
 };
 

@@ -1,14 +1,18 @@
 import express from 'express';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
 import {
+  isAuthenticated,
+  setSuperAdminTenant,
+  authorized,
+} from '../../middlewares/auth.js';
+import { AccessRoles } from '../../constants/index.js';
+import {
   createCompany,
   deleteCompany,
   getCompany,
   updateCompany,
   getCompanyById,
 } from './companyController.js';
-import { authorized, isAuthenticated } from '../../middlewares/auth.js';
-import { AccessRoles } from '../../constants/index.js';
 
 const router = express.Router();
 
@@ -21,10 +25,10 @@ const router = express.Router();
 
 /**
  * @swagger
- * /company:
+ * /super-admin/company:
  *   get:
  *     summary: Get all companies
- *     description: Retrieves the list of all companies.
+ *     description: Retrieves the list of all companies. Restricted to Super Admin.
  *     tags: [Company]
  *     responses:
  *       200:
@@ -51,18 +55,14 @@ const router = express.Router();
  *       500:
  *         description: Internal server error
  */
-router.get(
-  '/',
-  [isAuthenticated, authorized(AccessRoles.COMPANY)],
-  tryCatchHandler(getCompany),
-);
+router.get('/', isAuthenticated, authorized(AccessRoles.SUPER_ADMIN), setSuperAdminTenant, tryCatchHandler(getCompany));
 
 /**
  * @swagger
- * /company/{id}:
+ * /super-admin/company/{id}:
  *   get:
  *     summary: Get a company by ID
- *     description: Retrieves details of a specific company by its ID.
+ *     description: Retrieves details of a specific company by its ID. Restricted to Super Admin.
  *     tags: [Company]
  *     parameters:
  *       - in: path
@@ -96,15 +96,11 @@ router.get(
  *       500:
  *         description: Internal server error
  */
-router.get(
-  '/:id',
-  [isAuthenticated, authorized(AccessRoles.COMPANY)],
-  tryCatchHandler(getCompanyById),
-);
+router.get('/:id', isAuthenticated, authorized(AccessRoles.SUPER_ADMIN), setSuperAdminTenant, tryCatchHandler(getCompanyById));
 
 /**
  * @swagger
- * /company/create-company:
+ * /super-admin/company/create-company:
  *   post:
  *     summary: Create a new company
  *     description: Creates a new company with the provided details.
@@ -144,11 +140,11 @@ router.get(
  *       500:
  *         description: Internal server error
  */
-router.post('/create-company', tryCatchHandler(createCompany));
+router.post('/create-company', isAuthenticated, authorized(AccessRoles.SUPER_ADMIN), setSuperAdminTenant, tryCatchHandler(createCompany));
 
 /**
  * @swagger
- * /company/update-company/{id}:
+ * /super-admin/company/update-company/{id}:
  *   put:
  *     summary: Update an existing company
  *     description: Updates the details of a specific company by ID.
@@ -188,15 +184,11 @@ router.post('/create-company', tryCatchHandler(createCompany));
  *       500:
  *         description: Internal server error
  */
-router.put(
-  '/update-company/:id',
-  [isAuthenticated, authorized(AccessRoles.COMPANY)],
-  tryCatchHandler(updateCompany),
-);
+router.put('/update-company/:id', isAuthenticated, authorized(AccessRoles.SUPER_ADMIN), setSuperAdminTenant, tryCatchHandler(updateCompany));
 
 /**
  * @swagger
- * /company/delete-company/{id}:
+ * /super-admin/company/delete-company/{id}:
  *   delete:
  *     summary: Delete a company
  *     description: Deletes a company by ID.
@@ -224,10 +216,6 @@ router.put(
  *       500:
  *         description: Internal server error
  */
-router.delete(
-  '/delete-company/:id',
-  [isAuthenticated, authorized(AccessRoles.COMPANY)],
-  tryCatchHandler(deleteCompany),
-);
+router.delete('/delete-company/:id', isAuthenticated, authorized(AccessRoles.SUPER_ADMIN), setSuperAdminTenant, tryCatchHandler(deleteCompany));
 
 export default router;

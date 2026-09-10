@@ -641,6 +641,7 @@ export const BankTypes = {
 };
 
 export const AccessRoles = {
+  SUPER_ADMIN: [Role.SUPER_ADMIN],
   ALL: [
     Role.ADMIN,
     Role.TRANSACTIONS,
@@ -652,6 +653,7 @@ export const AccessRoles = {
     Role.VENDOR_ADMIN,
     Role.SUB_VENDOR,
     Role.VENDOR_OPERATIONS,
+    Role.SUPER_ADMIN
   ],
   USER: [
     Role.ADMIN,
@@ -662,6 +664,7 @@ export const AccessRoles = {
     Role.VENDOR,
     Role.VENDOR_ADMIN,
     Role.SUB_VENDOR,
+    Role.SUPER_ADMIN,
   ],
   MERCHANT: [
     Role.ADMIN,
@@ -670,6 +673,7 @@ export const AccessRoles = {
     Role.MERCHANT,
     Role.SUB_MERCHANT,
     Role.MERCHANT_OPERATIONS,
+    Role.SUPER_ADMIN,
   ],
   VENDOR: [
     Role.ADMIN,
@@ -679,6 +683,7 @@ export const AccessRoles = {
     Role.SUB_VENDOR,
     Role.VENDOR_ADMIN,
     Role.VENDOR_OPERATIONS,
+    Role.SUPER_ADMIN,
   ],
   PAYIN: [
     Role.ADMIN,
@@ -691,6 +696,7 @@ export const AccessRoles = {
     Role.SUB_VENDOR,
     Role.VENDOR_ADMIN,
     Role.VENDOR_OPERATIONS,
+    Role.SUPER_ADMIN,
   ],
   PAYOUT: [
     Role.ADMIN,
@@ -703,6 +709,7 @@ export const AccessRoles = {
     Role.VENDOR_ADMIN,
     Role.SUB_VENDOR,
     Role.VENDOR_OPERATIONS,
+    Role.SUPER_ADMIN,
   ],
   SETTLEMENT: [
     Role.ADMIN,
@@ -729,13 +736,9 @@ export const AccessRoles = {
     Role.VENDOR_OPERATIONS,
   ],
   COMPANY: [
+    Role.SUPER_ADMIN,
     Role.ADMIN,
-    Role.TRANSACTIONS,
-    Role.OPERATIONS,
-    Role.VENDOR,
-    Role.SUB_VENDOR,
-    Role.VENDOR_ADMIN,
-    Role.VENDOR_OPERATIONS,
+
   ],
   USER_HIERARCHY: {
     CREATE_DELETE: [Role.ADMIN, Role.TRANSACTIONS],
@@ -743,7 +746,7 @@ export const AccessRoles = {
   },
   RESET_DATA_HISTORY: [Role.ADMIN, Role.OPERATIONS, Role.TRANSACTIONS],
   CHECK_UTR_HISTORY: [Role.ADMIN, Role.OPERATIONS, Role.TRANSACTIONS],
-  USER_INFO: [Role.ADMIN, Role.TRANSACTIONS, Role.OPERATIONS],
+  USER_INFO: [Role.ADMIN, Role.TRANSACTIONS, Role.OPERATIONS, Role.SUPER_ADMIN],
   BANK_RESPONSE: [
     Role.ADMIN,
     Role.OPERATIONS,
@@ -752,6 +755,7 @@ export const AccessRoles = {
     Role.SUB_VENDOR,
     Role.VENDOR_ADMIN,
     Role.VENDOR_OPERATIONS,
+    Role.SUPER_ADMIN,
   ],
   BANK_ACCOUNT: [
     Role.ADMIN,
@@ -794,6 +798,7 @@ export const AccessRoles = {
     Role.VENDOR_OPERATIONS,
     Role.SUB_MERCHANT,
     Role.SUB_VENDOR,
+    Role.SUPER_ADMIN,
   ],
   ROLES: [
     Role.ADMIN,

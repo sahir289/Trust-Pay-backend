@@ -15,7 +15,7 @@ import {
   resetUser2FA,
   getUsersnames,
 } from './userController.js';
-import { authorized, isAuthenticated } from '../../middlewares/auth.js';
+import { authorized, isAuthenticated, setSuperAdminTenant } from '../../middlewares/auth.js';
 import { AccessRoles, Role } from '../../constants/index.js';
 
 const router = express.Router();
@@ -61,7 +61,7 @@ const router = express.Router();
  */
 router.get(
   '/get',
-  [isAuthenticated, authorized(AccessRoles.USER)],
+  [isAuthenticated, authorized(AccessRoles.USER), setSuperAdminTenant],
   tryCatchHandler(getUsers),
 );
 router.get(
@@ -71,18 +71,18 @@ router.get(
 )
 router.get(
   '/',
-  [isAuthenticated, authorized(AccessRoles.USER)],
+  [isAuthenticated, authorized(AccessRoles.USER), setSuperAdminTenant],
   tryCatchHandler(getUsersBySearch),
 );
 router.get(
   '/usernames',
-  [isAuthenticated, authorized(AccessRoles.USER)],
+  [isAuthenticated, authorized(AccessRoles.USER), setSuperAdminTenant],
   tryCatchHandler(getUsersnames),
 );
 
 router.get(
   '/info',
-  [isAuthenticated, authorized(AccessRoles.USER_INFO)],
+  [isAuthenticated, authorized(AccessRoles.USER_INFO), setSuperAdminTenant],
   tryCatchHandler(getUsersInfoBySearch),
 );
 /**
@@ -194,7 +194,7 @@ router.get(
  */
 router.get(
   '/:id',
-  [isAuthenticated, authorized(AccessRoles.ALL)],
+  [isAuthenticated, authorized(AccessRoles.ALL), setSuperAdminTenant],
   tryCatchHandler(getUserById),
 );
 

@@ -195,6 +195,7 @@ const getMerchantsBySearch = async (req, res) => {
 
 const getMerchantCodes = async (req, res) => {
   const { company_id, role, user_id, designation } = req.user;
+  console.log('getMerchantCodes called with:', { company_id, role, user_id, designation, query: req.query });
   const { includeSubMerchants, includeOnlyMerchants, excludeDisabledMerchant, allow_intent } = req.query;
   const filters = { company_id };
   const cacheKey = `merchants:read:${company_id}:codes:${generateCacheKey(
