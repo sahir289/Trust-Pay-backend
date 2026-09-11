@@ -9,9 +9,9 @@ import { logger } from '../../utils/logger.js';
 /**
  * Super Admin Overview — returns platform-wide entity counts.
  */
-export const getSuperAdminOverviewService = async () => {
+export const getSuperAdminOverviewService = async ({ company_id } = {}) => {
   try {
-    const overview = await getPlatformOverviewDao();
+    const overview = await getPlatformOverviewDao({ company_id });
 
     return {
       total_companies: parseInt(overview.total_companies, 10) || 0,
@@ -30,12 +30,12 @@ export const getSuperAdminOverviewService = async () => {
  * Transaction & Revenue Summary — returns aggregated transaction volumes,
  * commissions, success rates, and status breakdown for a date range.
  */
-export const getTransactionRevenueSummaryService = async ({ startDate, endDate }) => {
+export const getTransactionRevenueSummaryService = async ({ startDate, endDate, company_id }) => {
   try {
     const [transactionSummary, revenueSummary, statusBreakdown] = await Promise.all([
-      getTransactionSummaryDao({ startDate, endDate }),
-      getRevenueSummaryDao({ startDate, endDate }),
-      getTransactionStatusBreakdownDao({ startDate, endDate }),
+      getTransactionSummaryDao({ startDate, endDate, company_id }),
+      getRevenueSummaryDao({ startDate, endDate, company_id }),
+      getTransactionStatusBreakdownDao({ startDate, endDate, company_id }),
     ]);
 
     // Parse transaction counts

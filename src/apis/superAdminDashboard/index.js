@@ -4,7 +4,7 @@ import {
   getSuperAdminOverview,
   getTransactionRevenueSummary,
 } from './superAdminDashboardController.js';
-import { isAuthenticated, authorized } from '../../middlewares/auth.js';
+import { isAuthenticated, authorized, setSuperAdminTenant } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
 
 const router = express.Router();
@@ -27,7 +27,7 @@ const router = express.Router();
  */
 router.get(
   '/overview',
-  [isAuthenticated, authorized(AccessRoles.SUPER_ADMIN)],
+  [isAuthenticated, authorized(AccessRoles.SUPER_ADMIN), setSuperAdminTenant],
   tryCatchHandler(getSuperAdminOverview),
 );
 
@@ -68,7 +68,7 @@ router.get(
  */
 router.get(
   '/transaction-revenue-summary',
-  [isAuthenticated, authorized(AccessRoles.SUPER_ADMIN)],
+  [isAuthenticated, authorized(AccessRoles.SUPER_ADMIN), setSuperAdminTenant],
   tryCatchHandler(getTransactionRevenueSummary),
 );
 

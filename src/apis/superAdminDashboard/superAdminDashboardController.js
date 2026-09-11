@@ -2,7 +2,7 @@ import {
   getSuperAdminOverviewService,
   getTransactionRevenueSummaryService,
 } from './superAdminDashboardService.js';
-import { sendSuccess } from '../../utils/responseHandlers.js';
+import { sendError, sendSuccess } from '../../utils/responseHandlers.js';
 import { SUPER_ADMIN_DASHBOARD_SCHEMA } from '../../schemas/superAdminDashboardSchema.js';
 
 /**
@@ -10,7 +10,11 @@ import { SUPER_ADMIN_DASHBOARD_SCHEMA } from '../../schemas/superAdminDashboardS
  * Returns platform-wide entity counts for the super admin dashboard.
  */
 export const getSuperAdminOverview = async (req, res) => {
-  const result = await getSuperAdminOverviewService();
+  const company_id = req.user?.company_id;
+  if(!company_id) {
+    return sendError(res, 400, 'Company ID is required');
+  }
+  const result = await getSuperAdminOverviewService({ company_id });
   return sendSuccess(res, result, 'Super admin overview fetched successfully');
 };
 
@@ -27,14 +31,13 @@ export const getTransactionRevenueSummary = async (req, res) => {
 
   if (error) {
     const message = error.details.map((d) => d.message).join('; ');
-    return res.status(400).json({
-      success: false,
-      statusCode: 400,
-      message,
-      data: null,
-    });
+    return sendError(res, 400, message);
   }
 
-  const result = await getTransactionRevenueSummaryService(value);
+  const company_id = req.user?.company_id;
+    if(!company_id) {
+    return sendError(res, 400, 'Company ID is required');
+  }
+  const result = await getTransactionRevenueSummaryService({ ...value, company_id });
   return sendSuccess(res, result, 'Transaction & revenue summary fetched successfully');
 };

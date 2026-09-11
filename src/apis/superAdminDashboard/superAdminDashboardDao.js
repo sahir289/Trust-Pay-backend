@@ -32,10 +32,15 @@ const sanitizeDateString = (dateStr) => {
  * @param {{ startDate?: string, endDate?: string }} dates
  * @returns {{ conditions: string[], params: string[], nextIndex: number }}
  */
-const buildDateConditions = ({ startDate, endDate } = {}) => {
+const buildDateConditions = ({ startDate, endDate, company_id } = {}) => {
   const conditions = ['is_obsolete = false'];
   const params = [];
   let nextIndex = 1;
+
+  if (company_id) {
+    conditions.push(`"company_id" = $${nextIndex++}`);
+    params.push(company_id);
+  }
 
   if (startDate) {
     conditions.push(`"created_at" >= $${nextIndex++}`);
@@ -52,17 +57,20 @@ const buildDateConditions = ({ startDate, endDate } = {}) => {
 /**
  * Platform Overview — counts of all key entities.
  */
-export const getPlatformOverviewDao = async (conn = null) => {
+export const getPlatformOverviewDao = async ({ company_id } = {}, conn = null) => {
   try {
+    const tenantCondition = company_id ? `AND "company_id" = $1` : '';
+    const tenantParams = company_id ? [company_id] : [];
+
     const sql = `
       SELECT
-        (SELECT COUNT(*) FROM "${tableName.COMPANY}"    WHERE is_obsolete IS NOT TRUE) AS total_companies,
-        (SELECT COUNT(*) FROM "${tableName.MERCHANT}"   WHERE is_obsolete IS NOT TRUE) AS total_merchants,
-        (SELECT COUNT(*) FROM "${tableName.VENDOR}"     WHERE is_obsolete IS NOT TRUE) AS total_vendors,
-        (SELECT COUNT(*) FROM "${tableName.USER}"       WHERE is_obsolete IS NOT TRUE) AS total_users,
-        (SELECT COUNT(*) FROM "${tableName.BANK_ACCOUNT}" WHERE is_obsolete IS NOT TRUE) AS total_bank_accounts
+        ${company_id ? '1' : '(SELECT COUNT(*) FROM "${tableName.COMPANY}"    WHERE is_obsolete IS NOT TRUE)'} AS total_companies,
+        (SELECT COUNT(*) FROM "${tableName.MERCHANT}"   WHERE is_obsolete IS NOT TRUE ${tenantCondition}) AS total_merchants,
+        (SELECT COUNT(*) FROM "${tableName.VENDOR}"     WHERE is_obsolete IS NOT TRUE ${tenantCondition}) AS total_vendors,
+        (SELECT COUNT(*) FROM "${tableName.USER}"       WHERE is_obsolete IS NOT TRUE ${tenantCondition}) AS total_users,
+        (SELECT COUNT(*) FROM "${tableName.BANK_ACCOUNT}" WHERE is_obsolete IS NOT TRUE ${tenantCondition}) AS total_bank_accounts
     `;
-    const result = await executeQuery(sql, [], conn);
+    const result = await executeQuery(sql, tenantParams, conn);
     return result.rows[0] || {};
   } catch (error) {
     logger.error('Error in getPlatformOverviewDao:', error);
@@ -78,11 +86,11 @@ export const getPlatformOverviewDao = async (conn = null) => {
  * using parameterised placeholders for SQL-injection safety.
  */
 export const getTransactionSummaryDao = async (
-  { startDate, endDate } = {},
+  { startDate, endDate, company_id } = {},
   conn = null,
 ) => {
   try {
-    const { conditions, params } = buildDateConditions({ startDate, endDate });
+    const { conditions, params } = buildDateConditions({ startDate, endDate, company_id });
 
     const sql = `
       SELECT
@@ -108,11 +116,11 @@ export const getTransactionSummaryDao = async (
  * parameterised WHERE conditions.
  */
 export const getRevenueSummaryDao = async (
-  { startDate, endDate } = {},
+  { startDate, endDate, company_id } = {},
   conn = null,
 ) => {
   try {
-    const { conditions, params } = buildDateConditions({ startDate, endDate });
+    const { conditions, params } = buildDateConditions({ startDate, endDate, company_id });
 
     const sql = `
       SELECT
@@ -138,11 +146,11 @@ export const getRevenueSummaryDao = async (
  * query manually with parameterised date conditions.
  */
 export const getTransactionStatusBreakdownDao = async (
-  { startDate, endDate } = {},
+  { startDate, endDate, company_id } = {},
   conn = null,
 ) => {
   try {
-    const { conditions, params } = buildDateConditions({ startDate, endDate });
+    const { conditions, params } = buildDateConditions({ startDate, endDate, company_id });
 
     const sql = `
       SELECT
