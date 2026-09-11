@@ -685,7 +685,7 @@ const updateSecretKeyBankAccountService = async (ids) => {
       payload,
       conn,
     );
-    console.log('Updating bank account with result:', result);
+
     if (result?.code) {
       await deleteCachedData(
         `vendor_auth_code:${result.code}`,
