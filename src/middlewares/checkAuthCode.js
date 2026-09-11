@@ -49,7 +49,7 @@ const getVendorAuthCodeCacheKey = (code) =>
 
 // L1 per-process cache: hot bot traffic resolves the vendor without any
 // Redis/DB round trip; staleness is bounded by the short TTL.
-const vendorAuthL1 = new Map();
+export const vendorAuthL1 = new Map();
 const inflightVendorLookups = new Map();
 
 const getVendorFromL1 = (code) => {
