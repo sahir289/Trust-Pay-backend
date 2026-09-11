@@ -1,4 +1,5 @@
 import { Role } from '../../constants/index.js';
+import { vendorAuthL1 } from '../../middlewares/checkAuthCode.js';
 import { BadRequestError, InternalServerError } from '../../utils/appErrors.js';
 import { createHashApiKey } from '../../utils/cryptoAlgorithm.js';
 import {
@@ -684,6 +685,17 @@ const updateSecretKeyBankAccountService = async (ids) => {
       payload,
       conn,
     );
+    console.log('Updating bank account with result:', result);
+    if (result?.code) {
+      await deleteCachedData(
+        `vendor_auth_code:${result.code}`,
+        'vendor_auth_code',
+      );
+    }
+
+    if (typeof vendorAuthL1 !== 'undefined') {
+      vendorAuthL1.delete(result?.code);
+    }
     await commit(conn);
     committed = true;
     await invalidatePayinValidateBankCache(result?.id || ids?.id);
