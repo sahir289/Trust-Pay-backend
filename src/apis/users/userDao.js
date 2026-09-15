@@ -180,6 +180,26 @@ const getAllUsersNameDao = async (
   }
 };
 
+const getUsersIpsDao = async (ids, conn = null) => {
+  try {
+    const sql = `
+      SELECT
+        u.id,
+        u.user_name,
+        u.config
+      FROM public."User" u
+      WHERE u.is_obsolete = false
+        AND u.company_id = $1
+      ORDER BY u.user_name ASC
+    `;
+    const result = await executeQuery(sql, [ids.company_id], conn);
+    return result.rows;
+  } catch (error) {
+    logger.error('Error in getUsersIpsDao:', error.message);
+    throw error;
+  }
+};
+
 const getUsersBySearchDao = async (
   filters,
   searchTerms,
@@ -991,6 +1011,7 @@ export {
   getUsersByUserNameDao,
   getUsersDao,
   getAllUsersNameDao,
+  getUsersIpsDao,
   updateUserDao,
   getUsersBySearchDao,
   getUsersInfoBySearchDao,

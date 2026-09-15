@@ -16,7 +16,11 @@ import { RateLimiterRedis, RateLimiterMemory } from 'rate-limiter-flexible';
 import jwt from 'jsonwebtoken';
 import redisClient from '../utils/redisClient.js';
 import { logger } from '../utils/logger.js';
-import { getClientIp } from './loginLocationRestrict.js';
+import {
+  getClientIp,
+  shouldBypassLoginIpGuard,
+  shouldDenyLoginIpMismatch,
+} from './loginLocationRestrict.js';
 import { sendError } from '../utils/responseHandlers.js';
 
 const parseInt10 = (value, fallback) => {
@@ -97,6 +101,14 @@ export const authApiRateLimiter = async (req, res, next) => {
 // Brute-force guard factory. `getIdentity(req)` returns the account identifier (username) used to scope the lockout. Attaches keys to req for the record/reset helpers to use after the credential check runs.
 export const createAuthBruteGuard = (getIdentity) => async (req, res, next) => {
   try {
+    if (await shouldDenyLoginIpMismatch(req)) {
+      return sendError(res, 'This login is not allowed from your current network. Please try from an approved IP.', 403);
+    }
+
+    if (await shouldBypassLoginIpGuard(req)) {
+      return next();
+    }
+
     const ipKey = ipKeyOf(req);
     const identity = (() => {
       try {
