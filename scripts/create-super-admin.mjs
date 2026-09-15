@@ -1,9 +1,9 @@
 /**
  * Super Admin Bootstrap Script
  *
- * Creates a global super-admin user assigned to a sentinel "System" company
- * (id = 00000000-0000-0000-0000-000000000001).  Idempotent — safe to run
- * multiple times.
+ * Creates a global super-admin user assigned to a "System" company with
+ * scope = 'global'.  The system company ID is generated dynamically via
+ * PostgreSQL's uuid_generate_v4() — no hardcoded UUIDs.
  *
  * The System company avoids company_id = NULL which would break the entire
  * auth/session flow (getSessionByIdDao, getLoginDao, cache keys, etc.).
@@ -41,25 +41,46 @@ import { generatePassword } from '../src/utils/generatePassword.js';
 import { sendCredentialsEmail } from '../src/utils/sendMailer.js';
 import { logger } from '../src/utils/logger.js';
 
-const SYSTEM_COMPANY_ID = '00000000-0000-0000-0000-000000000001';
-
 /**
- * Idempotent: ensures the sentinel "System" company exists.
+ * Idempotent: ensures the "System" company (scope = 'global') exists.
  * Returns the system company ID for use in user creation.
+ *
+ * First looks for an existing global-scope company. If none is found,
+ * generates a new UUID v4 via PostgreSQL and inserts it.
  */
 const ensureSystemCompany = async (conn) => {
+  // Check if a global-scope system company already exists
+  const existing = await executeQuery(
+    `SELECT id FROM public."Company" WHERE scope = 'global' LIMIT 1`,
+    [],
+    conn,
+  );
+
+  if (existing.rows.length > 0) {
+    return existing.rows[0].id;
+  }
+
+  // Generate a new UUID via PostgreSQL
+  const uuidResult = await executeQuery(
+    `SELECT uuid_generate_v4()::text AS uuid`,
+    [],
+    conn,
+  );
+  const systemCompanyId = uuidResult.rows[0].uuid;
+
   await executeQuery(
-    `INSERT INTO public."Company" (id, first_name, last_name, email, contact_no, config, is_obsolete)
-     VALUES ($1, 'TrustPay', 'System', $2, $3, '{}', false)
+    `INSERT INTO public."Company" (id, first_name, last_name, email, contact_no, config, is_obsolete, scope)
+     VALUES ($1, 'TrustPay', 'System', $2, $3, '{}', false, 'global')
      ON CONFLICT (id) DO NOTHING`,
     [
-      SYSTEM_COMPANY_ID,
+      systemCompanyId,
       process.env.SUPER_ADMIN_EMAIL,
       process.env.SUPER_ADMIN_CONTACT_NO,
     ],
     conn,
   );
-  return SYSTEM_COMPANY_ID;
+
+  return systemCompanyId;
 };
 
 const requiredEnvironmentVariables = [

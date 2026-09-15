@@ -156,7 +156,7 @@ export const columns = {
     // 'unique_admin_id', // REMOVED: Should not be exposed in any API
   ],
   ROLE: ['id', 'role', 'created_at', 'updated_at'],
-  COMPANY: ['id', 'first_name', 'last_name', 'email', 'contact_no', 'config'],
+  COMPANY: ['id', 'first_name', 'last_name', 'email', 'contact_no', 'config', 'scope'],
   SETTLEMENT: [
     'id',
     'sno',

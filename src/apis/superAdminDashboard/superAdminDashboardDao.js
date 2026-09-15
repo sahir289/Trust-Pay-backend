@@ -1,6 +1,7 @@
 import { executeQuery } from '../../utils/db.js';
 import { tableName } from '../../constants/index.js';
 import { logger } from '../../utils/logger.js';
+import dayjs from 'dayjs';
 
 /**
  * Sanitises a date string and returns a safe YYYY-MM-DD value for SQL.
@@ -166,6 +167,95 @@ export const getTransactionStatusBreakdownDao = async (
     return result.rows || [];
   } catch (error) {
     logger.error('Error in getTransactionStatusBreakdownDao:', error);
+    throw error;
+  }
+};
+
+/**
+ * Payin Volume Monthly Summary — aggregated payin count & amount
+ * grouped by month for the last N months (default 6).
+ *
+ * Returns rows like: { month: '2026-09', payin_count: 123, payin_amount: 45678.90 }
+ */
+export const getPayinVolumeMonthlySummaryDao = async (
+  { months = 6, company_id } = {},
+  conn = null,
+) => {
+  try {
+    const conditions = ['is_obsolete = false'];
+    const params = [];
+    let nextIndex = 1;
+
+    if (company_id) {
+      conditions.push(`"company_id" = $${nextIndex++}`);
+      params.push(company_id);
+    }
+
+    // Filter to the last N months
+    conditions.push(`"created_at" >= $${nextIndex++}`);
+    params.push(sanitizeDateString(dayjs().subtract(months - 1, 'month').startOf('month').format('YYYY-MM-DD')));
+
+    const sql = `
+      SELECT
+        TO_CHAR("created_at", 'YYYY-MM') AS month,
+        COUNT(*)                          AS payin_count,
+        COALESCE(SUM(amount), 0)          AS payin_amount
+      FROM "${tableName.PAYIN}"
+      WHERE ${conditions.join(' AND ')}
+      GROUP BY TO_CHAR("created_at", 'YYYY-MM')
+      ORDER BY month ASC`;
+
+    const result = await executeQuery(sql, params, conn);
+    return result.rows || [];
+  } catch (error) {
+    logger.error('Error in getPayinVolumeMonthlySummaryDao:', error);
+    throw error;
+  }
+};
+
+/**
+ * Payin Volume Daily Graph — aggregated payin count & amount
+ * grouped by day for a given month (YYYY-MM).
+ *
+ * Returns rows like: { day: '2026-09-01', payin_count: 45, payin_amount: 12345.67 }
+ */
+export const getPayinVolumeDailyGraphDao = async (
+  { month, company_id } = {},
+  conn = null,
+) => {
+  try {
+    const conditions = ['is_obsolete = false'];
+    const params = [];
+    let nextIndex = 1;
+
+    if (company_id) {
+      conditions.push(`"company_id" = $${nextIndex++}`);
+      params.push(company_id);
+    }
+
+    // Filter to the specific month
+    const monthStart = sanitizeDateString(dayjs(month + '-01').startOf('month').format('YYYY-MM-DD'));
+    const monthEnd = sanitizeDateString(dayjs(month + '-01').endOf('month').format('YYYY-MM-DD'));
+
+    conditions.push(`"created_at" >= $${nextIndex++}`);
+    params.push(monthStart);
+    conditions.push(`"created_at" <= $${nextIndex++}`);
+    params.push(monthEnd);
+
+    const sql = `
+      SELECT
+        TO_CHAR("created_at", 'YYYY-MM-DD') AS day,
+        COUNT(*)                             AS payin_count,
+        COALESCE(SUM(amount), 0)             AS payin_amount
+      FROM "${tableName.PAYIN}"
+      WHERE ${conditions.join(' AND ')}
+      GROUP BY TO_CHAR("created_at", 'YYYY-MM-DD')
+      ORDER BY day ASC`;
+
+    const result = await executeQuery(sql, params, conn);
+    return result.rows || [];
+  } catch (error) {
+    logger.error('Error in getPayinVolumeDailyGraphDao:', error);
     throw error;
   }
 };

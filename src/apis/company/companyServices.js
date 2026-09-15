@@ -159,6 +159,7 @@ const _createCompanyServiceInternal = async (payload, companyId = null, conn) =>
       email: payload.email,
       contact_no: payload.contact_no,
       config: payload.config || {},
+      scope: payload.scope || 'company',
     }, conn);
     let role = [];
     let designations = [];

@@ -17,7 +17,7 @@ const getCompanyDao = async (
   conn,
 ) => {
   try {
-    const baseQuery = `SELECT id,first_name,last_name,config,email,contact_no FROM "${tableName.COMPANY}" WHERE 1=1`;
+    const baseQuery = `SELECT id,first_name,last_name,config,email,contact_no,scope FROM "${tableName.COMPANY}" WHERE 1=1 AND scope != 'global'`;
     const { search, ...exactFilters } = filters || {};
     const parsedPage = Number(page);
     const parsedPageSize = Number(pageSize);
@@ -54,7 +54,7 @@ const getCompanyDao = async (
 
 const getCompanyDetailsByIdDao = async (id, conn = null) => {
   try {
-    const baseQuery = `SELECT CONCAT(first_name, ' ', last_name) AS full_name,
+    const baseQuery = `SELECT CONCAT(first_name, ' ', last_name) AS full_name, scope,
       config ->> 'allowPayAssist' AS allowPayAssist,
       config ->> 'allowTataPay' AS allowTataPay,
       config ->> 'allow_clickrr' AS allow_clickrr,
