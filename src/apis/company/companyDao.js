@@ -184,8 +184,8 @@ const getBepayDetailsByCompanyIdDao = async (id, conn = null) => {
 const getCashfreeAllowByCompanyIdDao = async (id, conn = null) => {
   try {
     const sql = `
-      SELECT 
-        CONCAT(first_name, ' ', last_name) AS full_name, 
+      SELECT
+        CONCAT(first_name, ' ', last_name) AS full_name,
         COALESCE((config ->> 'allow_cashfree')::boolean, false) AS allow_cashfree,
         COALESCE((config ->> 'allow_zentechind')::boolean, false) AS allow_zentechind,
         COALESCE((config ->> 'allow_freechips')::boolean, false) AS allow_freechips,
@@ -304,9 +304,16 @@ const createCompanyDao = async (payload, conn = null) => {
 
 const updateCompanyDao = async (id, data, conn = null) => {
   try {
-    const [sql, params] = buildUpdateQuery(tableName.COMPANY, data, id);
-    const result = await executeQuery(sql, params, conn);
-    return result.rows[0];
+   return buildAndExecuteUpdateQuery(
+      tableName.COMPANY,
+      data,
+      id,
+      {},
+      { returnUpdated: true },
+      conn,
+    );
+    // const result = await executeQuery(sql, params, conn);
+    // return result.rows[0];
   } catch (error) {
     logger.error('Error updating company:', error); // Log the error for debugging
     throw error;

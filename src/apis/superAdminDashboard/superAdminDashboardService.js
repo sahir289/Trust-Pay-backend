@@ -8,21 +8,57 @@ import {
 } from './superAdminDashboardDao.js';
 import { logger } from '../../utils/logger.js';
 import dayjs from 'dayjs';
+import redisClient from '../../utils/redisClient.js';
+
+const SUPER_ADMIN_OVERVIEW_CACHE_TTL_SEC = Number.parseInt(
+  process.env.SUPER_ADMIN_OVERVIEW_CACHE_TTL_SEC || '300',
+  10,
+);
+
+const SUPER_ADMIN_REVENUE_CACHE_TTL_SEC = Number.parseInt(
+  process.env.SUPER_ADMIN_REVENUE_CACHE_TTL_SEC || '60',
+  10,
+);
+
+const SUPER_ADMIN_PAYIN_MONTHLY_CACHE_TTL_SEC = Number.parseInt(
+  process.env.SUPER_ADMIN_PAYIN_MONTHLY_CACHE_TTL_SEC || '120',
+  10,
+);
+
+const SUPER_ADMIN_PAYIN_GRAPH_CACHE_TTL_SEC = Number.parseInt(
+  process.env.SUPER_ADMIN_PAYIN_GRAPH_CACHE_TTL_SEC || '120',
+  10,
+);
 
 /**
  * Super Admin Overview — returns platform-wide entity counts.
  */
 export const getSuperAdminOverviewService = async ({ company_id } = {}) => {
+  const cacheKey = `superAdmin:overview:${company_id}`;
+  const cached = await redisClient.get(cacheKey);
+  if (cached) {
+    return JSON.parse(cached);
+  }
+
   try {
     const overview = await getPlatformOverviewDao({ company_id });
 
-    return {
+    const result = {
       total_companies: parseInt(overview.total_companies, 10) || 0,
       total_merchants: parseInt(overview.total_merchants, 10) || 0,
       total_vendors: parseInt(overview.total_vendors, 10) || 0,
       total_users: parseInt(overview.total_users, 10) || 0,
       total_bank_accounts: parseInt(overview.total_bank_accounts, 10) || 0,
     };
+
+    await redisClient.set(
+      cacheKey,
+      JSON.stringify(result),
+      'EX',
+      SUPER_ADMIN_OVERVIEW_CACHE_TTL_SEC,
+    );
+
+    return result;
   } catch (error) {
     logger.error('Error in getSuperAdminOverviewService:', error);
     throw error;
@@ -34,6 +70,12 @@ export const getSuperAdminOverviewService = async ({ company_id } = {}) => {
  * commissions, success rates, and status breakdown for a date range.
  */
 export const getTransactionRevenueSummaryService = async ({ startDate, endDate, company_id }) => {
+  const cacheKey = `superAdmin:revenue:${company_id}:${startDate}:${endDate}`;
+  const cached = await redisClient.get(cacheKey);
+  if (cached) {
+    return JSON.parse(cached);
+  }
+
   try {
     const [transactionSummary, revenueSummary, statusBreakdown] = await Promise.all([
       getTransactionSummaryDao({ startDate, endDate, company_id }),
@@ -77,7 +119,7 @@ export const getTransactionRevenueSummaryService = async ({ startDate, endDate, 
       ? ((droppedCount / totalTransactionCount) * 100).toFixed(2)
       : '0.00';
 
-    return {
+    const result = {
       transactionSummary: {
         total_payin_count: totalPayinCount,
         total_payin_amount: totalPayinAmount,
@@ -102,6 +144,15 @@ export const getTransactionRevenueSummaryService = async ({ startDate, endDate, 
         amount: parseFloat(row.total_amount),
       })),
     };
+
+    await redisClient.set(
+      cacheKey,
+      JSON.stringify(result),
+      'EX',
+      SUPER_ADMIN_REVENUE_CACHE_TTL_SEC,
+    );
+
+    return result;
   } catch (error) {
     logger.error('Error in getTransactionRevenueSummaryService:', error);
     throw error;
@@ -113,6 +164,12 @@ export const getTransactionRevenueSummaryService = async ({ startDate, endDate, 
  * for each of the last N months (default 6).
  */
 export const getPayinVolumeMonthlySummaryService = async ({ months = 6, company_id } = {}) => {
+  const cacheKey = `superAdmin:payin-monthly:${company_id}:${months}`;
+  const cached = await redisClient.get(cacheKey);
+  if (cached) {
+    return JSON.parse(cached);
+  }
+
   try {
     const rows = await getPayinVolumeMonthlySummaryDao({ months, company_id });
 
@@ -156,7 +213,7 @@ export const getPayinVolumeMonthlySummaryService = async ({ months = 6, company_
       };
     });
 
-    return {
+    const result = {
       months: monthlyGrowth,
       summary: {
         total_count: totalCount,
@@ -165,6 +222,15 @@ export const getPayinVolumeMonthlySummaryService = async ({ months = 6, company_
         average_monthly_amount: totalAmount / months,
       },
     };
+
+    await redisClient.set(
+      cacheKey,
+      JSON.stringify(result),
+      'EX',
+      SUPER_ADMIN_PAYIN_MONTHLY_CACHE_TTL_SEC,
+    );
+
+    return result;
   } catch (error) {
     logger.error('Error in getPayinVolumeMonthlySummaryService:', error);
     throw error;
@@ -176,6 +242,12 @@ export const getPayinVolumeMonthlySummaryService = async ({ months = 6, company_
  * for a specific month (YYYY-MM format).
  */
 export const getPayinVolumeDailyGraphService = async ({ month, company_id }) => {
+  const cacheKey = `superAdmin:payin-graph:${company_id}:${month}`;
+  const cached = await redisClient.get(cacheKey);
+  if (cached) {
+    return JSON.parse(cached);
+  }
+
   try {
     const rows = await getPayinVolumeDailyGraphDao({ month, company_id });
 
@@ -206,7 +278,7 @@ export const getPayinVolumeDailyGraphService = async ({ month, company_id }) => 
     const totalCount = dailyData.reduce((sum, d) => sum + d.payin_count, 0);
     const totalAmount = dailyData.reduce((sum, d) => sum + d.payin_amount, 0);
 
-    return {
+    const result = {
       month,
       days: dailyData,
       summary: {
@@ -217,6 +289,15 @@ export const getPayinVolumeDailyGraphService = async ({ month, company_id }) => 
         peak_day: dailyData.reduce((max, d) => d.payin_count > max.payin_count ? d : max, dailyData[0]),
       },
     };
+
+    await redisClient.set(
+      cacheKey,
+      JSON.stringify(result),
+      'EX',
+      SUPER_ADMIN_PAYIN_GRAPH_CACHE_TTL_SEC,
+    );
+
+    return result;
   } catch (error) {
     logger.error('Error in getPayinVolumeDailyGraphService:', error);
     throw error;

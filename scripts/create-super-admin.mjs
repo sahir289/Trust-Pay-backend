@@ -21,6 +21,7 @@
 
 import dotenv from 'dotenv';
 dotenv.config();
+import { v4 as uuidv4 } from 'uuid';
 
 import { Role, DesignationIs } from '../src/constants/index.js';
 import { createUserDao } from '../src/apis/users/userDao.js';
@@ -55,18 +56,13 @@ const ensureSystemCompany = async (conn) => {
     [],
     conn,
   );
-
   if (existing.rows.length > 0) {
     return existing.rows[0].id;
   }
 
   // Generate a new UUID via PostgreSQL
-  const uuidResult = await executeQuery(
-    `SELECT uuid_generate_v4()::text AS uuid`,
-    [],
-    conn,
-  );
-  const systemCompanyId = uuidResult.rows[0].uuid;
+  const uuidResult = uuidv4();
+  const systemCompanyId = uuidResult;
 
   await executeQuery(
     `INSERT INTO public."Company" (id, first_name, last_name, email, contact_no, config, is_obsolete, scope)
@@ -146,8 +142,9 @@ const seedAllRoles = async (conn) => {
 /**
  * Idempotent get-or-create for any Designation (inside a transaction).
  * Same SAVEPOINT pattern using existing getDesignationDao/createDesignationDao.
+ * Now includes role_id since Designation table has NOT NULL constraint on role_id.
  */
-const getOrCreateDesignation = async (designationName, conn) => {
+const getOrCreateDesignation = async (designationName, conn, roleId) => {
   const designations = await getDesignationDao(
     { designation: designationName },
     conn,
@@ -157,7 +154,7 @@ const getOrCreateDesignation = async (designationName, conn) => {
   await executeQuery('SAVEPOINT sp_create_desig', [], conn);
   try {
     return await createDesignationDao(
-      { designation: designationName },
+      { designation: designationName, role_id: roleId },
       conn,
     );
   } catch (err) {
@@ -173,11 +170,13 @@ const getOrCreateDesignation = async (designationName, conn) => {
 
 /**
  * Seeds all predefined designations from constants.
+ * Passes role_id from corresponding Role since Designation.table has NOT NULL constraint.
  */
 const seedAllDesignations = async (conn) => {
+  const role = await getOrCreateRole(Role.SUPER_ADMIN, conn);
   const designationNames = Object.values(DesignationIs);
   for (const designationName of designationNames) {
-    await getOrCreateDesignation(designationName, conn);
+    await getOrCreateDesignation(designationName, conn, role.id);
     logger.info(`Designation seeded: ${designationName}`);
   }
 };
@@ -218,6 +217,7 @@ const createSuperAdmin = async () => {
     const designation = await getOrCreateDesignation(
       DesignationIs.SUPER_ADMIN,
       conn,
+      role.id,
     );
 
     // 3. Idempotency check — bail if super admin already exists
