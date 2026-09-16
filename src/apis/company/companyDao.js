@@ -3,10 +3,11 @@ import {
   buildSelectQuery,
   buildUpdateQuery,
   executeQuery,
-  buildAndExecuteUpdateQuery,
+  isSafeColumnName,
 } from '../../utils/db.js';
 import { tableName } from '../../constants/index.js';
 import { logger } from '../../utils/logger.js';
+import { stringifyJSON } from '../../utils/index.js';
 
 const getCompanyDao = async (
   filters,
@@ -304,7 +305,7 @@ const createCompanyDao = async (payload, conn = null) => {
 
 const updateCompanyDao = async (id, data, conn = null) => {
   try {
-   return buildAndExecuteUpdateQuery(
+    const [sql, params] = buildUpdateQuery(
       tableName.COMPANY,
       data,
       id,
@@ -312,23 +313,86 @@ const updateCompanyDao = async (id, data, conn = null) => {
       { returnUpdated: true },
       conn,
     );
-    // const result = await executeQuery(sql, params, conn);
-    // return result.rows[0];
+    const result = await executeQuery(sql, params, conn);
+    return result.rows[0];
   } catch (error) {
     logger.error('Error updating company:', error); // Log the error for debugging
     throw error;
   }
 };
-const updateCompanyConfigDao = async (id, data, conn) => {
+// Builds a jsonb expression that deep-merges `config` into the stored value.
+// Rules:
+//   - nested object  -> recursively merged with the existing object
+//   - null/undefined -> key removed at that exact path
+//   - array/scalar   -> key replaced via jsonb_set
+const buildConfigDeepMergeSql = (config) => {
+  const values = [];
+  let index = 1;
+
+  const buildObjectFromIncoming = (obj) => {
+    let expr = `'{}'::jsonb`;
+    Object.entries(obj).forEach(([key, value]) => {
+      if (value === null || value === undefined) return;
+      const keyPath = `'{${key}}'`;
+      if (value && typeof value === 'object' && !Array.isArray(value)) {
+        expr = `jsonb_set(${expr}, ${keyPath}, ${buildObjectFromIncoming(
+          value,
+        )})`;
+      } else {
+        expr = `jsonb_set(${expr}, ${keyPath}, $${index}::jsonb)`;
+        values.push(stringifyJSON(value));
+        index++;
+      }
+    });
+    return expr;
+  };
+
+  const buildMergedValue = (obj, existingExpr) => {
+    const objectBase = `CASE WHEN jsonb_typeof(${existingExpr}) = 'object' THEN ${existingExpr} ELSE '{}'::jsonb END`;
+    let expr = objectBase;
+    Object.entries(obj).forEach(([key, value]) => {
+      const existingKey = `${existingExpr}#>'{${key}}'`;
+      const keyPath = `'{${key}}'`;
+      if (value === null || value === undefined) {
+        expr = `${expr} - '${key}'`;
+      } else if (value && typeof value === 'object' && !Array.isArray(value)) {
+        const childExpr = `CASE WHEN jsonb_typeof(${existingKey}) = 'object' THEN ${buildMergedValue(
+          value,
+          existingKey,
+        )} ELSE ${buildObjectFromIncoming(value)} END`;
+        // Avoid creating an empty object when the incoming subtree holds
+        // only removals for a path that does not exist yet.
+        expr = `CASE WHEN ${childExpr} = '{}'::jsonb AND COALESCE(jsonb_typeof(${existingKey}), '') <> 'object' THEN ${expr} ELSE jsonb_set(${expr}, ${keyPath}, ${childExpr}) END`;
+      } else {
+        expr = `jsonb_set(${expr}, ${keyPath}, $${index}::jsonb)`;
+        values.push(stringifyJSON(value));
+        index++;
+      }
+    });
+    return expr;
+  };
+
+  return { expr: buildMergedValue(config, `"config"::jsonb`), values };
+};
+
+const updateCompanyConfigDao = async (id, data, conn = null) => {
   try {
-    return await buildAndExecuteUpdateQuery(
-      tableName.COMPANY,
-      data,
-      id,
-      {},
-      { returnUpdated: true },
-      conn,
-    );
+    if (!data.config || typeof data.config !== 'object') {
+      throw new Error('config must be an object');
+    }
+    const { expr, values } = buildConfigDeepMergeSql(data.config);
+
+    const whereClause = Object.entries(id).map(([key, value]) => {
+      if (!isSafeColumnName(key)) {
+        throw new Error(`Unsafe column name in update condition: ${key}`);
+      }
+      values.push(value);
+      return `"${key}" = $${values.length}`;
+    });
+
+    const query = `UPDATE "${tableName.COMPANY}" SET "config" = ${expr} WHERE ${whereClause.join(' AND ')} RETURNING *`;
+    const result = await executeQuery(query, values, conn);
+    return result.rows[0];
   } catch (error) {
     logger.error('Error updating company config:', error);
     throw error;

@@ -6,6 +6,7 @@ import {
   isCompanyEmailExistsDao,
   isCompanyContactNoExistsDao,
   isUserNameExistsDao,
+  updateCompanyConfigDao,
   updateCompanyDao,
 } from './companyDao.js';
 import { _createUserServiceInternal } from '../users/userService.js';
@@ -220,11 +221,37 @@ const createCompanyService = async (payload, companyId = null) => {
 };
 
 const updateCompanyService = async (id, payload) => {
+  let conn = null;
   try {
-    const result = updateCompanyDao(id, payload);
-    return result;
+    const { config, ...rest } = payload || {};
+    const hasConfig =
+      config && typeof config === 'object' && !Array.isArray(config);
+
+    if (!hasConfig) {
+      return await updateCompanyDao(id, rest);
+    }
+
+    conn = await getConnection();
+    await beginTransaction(conn);
+    const updated = await updateCompanyConfigService(id, { config }, conn);
+    if (Object.keys(rest).length > 0) {
+      await updateCompanyDao(id, rest, conn);
+    }
+    await commit(conn);
+    return updated;
   } catch (error) {
-    logger.error('Error while creating company:', error);
+    if (conn) await rollback(conn);
+    logger.error('Error while updating company:', error);
+    throw error;
+  } finally {
+    if (conn) conn.release();
+  }
+};
+const updateCompanyConfigService = async (id, data, conn = null) => {
+  try {
+    return await updateCompanyConfigDao(id, data, conn);
+  } catch (error) {
+    logger.error('Error while updating company config:', error);
     throw error;
   }
 };
@@ -243,5 +270,6 @@ export {
   getCompanyByIdService,
   createCompanyService,
   updateCompanyService,
+  updateCompanyConfigService,
   deleteCompanyService,
 };

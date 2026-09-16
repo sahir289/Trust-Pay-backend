@@ -66,10 +66,12 @@ const ensureSystemCompany = async (conn) => {
 
   await executeQuery(
     `INSERT INTO public."Company" (id, first_name, last_name, email, contact_no, config, is_obsolete, scope)
-     VALUES ($1, 'TrustPay', 'System', $2, $3, '{}', false, 'global')
+     VALUES ($1, '$2', '$3', $4, $5, '{}', false, 'global')
      ON CONFLICT (id) DO NOTHING`,
     [
       systemCompanyId,
+      process.env.SUPER_ADMIN_FIRST_NAME,
+      process.env.SUPER_ADMIN_LAST_NAME,
       process.env.SUPER_ADMIN_EMAIL,
       process.env.SUPER_ADMIN_CONTACT_NO,
     ],
