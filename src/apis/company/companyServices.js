@@ -3,6 +3,10 @@ import {
   deleteCompanyDao,
   getCompanyDao,
   getCompanyDetailsByIdDao,
+  isCompanyEmailExistsDao,
+  isCompanyContactNoExistsDao,
+  isUserNameExistsDao,
+  updateCompanyConfigDao,
   updateCompanyDao,
 } from './companyDao.js';
 import { _createUserServiceInternal } from '../users/userService.js';
@@ -14,15 +18,28 @@ import { logger } from '../../utils/logger.js';
 import config from '../../config/config.js';
 import { beginTransaction, commit, getConnection, rollback } from '../../utils/db.js';
 import redisClient from '../../utils/redisClient.js';
+import { BadRequestError } from '../../utils/appErrors.js';
 
 const COMPANY_DETAILS_CACHE_TTL_SEC = Number.parseInt(
   process.env.COMPANY_DETAILS_CACHE_TTL_SEC || '60',
   10,
 );
 
-const getCompanyService = async (id) => {
+const getCompanyService = async (
+  filters = {},
+  page,
+  limit,
+  sortBy,
+  sortOrder,
+) => {
   try {
-    const result = await getCompanyDao(id);
+    const result = await getCompanyDao(
+      filters,
+      page,
+      limit,
+      sortBy,
+      sortOrder,
+    );
     return result;
   } catch (error) {
     logger.error('error getting while company', error);
@@ -56,7 +73,7 @@ const getCompanyByIdService = async (id) => {
   }
 };
 
-const _createCompanyServiceInternal = async (payload, conn) => {
+const _createCompanyServiceInternal = async (payload, companyId = null, conn) => {
   try {
     // Validate payload
     // Create company
@@ -66,6 +83,19 @@ const _createCompanyServiceInternal = async (payload, conn) => {
     }
 
     const unique_id = generateFormatted8DigitCode();
+    const adminCode =
+      payload.code || payload.first_name.split('').reverse().join('');
+
+    if (await isCompanyEmailExistsDao(payload.email, companyId, conn)) {
+      throw new BadRequestError('Email already exists');
+    }
+    if (await isCompanyContactNoExistsDao(payload.contact_no, companyId, conn)) {
+      throw new BadRequestError('Contact number already exists');
+    }
+    if (await isUserNameExistsDao(payload.user_name, companyId, conn)) {
+      throw new BadRequestError('Username already exists');
+    }
+
 
     payload.config = {
       ...payload.config,
@@ -130,6 +160,7 @@ const _createCompanyServiceInternal = async (payload, conn) => {
       email: payload.email,
       contact_no: payload.contact_no,
       config: payload.config || {},
+      scope: payload.scope || 'company',
     }, conn);
     let role = [];
     let designations = [];
@@ -150,7 +181,7 @@ const _createCompanyServiceInternal = async (payload, conn) => {
       last_name: payload.last_name,
       is_enabled: true,
       unique_admin_id: unique_id,
-      code: payload.first_name.split('').reverse().join(''),
+      code: adminCode,
     };
     // Create user - this will manage its own transaction
     const user = await _createUserServiceInternal(userPayload, conn);
@@ -168,12 +199,12 @@ const _createCompanyServiceInternal = async (payload, conn) => {
   }
 };
 
-const createCompanyService = async (payload) => {
+const createCompanyService = async (payload, companyId = null) => {
   let conn
   try {
     conn = await getConnection();
     await beginTransaction(conn);
-    const result = await _createCompanyServiceInternal(payload, conn);
+    const result = await _createCompanyServiceInternal(payload, companyId, conn);
     await commit(conn);
     return result;
   } catch (error) {
@@ -190,11 +221,37 @@ const createCompanyService = async (payload) => {
 };
 
 const updateCompanyService = async (id, payload) => {
+  let conn = null;
   try {
-    const result = updateCompanyDao(id, payload);
-    return result;
+    const { config, ...rest } = payload || {};
+    const hasConfig =
+      config && typeof config === 'object' && !Array.isArray(config);
+
+    if (!hasConfig) {
+      return await updateCompanyDao(id, rest);
+    }
+
+    conn = await getConnection();
+    await beginTransaction(conn);
+    const updated = await updateCompanyConfigService(id, { config }, conn);
+    if (Object.keys(rest).length > 0) {
+      await updateCompanyDao(id, rest, conn);
+    }
+    await commit(conn);
+    return updated;
   } catch (error) {
-    logger.error('Error while creating company:', error);
+    if (conn) await rollback(conn);
+    logger.error('Error while updating company:', error);
+    throw error;
+  } finally {
+    if (conn) conn.release();
+  }
+};
+const updateCompanyConfigService = async (id, data, conn = null) => {
+  try {
+    return await updateCompanyConfigDao(id, data, conn);
+  } catch (error) {
+    logger.error('Error while updating company config:', error);
     throw error;
   }
 };
@@ -213,5 +270,6 @@ export {
   getCompanyByIdService,
   createCompanyService,
   updateCompanyService,
+  updateCompanyConfigService,
   deleteCompanyService,
 };

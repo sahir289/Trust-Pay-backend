@@ -232,7 +232,7 @@ const getMerchantsService = async (
       filters.user_id =
         userIdFilter.length === 1 ? userIdFilter[0] : userIdFilter;
     }
-    if (role === Role.ADMIN) {
+    if (role === Role.ADMIN || role === Role.SUPER_ADMIN) {
       delete filters.user_id;
     }
     let data = await getAllMerchantsDao(
@@ -310,7 +310,7 @@ const getMerchantsBySearchService = async (
       filters.user_id =
         userIdFilter.length === 1 ? userIdFilter[0] : userIdFilter;
     }
-    if (role === Role.ADMIN) {
+    if (role === Role.ADMIN || role === Role.SUPER_ADMIN) {
       delete filters.user_id;
     }
 
@@ -399,7 +399,7 @@ const getMerchantsServiceCode = async (
         userIdFilter.length === 1 ? userIdFilter[0] : userIdFilter;
     }
 
-    if (role === Role.ADMIN) {
+    if (role === Role.ADMIN || role === Role.SUPER_ADMIN) {
       delete filters.user_id;
       excludeDisabledMerchant = true;
     }

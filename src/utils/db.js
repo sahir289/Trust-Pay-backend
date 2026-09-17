@@ -833,7 +833,7 @@ export const executeQuery = async (query, queryParams = [], conn = null) => {
   }
 };
 
-// Validates that an object key used as a SQL column identifier contains only safe characters. 
+// Validates that an object key used as a SQL column identifier contains only safe characters.
 // Filter/update payload keys are frequently sourced from req.query/req.body, so any key interpolated into SQL must be checked to prevent SQL injection via attacker-controlled property names.
 export const isSafeColumnName = (name) =>
   typeof name === 'string' && /^[A-Za-z0-9_]+$/.test(name);
@@ -876,8 +876,8 @@ export const buildSelectQuery = (
       }
       const jsonColumn = `
         COALESCE(
-          CASE 
-            WHEN json_typeof(${prefix}"config"->'${variablePart}') = 'array' 
+          CASE
+            WHEN json_typeof(${prefix}"config"->'${variablePart}') = 'array'
             THEN ARRAY(SELECT json_array_elements_text(${prefix}"config"->'${variablePart}'))
             ELSE ARRAY[(${prefix}"config"->>'${variablePart}')::text]
           END,
@@ -1065,6 +1065,7 @@ export const buildAndExecuteUpdateQuery = async (
         });
       };
       processNestedKeys(data.config);
+    
       setClause.push(`"config" = ${jsonbSetQuery}`);
       delete data.config;
     }
@@ -1417,7 +1418,7 @@ const buildFilterConditions = (filters, fieldMap, paramStart = 1) => {
 
 //   // Build the additional conditions
 //   const additionalConditions = `
-//       AND "${tableName}".is_obsolete = false 
+//       AND "${tableName}".is_obsolete = false
 //       AND "${tableName}"."company_id" = ${companyIdParam}
 //       ORDER BY "${tableName}"."created_at" ${sortOrder}
 //   `;

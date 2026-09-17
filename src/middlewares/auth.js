@@ -2,12 +2,15 @@ import { AUTH_HEADER_KEY } from '../utils/constants.js';
 import {
   AccessDeniedError,
   AuthenticationError,
+  BadRequestError,
   DbError,
   InternalServerError,
+  NotFoundError,
 } from '../utils/appErrors.js';
 import { verifyToken } from '../utils/auth.js';
 import { logger } from '../utils/logger.js';
 import { getSessionByIdDao } from '../apis/auth/authDao.js';
+import { getCompanyByIDDao } from '../apis/company/companyDao.js';
 import {
   AUTH_SESSION_CACHE_TTL_SEC,
   buildAuthSessionCacheKey,
@@ -16,11 +19,15 @@ import {
   setCachedData,
 } from '../utils/redishashkey.js';
 import { enforce2FAMiddleware } from './enforce2FA.js';
+import { RoleIs } from '../constants/index.js';
 
 // Bounded in-process denylist of recently-invalidated tokens. This is only a
 // best-effort fast path on top of the authoritative Redis/DB session checks;
 // an unbounded Set would leak memory under sustained traffic (10k+ rps).
-const LOGOUT_SET_MAX = Number.parseInt(process.env.LOGOUT_SET_MAX || '50000', 10);
+const LOGOUT_SET_MAX = Number.parseInt(
+  process.env.LOGOUT_SET_MAX || '50000',
+  10,
+);
 const logoutSet = new Set();
 const denylistToken = (token) => {
   if (logoutSet.size >= LOGOUT_SET_MAX) {
@@ -31,11 +38,17 @@ const denylistToken = (token) => {
   logoutSet.add(token);
 };
 
-const applyAuthenticatedSession = (req, decoded, sessionId, isTwoFactorEnabled, isTwoFactorExempt) => {
-  req.user = { 
-    ...decoded, 
+const applyAuthenticatedSession = (
+  req,
+  decoded,
+  sessionId,
+  isTwoFactorEnabled,
+  isTwoFactorExempt,
+) => {
+  req.user = {
+    ...decoded,
     is_two_factor_enabled: isTwoFactorEnabled,
-    is_two_factor_exempt: isTwoFactorExempt 
+    is_two_factor_exempt: isTwoFactorExempt,
   };
   req.sessionId = sessionId;
 };
@@ -66,13 +79,13 @@ const isAuthenticated = async (req, res, next) => {
     );
     if (cachedSession?.session_id === decoded.session_id) {
       applyAuthenticatedSession(
-        req, 
-        decoded, 
-        cachedSession.session_id, 
+        req,
+        decoded,
+        cachedSession.session_id,
         cachedSession.is_two_factor_enabled,
-        cachedSession.is_two_factor_exempt
+        cachedSession.is_two_factor_exempt,
       );
-      
+
       // APPLY 2FA ENFORCEMENT FOR CACHED SESSIONS
       return enforce2FAMiddleware(req, res, (err) => {
         if (err) return next(err);
@@ -92,34 +105,35 @@ const isAuthenticated = async (req, res, next) => {
         // Session doesn't exist in database, add token to logout set
         denylistToken(token);
         await deleteCachedData(sessionCacheKey, 'Auth session cache');
-        throw new AuthenticationError('Session expired or invalid. Please login again.');
+        throw new AuthenticationError(
+          'Session expired or invalid. Please login again.',
+        );
       }
 
       // Session exists, proceed
       await setCachedData(
         sessionCacheKey,
-        { 
+        {
           session_id: activeSession.session_id,
           is_two_factor_enabled: activeSession.is_two_factor_enabled,
-          is_two_factor_exempt: activeSession.is_two_factor_exempt
+          is_two_factor_exempt: activeSession.is_two_factor_exempt,
         },
         AUTH_SESSION_CACHE_TTL_SEC,
         'Auth session cache',
       );
       applyAuthenticatedSession(
-        req, 
-        decoded, 
-        activeSession.session_id, 
+        req,
+        decoded,
+        activeSession.session_id,
         activeSession.is_two_factor_enabled,
-        activeSession.is_two_factor_exempt
+        activeSession.is_two_factor_exempt,
       );
-      
+
       // APPLY 2FA ENFORCEMENT HERE
       await enforce2FAMiddleware(req, res, (err) => {
         if (err) return next(err);
         next();
       });
-
     } catch (dbError) {
       logger.error('Database session validation error:', dbError);
 
@@ -145,13 +159,15 @@ const isAuthenticated = async (req, res, next) => {
         ),
       );
     }
-    
   } catch (error) {
     logger.error('Error in authentication middleware:', error);
     // Ensure all errors are passed to next() to prevent unhandled rejections
-    return next(error instanceof AuthenticationError || error instanceof InternalServerError 
-      ? error 
-      : new AuthenticationError(error.message));
+    return next(
+      error instanceof AuthenticationError ||
+        error instanceof InternalServerError
+        ? error
+        : new AuthenticationError(error.message),
+    );
   }
 };
 
@@ -185,4 +201,41 @@ const authorized =
     }
   };
 
-export { isAuthenticated, logoutSet, authorized };
+const setSuperAdminTenant = async (req, res, next) => {
+  try {
+    const { role } = req.user || {};
+
+    if (!role) {
+      throw new AccessDeniedError('User role and designation are required');
+    }
+
+    if (role !== RoleIs.SUPER_ADMIN) {
+      return next();
+    }
+
+    const tenantId = req.header('x-tenant-id');
+
+    if (!tenantId || !tenantId.trim()) {
+      throw new BadRequestError('x-tenant-id header is required');
+    }
+
+    const companyId = tenantId.trim();
+
+    const company = await getCompanyByIDDao({ id: companyId });
+
+    if (!company) {
+      throw new NotFoundError(
+        `Company not found for x-tenant-id: ${companyId}`,
+      );
+    }
+
+    req.user.company_id = companyId;
+
+    next();
+  } catch (error) {
+    logger.error('Error in setSuperAdminTenant middleware:', error);
+    next(error);
+  }
+};
+
+export { isAuthenticated, logoutSet, authorized, setSuperAdminTenant };

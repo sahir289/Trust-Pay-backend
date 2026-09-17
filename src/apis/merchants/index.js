@@ -13,7 +13,7 @@ import {
   regenerateMerchantPrivateKey,
   getMerchantUrlsAndWhitelist,
 } from './merchantController.js';
-import { authorized, isAuthenticated } from '../../middlewares/auth.js';
+import { authorized, isAuthenticated, setSuperAdminTenant } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
 
 const router = express.Router();
@@ -52,7 +52,7 @@ router.get(
 
 router.get(
   '/',
-  [isAuthenticated, authorized(AccessRoles.MERCHANT)],
+  [isAuthenticated, authorized(AccessRoles.MERCHANT), setSuperAdminTenant],
   tryCatchHandler(getMerchantsBySearch),
 );
 
@@ -95,7 +95,7 @@ router.get(
  */
 router.get(
   '/codes',
-  [isAuthenticated, authorized(AccessRoles.MERCHANT)],
+  [isAuthenticated, authorized(AccessRoles.MERCHANT), setSuperAdminTenant],
   tryCatchHandler(getMerchantCodes),
 );
 router.get(

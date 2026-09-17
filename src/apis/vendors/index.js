@@ -14,7 +14,7 @@ import {
   unlinkVendor,
   transferVendor,
 } from './vendorController.js';
-import { authorized, isAuthenticated } from '../../middlewares/auth.js';
+import { authorized, isAuthenticated, setSuperAdminTenant } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
 
 const router = express.Router();
@@ -89,7 +89,7 @@ router.get(
  */
 router.get(
   '/codes',
-  [isAuthenticated, authorized(AccessRoles.VENDOR)],
+  [isAuthenticated, authorized(AccessRoles.VENDOR), setSuperAdminTenant],
   tryCatchHandler(getVendorCodes),
 );
 

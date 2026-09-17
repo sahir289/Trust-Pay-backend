@@ -1,8 +1,9 @@
 import express from 'express';
 import gatherCompanyData from './dashboardReportController.js';
 import tryCatchHandler from '../../utils/tryCatchHandler.js';
+import { setSuperAdminTenant, authorized } from '../../middlewares/auth.js';
+import { AccessRoles } from '../../constants/index.js';
 
-// import  checkPendingStatus  from './pendingPayinCron.js';
 const router = express.Router();
 
 /**
@@ -15,7 +16,7 @@ const router = express.Router();
  *       - Cron Jobs
  *     responses:
  *       200:
- *         description: Bcron job successfully executed.
+ *         description: Bank cron job successfully executed.
  *         content:
  *           application/json:
  *             schema:
@@ -23,12 +24,10 @@ const router = express.Router();
  *               properties:
  *                 message:
  *                   type: string
- *                   example: " cron job executed successfully."
+ *                   example: "Bank cron job executed successfully."
  */
 router.get(
-  '/', tryCatchHandler(gatherCompanyData)
+  '/', authorized(AccessRoles.ALL), setSuperAdminTenant, tryCatchHandler(gatherCompanyData)
 );
-
-
 
 export default router;

@@ -1,4 +1,4 @@
-import { InternalServerError } from '../../utils/appErrors.js';
+import { InternalServerError, NotFoundError } from '../../utils/appErrors.js';
 import { createHash } from '../../utils/bcryptPassword.js';
 import {
   getConnection,
@@ -180,13 +180,9 @@ const getUsersService = async (
   }
 };
 
-const getUsersNameService = async (
-  ids,
-) => {
+const getUsersNameService = async (ids) => {
   try {
-    return await getAllUsersNameDao(
-      ids,
-    );
+    return await getAllUsersNameDao(ids);
   } catch (error) {
     logger.error('error getting while fetching user-names', error);
     throw error;
@@ -367,8 +363,7 @@ const getUsersInfoBySearchService = async (
   startDate,
   endDate,
 ) => {
-  try {  
-
+  try {
     const pageNumber = Number.parseInt(page, 10) || 1;
     const pageSize = Number.parseInt(limit, 10) || 10;
 
@@ -408,13 +403,18 @@ const getUserByIdService = async (ids, role) => {
           : columns.USER;
     const result = await getUserByIdDao(ids);
     const user = result[0]; // Add this line to define 'user'
-
+    if (!user) {
+      throw new NotFoundError('User not found');
+    }
     // Get the company-level 2FA enforcement setting
     const isTwoFactorEnforced = await get2FAEnforcementDao(ids.company_id);
 
     // Compute must_setup_2fa: user must set up 2FA if enforcement is active,
     // they don't have 2FA enabled, and they are not exempt
-    const must_setup_2fa = (isTwoFactorEnforced || user.is_two_factor_required) && !user.is_two_factor_enabled && !user.is_two_factor_exempt;
+    const must_setup_2fa =
+      (isTwoFactorEnforced || user.is_two_factor_required) &&
+      !user.is_two_factor_enabled &&
+      !user.is_two_factor_exempt;
 
     const finalResult = filterResponse(result, filterColumns, {
       stripSensitive: true,
@@ -747,20 +747,20 @@ const _userUpdateServiceInternal = async (ids, payload, conn) => {
       const user = await getAllHierarchyUserIds(ids.id, conn);
       const userPayload = {
         is_obsolete: false,
-        is_enabled : payload.is_enabled,
-        updated_by : payload.updated_by
+        is_enabled: payload.is_enabled,
+        updated_by: payload.updated_by,
       };
       const User = await updateUserByIDDao({ id: user }, userPayload, conn);
       const sessions = await getSessionByUserIdDao({ user_id: user }, conn);
-       if (sessions && sessions.length > 0) {
-         for (const session of sessions) {
-           if (session?.session_id) {
-             await forceLogoutUser(session.user_id, session.session_id);
-           }
-         }
-       }
+      if (sessions && sessions.length > 0) {
+        for (const session of sessions) {
+          if (session?.session_id) {
+            await forceLogoutUser(session.user_id, session.session_id);
+          }
+        }
+      }
       return User;
-}
+    }
     const User = await updateUserDao(ids, payload, conn);
     // await notifyAdminsAndUsers({
     //   conn,
@@ -811,7 +811,9 @@ const resetUser2FAService = async (targetUserId, adminId, adminUsername) => {
   try {
     const result = await disableTwoFactorDao(targetUserId);
     if (result) {
-      logger.info(`[AUDIT] 2FA Reset: User ID ${targetUserId} had their 2FA reset by Admin ${adminUsername} (ID: ${adminId}) at ${new Date().toISOString()}`);
+      logger.info(
+        `[AUDIT] 2FA Reset: User ID ${targetUserId} had their 2FA reset by Admin ${adminUsername} (ID: ${adminId}) at ${new Date().toISOString()}`,
+      );
     }
     return result;
   } catch (error) {
@@ -842,7 +844,9 @@ const toggleUser2FAExemptionService = async (userId, exempt) => {
   try {
     const result = await updateUser2FAExemptionDao(userId, exempt);
     if (result) {
-      logger.info(`[AUDIT] 2FA Exemption Updated: User ID ${userId} exemption set to ${exempt} at ${new Date().toISOString()}`);
+      logger.info(
+        `[AUDIT] 2FA Exemption Updated: User ID ${userId} exemption set to ${exempt} at ${new Date().toISOString()}`,
+      );
     }
     return result;
   } catch (error) {

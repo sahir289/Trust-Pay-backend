@@ -10,7 +10,7 @@ import {
   updateCalculations,
   CalculationUserController,
 } from './calculationController.js';
-import { authorized, isAuthenticated } from '../../middlewares/auth.js';
+import { authorized, isAuthenticated, setSuperAdminTenant } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
 const router = express.Router();
 
@@ -60,7 +60,7 @@ router.post('/success_ratio', tryCatchHandler(calculateSuccessRatios));
  */
 router.post(
   '/',
-  [isAuthenticated, authorized(AccessRoles.CALCULATION)],
+  [isAuthenticated, authorized(AccessRoles.CALCULATION), setSuperAdminTenant],
   tryCatchHandler(getCalculation),
 );
 
