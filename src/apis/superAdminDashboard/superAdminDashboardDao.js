@@ -259,3 +259,117 @@ export const getPayinVolumeDailyGraphDao = async (
     throw error;
   }
 };
+
+/**
+ * Top Banks — returns list of top banks ranked by payin volume or count,
+ * along with payin and payout transaction metrics (counts and volumes).
+ * Excludes balance, today_balance, and acc_no.
+ *
+ * @param {{
+ *   company_id: string,
+ *   startDate?: string,
+ *   endDate?: string,
+ *   limit?: number,
+ *   sortBy?: 'volume' | 'count',
+ *   sortOrder?: 'asc' | 'desc'
+ * }} params
+ * @param {object} [conn]
+ * @returns {Promise<Array<object>>}
+ */
+export const getTopBanksDao = async (
+  {
+    company_id,
+    startDate,
+    endDate,
+    limit = 5,
+    sortBy = 'volume',
+    sortOrder = 'desc',
+  } = {},
+  conn = null,
+) => {
+  try {
+    const params = [company_id];
+    let nextIndex = 2;
+
+    const payinDateConditions = [];
+    const payoutDateConditions = [];
+
+    if (startDate) {
+      const sanitizedStart = sanitizeDateString(startDate);
+      payinDateConditions.push(`AND p."created_at" >= $${nextIndex}`);
+      payoutDateConditions.push(`AND po."created_at" >= $${nextIndex}`);
+      params.push(sanitizedStart);
+      nextIndex++;
+    }
+
+    if (endDate) {
+      const sanitizedEnd = sanitizeDateString(endDate);
+      payinDateConditions.push(`AND p."created_at" < ($${nextIndex}::date + INTERVAL '1 day')`);
+      payoutDateConditions.push(`AND po."created_at" < ($${nextIndex}::date + INTERVAL '1 day')`);
+      params.push(sanitizedEnd);
+      nextIndex++;
+    }
+
+    params.push(limit);
+    const limitIndex = nextIndex;
+
+    const sortColumn = sortBy === 'count' ? 'payin_count' : 'payin_volume';
+    const sortDirection = sortOrder?.toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+
+    const sql = `
+      WITH payin_stats AS (
+        SELECT
+          p.bank_acc_id,
+          COUNT(*) AS payin_count,
+          COUNT(*) FILTER (WHERE p.status = 'SUCCESS') AS payin_success_count,
+          COALESCE(SUM(p.amount) FILTER (WHERE p.status = 'SUCCESS'), 0) AS payin_volume,
+          COALESCE(SUM(p.amount), 0) AS payin_total_volume
+        FROM "${tableName.PAYIN}" p
+        WHERE p.company_id = $1
+          AND p.is_obsolete = false
+          AND p.bank_acc_id IS NOT NULL
+          ${payinDateConditions.join(' ')}
+        GROUP BY p.bank_acc_id
+      ),
+      payout_stats AS (
+        SELECT
+          po.bank_acc_id,
+          COUNT(*) AS payout_count,
+          COUNT(*) FILTER (WHERE po.status = 'SUCCESS') AS payout_success_count,
+          COALESCE(SUM(po.amount) FILTER (WHERE po.status = 'SUCCESS'), 0) AS payout_volume,
+          COALESCE(SUM(po.amount), 0) AS payout_total_volume
+        FROM "${tableName.PAYOUT}" po
+        WHERE po.company_id = $1
+          AND po.is_obsolete = false
+          AND po.bank_acc_id IS NOT NULL
+          ${payoutDateConditions.join(' ')}
+        GROUP BY po.bank_acc_id
+      )
+      SELECT
+        ba.id AS bank_id,
+        ba.bank_name,
+        ba.acc_holder_name,
+        COALESCE(ps.payin_count, 0)::INTEGER AS payin_count,
+        COALESCE(ps.payin_success_count, 0)::INTEGER AS payin_success_count,
+        COALESCE(ps.payin_volume, 0)::NUMERIC AS payin_volume,
+        COALESCE(ps.payin_total_volume, 0)::NUMERIC AS payin_total_volume,
+        COALESCE(pos.payout_count, 0)::INTEGER AS payout_count,
+        COALESCE(pos.payout_success_count, 0)::INTEGER AS payout_success_count,
+        COALESCE(pos.payout_volume, 0)::NUMERIC AS payout_volume,
+        COALESCE(pos.payout_total_volume, 0)::NUMERIC AS payout_total_volume
+      FROM "${tableName.BANK_ACCOUNT}" ba
+      LEFT JOIN payin_stats ps ON ba.id = ps.bank_acc_id
+      LEFT JOIN payout_stats pos ON ba.id = pos.bank_acc_id
+      WHERE ba.company_id = $1
+        AND ba.is_obsolete = false
+      ORDER BY ${sortColumn} ${sortDirection}, ba.bank_name ASC
+      LIMIT $${limitIndex}`;
+
+    const result = await executeQuery(sql, params, conn);
+    return result.rows || [];
+  } catch (error) {
+    logger.error('Error in getTopBanksDao:', error);
+    throw error;
+  }
+};
+

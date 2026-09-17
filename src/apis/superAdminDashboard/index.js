@@ -5,6 +5,7 @@ import {
   getTransactionRevenueSummary,
   getPayinVolumeMonthlySummary,
   getPayinVolumeDailyGraph,
+  getTopBanks,
 } from './superAdminDashboardController.js';
 import { isAuthenticated, authorized, setSuperAdminTenant } from '../../middlewares/auth.js';
 import { AccessRoles } from '../../constants/index.js';
@@ -141,4 +142,71 @@ router.get(
   tryCatchHandler(getPayinVolumeDailyGraph),
 );
 
+/**
+ * @swagger
+ * /superAdminDashboard/top-banks:
+ *   get:
+ *     summary: Top 5 Banks Summary
+ *     description: Returns top banks ranked by transaction volume or count, showing basic bank info (bank_name, acc_holder_name) and transaction metrics (payin/payout counts and volume). Excludes balance and account numbers.
+ *     tags:
+ *       - Super Admin Dashboard
+ *     parameters:
+ *       - in: query
+ *         name: startDate
+ *         required: false
+ *         schema:
+ *           type: string
+ *           format: date
+ *           example: "2026-09-01"
+ *         description: Start date (YYYY-MM-DD)
+ *       - in: query
+ *         name: endDate
+ *         required: false
+ *         schema:
+ *           type: string
+ *           format: date
+ *           example: "2026-09-17"
+ *         description: End date (YYYY-MM-DD)
+ *       - in: query
+ *         name: limit
+ *         required: false
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 50
+ *           default: 5
+ *         description: Number of banks to return (default 5)
+ *       - in: query
+ *         name: sortBy
+ *         required: false
+ *         schema:
+ *           type: string
+ *           enum: [volume, count]
+ *           default: volume
+ *         description: Sort field (volume or count)
+ *       - in: query
+ *         name: sortOrder
+ *         required: false
+ *         schema:
+ *           type: string
+ *           enum: [asc, desc]
+ *           default: desc
+ *         description: Sort order
+ *     responses:
+ *       200:
+ *         description: Top banks summary data
+ *       400:
+ *         description: Validation error
+ *       401:
+ *         description: Unauthorized
+ *       403:
+ *         description: Access denied — Super Admin only
+ */
+router.get(
+  '/top-banks',
+  [isAuthenticated, authorized(AccessRoles.SUPER_ADMIN), setSuperAdminTenant],
+  tryCatchHandler(getTopBanks),
+);
+
 export default router;
+
