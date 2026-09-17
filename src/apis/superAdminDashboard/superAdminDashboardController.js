@@ -3,13 +3,9 @@ import {
   getTransactionRevenueSummaryService,
   getPayinVolumeMonthlySummaryService,
   getPayinVolumeDailyGraphService,
-  getTopBanksService,
 } from './superAdminDashboardService.js';
 import { sendError, sendSuccess } from '../../utils/responseHandlers.js';
-import {
-  SUPER_ADMIN_DASHBOARD_SCHEMA,
-  SUPER_ADMIN_TOP_BANKS_SCHEMA,
-} from '../../schemas/superAdminDashboardSchema.js';
+import { SUPER_ADMIN_DASHBOARD_SCHEMA } from '../../schemas/superAdminDashboardSchema.js';
 import Joi from 'joi';
 
 /**
@@ -112,29 +108,3 @@ export const getPayinVolumeDailyGraph = async (req, res) => {
   const result = await getPayinVolumeDailyGraphService({ ...value, company_id });
   return sendSuccess(res, result, 'Payin volume daily graph fetched successfully');
 };
-
-/**
- * GET /superAdminDashboard/top-banks
- * Returns top banks list ranked by volume or count with payin and payout transaction metrics.
- * Query params: startDate, endDate, limit, sortBy, sortOrder
- */
-export const getTopBanks = async (req, res) => {
-  const { error, value } = SUPER_ADMIN_TOP_BANKS_SCHEMA.validate(req.query, {
-    abortEarly: false,
-    stripUnknown: true,
-  });
-
-  if (error) {
-    const message = error.details.map((d) => d.message).join('; ');
-    return sendError(res, 400, message);
-  }
-
-  const company_id = req.user?.company_id;
-  if (!company_id) {
-    return sendError(res, 400, 'Company ID is required');
-  }
-
-  const result = await getTopBanksService({ ...value, company_id });
-  return sendSuccess(res, result, 'Top banks fetched successfully');
-};
-
