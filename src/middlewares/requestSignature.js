@@ -181,11 +181,6 @@ const verifyRequestSignature = (options = {}) => {
     const expected = generateSignature(secret, timestamp, payload);
 
     if (!safeEqualHex(expected, String(signature))) {
-  //     logger.warn('Invalid signature debug', {
-  //   timestamp,
-  //   receivedSignature: signature,
-  //   expectedSignature: expected,
-  // });
       return sendError(res, 'Invalid request signature', 401, V2_ERROR_CODES.INVALID_SIGNATURE);
     }
 
