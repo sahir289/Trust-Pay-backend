@@ -596,7 +596,13 @@ const _createLoginSession = async (user, config, clientIP, ua) => {
 // ---------------------------------------------------------------------------
 // 2FA: second step of the login flow (called after OTP is submitted)
 // ---------------------------------------------------------------------------
-const verifyLoginOtpService = async (preAuthToken, otpToken, clientIP, ua) => {
+const verifyLoginOtpService = async (
+  preAuthToken,
+  otpToken,
+  clientIP,
+  ua,
+  userLocation = {},
+) => {
   try {
     // 1. Validate the pre-auth token
     const decoded = verifyPreAuthToken(preAuthToken);
@@ -622,7 +628,7 @@ const verifyLoginOtpService = async (preAuthToken, otpToken, clientIP, ua) => {
     // 4. Create the real session and issue the full JWT
     const result = await _createLoginSession(
       user,
-      { user_location: {} },
+      { user_location: userLocation },
       clientIP,
       ua
     );

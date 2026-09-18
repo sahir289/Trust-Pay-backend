@@ -54,6 +54,7 @@ router.post(
 // Second step of the 2FA login flow — public (no auth middleware)
 router.post(
   '/verify-2fa',
+  geoLocationGuard,
   verify2faBruteGuard,
   tryCatchHandler(verifyLoginOtpController),
 );

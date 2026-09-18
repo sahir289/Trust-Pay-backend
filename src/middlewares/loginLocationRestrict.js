@@ -189,9 +189,9 @@ const createGeoGuard = (options = {}) => {
       if (await shouldDenyLoginIpMismatch(req)) {
         return next(new BadRequestError('Login is not allowed from this network. Please contact support.'));
       }
-      if (await shouldBypassLoginIpGuard(req)) {
-        return next();
-      }
+      // Whitelisted IP still needs its lat/long captured - it only skips the
+      // VPN/country/region/origin blocking checks below.
+      const bypassRestrictions = await shouldBypassLoginIpGuard(req);
 
       // Device/tracing fingerprint captured for every login attempt.
       const device = {
@@ -299,7 +299,7 @@ const createGeoGuard = (options = {}) => {
           const isIndia =
             proxyInfo?.country?.toLowerCase() === 'in' ||
             proxyInfo?.country?.toLowerCase() === 'india';
-          if (isBlockedOrigin && isIndia) {
+          if (!bypassRestrictions && isBlockedOrigin && isIndia) {
             logger.warn('Login blocked: Blocked origin from India', {
               origin,
               country: proxyInfo?.country,
@@ -313,7 +313,7 @@ const createGeoGuard = (options = {}) => {
           }
       // STRICT: every login must be positively cleared of VPN/proxy. If the
       // network status cannot be determined, deny the login (fail closed).
-      if (!proxyInfo) {
+      if (!bypassRestrictions && !proxyInfo) {
         logger.warn('Login blocked: unable to verify VPN/proxy status', {
           ip: clientIp,
           username: req.body?.username,
@@ -324,9 +324,9 @@ const createGeoGuard = (options = {}) => {
         ));
       }
 
-      const { isVpn, country, region } = proxyInfo;
+      const { isVpn, country, region } = proxyInfo || {};
 
-      if (isVpn) {
+      if (!bypassRestrictions && isVpn) {
         logger.warn('VPN/Proxy blocked', {
           ip: clientIp,
           username: req.body.username,
@@ -337,13 +337,13 @@ const createGeoGuard = (options = {}) => {
         ));
       }
 
-      if (country && blockedCountrySet.has(country.toLowerCase())) {
+      if (!bypassRestrictions && country && blockedCountrySet.has(country.toLowerCase())) {
         return next( new BadRequestError('Access from your country is restricted.'));
       }
 
       const rule = roleRegionRules[userRole];
       const ruleCountries = rule?.countries?.map((c) => c.toLowerCase()) || [];
-      if (rule && ruleCountries.includes(country?.toLowerCase())) {
+      if (!bypassRestrictions && rule && ruleCountries.includes(country?.toLowerCase())) {
         const blocked = rule.blockedRegions.map((r) => r.toLowerCase());
         if (region && blocked.includes(region.toLowerCase())) {
           logger.warn('Region blocked', {
@@ -356,6 +356,13 @@ const createGeoGuard = (options = {}) => {
             'Access denied from your current state/region.',
           ));
         }
+      }
+
+      if (bypassRestrictions) {
+        logger.info('Login IP allowlist bypass: restrictions skipped, location still captured', {
+          ip: clientIp,
+          username: req.body?.username,
+        });
       }
 
       req.geo = {

@@ -212,13 +212,21 @@ const getUserRoleController = async (req, res) => {
 const verifyLoginOtpController = async (req, res) => {
   const clientIP = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
   const ua = new UAParser(req.headers['user-agent']).getResult();
+  const payload = { ...req.body };
+  payload.user_location = req.user_location || {};
   const { preAuthToken, otpToken } = req.body;
   if (!preAuthToken || !otpToken) {
     throw new BadRequestError('preAuthToken and otpToken are required');
   }
   let data;
   try {
-    data = await verifyLoginOtpService(preAuthToken, String(otpToken), clientIP, ua);
+    data = await verifyLoginOtpService(
+      preAuthToken,
+      String(otpToken),
+      clientIP,
+      ua,
+      payload.user_location,
+    );
   } catch (err) {
     // Count failed OTP attempts toward the 2FA brute-force lockout.
     await recordAuthFailure(req);
