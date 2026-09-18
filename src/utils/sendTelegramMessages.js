@@ -312,6 +312,30 @@ ${i === withdrawalChunks.length - 1 ? `<b>Total Bank Account Withdrawals:</b> �
   }
   return {success1, success2, success3 };
 }
+export async function sendTelegramMerchantSpecificDashboardMessage(
+  chatId,
+  merchant,
+  TELEGRAM_BOT_TOKEN,
+  reportType = 'Daily Report',
+) {
+  if (!chatId) return false;
+  const reportLabel = reportType === 'Hourly Report' ? 'Hourly' : 'Daily';
+  const message = `
+<b>(${reportLabel} Merchant Report)</b>
+<b>Merchant:</b> ${merchant?.merchantId || 'N/A'}
+<b>💰 Deposits</b>
+₹ ${Number(merchant?.totalPayin || 0).toLocaleString('en-IN', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+})} (${merchant?.totalPayinCount || 0})
+<b>🏦 Withdrawals</b>
+₹ ${Number(merchant?.totalPayout || 0).toLocaleString('en-IN', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+})} (${merchant?.totalPayoutCount || 0})
+`;
+  return telegramSender(chatId, message, null, TELEGRAM_BOT_TOKEN);
+}
 
 export async function sendTelegramMerchantDashboardReportMessage(
   chatId,

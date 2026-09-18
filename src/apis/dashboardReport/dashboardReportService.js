@@ -1,7 +1,10 @@
 import { getMerchantsForDashboardReportDao } from '../merchants/merchantDao.js';
 import { getCalculationDashBoardReportDao } from '../calculation/calculationDao.js';
 import { getBankaccountDashBoardReportDao } from '../bankAccounts/bankaccountDao.js';
-import { sendTelegramDashboardReportMessage } from '../../utils/sendTelegramMessages.js';
+import {
+  sendTelegramDashboardReportMessage,
+  sendTelegramMerchantSpecificDashboardMessage,
+} from '../../utils/sendTelegramMessages.js';
 import config from '../../config/config.js';
 // import { getConnection } from '../../utils/db.js';
 import { getVendorsDashBoardReportDao } from '../vendors/vendorDao.js';
@@ -125,12 +128,14 @@ const gatherDataForCompany = async (
           }
         }
         if (!subMerchantIds.has(merch.user_id)) {
+          const merchantChatId = merch?.config?.dashboardReportChatId 
           merchant.push({
             merchantId: merch.code,
             totalPayin: totalPayinAmount,
             totalPayinCount,
             totalPayout: totalPayoutAmount,
             totalPayoutCount,
+            chatId: merchantChatId,
           });
         totalpayinsMerchant += totalPayinAmount;
         totalpayoutsMerchant += totalPayoutAmount;
@@ -255,6 +260,24 @@ const gatherDataForCompany = async (
         date,
         telegramVendorboardChatId,
       );
+      for (const merchantEntry of merchant) {
+        if (!merchantEntry?.chatId) continue;
+        try {
+          await sendTelegramMerchantSpecificDashboardMessage(
+            merchantEntry.chatId,
+            merchantEntry,
+            telegramBotToken,
+            finalType === 'H' ? 'Hourly Report' : 'Daily Report',
+          );
+          logger.info(
+            `Merchant-specific dashboard report sent for ${merchantEntry.merchantId} to chat ${merchantEntry.chatId}`,
+          );
+        } catch (error) {
+          logger.warn(
+            `Merchant-specific dashboard report failed for ${merchantEntry.merchantId} on chat ${merchantEntry.chatId}: ${error.message}`,
+          );
+        }
+      }
       logger.info(
         `Dashboard Report completed for company: ${company_id}, date: ${inputDate.format('YYYY-MM-DD')}, type: ${finalType}`,
       );

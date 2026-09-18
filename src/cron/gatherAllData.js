@@ -2,7 +2,10 @@ import cron from 'node-cron';
 import { getMerchantsForDashboardReportDao } from '../apis/merchants/merchantDao.js';
 import { getCalculationDashBoardReportDao } from '../apis/calculation/calculationDao.js';
 import { getBankaccountDashBoardReportDao } from '../apis/bankAccounts/bankaccountDao.js';
-import { sendTelegramDashboardReportMessage } from '../utils/sendTelegramMessages.js';
+import {
+  sendTelegramDashboardReportMessage,
+  sendTelegramMerchantSpecificDashboardMessage,
+} from '../utils/sendTelegramMessages.js';
 import config from '../config/config.js';
 import { getVendorsDashBoardReportDao } from '../apis/vendors/vendorDao.js';
 import { logger } from '../utils/logger.js';
@@ -292,12 +295,14 @@ const gatherAllData = async (
         }
       }
       if (!subMerchantIds.has(merch.user_id)) {
+        const merchantChatId = merch?.config?.dashboardReportChatId;
         merchant.push({
           merchantId: merch.code,
           totalPayin: totalPayinAmount,
           totalPayinCount: totalPayinCount,
           totalPayout: totalPayoutAmount,
           totalPayoutCount: totalPayoutCount,
+          chatId: merchantChatId,
         });
         totalpayinsMerchant += totalPayinAmount;
         totalpayoutsMerchant += totalPayoutAmount;
@@ -400,6 +405,24 @@ const gatherAllData = async (
       null,
       telegramVendorboardChatId,
     );
+    for (const merchantEntry of merchant) {
+      if (!merchantEntry?.chatId) continue;
+      try {
+        await sendTelegramMerchantSpecificDashboardMessage(
+          merchantEntry.chatId,
+          merchantEntry,
+          telegramBotToken,
+          type === 'H' ? 'Hourly Report' : 'Daily Report',
+        );
+        logger.info(
+          `Merchant-specific dashboard report sent for ${merchantEntry.merchantId} to chat ${merchantEntry.chatId}`,
+        );
+      } catch (error) {
+        logger.warn(
+          `Merchant-specific dashboard report failed for ${merchantEntry.merchantId} on chat ${merchantEntry.chatId}: ${error.message}`,
+        );
+      }
+    }
     logger.info(`Dashboard Report CRON Ended for company: ${company_id}`);
   } catch (error) {
     logger.error(`Error in gatherAllData for company ${company_id}: ${error}`);
