@@ -14,6 +14,12 @@ const MERCHANT_DESIGNATIONS = new Set([
   'MERCHANT_ADMIN',
   'MERCHANT_OPERATIONS',
 ]);
+const STAFF_ROLES = new Set([
+  'SUPER_ADMIN',
+  'ADMIN',
+  'TRANSACTIONS',
+  'OPERATIONS',
+]);
 
 const buildVendorCodesCacheKey = (userId) => `socket:vendorcodes:${userId}`;
 
@@ -31,6 +37,14 @@ const isMerchantSideUser = (authed) => {
   const role = String(authed?.role || '').toUpperCase();
   const designation = String(authed?.designation || '').toUpperCase();
   return role === 'MERCHANT' || MERCHANT_DESIGNATIONS.has(designation);
+};
+
+// Only company staff (admin / transactions / operations) may join the
+// company-wide room. Every other role is isolated (default-deny).
+const isCompanyStaff = (authed) => {
+  const role = String(authed?.role || '').toUpperCase();
+  const designation = String(authed?.designation || '').toUpperCase();
+  return STAFF_ROLES.has(role) || STAFF_ROLES.has(designation);
 };
 
 const extractVendorCodes = (rows) => {
@@ -91,4 +105,4 @@ const resolveVendorCodes = async (authed) => {
   return codes;
 };
 
-export { isMerchantSideUser, isVendorSideUser, resolveVendorCodes };
+export { isCompanyStaff, isMerchantSideUser, isVendorSideUser, resolveVendorCodes };

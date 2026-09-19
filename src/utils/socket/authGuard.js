@@ -102,7 +102,9 @@ const authenticateSocketHandshake = async (socket, next) => {
 
 const requireMatchingAuthenticatedUser = (socket, payloadUserId, payloadSessionId = null) => {
   if (!socket.data?.isAuthenticated) {
-    return true;
+    // Fail closed: the handshake is authenticated, so an unauthenticated socket
+    // here is anomalous and must not be trusted with a client-supplied identity.
+    return false;
   }
 
   const authenticatedUser = socket.data.authenticatedUser;

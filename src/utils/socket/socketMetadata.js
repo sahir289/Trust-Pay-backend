@@ -1,6 +1,11 @@
 import { getCompanyRoom, getSessionRoom, getUserRoom, getVendorRoom } from './roomUtils.js';
 import { logger } from '../logger.js';
-import { isMerchantSideUser, isVendorSideUser, resolveVendorCodes } from './vendorScope.js';
+import {
+  isCompanyStaff,
+  isMerchantSideUser,
+  isVendorSideUser,
+  resolveVendorCodes,
+} from './vendorScope.js';
 
 const getSocketUserId = (socket) => {
   return socket?.data?.userId ?? socket?.userId ?? null;
@@ -63,9 +68,10 @@ const clearSocketIdentity = async (socket) => {
 };
 
 // Join the rooms a socket is authorized for based on its authenticated JWT.
-// Scope is derived from the server-verified token, never from client input.
-// Staff/merchants join the company room; vendors are isolated to their own
-// vendor-code rooms so they never receive another vendor's confidential events.
+// Scope is derived from the server-verified token, never from client input, and
+// the model is DEFAULT-DENY: only company staff join the company-wide room;
+// vendors, merchants, and any unrecognized role are isolated so they can never
+// receive another tenant's confidential events.
 const joinAuthorizedRooms = async (socket) => {
   const authed = socket?.data?.authenticatedUser;
   if (!authed) {
@@ -83,32 +89,38 @@ const joinAuthorizedRooms = async (socket) => {
     return;
   }
 
+  // Vendors: isolated to their own vendor-code rooms. Fail CLOSED — if codes
+  // cannot be resolved, keep only the user room; never the company room.
   if (isVendorSideUser(authed)) {
     try {
       const vendorCodes = await resolveVendorCodes(authed);
-      if (vendorCodes.length > 0) {
-        await Promise.all(
-          vendorCodes.map((code) => socket.join(getVendorRoom(companyId, code))),
-        );
-        return;
-      }
+      await Promise.all(
+        vendorCodes.map((code) => socket.join(getVendorRoom(companyId, code))),
+      );
     } catch (error) {
       logger.warn(
-        `[SOCKET] Vendor code resolution failed for ${userId}; falling back to company room: ${error.message}`,
+        `[SOCKET] Vendor code resolution failed for ${userId}; isolating to user room only: ${error.message}`,
       );
     }
-    // Fail-open: if codes can't be resolved, join the company room so the vendor
-    // keeps receiving realtime updates (isolation degrades, availability preserved).
+    return;
   }
 
-  // Merchants are tenants too: isolate them to their own user room so they never
-  // receive another merchant's company-wide events. Their own settlements/reports
-  // are routed to their user room by resolveScopeRooms.
+  // Merchants: isolated to their own user room (their settlements/reports are
+  // routed there by resolveScopeRooms). Never the company room.
   if (isMerchantSideUser(authed)) {
     return;
   }
 
-  await socket.join(getCompanyRoom(companyId));
+  // Only company staff receive the company-wide room.
+  if (isCompanyStaff(authed)) {
+    await socket.join(getCompanyRoom(companyId));
+    return;
+  }
+
+  // Default deny: any unrecognized role stays isolated to its own user room.
+  logger.warn(
+    `[SOCKET] Unrecognized role for ${userId} (role=${authed.role}, designation=${authed.designation}); isolating to user room only`,
+  );
 };
 
 export {
