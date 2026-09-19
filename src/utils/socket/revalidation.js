@@ -1,4 +1,5 @@
 import { logger } from '../logger.js';
+import { AuthenticationError } from '../appErrors.js';
 import { validateSocketSession } from './authGuard.js';
 import { getLocalSockets } from './query.js';
 import { disconnectSocketSafely } from './sessionUtils.js';
@@ -6,10 +7,11 @@ import { socketRuntime } from './state.js';
 
 const REVALIDATION_INTERVAL_MS = 60000;
 
-// Returns a reason string if the socket's authentication is no longer valid,
-// otherwise null. Session revocation is checked first because it is the
-// security-critical condition (logout, admin disable, deleted/rotated session);
-// a merely-expired access token is a softer signal handled without a logout.
+// Returns 'session_revoked' only when the socket's session has definitively been
+// invalidated (logout, admin disable, deleted/rotated session). A merely-expired
+// access token is intentionally NOT disconnected: while the session stays valid
+// the user is still authorized, and dropping idle tabs would only churn reconnects.
+// Transient infra errors are ignored so a DB/Redis hiccup can't mass-logout users.
 const getInvalidAuthReason = async (socket) => {
   const decoded = socket?.data?.authenticatedUser;
   if (!decoded) {
@@ -18,30 +20,25 @@ const getInvalidAuthReason = async (socket) => {
 
   try {
     await validateSocketSession(decoded);
-  } catch {
-    return 'session_revoked';
+    return null;
+  } catch (error) {
+    if (error instanceof AuthenticationError) {
+      return 'session_revoked';
+    }
+    logger.warn(
+      `[SOCKET] Skipping revalidation for ${socket.id} (transient error): ${error.message}`,
+    );
+    return null;
   }
-
-  if (typeof decoded.exp === 'number' && decoded.exp * 1000 <= Date.now()) {
-    return 'token_expired';
-  }
-
-  return null;
 };
 
 const disconnectInvalidSocket = (socket, reason) => {
   try {
-    if (reason === 'token_expired') {
-      // Soft signal: the client reconnects and re-authenticates with a refreshed
-      // token; do not trigger an app logout for a mere access-token expiry.
-      socket.emit('token_expired', { reason, timestamp: new Date().toISOString() });
-    } else {
-      socket.emit('session-terminated', {
-        reason,
-        message: 'Your session is no longer valid. Please login again.',
-        timestamp: new Date().toISOString(),
-      });
-    }
+    socket.emit('session-terminated', {
+      reason,
+      message: 'Your session is no longer valid. Please login again.',
+      timestamp: new Date().toISOString(),
+    });
   } catch (error) {
     logger.warn(
       `[SOCKET] Failed to notify ${socket.id} before revalidation disconnect: ${error.message}`,
@@ -51,8 +48,9 @@ const disconnectInvalidSocket = (socket, reason) => {
   disconnectSocketSafely(socket, `auth revalidation (${reason})`);
 };
 
-// Disconnects local sockets whose access token has expired or whose session has
-// been revoked, so a stale connection cannot keep receiving events from its rooms.
+// Disconnects local sockets whose session has been revoked, so a stale connection
+// cannot keep receiving events from its rooms. Only local sockets are inspected,
+// so each cluster node re-validates its own connections without adapter calls.
 const runRevalidationCycle = async () => {
   if (!socketRuntime.ioInstance) {
     return;
