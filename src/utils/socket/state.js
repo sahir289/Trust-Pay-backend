@@ -6,6 +6,7 @@ const socketRuntime = {
   socketBridgePub: null,
   socketBridgeSub: null,
   cleanupInterval: null,
+  revalidationInterval: null,
   hasLoggedMissingSocketInstance: false,
 };
 
@@ -17,6 +18,7 @@ const resetSocketRuntime = () => {
   socketRuntime.socketBridgePub = null;
   socketRuntime.socketBridgeSub = null;
   socketRuntime.cleanupInterval = null;
+  socketRuntime.revalidationInterval = null;
   socketRuntime.hasLoggedMissingSocketInstance = false;
 };
 

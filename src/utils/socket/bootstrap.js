@@ -8,6 +8,7 @@ import {
   configureSocketInfrastructure,
 } from './bridge.js';
 import { safeFetchSockets } from './query.js';
+import { startAuthRevalidationMonitor } from './revalidation.js';
 import {
   registerSocketConnectionHandlers,
   startSessionCleanupMonitor,
@@ -34,6 +35,7 @@ const initializeSocket = async (server) => {
   socketRuntime.ioInstance.use(authenticateSocketHandshake);
   registerSocketConnectionHandlers();
   startSessionCleanupMonitor();
+  startAuthRevalidationMonitor();
 
   logger.info(chalk.magentaBright('WebSocket server initialized'));
 };
@@ -43,6 +45,11 @@ const shutdownSocket = async () => {
     if (socketRuntime.cleanupInterval) {
       clearInterval(socketRuntime.cleanupInterval);
       socketRuntime.cleanupInterval = null;
+    }
+
+    if (socketRuntime.revalidationInterval) {
+      clearInterval(socketRuntime.revalidationInterval);
+      socketRuntime.revalidationInterval = null;
     }
 
     if (socketRuntime.ioInstance) {
