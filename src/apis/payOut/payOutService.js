@@ -478,8 +478,6 @@ const _createPayoutServiceInternal = async (
         merchant_code: code || null,
         return_url: details[0]?.config?.urls?.return || null,
         notify_url: details[0]?.config?.urls?.payout_notify || null,
-        public_key: details[0]?.config?.keys?.public || null,
-        private_key: details[0]?.config?.keys?.private || null,
       },
       user_bank_details: {
         account_holder_name: data.acc_holder_name || null,
@@ -2028,8 +2026,6 @@ const _updatePayoutServiceInternal = async (
         merchant_code: merchant?.code || null,
         return_url: merchant?.config?.urls?.return || null,
         notify_url: merchant?.config?.urls?.payout_notify || null,
-        public_key: merchant?.config?.keys?.public || null,
-        private_key: merchant?.config?.keys?.private || null,
       },
       user_bank_details: {
         account_holder_name: data.acc_holder_name || null,

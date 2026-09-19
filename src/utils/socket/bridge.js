@@ -2,6 +2,7 @@ import { createAdapter } from '@socket.io/redis-adapter';
 import { createClient } from 'redis';
 import config from '../../config/config.js';
 import { logger } from '../logger.js';
+import { sanitizeSocketPayload } from './sanitize.js';
 import { socketRuntime } from './state.js';
 
 const SOCKET_BRIDGE_CHANNEL = 'trustpay:socket:event-bridge';
@@ -35,7 +36,7 @@ const ensureSocketBridgePublisher = async () => {
   return bridgePublisher;
 };
 
-const publishSocketBridgeEvent = async (eventName, payload) => {
+const publishSocketBridgeEvent = async (eventName, payload, rooms = null) => {
   try {
     const publisher = await ensureSocketBridgePublisher();
     await publisher.publish(
@@ -43,6 +44,7 @@ const publishSocketBridgeEvent = async (eventName, payload) => {
       JSON.stringify({
         eventName,
         payload,
+        rooms,
         pid: process.pid,
         ts: Date.now(),
       }),
@@ -58,13 +60,37 @@ const publishSocketBridgeEvent = async (eventName, payload) => {
 };
 
 const emitOrBridgeSocketEvent = async (eventName, payload) => {
+  const safePayload = sanitizeSocketPayload(payload);
   if (socketRuntime.ioInstance) {
-    socketRuntime.ioInstance.emit(eventName, payload);
+    socketRuntime.ioInstance.emit(eventName, safePayload);
     return true;
   }
 
   logMissingSocketInstance();
-  return publishSocketBridgeEvent(eventName, payload);
+  return publishSocketBridgeEvent(eventName, safePayload);
+};
+
+// Deliver an event only to sockets that joined one of `rooms`. Refuses to emit
+// when no room is supplied so confidential payloads can never fall back to a
+// global broadcast. Secrets are stripped from the payload before it leaves.
+const emitScopedOrBridgeSocketEvent = async (rooms, eventName, payload) => {
+  const targetRooms = (Array.isArray(rooms) ? rooms : [rooms]).filter(Boolean);
+  if (targetRooms.length === 0) {
+    logger.error(
+      `[SOCKET] Refusing to emit ${eventName}: missing authorization scope (no target room)`,
+    );
+    return false;
+  }
+
+  const safePayload = sanitizeSocketPayload(payload);
+
+  if (socketRuntime.ioInstance) {
+    socketRuntime.ioInstance.to(targetRooms).emit(eventName, safePayload);
+    return true;
+  }
+
+  logMissingSocketInstance();
+  return publishSocketBridgeEvent(eventName, safePayload, targetRooms);
 };
 
 const configureSocketInfrastructure = async () => {
@@ -104,7 +130,12 @@ const configureSocketInfrastructure = async () => {
           return;
         }
 
-        socketRuntime.ioInstance.emit(parsed.eventName, parsed.payload);
+        const rooms = Array.isArray(parsed.rooms) ? parsed.rooms.filter(Boolean) : [];
+        if (rooms.length > 0) {
+          socketRuntime.ioInstance.to(rooms).emit(parsed.eventName, parsed.payload);
+        } else {
+          socketRuntime.ioInstance.emit(parsed.eventName, parsed.payload);
+        }
       } catch (error) {
         logger.error('[SOCKET] Failed to handle bridge message:', error);
       }
@@ -156,5 +187,6 @@ export {
   closeSocketInfrastructure,
   configureSocketInfrastructure,
   emitOrBridgeSocketEvent,
+  emitScopedOrBridgeSocketEvent,
   logMissingSocketInstance,
 };

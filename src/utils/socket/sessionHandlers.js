@@ -23,6 +23,7 @@ import {
   clearSocketIdentity,
   getSocketSessionId,
   getSocketUserId,
+  joinAuthorizedRooms,
   setSocketIdentity,
 } from './socketMetadata.js';
 import { socketRuntime } from './state.js';
@@ -729,6 +730,14 @@ const registerSocketConnectionHandlers = () => {
     logger.info(
       chalk.bgRed.white(`[SOCKET] New connection detected: ${socket.id}`),
     );
+
+    // Join company/user rooms derived from the authenticated JWT so confidential
+    // events are only delivered to sockets that own the relevant scope.
+    void joinAuthorizedRooms(socket).catch((error) => {
+      logger.warn(
+        `[SOCKET] Failed to join authorized rooms for ${socket.id}: ${error.message}`,
+      );
+    });
 
     const handleUserLogin = createHandleUserLogin(socket);
     const guardedPingCheck = withSocketEventGuard(

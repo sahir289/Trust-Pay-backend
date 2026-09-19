@@ -1,11 +1,36 @@
 import chalk from 'chalk';
 import { logger } from '../logger.js';
-import { emitOrBridgeSocketEvent } from './bridge.js';
-import { getUserRoom } from './roomUtils.js';
+import { emitScopedOrBridgeSocketEvent } from './bridge.js';
+import { getCompanyRoom, getUserRoom, getVendorRoom } from './roomUtils.js';
 import { getSocketSessionId } from './socketMetadata.js';
 import { safeFetchSessionSockets, safeFetchUserSockets } from './query.js';
 import { socketRuntime } from './state.js';
 import { terminateSocketSession } from './sessionUtils.js';
+
+// Resolve the authorization room(s) a confidential payload belongs to.
+// company_id is the tenant boundary; user_id scopes personal events (e.g. reports).
+// Vendors are isolated to their own rooms (not the company room), so payouts and
+// settlements are also delivered to the owning user's / vendor's room.
+const resolveScopeRooms = (tableName, payload) => {
+  const rooms = [];
+  const companyId = payload?.company_id ?? payload?.companyId ?? null;
+  const userId = payload?.userId ?? payload?.user_id ?? null;
+  const table = String(tableName).toLowerCase();
+
+  if (companyId) {
+    rooms.push(getCompanyRoom(String(companyId)));
+    if (userId && (table === 'payout' || table === 'settlement')) {
+      rooms.push(getUserRoom(String(userId)));
+    }
+    if (table === 'payout' && payload?.vendor_code) {
+      rooms.push(getVendorRoom(String(companyId), String(payload.vendor_code)));
+    }
+  } else if (userId) {
+    rooms.push(getUserRoom(String(userId)));
+  }
+
+  return rooms;
+};
 
 const forceLogoutUser = async (
   userId,
@@ -119,23 +144,33 @@ const forceLogoutUser = async (
 const notifyStatementUpload = async (payload) => {
   const eventName = 'statementUploadReminder';
   const bankCount = payload.banks?.length || 0;
+  const rooms = resolveScopeRooms(null, payload);
+  if (rooms.length === 0) {
+    logger.error(`[SOCKET] Dropping ${eventName}: payload has no user/company scope`);
+    return;
+  }
   logger.log(
     chalk.bold.yellow(
       `[SOCKET] Emitting ${eventName} for vendor userId ${payload.userId} — ${bankCount} bank(s), level ${payload.notificationLevel}`,
     ),
   );
-  await emitOrBridgeSocketEvent(eventName, payload);
+  await emitScopedOrBridgeSocketEvent(rooms, eventName, payload);
 };
 
 // Statement upload status cleared notification
 const notifyStatementUploadCleared = async (payload) => {
   const eventName = 'statementUploadCleared';
+  const rooms = resolveScopeRooms(null, payload);
+  if (rooms.length === 0) {
+    logger.error(`[SOCKET] Dropping ${eventName}: payload has no user/company scope`);
+    return;
+  }
   logger.log(
     chalk.bold.green(
       `[SOCKET] Emitting ${eventName} for bank ${payload.nickName}`,
     ),
   );
-  await emitOrBridgeSocketEvent(eventName, payload);
+  await emitScopedOrBridgeSocketEvent(rooms, eventName, payload);
 };
 
 const deactivateBank = (
@@ -148,18 +183,24 @@ const deactivateBank = (
     typeof userIdOrWarning === 'boolean' ? userIdOrWarning : isWarning;
   const userId = typeof userIdOrWarning === 'boolean' ? undefined : userIdOrWarning;
 
-  emitOrBridgeSocketEvent(
-    warningMode ? 'bankStatusWarning' : 'bankStatusUpdate',
-    {
-      message: warningMode
-        ? `The Bank ${nickName} will be Deactivate soon as the Balance will soon reach the Daily Limit`
-        : `The Bank ${nickName} is Deactivated`,
-      bankId,
-      nickname: nickName,
-      userId,
-      isEnabled: warningMode ? undefined : false,
-    },
-  ).catch((error) => {
+  const eventName = warningMode ? 'bankStatusWarning' : 'bankStatusUpdate';
+  const payload = {
+    message: warningMode
+      ? `The Bank ${nickName} will be Deactivate soon as the Balance will soon reach the Daily Limit`
+      : `The Bank ${nickName} is Deactivated`,
+    bankId,
+    nickname: nickName,
+    userId,
+    isEnabled: warningMode ? undefined : false,
+  };
+
+  const room = resolveScopeRooms(null, payload);
+  if (room.length === 0) {
+    logger.error(`[SOCKET] Dropping ${eventName}: payload has no user/company scope`);
+    return;
+  }
+
+  emitScopedOrBridgeSocketEvent(room, eventName, payload).catch((error) => {
     logger.error('[SOCKET] Failed to emit bank status update:', error);
   });
 };
@@ -173,19 +214,30 @@ const notifyNewTableEntry = async (tableName, entryType, entryData) => {
     timestamp: new Date().toISOString(),
   };
 
+  const rooms = resolveScopeRooms(tableName, entryData);
+  if (rooms.length === 0) {
+    logger.error(`[SOCKET] Dropping ${eventName}: payload has no user/company scope`);
+    return;
+  }
+
   logger.info(
     chalk.bold.cyan(
       `Emitting ${eventName} for table ${tableName}, type ${entryType}`,
     ),
   );
 
-  await emitOrBridgeSocketEvent(eventName, payload);
+  await emitScopedOrBridgeSocketEvent(rooms, eventName, payload);
 };
 
 const newTableEntry = async (tableName, data) => {
   const eventName = `newTableEntry${tableName}`;
+  const rooms = resolveScopeRooms(tableName, data);
+  if (rooms.length === 0) {
+    logger.error(`[SOCKET] Dropping ${eventName}: payload has no company/user scope`);
+    return;
+  }
   logger.info(chalk.bold.cyan(`Emitting ${eventName} for table ${tableName}`));
-  await emitOrBridgeSocketEvent(eventName, data);
+  await emitScopedOrBridgeSocketEvent(rooms, eventName, data);
 };
 
 const logOutUser = async (userId, sessionId = null) => {
@@ -205,7 +257,7 @@ const logOutUser = async (userId, sessionId = null) => {
     return;
   }
 
-  await emitOrBridgeSocketEvent(eventName, payload);
+  await emitScopedOrBridgeSocketEvent(getUserRoom(userId), eventName, payload);
 };
 
 const notifyBankResponseAccessUpdate = async (
@@ -229,7 +281,12 @@ const notifyBankResponseAccessUpdate = async (
   );
 
   if (!socketRuntime.ioInstance) {
-    await emitOrBridgeSocketEvent(eventName, payload);
+    await emitScopedOrBridgeSocketEvent(getUserRoom(userId), eventName, payload);
+    await emitScopedOrBridgeSocketEvent(
+      getUserRoom(userId),
+      `${eventName}_personal`,
+      payload,
+    );
     return;
   }
 

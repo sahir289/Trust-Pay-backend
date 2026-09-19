@@ -505,7 +505,7 @@ const _updateBankaccountInternal = async (
         };
         deactivateBank(bank[0].nick_name, ids.id, userId);
       } else if (payload.latest_balance === bank[0].config?.max_limit) {
-        deactivateBank(bank[0].nick_name, ids.id, true);
+        deactivateBank(bank[0].nick_name, ids.id, userId, true);
       }
     }
     delete payload.latest_balance;

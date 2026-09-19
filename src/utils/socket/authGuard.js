@@ -73,12 +73,9 @@ const authenticateSocketHandshake = async (socket, next) => {
 
     const token = getSocketToken(socket);
     if (!token) {
-      const existingData = socket.data ?? undefined;
-      socket.data = {
-        ...existingData,
-        isAuthenticated: false,
-      };
-      return next();
+      // Fail closed: this Socket.IO server only serves authenticated dashboards.
+      // Without a token there is no tenant scope, so reject the handshake.
+      return next(new AuthenticationError('Authentication required for socket connection'));
     }
 
     const decoded = verifyToken(token);
